@@ -1,0 +1,114 @@
+# OCR 정리
+
+## OCR이란?
+
+OCR은 **Optical Character Recognition**의 약자로, 이미지나 문서 속 글자를 컴퓨터가 사용할 수 있는 텍스트로 변환하는 기술이다.
+
+예를 들어 영수증 사진에 적힌 금액이나 계약서 이미지의 내용을 문자열로 추출할 수 있다.
+
+```text
+이미지 또는 PDF
+→ OCR 처리
+→ 텍스트 추출
+```
+
+## OCR 처리 과정
+
+OCR은 보통 다음 과정으로 동작한다.
+
+1. 이미지 입력
+2. 이미지 전처리
+3. 글자 영역 탐지
+4. 문자 인식
+5. 결과 보정
+
+### 이미지 전처리
+
+OCR 정확도를 높이기 위해 이미지를 먼저 보정한다.
+
+* 흑백 변환
+* 노이즈 제거
+* 이미지 기울기 보정
+* 밝기와 대비 조정
+* 글자 영역 확대
+
+이미지가 흐리거나 기울어져 있으면 OCR 정확도가 크게 떨어질 수 있다.
+
+## OCR 활용 사례
+
+OCR은 다음과 같은 기능에 활용할 수 있다.
+
+* 영수증 금액 추출
+* 계약서 및 문서 내용 추출
+* 자동차 번호판 인식
+* 명함 정보 자동 입력
+* 이미지 속 외국어 번역
+* 스캔 PDF 검색 기능 제공
+
+우리 프로젝트에서는 매물 안내문이나 계약서 이미지에서 보증금, 월세, 관리비 등의 정보를 추출하는 데 활용할 수 있다.
+
+## 대표적인 OCR 도구
+
+### Tesseract OCR
+
+무료로 사용할 수 있는 오픈소스 OCR 엔진이다.
+
+```bash
+pip install pytesseract
+```
+
+```python
+from PIL import Image
+import pytesseract
+
+image = Image.open("document.png")
+
+text = pytesseract.image_to_string(
+    image,
+    lang="kor+eng"
+)
+
+print(text)
+```
+
+### EasyOCR
+
+딥러닝 기반 OCR 라이브러리로 한글과 영어를 함께 인식할 수 있다.
+
+```bash
+pip install easyocr
+```
+
+```python
+import easyocr
+
+reader = easyocr.Reader(["ko", "en"], gpu=False)
+results = reader.readtext("document.jpg")
+
+for box, text, confidence in results:
+    print(text, confidence)
+```
+
+## OCR 사용 시 주의점
+
+OCR 결과는 이미지 품질에 따라 정확도가 달라진다.
+
+특히 다음과 같은 경우 오류가 발생하기 쉽다.
+
+* 이미지가 흐린 경우
+* 글자가 너무 작은 경우
+* 문서가 기울어진 경우
+* 그림자나 빛 반사가 있는 경우
+* 손글씨나 특수한 글꼴인 경우
+
+또한 `0`과 `O`, `1`과 `I`처럼 모양이 비슷한 문자를 잘못 인식할 수 있다.
+
+따라서 금액, 주소, 이름과 같이 중요한 정보는 OCR 결과를 바로 확정하지 않고 사용자가 한 번 확인하도록 하는 것이 좋다.
+
+## 정리
+
+OCR은 이미지 속 문자를 텍스트 데이터로 변환하는 기술이다.
+
+단순히 글자를 읽는 것뿐만 아니라 추출된 텍스트를 검색, 분석, 요약하거나 AI 기능과 연결할 수 있다.
+
+OCR 정확도를 높이기 위해서는 좋은 품질의 이미지를 사용하고, 필요한 경우 이미지 전처리와 결과 검증 과정을 추가해야 한다.
