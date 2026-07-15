@@ -21,7 +21,7 @@
 | **기능 요구사항(Functional)** | 시스템이 사용자에게 제공해야 하는 구체적 동작·서비스 | 학사 관리, 수업 관리, 수강 관리, 사용자 관리 |
 | **비기능 요구사항(Non-Functional)** | 시스템이 "어떻게" 동작해야 하는가에 대한 품질 특성 | 성능(원활한 수강신청), 접근성(어디서든 접속), 보안(권한 부여), 신뢰성(데이터 손실 최소화) |
 
-![아키텍처 설계 전 정의해야 할 3요소](docs\images\01_architecture_triangle.jpeg)
+![아키텍처 설계 전 정의해야 할 3요소](docs/images/01_architecture_triangle.jpeg)
 
 기능 요구사항은 "무엇을(what)" 만들지에 대한 답이고, 비기능 요구사항은 "얼마나 잘(how well)" 만들지에 대한 답이라는 구분이 핵심. 개발 초반엔 기능 목록에만 집중하기 쉬운데, 실제 서비스 품질을 가르는 건 오히려 비기능 요구사항이라는 설명이 인상적이었다.
 
@@ -42,7 +42,7 @@
 | 5 | Response | 반응 (시스템이 어떻게 동작하는가) |
 | 6 | Response Measure | 반응 측정 (동작의 정량적 목표치) |
 
-![품질속성 시나리오 6요소 구조](docs\images\02_quality_attribute_scenario.jpeg)
+![품질속성 시나리오 6요소 구조](docs/images/02_quality_attribute_scenario.jpeg)
 
 **실전 시나리오 예시 3가지**
 
@@ -97,7 +97,7 @@
 
 강의에서는 흑백 공 실험 영상으로 이 메시지를 전달했다. 같은 공을 서로 다른 자리에서 보면 한쪽은 흰색, 반대쪽은 검은색으로 보인다. 자리를 바꿔봐야 비로소 상대가 왜 그렇게 말했는지 이해가 된다는 내용이다.
 
-![다름은 나쁨이 아니다 - 관점의 차이](docs\images\03_ai_pm_market_growth.jpeg)
+![다름은 나쁨이 아니다 - 관점의 차이](docs/images/03_ai_pm_market_growth.jpeg)
 
 실무 현장에서도 [다름]이 [나쁨]으로 잘못 인식되는 경우가 많다. 프로젝트 중 발생하는 대부분의 갈등은 누군가가 나빠서가 아니라, **서로가 다름에 익숙하지 않아서** 생긴다는 결론이었다.
 
@@ -109,7 +109,7 @@
 
 오늘 배운 "팀장+기술리더가 다 책임지지 말고 역할을 나누고 각자 능동적으로 공유하라"는 원칙이, AI 에이전트 활용이 늘어난 환경에서도 그대로 통하는 원칙이라는 생각이 들었다.
 
-![AI 프로젝트 관리 시장 성장 전망](docs\images\04_perspective_ball.jpeg)
+![AI 프로젝트 관리 시장 성장 전망](docs/images/04_perspective_ball.jpeg)
 
 참고: [YouTube Shorts — 교수의 관점 수업 영상](https://www.youtube.com/shorts/QZPn90WQPj0) · [Human Perception and the Invisible Gorilla | TIME](https://time.com/archive/6934526/human-perception-and-the-invisible-gorilla/) · [AI 프로젝트 관리 2026년 5월](https://www.jenova.ai/ko/resources/ai-project-management-202605) · [2026년 1분기 AI Hot Issue 5 — 에이전트의 혁명](https://www.issueon.co.kr/news/articleView.html?idxno=12816) · [포브스코리아 〈2026 AI 트렌드〉 TOP 7](https://www.forbeskorea.co.kr/news/articleView.html?idxno=401186)
 
