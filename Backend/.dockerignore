@@ -1,0 +1,15 @@
+.git
+.gitignore
+
+.gradle
+build
+
+.idea
+*.iml
+out
+
+.env
+.env.*
+application-secret.yml
+
+*.log
