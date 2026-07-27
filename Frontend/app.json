@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "지금핀",
+    "slug": "nowpin-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "nowpin",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": { "package": "com.nowpin.mobile", "adaptiveIcon": { "backgroundColor": "#FAFAFA" } },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}

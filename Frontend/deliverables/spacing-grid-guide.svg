@@ -1,0 +1,176 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100">
+  <defs>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="22" flood-color="#3B3838" flood-opacity=".10"/>
+    </filter>
+    <style>
+      text { font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif; fill:#3B3838; }
+      .eyebrow { font-size:20px; font-weight:600; letter-spacing:3px; fill:#89921F; }
+      .title { font-size:54px; font-weight:700; letter-spacing:-1.5px; }
+      .lead { font-size:23px; font-weight:400; fill:#6F7175; }
+      .metric { font-size:34px; font-weight:700; }
+      .metricLabel { font-size:19px; font-weight:500; fill:#6F7175; }
+      .note { font-size:18px; font-weight:500; fill:#92969C; }
+      .annot { font-size:18px; font-weight:600; fill:#F06464; }
+      .annotLime { font-size:18px; font-weight:600; fill:#768800; }
+      .phoneText { font-size:16px; font-weight:500; fill:#6F7175; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1100" fill="#F7F7F5"/>
+
+  <!-- Left information -->
+  <g transform="translate(100 112)">
+    <text class="eyebrow">FOUNDATION · SPACING</text>
+    <text y="92" class="title">Mobile Grid</text>
+    <text y="146" class="lead">390×844 기준의 유동형 4컬럼 레이아웃</text>
+    <text y="184" class="lead">모든 간격은 4px 배수, 8px 리듬을 중심으로 설계합니다.</text>
+
+    <line x1="0" y1="242" x2="650" y2="242" stroke="#E0E2DD" stroke-width="2"/>
+
+    <g transform="translate(0 308)">
+      <text class="metric">4</text>
+      <text y="38" class="metricLabel">Columns</text>
+    </g>
+    <g transform="translate(160 308)">
+      <text class="metric">Fill</text>
+      <text y="38" class="metricLabel">Responsive width</text>
+    </g>
+    <g transform="translate(370 308)">
+      <text class="metric">20px</text>
+      <text y="38" class="metricLabel">Default margin</text>
+    </g>
+    <g transform="translate(575 308)">
+      <text class="metric">12px</text>
+      <text y="38" class="metricLabel">Gutter</text>
+    </g>
+
+    <g transform="translate(0 440)">
+      <rect width="650" height="360" rx="30" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text x="30" y="48" font-size="26" font-weight="700">Spacing tokens</text>
+      <g transform="translate(30 86)">
+        <rect width="42" height="42" rx="12" fill="#F8FCE6"/><text x="21" y="29" text-anchor="middle" font-size="17" font-weight="700">4</text>
+        <text x="66" y="28" class="metricLabel">매우 밀접한 요소</text>
+      </g>
+      <g transform="translate(30 142)">
+        <rect width="42" height="42" rx="12" fill="#F3F9CC"/><text x="21" y="29" text-anchor="middle" font-size="17" font-weight="700">8</text>
+        <text x="66" y="28" class="metricLabel">같은 정보 그룹 내부</text>
+      </g>
+      <g transform="translate(30 198)">
+        <rect width="42" height="42" rx="12" fill="#E8F58F"/><text x="21" y="29" text-anchor="middle" font-size="17" font-weight="700">16</text>
+        <text x="66" y="28" class="metricLabel">일반 컴포넌트 사이</text>
+      </g>
+      <g transform="translate(30 254)">
+        <rect width="42" height="42" rx="12" fill="#D8EE58"/><text x="21" y="29" text-anchor="middle" font-size="17" font-weight="700">24</text>
+        <text x="66" y="28" class="metricLabel">서로 다른 정보 그룹</text>
+      </g>
+      <g transform="translate(330 86)">
+        <rect width="54" height="42" rx="12" fill="#C4E600"/><text x="27" y="29" text-anchor="middle" font-size="17" font-weight="700">32</text>
+        <text x="78" y="28" class="metricLabel">섹션 구분</text>
+      </g>
+      <g transform="translate(330 142)">
+        <rect width="54" height="42" rx="12" fill="#B3D200"/><text x="27" y="29" text-anchor="middle" font-size="17" font-weight="700">40</text>
+        <text x="78" y="28" class="metricLabel">큰 영역 구분</text>
+      </g>
+      <g transform="translate(330 198)">
+        <rect width="54" height="42" rx="12" fill="#9FB900"/><text x="27" y="29" text-anchor="middle" font-size="17" font-weight="700">48+</text>
+        <text x="78" y="28" class="metricLabel">주요 화면 구조</text>
+      </g>
+      <g transform="translate(330 270)">
+        <line x1="0" y1="0" x2="280" y2="0" stroke="#ECEDEA" stroke-width="2"/>
+        <text y="40" class="note">임의의 간격값을 새로 만들지 않습니다.</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Mobile frame and measurements -->
+  <g transform="translate(1060 108)">
+    <!-- dimension labels -->
+    <text x="220" y="0" text-anchor="middle" class="annot">Frame Width 390px</text>
+    <line x1="25" y1="20" x2="415" y2="20" stroke="#F06464" stroke-width="2"/>
+    <line x1="25" y1="10" x2="25" y2="32" stroke="#F06464" stroke-width="2"/>
+    <line x1="415" y1="10" x2="415" y2="32" stroke="#F06464" stroke-width="2"/>
+
+    <text x="-34" y="438" transform="rotate(-90 -34 438)" text-anchor="middle" class="annot">Frame Height 844px</text>
+    <line x1="-10" y1="40" x2="-10" y2="884" stroke="#F06464" stroke-width="2"/>
+    <line x1="-20" y1="40" x2="2" y2="40" stroke="#F06464" stroke-width="2"/>
+    <line x1="-20" y1="884" x2="2" y2="884" stroke="#F06464" stroke-width="2"/>
+
+    <!-- phone -->
+    <rect x="25" y="40" width="390" height="844" rx="44" fill="#FFFFFF" stroke="#3B3838" stroke-width="3" filter="url(#softShadow)"/>
+
+    <!-- status / navigation / safe -->
+    <rect x="25" y="40" width="390" height="44" rx="42" fill="#F5F6F3"/>
+    <text x="48" y="69" class="phoneText">9:41</text>
+    <circle cx="370" cy="62" r="5" fill="#3B3838"/>
+    <rect x="382" y="57" width="16" height="10" rx="3" fill="#3B3838"/>
+
+    <rect x="25" y="84" width="390" height="56" fill="#FFFFFF"/>
+    <text x="220" y="120" text-anchor="middle" font-size="18" font-weight="600">장소 탐색</text>
+    <line x1="25" y1="140" x2="415" y2="140" stroke="#ECEDEA" stroke-width="2"/>
+
+    <rect x="25" y="786" width="390" height="64" fill="#FFFFFF"/>
+    <line x1="25" y1="786" x2="415" y2="786" stroke="#ECEDEA" stroke-width="2"/>
+    <g fill="#92969C">
+      <circle cx="75" cy="817" r="10"/><circle cx="148" cy="817" r="10"/>
+      <circle cx="292" cy="817" r="10"/><circle cx="365" cy="817" r="10"/>
+    </g>
+    <rect x="194" y="795" width="52" height="52" rx="17" fill="#C4E600"/>
+    <path d="M220 808v26M207 821h26" stroke="#3B3838" stroke-width="3" stroke-linecap="round"/>
+    <rect x="25" y="850" width="390" height="34" rx="0 0 42 42" fill="#FFFFFF"/>
+    <rect x="175" y="868" width="90" height="5" rx="3" fill="#3B3838" opacity=".55"/>
+
+    <!-- content safe margins -->
+    <rect x="45" y="140" width="350" height="646" fill="#F8FCE6" opacity=".52"/>
+
+    <!-- four columns -->
+    <rect x="45" y="140" width="78.5" height="646" fill="#CCEFFD" opacity=".72"/>
+    <rect x="135.5" y="140" width="78.5" height="646" fill="#CCEFFD" opacity=".72"/>
+    <rect x="226" y="140" width="78.5" height="646" fill="#CCEFFD" opacity=".72"/>
+    <rect x="316.5" y="140" width="78.5" height="646" fill="#CCEFFD" opacity=".72"/>
+
+    <!-- content samples -->
+    <rect x="61" y="174" width="318" height="52" rx="16" fill="#FFFFFF" stroke="#E7E8E2"/>
+    <circle cx="86" cy="200" r="9" fill="none" stroke="#92969C" stroke-width="3"/>
+    <line x1="92" y1="207" x2="100" y2="215" stroke="#92969C" stroke-width="3" stroke-linecap="round"/>
+    <text x="115" y="207" class="phoneText">장소명이나 태그를 검색해보세요</text>
+
+    <rect x="61" y="258" width="318" height="158" rx="20" fill="#FFFFFF" stroke="#E7E8E2"/>
+    <text x="81" y="294" font-size="18" font-weight="600">지금 갈 만한 장소</text>
+    <rect x="81" y="316" width="278" height="36" rx="12" fill="#F5F6F3"/>
+    <rect x="81" y="364" width="220" height="24" rx="8" fill="#F5F6F3"/>
+
+    <rect x="61" y="440" width="318" height="56" rx="16" fill="#C4E600"/>
+    <text x="220" y="476" text-anchor="middle" font-size="18" font-weight="600">장소 확인하기</text>
+
+    <!-- margin annotations -->
+    <text x="35" y="24" text-anchor="middle" class="annot">20</text>
+    <line x1="25" y1="32" x2="45" y2="32" stroke="#F06464" stroke-width="2"/>
+    <text x="405" y="24" text-anchor="middle" class="annot">20</text>
+    <line x1="395" y1="32" x2="415" y2="32" stroke="#F06464" stroke-width="2"/>
+
+    <text x="129" y="116" text-anchor="middle" class="annotLime">12px gutter</text>
+    <line x1="123.5" y1="130" x2="135.5" y2="130" stroke="#768800" stroke-width="2"/>
+
+    <!-- horizontal section labels -->
+    <line x1="25" y1="84" x2="455" y2="84" stroke="#F06464" stroke-width="2"/>
+    <text x="470" y="90" class="annot">Status 44</text>
+    <line x1="25" y1="140" x2="455" y2="140" stroke="#F06464" stroke-width="2"/>
+    <text x="470" y="146" class="annot">Top Nav 56</text>
+    <line x1="25" y1="786" x2="455" y2="786" stroke="#F06464" stroke-width="2"/>
+    <text x="470" y="792" class="annot">Bottom Nav 64</text>
+    <line x1="25" y1="850" x2="455" y2="850" stroke="#F06464" stroke-width="2"/>
+    <text x="470" y="856" class="annot">Safe Area 34</text>
+
+    <!-- component callouts -->
+    <line x1="61" y1="174" x2="5" y2="174" stroke="#768800" stroke-width="2"/>
+    <text x="-10" y="180" text-anchor="end" class="annotLime">Search 52</text>
+    <line x1="61" y1="440" x2="5" y2="440" stroke="#768800" stroke-width="2"/>
+    <text x="-10" y="446" text-anchor="end" class="annotLime">Button 56</text>
+    <line x1="61" y1="258" x2="5" y2="258" stroke="#768800" stroke-width="2"/>
+    <text x="-10" y="264" text-anchor="end" class="annotLime">Card P20 · R20</text>
+  </g>
+
+  <text x="100" y="1045" class="note">Small 16px · Default 20px · Large Mobile 24px</text>
+  <text x="1700" y="1045" text-anchor="end" class="note">Spacing System v1.0</text>
+</svg>

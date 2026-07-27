@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+  <defs>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C4E600" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#C4E600" stop-opacity=".02"/>
+    </linearGradient>
+    <filter id="dotShadow" x="-100%" y="-100%" width="300%" height="300%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#3B3838" flood-opacity=".12"/>
+    </filter>
+    <style>
+      text { font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif; fill:#3B3838; }
+      .caption { font-size:26px; font-weight:500; fill:#92969C; }
+      .day { font-size:27px; font-weight:500; fill:#6F7175; }
+      .dayActive { font-size:27px; font-weight:600; fill:#3B3838; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="620" rx="36" fill="#FFFFFF"/>
+
+  <text x="52" y="74" font-size="34" font-weight="700">요일별 혼잡도</text>
+  <text x="1148" y="74" text-anchor="end" class="caption">최근 4주 평균</text>
+
+  <!-- Plot guides -->
+  <text x="52" y="160" class="caption">붐빔</text>
+  <text x="52" y="414" class="caption">여유</text>
+  <line x1="142" y1="150" x2="1148" y2="150" stroke="#ECEDEA" stroke-width="2"/>
+  <line x1="142" y1="280" x2="1148" y2="280" stroke="#ECEDEA" stroke-width="2" stroke-dasharray="8 10"/>
+  <line x1="142" y1="410" x2="1148" y2="410" stroke="#ECEDEA" stroke-width="2"/>
+
+  <!-- Selected day guide -->
+  <rect x="426" y="126" width="112" height="322" rx="24" fill="#F8FCE6"/>
+
+  <!-- Area + line -->
+  <path d="M180 338
+           C235 322 278 304 326 312
+           S420 276 482 246
+           S580 220 642 258
+           S746 320 802 298
+           S908 250 964 278
+           S1060 324 1110 346
+           L1110 410 L180 410 Z"
+        fill="url(#area)"/>
+
+  <path d="M180 338
+           C235 322 278 304 326 312
+           S420 276 482 246
+           S580 220 642 258
+           S746 320 802 298
+           S908 250 964 278
+           S1060 324 1110 346"
+        fill="none" stroke="#C4E600" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Data points -->
+  <g fill="#FFFFFF" stroke="#C4E600" stroke-width="7" filter="url(#dotShadow)">
+    <circle cx="180" cy="338" r="13"/>
+    <circle cx="326" cy="312" r="13"/>
+    <circle cx="642" cy="258" r="13"/>
+    <circle cx="802" cy="298" r="13"/>
+    <circle cx="964" cy="278" r="13"/>
+    <circle cx="1110" cy="346" r="13"/>
+  </g>
+  <circle cx="482" cy="246" r="20" fill="#C4E600" stroke="#FFFFFF" stroke-width="8" filter="url(#dotShadow)"/>
+
+  <!-- Selected state -->
+  <g transform="translate(407 174)">
+    <rect width="150" height="52" rx="26" fill="#3B3838"/>
+    <text x="75" y="35" text-anchor="middle" font-size="24" font-weight="600" fill="#FFFFFF" style="fill:#FFFFFF">붐빔</text>
+  </g>
+
+  <!-- Day labels -->
+  <g transform="translate(0 486)">
+    <g transform="translate(180 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">월</text>
+    </g>
+    <g transform="translate(326 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">화</text>
+    </g>
+    <g transform="translate(482 0)">
+      <circle r="42" fill="#C4E600"/>
+      <text y="10" text-anchor="middle" class="dayActive">수</text>
+    </g>
+    <g transform="translate(642 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">목</text>
+    </g>
+    <g transform="translate(802 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">금</text>
+    </g>
+    <g transform="translate(964 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">토</text>
+    </g>
+    <g transform="translate(1110 0)">
+      <circle r="42" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text y="10" text-anchor="middle" class="day">일</text>
+    </g>
+  </g>
+</svg>

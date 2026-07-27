@@ -1,0 +1,267 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3508" height="2480" viewBox="0 0 3508 2480">
+  <defs>
+    <linearGradient id="progressGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F8FCE6"/>
+      <stop offset="1" stop-color="#CCEFFD"/>
+    </linearGradient>
+    <linearGradient id="glassGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".88"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity=".58"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#3B3838" flood-opacity=".10"/>
+    </filter>
+    <style>
+      text { font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", sans-serif; fill:#3B3838; }
+      .eyebrow { font-size:28px; font-weight:600; letter-spacing:4px; fill:#89921F; }
+      .display { font-size:104px; font-weight:700; letter-spacing:-3px; }
+      .lead { font-size:34px; font-weight:400; fill:#6F7175; }
+      .section { font-size:44px; font-weight:700; letter-spacing:-1px; }
+      .sectionSub { font-size:25px; font-weight:400; fill:#92969C; }
+      .h3 { font-size:29px; font-weight:600; }
+      .body { font-size:26px; font-weight:400; fill:#6F7175; }
+      .label { font-size:24px; font-weight:500; fill:#6F7175; }
+      .caption { font-size:21px; font-weight:400; fill:#92969C; }
+      .value { font-size:28px; font-weight:700; }
+      .mono { font-family: Consolas, monospace; font-size:21px; fill:#6F7175; }
+      .card { fill:#FFFFFF; stroke:#E7E8E2; stroke-width:2; }
+      .white { fill:#FFFFFF; }
+      .darkMuted { fill:#C9CAC6; }
+    </style>
+  </defs>
+
+  <rect width="3508" height="2480" fill="#F7F7F5"/>
+
+  <!-- Header -->
+  <text x="156" y="150" class="eyebrow">FOUNDATION · MOBILE UX/UI</text>
+  <text x="156" y="265" class="display">Style Guide</text>
+  <text x="156" y="335" class="lead">쉽고 명확한 탐색, 신뢰할 수 있는 현장 정보, 가볍게 참여하는 보상 경험</text>
+
+  <g transform="translate(2755 110)">
+    <rect width="590" height="220" rx="40" fill="#3B3838"/>
+    <circle cx="90" cy="82" r="34" fill="#C4E600"/>
+    <circle cx="170" cy="82" r="34" fill="#FFBBBB"/>
+    <circle cx="250" cy="82" r="34" fill="#CCEFFD"/>
+    <text x="90" y="166" font-size="28" font-weight="600" class="white">Clear</text>
+    <text x="200" y="166" font-size="28" font-weight="600" class="white">Trustworthy</text>
+    <text x="385" y="166" font-size="28" font-weight="600" class="white">Interactive</text>
+  </g>
+
+  <line x1="156" y1="402" x2="3352" y2="402" stroke="#E0E2DD" stroke-width="2"/>
+
+  <!-- Colors -->
+  <g transform="translate(156 490)">
+    <text class="section" y="0">Colors</text>
+    <text class="sectionSub" y="42">브랜드 강조와 혼잡도 상태를 분리한 컬러 체계</text>
+
+    <g transform="translate(0 92)">
+      <rect width="408" height="186" rx="34" fill="#C4E600"/>
+      <text x="30" y="48" class="label" fill="#3B3838">PRIMARY</text>
+      <text x="30" y="122" font-size="43" font-weight="700">#C4E600</text>
+      <text x="30" y="158" class="caption" fill="#667500">CTA · 선택 · 활성</text>
+    </g>
+    <g transform="translate(430 92)">
+      <rect width="408" height="186" rx="34" fill="#3B3838"/>
+      <text x="30" y="48" font-size="24" font-weight="500" class="darkMuted">DARK NEUTRAL</text>
+      <text x="30" y="122" font-size="43" font-weight="700" class="white">#3B3838</text>
+      <text x="30" y="158" font-size="21" class="darkMuted">제목 · 본문 · 핵심 숫자</text>
+    </g>
+
+    <g transform="translate(0 310)">
+      <text class="h3">Status</text>
+      <g transform="translate(0 42)">
+        <rect width="188" height="112" rx="26" fill="#C4E600"/>
+        <text x="20" y="42" class="label">여유</text><text x="20" y="80" class="mono">#C4E600</text>
+      </g>
+      <g transform="translate(204 42)">
+        <rect width="188" height="112" rx="26" fill="#FFBBBB"/>
+        <text x="20" y="42" class="label">와글</text><text x="20" y="80" class="mono">#FFBBBB</text>
+      </g>
+      <g transform="translate(408 42)">
+        <rect width="188" height="112" rx="26" fill="#F4C84A"/>
+        <text x="20" y="42" class="label">보통</text><text x="20" y="80" class="mono">#F4C84A</text>
+      </g>
+      <g transform="translate(612 42)">
+        <rect width="188" height="112" rx="26" fill="#F06464"/>
+        <text x="20" y="42" class="label">오류</text><text x="20" y="80" class="mono">#F06464</text>
+      </g>
+    </g>
+
+    <g transform="translate(0 520)">
+      <text class="h3">Surface &amp; AI</text>
+      <g transform="translate(0 42)">
+        <rect width="188" height="112" rx="26" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+        <text x="20" y="42" class="label">Surface</text><text x="20" y="80" class="mono">#FFFFFF</text>
+      </g>
+      <g transform="translate(204 42)">
+        <rect width="188" height="112" rx="26" fill="#F7F7F5" stroke="#E7E8E2" stroke-width="2"/>
+        <text x="20" y="42" class="label">Background</text><text x="20" y="80" class="mono">#F7F7F5</text>
+      </g>
+      <g transform="translate(408 42)">
+        <rect width="188" height="112" rx="26" fill="#F8FCE6"/>
+        <text x="20" y="42" class="label">Soft Lime</text><text x="20" y="80" class="mono">#F8FCE6</text>
+      </g>
+      <g transform="translate(612 42)">
+        <rect width="188" height="112" rx="26" fill="#CCEFFD"/>
+        <text x="20" y="42" class="label">AI Blue</text><text x="20" y="80" class="mono">#CCEFFD</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Typography -->
+  <g transform="translate(1100 490)">
+    <text class="section" y="0">Typography</text>
+    <text class="sectionSub" y="42">Pretendard · 명확한 위계와 편안한 본문 리듬</text>
+
+    <rect x="0" y="92" width="1080" height="650" rx="36" class="card"/>
+    <text x="52" y="160" font-size="27" font-weight="500" fill="#92969C">FONT FAMILY</text>
+    <text x="52" y="268" font-size="82" font-weight="700">Pretendard</text>
+    <text x="52" y="322" class="body">Regular 400 · Medium 500 · SemiBold 600 · Bold 700</text>
+    <line x1="52" y1="370" x2="1028" y2="370" stroke="#ECEDEA" stroke-width="2"/>
+
+    <g transform="translate(52 430)">
+      <text y="0" font-size="42" font-weight="700">장소의 지금을 한눈에</text>
+      <text x="720" y="0" class="mono">H2 24 / 32 · 700</text>
+      <text y="82" font-size="32" font-weight="600">실시간 영상핀</text>
+      <text x="720" y="82" class="mono">Title 18 / 26 · 600</text>
+      <text y="154" font-size="28" font-weight="400" fill="#6F7175">방문하기 전에 혼잡도를 확인해보세요.</text>
+      <text x="720" y="154" class="mono">Body 16 / 24 · 400</text>
+      <text y="218" font-size="23" font-weight="400" fill="#92969C">2분 전 · 최근 등록순</text>
+      <text x="720" y="218" class="mono">Caption 12 / 18 · 400</text>
+    </g>
+  </g>
+
+  <!-- Spacing -->
+  <g transform="translate(2290 490)">
+    <text class="section" y="0">Spacing</text>
+    <text class="sectionSub" y="42">4px 베이스 · 8px 중심 간격 시스템</text>
+    <rect x="0" y="92" width="1062" height="650" rx="36" class="card"/>
+
+    <g transform="translate(54 152)">
+      <text class="h3">Spacing tokens</text>
+      <line x1="0" y1="80" x2="4" y2="80" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <line x1="0" y1="130" x2="40" y2="130" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <line x1="0" y1="180" x2="80" y2="180" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <line x1="0" y1="230" x2="120" y2="230" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <line x1="0" y1="280" x2="160" y2="280" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <line x1="0" y1="330" x2="240" y2="330" stroke="#C4E600" stroke-width="22" stroke-linecap="round"/>
+      <text x="285" y="90" class="mono">4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 48</text>
+      <text x="285" y="145" class="body">같은 그룹 8–12px</text>
+      <text x="285" y="197" class="body">일반 요소 16–20px</text>
+      <text x="285" y="249" class="body">정보 그룹 24px</text>
+      <text x="285" y="301" class="body">섹션 구분 32–40px</text>
+      <text x="285" y="353" class="body">화면 구조 48px 이상</text>
+    </g>
+    <line x1="54" y1="535" x2="1008" y2="535" stroke="#ECEDEA" stroke-width="2"/>
+    <g transform="translate(54 584)">
+      <text class="label">화면 좌우</text><text x="170" class="value">20px</text>
+      <text x="330" class="label">카드 패딩</text><text x="490" class="value">20px</text>
+      <text x="655" class="label">최소 터치</text><text x="830" class="value">44×44</text>
+    </g>
+  </g>
+
+  <!-- Components -->
+  <g transform="translate(156 1350)">
+    <text class="section" y="0">Core Components</text>
+    <text class="sectionSub" y="42">큰 터치 영역, 분명한 상태, 제한적인 라운드 사용</text>
+    <rect x="0" y="92" width="2024" height="800" rx="36" class="card"/>
+
+    <g transform="translate(52 154)">
+      <text class="h3">Buttons</text>
+      <rect x="0" y="48" width="480" height="112" rx="32" fill="#C4E600"/>
+      <text x="240" y="118" text-anchor="middle" font-size="30" font-weight="600">다음</text>
+      <text x="0" y="194" class="caption">Primary · H56 · R16 · Text #3B3838</text>
+
+      <rect x="0" y="246" width="480" height="96" rx="26" fill="#3B3838"/>
+      <text x="240" y="307" text-anchor="middle" font-size="29" font-weight="600" class="white">확인했습니다</text>
+      <text x="0" y="376" class="caption">Dark action · H48 · White text</text>
+
+      <rect x="0" y="428" width="480" height="96" rx="26" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/>
+      <text x="240" y="489" text-anchor="middle" font-size="29" font-weight="600">나중에</text>
+      <text x="0" y="558" class="caption">Secondary · Border #E7E8E2</text>
+    </g>
+
+    <g transform="translate(630 154)">
+      <text class="h3">Input &amp; Selection</text>
+      <rect x="0" y="48" width="700" height="112" rx="32" fill="#FFFFFF" stroke="#C4E600" stroke-width="3"/>
+      <text x="28" y="118" class="body">닉네임을 입력해주세요</text>
+      <rect x="520" y="60" width="164" height="88" rx="25" fill="#C4E600"/>
+      <text x="602" y="116" text-anchor="middle" font-size="26" font-weight="600">중복확인</text>
+      <text x="0" y="194" class="caption">Input · H56 · R16 · Inline action</text>
+
+      <g transform="translate(0 246)">
+        <rect width="148" height="76" rx="38" fill="#3B3838"/><text x="74" y="50" text-anchor="middle" font-size="25" font-weight="600" fill="#FFFFFF">공원</text>
+        <rect x="164" width="148" height="76" rx="38" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2"/><text x="238" y="50" text-anchor="middle" class="label">축제</text>
+        <rect x="328" width="148" height="76" rx="38" fill="#C4E600"/><text x="402" y="50" text-anchor="middle" font-size="25" font-weight="600">맛집</text>
+      </g>
+      <text x="0" y="362" class="caption">Chip · H36–40 · Gap 8 · Selected state</text>
+
+      <g transform="translate(0 430)">
+        <rect width="280" height="140" rx="70" fill="#C4E600"/>
+        <text x="50" y="88" font-size="32" font-weight="600" fill="#738600">여유</text>
+        <circle cx="215" cy="70" r="56" fill="#FFFFFF" filter="url(#shadow)"/>
+        <rect x="330" width="280" height="140" rx="70" fill="#FFBBBB"/>
+        <circle cx="395" cy="70" r="56" fill="#FFFFFF" filter="url(#shadow)"/>
+        <text x="455" y="88" font-size="32" font-weight="600" fill="#9B5054">와글</text>
+      </g>
+      <text x="0" y="612" class="caption">Toggle · 70×35 · Default: 여유</text>
+    </g>
+
+    <g transform="translate(1455 154)">
+      <text class="h3">Shape &amp; Elevation</text>
+      <rect x="0" y="48" width="420" height="218" rx="40" fill="#FFFFFF" stroke="#E7E8E2" stroke-width="2" filter="url(#shadow)"/>
+      <text x="30" y="102" class="label">Standard Card</text>
+      <text x="30" y="152" class="value">R20 · P20</text>
+      <text x="30" y="202" class="caption">정보 그룹에만 사용</text>
+
+      <rect x="0" y="314" width="420" height="210" rx="48" fill="url(#glassGradient)" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+      <rect x="160" y="338" width="100" height="10" rx="5" fill="#3B3838" opacity=".28"/>
+      <text x="30" y="426" class="label">Glass Bottom Sheet</text>
+      <text x="30" y="476" class="value">R24 · Blur 18–24</text>
+      <text x="30" y="566" class="caption">지도 맥락을 가리지 않는 표면</text>
+    </g>
+  </g>
+
+  <!-- Brand signatures -->
+  <g transform="translate(2290 1350)">
+    <text class="section" y="0">Brand Signatures</text>
+    <text class="sectionSub" y="42">지도를 중심으로 신뢰와 참여를 시각화</text>
+    <rect x="0" y="92" width="1062" height="800" rx="36" fill="#3B3838"/>
+
+    <!-- Map pin -->
+    <g transform="translate(70 175)">
+      <path d="M150 0C68 0 0 66 0 150c0 123 150 290 150 290s150-167 150-290C300 66 232 0 150 0Z" fill="#C4E600"/>
+      <circle cx="150" cy="145" r="58" fill="#FFFFFF"/>
+      <ellipse cx="150" cy="463" rx="70" ry="16" fill="#000000" opacity=".18"/>
+      <text x="150" y="530" text-anchor="middle" font-size="28" font-weight="600" class="white">Soft Plastic Pin</text>
+      <text x="150" y="570" text-anchor="middle" font-size="22" class="darkMuted">여유 #C4E600 · 와글 #FFBBBB</text>
+    </g>
+
+    <!-- View gauge -->
+    <g transform="translate(450 210)">
+      <circle cx="150" cy="150" r="126" fill="none" stroke="#DEE0DE" stroke-width="34"/>
+      <circle cx="150" cy="150" r="126" fill="none" stroke="#C5E02C" stroke-width="34" stroke-linecap="round" stroke-dasharray="520 792" transform="rotate(-90 150 150)"/>
+      <circle cx="150" cy="150" r="88" fill="#FFFFFF"/>
+      <text x="150" y="170" text-anchor="middle" font-size="62" font-weight="500">270°</text>
+      <text x="150" y="500" text-anchor="middle" font-size="28" font-weight="600" class="white">View Trust Gauge</text>
+      <text x="150" y="540" text-anchor="middle" font-size="22" class="darkMuted">0° #FFB2B2 → 360° #C5E02C</text>
+    </g>
+
+    <!-- 3D icon token -->
+    <g transform="translate(785 210)">
+      <rect x="25" y="30" width="220" height="220" rx="64" fill="#CCEFFD"/>
+      <circle cx="135" cy="120" r="46" fill="#FFFFFF" opacity=".92"/>
+      <path d="M72 186h126" stroke="#C4E600" stroke-width="30" stroke-linecap="round"/>
+      <ellipse cx="135" cy="280" rx="86" ry="18" fill="#000000" opacity=".12"/>
+      <text x="135" y="500" text-anchor="middle" font-size="28" font-weight="600" class="white">3D Asset</text>
+      <text x="135" y="540" text-anchor="middle" font-size="22" class="darkMuted">72px+ · 3 colors · soft shadow</text>
+    </g>
+
+    <line x1="70" y1="720" x2="992" y2="720" stroke="#FFFFFF" stroke-opacity=".14" stroke-width="2"/>
+    <text x="70" y="774" font-size="24" font-weight="500" class="white">원칙</text>
+    <text x="145" y="774" font-size="23" class="darkMuted">라임 위 흰색 텍스트 금지 · 최소 터치 44×44 · 색상만으로 상태 전달 금지</text>
+  </g>
+
+  <text x="156" y="2390" class="caption">MOBILE APPLICATION · REACT NATIVE / EXPO · 390×844 REFERENCE FRAME · ANDROID</text>
+  <text x="3352" y="2390" text-anchor="end" class="caption">Design tokens v1.0</text>
+</svg>
