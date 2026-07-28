@@ -7,6 +7,7 @@ import io.jsonwebtoken.ExpiredJwtException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -41,6 +42,18 @@ class JwtProviderTest {
 
         assertEquals("456", claims.getSubject());
         assertEquals(TokenPurpose.REFRESH, provider.getPurpose(claims));
+        assertNotNull(claims.getId()); // jti
+    }
+
+    @Test
+    void createRefreshToken_은_매번_고유한_jti로_서로_다른_토큰을_만든다() {
+        JwtProvider provider = jwtProvider(600);
+
+        String token1 = provider.createRefreshToken(456L);
+        String token2 = provider.createRefreshToken(456L);
+
+        assertNotEquals(token1, token2);
+        assertNotEquals(provider.parse(token1).getId(), provider.parse(token2).getId());
     }
 
     @Test
