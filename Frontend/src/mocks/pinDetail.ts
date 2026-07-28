@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/client';
-import type { PinDetail } from '@/types/pin';
+import type { PinDetail, PinUnlockResult } from '@/types/pin';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -21,7 +21,11 @@ const scenarioByPinId: Record<number, PinDetailScenario> = {
   2: 'unlocked',
   3: 'evaluated',
   4: 'owner',
+  5: 'preview',
 };
+
+/** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
+const INSUFFICIENT_CREDIT_PIN_IDS = new Set([5]);
 
 export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
   return scenarioByPinId[pinId] ?? 'notFound';
@@ -118,6 +122,65 @@ export async function fetchMockPinDetail(pinId: number): Promise<PinDetail> {
   }
 
   return { ...createFixture(scenario), pinId };
+}
+
+/** 멱등성 키 → 이미 처리한 결과. 같은 키로 다시 부르면 차감 없이 그대로 돌려준다. */
+const unlockResultsByKey = new Map<string, PinUnlockResult>();
+
+/** 목업 지갑 잔액. 결제할 때마다 줄어든다. */
+let mockCreditBalance = 12;
+
+/**
+ * 잠금 해제 목업.
+ * 멱등성 키 재사용·잔액 부족·중복 구매까지 실제 서버와 같은 코드로 실패하게 만든다.
+ */
+export async function unlockMockPin(
+  pinId: number,
+  idempotencyKey: string,
+): Promise<PinUnlockResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (!idempotencyKey) {
+    throw new ApiError(400, 'IDEMPOTENCY_KEY_REQUIRED', '멱등성 키가 필요합니다.');
+  }
+
+  const cached = unlockResultsByKey.get(idempotencyKey);
+  if (cached) {
+    if (cached.pinId !== pinId) {
+      throw new ApiError(
+        409,
+        'IDEMPOTENCY_KEY_CONFLICT',
+        '동일한 멱등성 키가 다른 요청에 사용되었습니다.',
+      );
+    }
+    // 같은 키·같은 요청은 다시 차감하지 않고 새 URL만 발급한다.
+    return { ...cached, creditCharged: 0 };
+  }
+
+  const scenario = resolvePinDetailScenario(pinId);
+  if (scenario === 'notFound') {
+    throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
+  }
+
+  if (INSUFFICIENT_CREDIT_PIN_IDS.has(pinId)) {
+    throw new ApiError(409, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다.');
+  }
+
+  // 작성자와 이미 구매한 사용자는 차감하지 않는다.
+  const charged = scenario === 'preview' ? 3 : 0;
+  mockCreditBalance -= charged;
+
+  const result: PinUnlockResult = {
+    pinId,
+    creditCharged: charged,
+    creditBalance: mockCreditBalance,
+    // signed URL이 없어 빈 문자열이다. 화면이 시안 이미지로 폴백한다.
+    videoUrl: '',
+    accessGranted: true,
+  };
+
+  unlockResultsByKey.set(idempotencyKey, result);
+  return result;
 }
 
 /**

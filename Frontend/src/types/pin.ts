@@ -80,6 +80,17 @@ export type PinDetail = {
   chatRequestState: PinChatRequestState;
 };
 
+/** 영상 잠금 해제(결제) 응답 `data`. */
+export type PinUnlockResult = {
+  pinId: number;
+  /** 이번 요청에서 실제로 차감된 크레딧. 재구매·작성자는 0이다. */
+  creditCharged: number;
+  /** 처리 후 잔액. */
+  creditBalance: number;
+  videoUrl: string;
+  accessGranted: boolean;
+};
+
 /** 내가 쓴 핀인지. 수정·삭제·떠났어요 노출 기준이다. */
 export function isOwnPin(detail: PinDetail): boolean {
   return detail.videoAccess === 'OWNER';

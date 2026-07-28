@@ -212,6 +212,9 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   coinImage: { width: 76, height: 76, resizeMode: 'contain' },
+  payError: { ...type.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.x3 },
+  payButton: { alignSelf: 'stretch' },
+  payButtonBusy: { opacity: 0.6 },
   payMessage: {
     fontSize: 16,
     lineHeight: 24,

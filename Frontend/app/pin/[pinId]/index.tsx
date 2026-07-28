@@ -122,7 +122,13 @@ function PinDetailScreen({
 
       <AppTabBar />
 
-      <PinPurchaseModal visible={purchase.open} onCancel={purchase.hide} onConfirm={purchase.confirm} />
+      <PinPurchaseModal
+        visible={purchase.open}
+        busy={purchase.busy}
+        error={purchase.error}
+        onCancel={purchase.hide}
+        onConfirm={purchase.confirm}
+      />
 
       <PinChatRequestModal visible={chat.open} onCancel={chat.hide} onConfirm={chat.confirm} />
 

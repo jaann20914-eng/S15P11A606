@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { deletePin, leavePinChats } from '@/api/pins';
+import { deletePin, leavePinChats, unlockPin } from '@/api/pins';
+import { createIdempotencyKey } from '@/utils/idempotency';
 import { goBackOrHome } from '@/utils/navigation';
 import type { PinDetail, PinRating } from '@/types/pin';
 
@@ -63,9 +64,69 @@ function useConfirmAction(run: () => Promise<unknown>, fallbackMessage: string):
   return { open, busy, error, show, hide, confirm };
 }
 
+/** 결제 모달. 실패하면 닫지 않고 문구를 남겨 같은 멱등성 키로 재시도할 수 있게 한다. */
+export interface PurchaseState extends ToggleState {
+  busy: boolean;
+  error: string | null;
+  confirm: () => void;
+}
+
+/**
+ * 영상 잠금 해제 결제.
+ *
+ * 멱등성 키는 모달을 열 때 한 번 만들고 그 모달이 닫힐 때까지 재사용한다.
+ * 실패해서 다시 누르는 것은 "같은 결제의 재시도"이므로 같은 키를 보내야 중복 차감되지 않는다.
+ */
+function usePurchase(
+  pinId: number,
+  onDetailChange: (patch: Partial<PinDetail>) => void,
+): PurchaseState {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const keyRef = useRef<string | null>(null);
+
+  const show = useCallback(() => {
+    keyRef.current = createIdempotencyKey();
+    setError(null);
+    setOpen(true);
+  }, []);
+
+  const hide = useCallback(() => setOpen(false), []);
+
+  const confirm = useCallback(() => {
+    const key = keyRef.current ?? createIdempotencyKey();
+    keyRef.current = key;
+
+    setBusy(true);
+    setError(null);
+
+    unlockPin(pinId, key)
+      .then((result) => {
+        setBusy(false);
+        setOpen(false);
+        onDetailChange({
+          videoAccess: 'UNLOCKED',
+          videoUrl: result.videoUrl,
+          previewUrl: null,
+          isEvaluated: false,
+          // 구매 직후에는 대기 중인 요청이나 방이 없으므로 요청 가능하다.
+          // 서버 판정과 어긋나면 다음 조회에서 정정된다.
+          canRequestChat: true,
+        });
+      })
+      .catch((cause: unknown) => {
+        setBusy(false);
+        setError(cause instanceof Error ? cause.message : '결제하지 못했어요');
+      });
+  }, [pinId, onDetailChange]);
+
+  return { open, busy, error, show, hide, confirm };
+}
+
 export interface PinDetailScreenState {
   menu: ToggleState & { toggle: () => void; edit: () => void };
-  purchase: ToggleState & { confirm: () => void };
+  purchase: PurchaseState;
   chat: ToggleState & { confirm: () => void };
   remove: ConfirmActionState;
   leave: ConfirmActionState;
@@ -90,9 +151,9 @@ export function usePinDetailScreen(
   onDetailChange: (patch: Partial<PinDetail>) => void,
 ): PinDetailScreenState {
   const menu = useToggle();
-  const purchase = useToggle();
   const chat = useToggle();
   const [submittedRating, setSubmittedRating] = useState<PinRating | null>(null);
+  const purchase = usePurchase(detail.pinId, onDetailChange);
 
   const remove = useConfirmAction(
     useCallback(() => deletePin(detail.pinId), [detail.pinId]),
@@ -104,12 +165,7 @@ export function usePinDetailScreen(
     '처리하지 못했어요',
   );
 
-  // TODO: 결제·채팅요청·평가 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
-  const confirmPurchase = useCallback(() => {
-    onDetailChange({ videoAccess: 'UNLOCKED', isEvaluated: false, canRequestChat: true });
-    purchase.hide();
-  }, [onDetailChange, purchase]);
-
+  // TODO: 채팅요청·평가 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
   const confirmChat = useCallback(() => {
     onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
     chat.hide();
@@ -133,7 +189,7 @@ export function usePinDetailScreen(
         router.push('/pin-create/detail-form');
       }, [menu]),
     },
-    purchase: { ...purchase, confirm: confirmPurchase },
+    purchase,
     chat: { ...chat, confirm: confirmChat },
     remove,
     leave,

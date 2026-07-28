@@ -1,6 +1,11 @@
 import { apiRequest } from './client';
-import { deleteMockPin, fetchMockPinDetail, leaveMockPinChats } from '@/mocks/pinDetail';
-import type { PinDetail } from '@/types/pin';
+import {
+  deleteMockPin,
+  fetchMockPinDetail,
+  leaveMockPinChats,
+  unlockMockPin,
+} from '@/mocks/pinDetail';
+import type { PinDetail, PinUnlockResult } from '@/types/pin';
 
 /**
  * 고정 데이터를 쓸지 여부.
@@ -26,6 +31,29 @@ async function requestPinDetail(pinId: number): Promise<PinDetail> {
 
 export function getPinDetail(pinId: number): Promise<PinDetail> {
   return usesMockApi ? fetchMockPinDetail(pinId) : requestPinDetail(pinId);
+}
+
+/**
+ * 영상 잠금 해제(크레딧 결제).
+ *
+ * `Idempotency-Key`가 필수다. 같은 결제의 재시도에는 같은 키를 그대로 다시 보내야
+ * 중복 차감이 일어나지 않는다. 키 생성·보관은 호출부(`usePinDetailScreen`) 책임이다.
+ *
+ * 오류 코드: `INVALID_PIN_ID` `IDEMPOTENCY_KEY_REQUIRED` `UNAUTHORIZED` `PIN_NOT_FOUND`
+ * `IDEMPOTENCY_KEY_CONFLICT` `INSUFFICIENT_CREDIT` `PIN_UNLOCK_FAILED` `VIDEO_URL_ISSUE_FAILED`.
+ *
+ * 명세에 URI가 없어 경로는 추정이다.
+ */
+async function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+  const { data } = await apiRequest<PinUnlockResult>(`/api/v1/pins/${pinId}/unlock`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+  return data;
+}
+
+export function unlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+  return usesMockApi ? unlockMockPin(pinId, idempotencyKey) : requestUnlockPin(pinId, idempotencyKey);
 }
 
 /** 내가 쓴 게시글 삭제. 작성자가 아니면 서버가 403을 준다. */
