@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -47,7 +45,7 @@ export default function Chat() {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    <SafeAreaView style={s.safe}>
       <View style={s.screen}>
         <View style={s.pageHeader}>
           {selectedPost ? <Pressable onPress={() => setSelectedPost(null)} style={s.back}><Ionicons name="chevron-back" size={24} color={colors.gray400}/></Pressable> : <View style={s.back}/>}

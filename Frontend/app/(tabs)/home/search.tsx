@@ -1,7 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextStyle, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -81,7 +90,7 @@ export default function Search() {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    <SafeAreaView style={s.safe}>
       <View style={s.searchWrap}>
         <View style={s.searchField}>
           <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.iconButton}>

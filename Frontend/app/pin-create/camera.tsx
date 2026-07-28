@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { Alert, Animated, Easing, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';

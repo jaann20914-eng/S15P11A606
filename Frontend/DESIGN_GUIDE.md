@@ -397,8 +397,7 @@ const glassShadow = {
 | `CrowdFilterToggle` | `src/components/common/CrowdFilterToggle.tsx` | 여유/와글 필터 토글 (홈·추천 공용) |
 | `ViewAvatar` | `src/components/pin/ViewAvatar.tsx` | 사용자 뷰 신뢰도 시각화 |
 | `CrowdLevelBadge` | `src/components/pin/CrowdLevelBadge.tsx` | 혼잡도 4단계 뱃지 |
-| `KakaoMap` | `src/components/home/KakaoMap.tsx` | 카카오맵 SDK를 WebView(웹은 iframe)로 구동하는 실지도 |
-| `MapPlaceholder` | `src/components/home/MapPlaceholder.tsx` | 앱 키 미설정·SDK 로드 실패 시의 지도 대체 화면 |
+| `MapPlaceholder` | `src/components/home/MapPlaceholder.tsx` | Kakao Map 연결 전 지도 영역 |
 | `MapMarker` / `MyLocationMarker` | `src/components/home/MapMarker.tsx` | 필터 계열에 따른 장소 핀, 내 위치 마커 |
 
 ### 9.2 추가로 공용화해야 할 컴포넌트
