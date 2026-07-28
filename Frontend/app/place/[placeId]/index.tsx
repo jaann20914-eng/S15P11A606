@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { AppTabBar } from '@/components/common';
 import { MapPlaceholder } from '@/components/home/MapPlaceholder';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useMapStore } from '@/store/useMapStore';
@@ -96,28 +97,6 @@ function VideoCard({ index = 0 }: { index?: number }) {
   );
 }
 
-function BottomNavigation() {
-  const items = [
-    ['map', '홈', '/(tabs)/home'],
-    ['sparkles-outline', '추천', '/(tabs)/recommend'],
-    ['add', '제보', '/(tabs)/write'],
-    ['chatbubbles-outline', '채팅', '/(tabs)/chat/sent'],
-    ['person-outline', '마이', '/(tabs)/mypage'],
-  ] as const;
-  return (
-    <View style={s.bottomNav}>
-      {items.map(([icon, label, href], index) => (
-        <Pressable key={label} onPress={() => router.push(href)} style={s.navItem}>
-          {index === 2 ? (
-            <View style={s.captureButton}><Ionicons name={icon} size={32} color={colors.white} /></View>
-          ) : <Ionicons name={icon} size={22} color={index === 0 ? colors.dark : colors.gray400} />}
-          <Text style={[s.navLabel, index === 0 && s.navLabelActive, index === 2 && s.captureLabel]}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 export default function Place() {
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
@@ -198,7 +177,7 @@ export default function Place() {
         </ScrollView>
       </Animated.View>
 
-      <BottomNavigation />
+      <AppTabBar active="home" />
     </View>
   );
 }
@@ -263,10 +242,4 @@ const s = StyleSheet.create({
   tags: { flexDirection: 'row', gap: spacing.x1, marginTop: spacing.x2, overflow: 'hidden' },
   tag: { maxWidth: '45%', height: 28, flexShrink: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.x2, borderRadius: radius.pill, backgroundColor: colors.limeSoft },
   tagText: { ...type.caption, flexShrink: 1, color: colors.gray600 },
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 72, flexDirection: 'row', paddingTop: spacing.x2, paddingBottom: spacing.x2, borderTopWidth: 1, borderTopColor: colors.gray200, backgroundColor: colors.white },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navLabel: { ...type.caption, fontSize: 11, lineHeight: 16, color: colors.gray400, fontWeight: '600' },
-  navLabelActive: { color: colors.dark },
-  captureButton: { width: 58, height: 58, marginTop: -29, alignItems: 'center', justifyContent: 'center', borderRadius: 19, borderWidth: 3, borderColor: colors.white, backgroundColor: '#D9ED76', ...shadow },
-  captureLabel: { marginTop: spacing.x2 },
 });

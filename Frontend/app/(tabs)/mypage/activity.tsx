@@ -48,7 +48,7 @@ export default function Posts() {
                     accessibilityState={{ disabled: pending }}
                     accessibilityHint={pending ? 'AI 블러 처리 중에는 상세 페이지를 열 수 없습니다' : '작성한 영상핀 상세 보기'}
                     disabled={pending}
-                    onPress={() => router.push(`/pin/${post.id}/edit` as any)}
+                    onPress={() => router.push(`/pin/${post.id}` as any)}
                     style={[s.row, index < posts.length - 1 && s.rowBorder]}
                   >
                     <View style={s.timePill}><Text style={s.time}>{post.time}</Text></View>
