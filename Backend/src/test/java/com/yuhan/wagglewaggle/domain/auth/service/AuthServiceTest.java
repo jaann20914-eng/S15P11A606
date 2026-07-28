@@ -33,6 +33,8 @@ class AuthServiceTest {
     @Mock
     private SocialAccountService socialAccountService;
     @Mock
+    private RefreshTokenService refreshTokenService;
+    @Mock
     private JwtProvider jwtProvider;
 
     @InjectMocks
