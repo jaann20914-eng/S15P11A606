@@ -1,14 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextStyle, View } from 'react-native';
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
-const webNoOutline = Platform.OS === 'web'
-  ? ({ outlineStyle: 'none' } as unknown as TextStyle)
-  : undefined;
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
 type RecentSearch = {
   id: number;
@@ -44,11 +52,7 @@ const placeResults = [
 function LeadingIcon({ kind }: { kind: RecentSearch['kind'] }) {
   return (
     <View style={s.iconCircle}>
-      <Ionicons
-        name={kind === 'place' ? 'location' : 'search'}
-        size={16}
-        color={colors.gray400}
-      />
+      <Ionicons name={kind === 'place' ? 'location' : 'search'} size={16} color={colors.gray400} />
     </View>
   );
 }
@@ -71,7 +75,8 @@ export default function Search() {
   const [recent, setRecent] = useState(initialRecent);
   const normalizedQuery = query.trim();
   const suggestions = useMemo(
-    () => normalizedQuery ? [`${normalizedQuery}역`, `${normalizedQuery}역 맛집`, `${normalizedQuery} 맛집`] : [],
+    () =>
+      normalizedQuery ? [`${normalizedQuery}역`, `${normalizedQuery}역 맛집`, `${normalizedQuery} 맛집`] : [],
     [normalizedQuery],
   );
 
@@ -130,7 +135,11 @@ export default function Search() {
 
             <View style={s.placeGroup}>
               {placeResults.map((place) => (
-                <Pressable key={place.id} onPress={() => router.push(`/place/${place.id}`)} style={s.placeRow}>
+                <Pressable
+                  key={place.id}
+                  onPress={() => router.push(`/place/${place.id}`)}
+                  style={s.placeRow}
+                >
                   <LeadingIcon kind="place" />
                   <View style={s.placeCopy}>
                     <HighlightedName name={place.name} query={normalizedQuery} />
@@ -148,7 +157,9 @@ export default function Search() {
             {recent.map((item) => (
               <Pressable key={item.id} onPress={() => setQuery(item.label)} style={s.recentRow}>
                 <LeadingIcon kind={item.kind} />
-                <Text numberOfLines={1} style={s.recentLabel}>{item.label}</Text>
+                <Text numberOfLines={1} style={s.recentLabel}>
+                  {item.label}
+                </Text>
                 <Text style={s.date}>{item.date}</Text>
                 <Pressable
                   accessibilityLabel={`${item.label} 검색 기록 삭제`}
@@ -190,7 +201,14 @@ const s = StyleSheet.create({
     paddingRight: spacing.x3,
   },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  input: { ...type.label, flex: 1, height: 52, paddingHorizontal: spacing.x1, borderWidth: 0, color: colors.dark },
+  input: {
+    ...type.label,
+    flex: 1,
+    height: 52,
+    paddingHorizontal: spacing.x1,
+    borderWidth: 0,
+    color: colors.dark,
+  },
   clearButton: {
     width: 24,
     height: 24,

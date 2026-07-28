@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextStyle, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,9 +20,7 @@ import { colors, radius, spacing, type } from '@/constants/theme';
 
 const ages = ['10대', '20대', '30대', '40대', '50대', '60대', '70대+'];
 const preferences = ['공원', '축제', '팝업', '맛집', '공연', '쇼핑', '관광지', '대학교'];
-const webNoOutline = Platform.OS === 'web'
-  ? ({ outlineStyle: 'none' } as unknown as TextStyle)
-  : undefined;
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
 export default function Onboarding() {
   const screenGutter = useResponsivePadding();

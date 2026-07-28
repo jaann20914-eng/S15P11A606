@@ -1,4 +1,4 @@
-# Pinple 모바일 디자인 시스템 가이드
+# 와글와글 모바일 디자인 시스템 가이드
 
 > 적용 대상: React Native + Expo + TypeScript + Expo Router  
 > 기준 화면: Android, 390 × 844px  
@@ -57,18 +57,19 @@
 
 ## 2. 기술 환경
 
-| 구분 | 기준 |
-| --- | --- |
-| Platform | Mobile application |
-| Target | Android |
-| Framework | React Native 0.81 |
-| Runtime | Expo 54 |
-| Language | TypeScript |
-| Navigation | Expo Router |
-| Map | Kakao Map 연동 예정, 현재 자리 표시자 사용 |
-| Icon | `@expo/vector-icons` Ionicons |
-| Gradient | `expo-linear-gradient` |
-| Glass/Blur | `expo-blur` |
+| 구분       | 기준                                    |
+| ---------- | --------------------------------------- |
+| Platform   | Mobile application                      |
+| Target     | Android                                 |
+| Framework  | React Native 0.81                       |
+| Runtime    | Expo 54                                 |
+| Language   | TypeScript                              |
+| Navigation | Expo Router                             |
+| Map        | Kakao Map JavaScript SDK (WebView 구동) |
+| Location   | `expo-location`                         |
+| Icon       | `@expo/vector-icons` Ionicons           |
+| Gradient   | `expo-linear-gradient`                  |
+| Glass/Blur | `expo-blur`                             |
 
 ---
 
@@ -83,13 +84,13 @@
 
 ### 3.2 화면 그리드
 
-| 항목 | 값 |
-| --- | ---: |
-| 기본 좌우 여백 | 20px |
-| 작은 화면 좌우 여백 | 16px |
+| 항목                     |   값 |
+| ------------------------ | ---: |
+| 기본 좌우 여백           | 20px |
+| 작은 화면 좌우 여백      | 16px |
 | 큰 모바일 화면 좌우 여백 | 24px |
-| 컬럼 수 | 4 |
-| 컬럼 거터 | 12px |
+| 컬럼 수                  |    4 |
+| 컬럼 거터                | 12px |
 
 반응형 화면 여백은 `useResponsivePadding()`(`src/hooks/useResponsivePadding.ts`)으로 계산한다. 화면마다 너비 분기를 직접 쓰지 않는다.
 
@@ -104,32 +105,32 @@ Safe Area inset까지 함께 필요하면 `useScreenLayout()`을 쓰고, 일반 
 
 간격은 원칙적으로 4의 배수로 사용한다. 임의의 값을 새로 만들지 않는다.
 
-| 토큰 | 값 | 용도 |
-| --- | ---: | --- |
-| `spacing.x1` | 4px | 아이콘과 짧은 라벨, 매우 밀접한 요소 |
-| `spacing.x2` | 8px | 같은 그룹 내부 |
-| `spacing.x3` | 12px | 작은 보조 간격, 컬럼 거터 |
-| `spacing.x4` | 16px | 일반 요소 간격 |
-| `spacing.x5` | 20px | 기본 화면·카드 패딩 |
-| `spacing.x6` | 24px | 정보 그룹 구분 |
-| `spacing.x8` | 32px | 섹션 구분 |
-| `spacing.x10` | 40px | 큰 영역 구분 |
-| `spacing.x12` | 48px | 주요 화면 구조 분리 |
+| 토큰          |   값 | 용도                                 |
+| ------------- | ---: | ------------------------------------ |
+| `spacing.x1`  |  4px | 아이콘과 짧은 라벨, 매우 밀접한 요소 |
+| `spacing.x2`  |  8px | 같은 그룹 내부                       |
+| `spacing.x3`  | 12px | 작은 보조 간격, 컬럼 거터            |
+| `spacing.x4`  | 16px | 일반 요소 간격                       |
+| `spacing.x5`  | 20px | 기본 화면·카드 패딩                  |
+| `spacing.x6`  | 24px | 정보 그룹 구분                       |
+| `spacing.x8`  | 32px | 섹션 구분                            |
+| `spacing.x10` | 40px | 큰 영역 구분                         |
+| `spacing.x12` | 48px | 주요 화면 구조 분리                  |
 
 ### 3.4 주요 레이아웃 크기
 
-| 컴포넌트 | 값 |
-| --- | ---: |
-| 상단 내비게이션 | 56px |
-| 주요 버튼 | 56px |
-| 보조 버튼 | 44px |
-| 입력창 | 52~56px |
-| 검색창 | 52px |
-| 하단 탭 바 | 72px |
-| 카드 내부 패딩 | 20px |
-| 히어로 카드 내부 패딩 | 24px |
-| 바텀시트 좌우 패딩 | 20px |
-| 최소 터치 영역 | 44px |
+| 컴포넌트              |      값 |
+| --------------------- | ------: |
+| 상단 내비게이션       |    56px |
+| 주요 버튼             |    56px |
+| 보조 버튼             |    44px |
+| 입력창                | 52~56px |
+| 검색창                |    52px |
+| 하단 탭 바            |    72px |
+| 카드 내부 패딩        |    20px |
+| 히어로 카드 내부 패딩 |    24px |
+| 바텀시트 좌우 패딩    |    20px |
+| 최소 터치 영역        |    44px |
 
 ---
 
@@ -137,12 +138,12 @@ Safe Area inset까지 함께 필요하면 `useScreenLayout()`을 쓰고, 일반 
 
 ### 4.1 브랜드 컬러
 
-| 토큰 | HEX | 용도 |
-| --- | --- | --- |
-| `colors.lime` | `#C4E600` | 주요 CTA, 선택, 활성 상태 |
-| `colors.limeActive` | `#B8D900` | 눌림, 활성 강조 |
-| `colors.dark` | `#3B3838` | 제목, 본문, 핵심 숫자, 어두운 버튼 |
-| `colors.white` | `#FFFFFF` | 기본 배경, 카드 |
+| 토큰                | HEX       | 용도                               |
+| ------------------- | --------- | ---------------------------------- |
+| `colors.lime`       | `#C4E600` | 주요 CTA, 선택, 활성 상태          |
+| `colors.limeActive` | `#B8D900` | 눌림, 활성 강조                    |
+| `colors.dark`       | `#3B3838` | 제목, 본문, 핵심 숫자, 어두운 버튼 |
+| `colors.white`      | `#FFFFFF` | 기본 배경, 카드                    |
 
 브랜드 라임 사용 규칙:
 
@@ -153,68 +154,68 @@ Safe Area inset까지 함께 필요하면 `useScreenLayout()`을 쓰고, 일반 
 
 ### 4.2 배경과 중립색
 
-| 토큰 | HEX | 용도 |
-| --- | --- | --- |
-| `colors.bg` | `#FFFFFF` | 기본 화면 배경 |
-| `colors.surface` | `#F7F7F5` | 보조 표면 |
-| `colors.warmSurface` | `#FAF9F5` | 따뜻한 보조 배경 |
-| `colors.gray100` | `#F4F3F3` | 입력·아이콘 배경, 약한 구분 |
-| `colors.gray200` | `#E9E8E8` | 테두리, 구분선 |
-| `colors.gray400` | `#9B9898` | 비활성, 플레이스홀더, 보조 정보 |
-| `colors.gray600` | `#666262` | 본문과 보조 제목 |
+| 토큰                 | HEX       | 용도                            |
+| -------------------- | --------- | ------------------------------- |
+| `colors.bg`          | `#FFFFFF` | 기본 화면 배경                  |
+| `colors.surface`     | `#F7F7F5` | 보조 표면                       |
+| `colors.warmSurface` | `#FAF9F5` | 따뜻한 보조 배경                |
+| `colors.gray100`     | `#F4F3F3` | 입력·아이콘 배경, 약한 구분     |
+| `colors.gray200`     | `#E9E8E8` | 테두리, 구분선                  |
+| `colors.gray400`     | `#9B9898` | 비활성, 플레이스홀더, 보조 정보 |
+| `colors.gray600`     | `#666262` | 본문과 보조 제목                |
 
 ### 4.3 상태 컬러
 
 브랜드 상태와 혼잡 상태는 분리한다.
 
-| 토큰 | HEX | 의미 |
-| --- | --- | --- |
-| `colors.success` | `#39A96B` | 검증 완료, 성공 |
-| `colors.warning` | `#FFB340` | 주의 |
-| `colors.danger` | `#E5545E` | 오류, 삭제 |
-| `colors.blue` | `#648DF7` | 업데이트, 정보 상태 |
-| `colors.sky` | `#EAF4FF` | 정보성 배경 |
-| `colors.limeSoft` | `#F4FAD8` | 라임 보조 배경 |
+| 토큰              | HEX       | 의미                |
+| ----------------- | --------- | ------------------- |
+| `colors.success`  | `#39A96B` | 검증 완료, 성공     |
+| `colors.warning`  | `#FFB340` | 주의                |
+| `colors.danger`   | `#E5545E` | 오류, 삭제          |
+| `colors.blue`     | `#648DF7` | 업데이트, 정보 상태 |
+| `colors.sky`      | `#EAF4FF` | 정보성 배경         |
+| `colors.limeSoft` | `#F4FAD8` | 라임 보조 배경      |
 
 ### 4.4 혼잡도 컬러
 
 검색·지도 토글의 큰 분류:
 
-| 상태 | 토큰 | HEX |
-| --- | --- | --- |
-| 여유 | `colors.lime` | `#C4E600` |
-| 와글 | `colors.crowded` | `#FFBBBB` |
+| 상태      | 토큰                   | HEX       |
+| --------- | ---------------------- | --------- |
+| 여유      | `colors.lime`          | `#C4E600` |
+| 와글      | `colors.crowded`       | `#FFBBBB` |
 | 와글 활성 | `colors.crowdedActive` | `#FF8F97` |
 
 혼잡도 4단계 (공통DESIGN v1 §4.2 확정값). `src/constants/crowdLevels.ts`가 단일 소스이며, 단계 값 `level`은 API의 `crowdLevel`과 일치한다.
 
-| 단계 | 명칭 | 토큰 | HEX | 게이지 구간 |
-| :---: | --- | --- | --- | ---: |
-| 1 | 유유자적 | `crowdPalette.quiet` | `#D3E965` | 0~30% |
-| 2 | 여유 | `crowdPalette.notCrowded` | `#EFF89D` | 30~50% |
-| 3 | 와글 | `crowdPalette.crowded` | `#F3C8A4` | 50~80% |
-| 4 | 와글와글 | `crowdPalette.veryCrowded` | `#E58883` | 80~100% |
+| 단계 | 명칭     | 토큰                       | HEX       | 게이지 구간 |
+| :--: | -------- | -------------------------- | --------- | ----------: |
+|  1   | 유유자적 | `crowdPalette.quiet`       | `#D3E965` |       0~30% |
+|  2   | 여유     | `crowdPalette.notCrowded`  | `#EFF89D` |      30~50% |
+|  3   | 와글     | `crowdPalette.crowded`     | `#F3C8A4` |      50~80% |
+|  4   | 와글와글 | `crowdPalette.veryCrowded` | `#E58883` |     80~100% |
 
 링/게이지는 그라데이션이 아니라 위 구간 단위로 채운다. 프로필 뷰 포인트 링의 미채움 구간은 혼잡도 값이 아니라 `crowdPalette.unfilled`을 쓴다.
 
 지도 핀 컬러 (§4.3). 상단 필터 계열에 따라 전환하고, 선택/포커스 핀만 진한 톤을 쓴다.
 
-| 계열 | 토큰 | HEX | 의미 |
-| --- | --- | --- | --- |
-| 라임 그린 연함 | `color.pin.relaxed.soft` | `#D9ED76` | 여유·유유자적 장소 기본 핀 |
+| 계열           | 토큰                       | HEX       | 의미                       |
+| -------------- | -------------------------- | --------- | -------------------------- |
+| 라임 그린 연함 | `color.pin.relaxed.soft`   | `#D9ED76` | 여유·유유자적 장소 기본 핀 |
 | 라임 그린 진함 | `color.pin.relaxed.strong` | `#C4E600` | 여유·유유자적 장소 선택 핀 |
-| 코럴 연함 | `color.pin.wagle.soft` | `#FFBBBB` | 와글·와글와글 장소 기본 핀 |
-| 코럴 진함 | `color.pin.wagle.strong` | `#FF8F97` | 와글·와글와글 장소 선택 핀 |
+| 코럴 연함      | `color.pin.wagle.soft`     | `#FFBBBB` | 와글·와글와글 장소 기본 핀 |
+| 코럴 진함      | `color.pin.wagle.strong`   | `#FF8F97` | 와글·와글와글 장소 선택 핀 |
 
 내 위치 마커는 핀 팔레트와 혼용하지 않고 `color.location.me`(`#4C9AFF`) + 흰 테두리 + `color.location.mePulse` 전용 토큰만 사용한다.
 
 레거시 5단계 호환 토큰:
 
-| 토큰 | HEX |
-| --- | --- |
-| `colors.easy` | `#82C9A0` |
+| 토큰            | HEX       |
+| --------------- | --------- |
+| `colors.easy`   | `#82C9A0` |
 | `colors.normal` | `#F2C94C` |
-| `colors.busy` | `#F2994A` |
+| `colors.busy`   | `#F2994A` |
 | `colors.packed` | `#E75D67` |
 
 신규 화면에서는 4단계 정책을 우선하고, 레거시 5단계 토큰은 기존 데이터 표시용으로만 사용한다.
@@ -223,14 +224,14 @@ Safe Area inset까지 함께 필요하면 `useScreenLayout()`을 쓰고, 일반 
 
 현재 여러 화면에 직접 쓰인 값이다. 추후 `theme.ts`의 의미 기반 토큰으로 통합한다.
 
-| 제안 토큰 | HEX | 현재 용도 |
-| --- | --- | --- |
-| `limeControl` | `#D9ED76` | 중앙 영상핀 버튼, 보조 CTA |
-| `limeText` | `#8FA900` | 라임 계열 강조 텍스트 |
-| `chatBubbleReceived` | `#D8EB6A` | 받은 채팅 말풍선 |
-| `crowdSoft` | `#FFE3E4` | 혼잡 상태 배경 |
-| `infoBlue` | `#348BF2` | 게시 대기중 |
-| `linkBlue` | `#2F80ED` | 태그, 검색어 강조 |
+| 제안 토큰            | HEX       | 현재 용도                  |
+| -------------------- | --------- | -------------------------- |
+| `limeControl`        | `#D9ED76` | 중앙 영상핀 버튼, 보조 CTA |
+| `limeText`           | `#8FA900` | 라임 계열 강조 텍스트      |
+| `chatBubbleReceived` | `#D8EB6A` | 받은 채팅 말풍선           |
+| `crowdSoft`          | `#FFE3E4` | 혼잡 상태 배경             |
+| `infoBlue`           | `#348BF2` | 게시 대기중                |
+| `linkBlue`           | `#2F80ED` | 태그, 검색어 강조          |
 
 ---
 
@@ -253,17 +254,17 @@ Font Family: Pretendard
 
 ### 5.2 현재 코드 타이포 토큰
 
-| 토큰 | 크기 | 줄높이 | 굵기 | 자간 | 용도 |
-| --- | ---: | ---: | ---: | ---: | --- |
-| `type.display` | 36 | 46 | 700 | -0.8 | 큰 숫자·강한 메시지 |
-| `type.h1` | 30 | 39 | 700 | -0.6 | 페이지 제목 |
-| `type.h2` | 24 | 32 | 700 | -0.4 | 큰 섹션 제목 |
-| `type.h3` | 20 | 28 | 600 | -0.3 | 섹션 제목 |
-| `type.title` | 18 | 26 | 600 | -0.2 | 리스트·카드 제목 |
-| `type.body` | 16 | 25 | 400 | -0.05 | 기본 본문 |
-| `type.small` | 14 | 22 | 400 | 기본 | 작은 본문 |
-| `type.label` | 14 | 20 | 500 | 기본 | 탭·필터·라벨 |
-| `type.caption` | 12 | 18 | 400 | 0.1 | 날짜·주소·보조 정보 |
+| 토큰           | 크기 | 줄높이 | 굵기 |  자간 | 용도                |
+| -------------- | ---: | -----: | ---: | ----: | ------------------- |
+| `type.display` |   36 |     46 |  700 |  -0.8 | 큰 숫자·강한 메시지 |
+| `type.h1`      |   30 |     39 |  700 |  -0.6 | 페이지 제목         |
+| `type.h2`      |   24 |     32 |  700 |  -0.4 | 큰 섹션 제목        |
+| `type.h3`      |   20 |     28 |  600 |  -0.3 | 섹션 제목           |
+| `type.title`   |   18 |     26 |  600 |  -0.2 | 리스트·카드 제목    |
+| `type.body`    |   16 |     25 |  400 | -0.05 | 기본 본문           |
+| `type.small`   |   14 |     22 |  400 |  기본 | 작은 본문           |
+| `type.label`   |   14 |     20 |  500 |  기본 | 탭·필터·라벨        |
+| `type.caption` |   12 |     18 |  400 |   0.1 | 날짜·주소·보조 정보 |
 
 ### 5.3 설계 기준과의 차이
 
@@ -282,14 +283,14 @@ Font Family: Pretendard
 
 ## 6. 모서리와 형태
 
-| 토큰 | 값 | 용도 |
-| --- | ---: | --- |
-| `radius.sm` | 8px | 작은 아이콘 박스, 상태 라벨 |
-| `radius.md` | 12px | 보조 버튼, 작은 카드 |
-| `radius.lg` | 16px | 입력창, 기본 그룹, 일반 카드 |
-| `radius.card` | 20px | 독립 카드 |
-| `radius.hero` | 24px | 히어로 카드, 바텀시트, 모달 |
-| `radius.pill` | 999px | 칩, 토글, 원형 라벨 |
+| 토큰          |    값 | 용도                         |
+| ------------- | ----: | ---------------------------- |
+| `radius.sm`   |   8px | 작은 아이콘 박스, 상태 라벨  |
+| `radius.md`   |  12px | 보조 버튼, 작은 카드         |
+| `radius.lg`   |  16px | 입력창, 기본 그룹, 일반 카드 |
+| `radius.card` |  20px | 독립 카드                    |
+| `radius.hero` |  24px | 히어로 카드, 바텀시트, 모달  |
+| `radius.pill` | 999px | 칩, 토글, 원형 라벨          |
 
 원칙:
 
@@ -377,29 +378,32 @@ const glassShadow = {
 
 파일: `src/components/common/ui.tsx`
 
-| 컴포넌트 | 용도 | 주요 기준 |
-| --- | --- | --- |
-| `ScreenHeader` | 상단 제목·뒤로가기·우측 액션 | 56px, 좌우 터치 영역 44px |
-| `Button` | 주요·보조·위험 행동 | 56px, 반경 16px |
-| `Chip` | 필터·선택 | 최소 높이 38px, pill |
-| `Card` | 독립 정보 그룹 | 흰색, 반경 20px, 패딩 20px |
-| `SectionTitle` | 섹션 제목과 우측 액션 | 제목 20/28/600 |
-| `SearchField` | 검색 입력·검색 진입 | 52px, 반경 16px |
-| `CrowdBadge` | 상태 점과 텍스트 | 8px 상태 점 |
+| 컴포넌트       | 용도                         | 주요 기준                  |
+| -------------- | ---------------------------- | -------------------------- |
+| `ScreenHeader` | 상단 제목·뒤로가기·우측 액션 | 56px, 좌우 터치 영역 44px  |
+| `Button`       | 주요·보조·위험 행동          | 56px, 반경 16px            |
+| `Chip`         | 필터·선택                    | 최소 높이 38px, pill       |
+| `Card`         | 독립 정보 그룹               | 흰색, 반경 20px, 패딩 20px |
+| `SectionTitle` | 섹션 제목과 우측 액션        | 제목 20/28/600             |
+| `SearchField`  | 검색 입력·검색 진입          | 52px, 반경 16px            |
+| `CrowdBadge`   | 상태 점과 텍스트             | 8px 상태 점                |
 
 추가 컴포넌트:
 
-| 컴포넌트 | 파일 | 용도 |
-| --- | --- | --- |
-| `ListGroup` | `src/components/common/ListGroup.tsx` | 반복 행을 하나의 그룹 카드로 묶음 |
-| `RowDivider` | `src/components/common/ListGroup.tsx` | 목록 내부 구분선 |
-| `ScreenContainer` | `src/components/common/ScreenContainer.tsx` | 반응형 여백 + Safe Area inset 공통 컨테이너 |
-| `CrowdFilterToggle` | `src/components/common/CrowdFilterToggle.tsx` | 여유/와글 필터 토글 (홈·추천 공용) |
-| `ViewAvatar` | `src/components/pin/ViewAvatar.tsx` | 사용자 뷰 신뢰도 시각화 |
-| `CrowdLevelBadge` | `src/components/pin/CrowdLevelBadge.tsx` | 혼잡도 4단계 뱃지 |
-| `KakaoMap` | `src/components/home/KakaoMap.tsx` | 카카오맵 SDK를 WebView(웹은 iframe)로 구동하는 실지도 |
-| `MapPlaceholder` | `src/components/home/MapPlaceholder.tsx` | 앱 키 미설정·SDK 로드 실패 시의 지도 대체 화면 |
-| `MapMarker` / `MyLocationMarker` | `src/components/home/MapMarker.tsx` | 필터 계열에 따른 장소 핀, 내 위치 마커 |
+| 컴포넌트                            | 파일                                          | 용도                                                  |
+| ----------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| `ListGroup`                         | `src/components/common/ListGroup.tsx`         | 반복 행을 하나의 그룹 카드로 묶음                     |
+| `RowDivider`                        | `src/components/common/ListGroup.tsx`         | 목록 내부 구분선                                      |
+| `ScreenContainer`                   | `src/components/common/ScreenContainer.tsx`   | 반응형 여백 + Safe Area inset 공통 컨테이너           |
+| `CrowdFilterToggle`                 | `src/components/common/CrowdFilterToggle.tsx` | 여유/와글 필터 토글 (홈·추천 공용)                    |
+| `ViewAvatar`                        | `src/components/pin/ViewAvatar.tsx`           | 사용자 뷰 신뢰도 시각화                               |
+| `CrowdLevelBadge`                   | `src/components/pin/CrowdLevelBadge.tsx`      | 혼잡도 4단계 뱃지                                     |
+| `KakaoMap`                          | `src/components/home/KakaoMap.tsx`            | 카카오맵 SDK를 WebView(웹은 iframe)로 구동하는 실지도 |
+| `MapUnavailable`                    | `src/components/home/MapUnavailable.tsx`      | 앱 키 미설정·SDK 로드 실패 시의 지도 대체 화면        |
+| `StaticBottomNav` / `CaptureButton` | `src/components/common/BottomNav.tsx`         | 바텀바 규격. 탭 밖 화면은 `StaticBottomNav`를 쓴다    |
+
+> 장소 핀과 내 위치 마커는 지도 SDK 안에서 그려진다(`src/components/home/kakaoMapHtml.ts`).
+> 색은 `color.pin` / `color.location` 토큰을 그대로 주입해 RN 화면과 같은 값을 쓴다.
 
 ### 9.2 추가로 공용화해야 할 컴포넌트
 
@@ -410,7 +414,7 @@ const glassShadow = {
 - 현재 탭 레이아웃 외 상세·마이 하위 화면에서 중복 구현 중
 - 홈, 추천, 영상핀, 채팅, 마이 5개 탭
 - 높이 72px
-- 중앙 영상핀 버튼 54~58px, 위로 20~29px 돌출
+- 중앙 영상핀 버튼 54~~58px, 위로 20~~29px 돌출
 - 활성 탭은 `dark`, 비활성은 `gray400`
 
 #### `ViewAngleRing`
@@ -558,11 +562,11 @@ const glassShadow = {
 
 ### 11.3 채팅
 
-| 상태 | 요청자 | 게시자 |
-| --- | --- | --- |
-| 대기 | 요청 완료 안내, 입력 비활성 | 수락·거절 카드 |
-| 채팅중 | 정상 입력·대화 | 정상 입력·대화 |
-| 종료 | 종료 안내, 입력 비활성 | 종료 안내, 입력 비활성 |
+| 상태   | 요청자                      | 게시자                 |
+| ------ | --------------------------- | ---------------------- |
+| 대기   | 요청 완료 안내, 입력 비활성 | 수락·거절 카드         |
+| 채팅중 | 정상 입력·대화              | 정상 입력·대화         |
+| 종료   | 종료 안내, 입력 비활성      | 종료 안내, 입력 비활성 |
 
 - 외부 연락처 유도 또는 범죄 의심 패턴은 AI 경고 카드로 표시한다.
 - 경고 카드는 대화를 삭제하지 않고 흐름 안에 삽입한다.
@@ -606,17 +610,11 @@ import { Button, Card, SearchField } from '@/components/ui';
 export function Example() {
   return (
     <View style={{ flex: 1, paddingHorizontal: layout.gutter }}>
-      <Text style={{ ...type.h2, color: colors.dark }}>
-        오늘의 장소 추천
-      </Text>
+      <Text style={{ ...type.h2, color: colors.dark }}>오늘의 장소 추천</Text>
 
       <Card style={{ marginTop: spacing.x5 }}>
-        <Text style={{ ...type.title, color: colors.dark }}>
-          성수 연무장길
-        </Text>
-        <Text style={{ ...type.caption, color: colors.gray400 }}>
-          서울 성동구 연무장길
-        </Text>
+        <Text style={{ ...type.title, color: colors.dark }}>성수 연무장길</Text>
+        <Text style={{ ...type.caption, color: colors.gray400 }}>서울 성동구 연무장길</Text>
       </Card>
 
       <Button label="영상핀 등록하기" />

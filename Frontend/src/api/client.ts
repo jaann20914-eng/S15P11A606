@@ -1,3 +1,4 @@
+// 아직 호출하는 화면은 없다. 백엔드 연동이 들어올 요청 경계라 미리 둔 파일이다.
 import type { ApiResponse } from '@/types/common';
 
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;

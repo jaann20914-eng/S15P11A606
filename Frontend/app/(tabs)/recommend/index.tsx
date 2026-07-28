@@ -11,16 +11,76 @@ import { color, colors, layout, radius, spacing, type } from '@/constants/theme'
 import type { CrowdFilter } from '@/constants/crowdLevels';
 
 const recommendations = [
-  { id: '1', name: '성수 연무장길', hours: '영업중 · 오후 10:00까지', address: '서울 성동구 연무장길', pins: 8 },
-  { id: '2', name: '서울숲 산책로', hours: '운영중 · 24시간 이용 가능', address: '서울 성동구 뚝섬로 273', pins: 12 },
-  { id: '3', name: '뚝섬한강공원', hours: '운영중 · 24시간 이용 가능', address: '서울 광진구 강변북로 139', pins: 6 },
-  { id: '4', name: '성수 카페거리', hours: '영업중 · 오후 11:00까지', address: '서울 성동구 성수이로', pins: 9 },
-  { id: '5', name: '연무장길 팝업존', hours: '영업중 · 오후 8:00까지', address: '서울 성동구 연무장길 24', pins: 14 },
-  { id: '6', name: '어린이대공원', hours: '운영중 · 오후 10:00까지', address: '서울 광진구 능동로 216', pins: 5 },
-  { id: '7', name: '건대 커먼그라운드', hours: '영업중 · 오후 10:00까지', address: '서울 광진구 아차산로 200', pins: 11 },
-  { id: '8', name: '송정제방길', hours: '운영중 · 24시간 이용 가능', address: '서울 성동구 송정동 73-448', pins: 4 },
-  { id: '9', name: '성수 수제화거리', hours: '영업중 · 오후 9:00까지', address: '서울 성동구 연무장7길', pins: 7 },
-  { id: '10', name: '서울숲 북쪽 산책로', hours: '운영중 · 24시간 이용 가능', address: '서울 성동구 서울숲2길', pins: 10 },
+  {
+    id: '1',
+    name: '성수 연무장길',
+    hours: '영업중 · 오후 10:00까지',
+    address: '서울 성동구 연무장길',
+    pins: 8,
+  },
+  {
+    id: '2',
+    name: '서울숲 산책로',
+    hours: '운영중 · 24시간 이용 가능',
+    address: '서울 성동구 뚝섬로 273',
+    pins: 12,
+  },
+  {
+    id: '3',
+    name: '뚝섬한강공원',
+    hours: '운영중 · 24시간 이용 가능',
+    address: '서울 광진구 강변북로 139',
+    pins: 6,
+  },
+  {
+    id: '4',
+    name: '성수 카페거리',
+    hours: '영업중 · 오후 11:00까지',
+    address: '서울 성동구 성수이로',
+    pins: 9,
+  },
+  {
+    id: '5',
+    name: '연무장길 팝업존',
+    hours: '영업중 · 오후 8:00까지',
+    address: '서울 성동구 연무장길 24',
+    pins: 14,
+  },
+  {
+    id: '6',
+    name: '어린이대공원',
+    hours: '운영중 · 오후 10:00까지',
+    address: '서울 광진구 능동로 216',
+    pins: 5,
+  },
+  {
+    id: '7',
+    name: '건대 커먼그라운드',
+    hours: '영업중 · 오후 10:00까지',
+    address: '서울 광진구 아차산로 200',
+    pins: 11,
+  },
+  {
+    id: '8',
+    name: '송정제방길',
+    hours: '운영중 · 24시간 이용 가능',
+    address: '서울 성동구 송정동 73-448',
+    pins: 4,
+  },
+  {
+    id: '9',
+    name: '성수 수제화거리',
+    hours: '영업중 · 오후 9:00까지',
+    address: '서울 성동구 연무장7길',
+    pins: 7,
+  },
+  {
+    id: '10',
+    name: '서울숲 북쪽 산책로',
+    hours: '운영중 · 24시간 이용 가능',
+    address: '서울 성동구 서울숲2길',
+    pins: 10,
+  },
 ] as const;
 
 const angles = [320, 90, 270, 90, 180];
@@ -30,54 +90,60 @@ export default function Recommend() {
   const [mode, setMode] = useState<CrowdFilter>('relaxed');
   const relaxed = mode === 'relaxed';
   const backgroundColors = relaxed
-    ? ['#FFFDF3', '#F3FCEB', '#E8F7FC'] as const
-    : ['#FFFDF3', '#FFF3E9', '#FFECEF'] as const;
+    ? (['#FFFDF3', '#F3FCEB', '#E8F7FC'] as const)
+    : (['#FFFDF3', '#FFF3E9', '#FFECEF'] as const);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
-      <View style={s.header}><Text style={s.headerTitle}>추천 장소</Text></View>
+      <View style={s.header}>
+        <Text style={s.headerTitle}>추천 장소</Text>
+      </View>
       <View style={s.content}>
         <View style={[s.intro, { paddingHorizontal: padding }]}>
           <Text style={s.kicker}>취향과 현재 위치를 반영했어요</Text>
           <View style={s.titleRow}>
             <Text style={s.title}>오늘의 장소 추천</Text>
-            <View style={s.updateMeta}><View style={s.updateDot}/><Text style={s.updateText}>16분 전 업데이트</Text></View>
+            <View style={s.updateMeta}>
+              <View style={s.updateDot} />
+              <Text style={s.updateText}>16분 전 업데이트</Text>
+            </View>
           </View>
 
           <CrowdFilterToggle value={mode} onChange={setMode} style={s.filterToggle} />
         </View>
 
-        <LinearGradient colors={backgroundColors} locations={[0, .48, 1]} style={s.listGradient}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled
-            contentContainerStyle={s.list}
-          >
+        <LinearGradient colors={backgroundColors} locations={[0, 0.48, 1]} style={s.listGradient}>
+          <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={s.list}>
             {recommendations.map((place) => (
               <View key={place.id} style={s.cardFrame}>
-              <Pressable onPress={() => router.push(`/place/${place.id}`)} style={s.card}>
-                <View style={s.cardTop}>
-                  <View style={s.placeCopy}>
-                    <Text style={s.placeName}>{place.name}</Text>
-                    <Text style={s.hours}>{place.hours}</Text>
-                    <Text style={s.address}>{place.address}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
-                </View>
-                <View style={s.rule} />
-                <Text style={s.pinMessage}>감지카메라 외 {Math.max(place.pins - 1, 1)}명이 핀을 업로드했습니다</Text>
-                <View style={s.angleRow}>
-                  {angles.map((angle, angleIndex) => (
-                    <View
-                      key={`${place.id}-${angleIndex}`}
-                      style={[s.angleRing, { borderColor: relaxed ? color.pin.relaxed.strong : color.pin.wagle.soft }]}
-                    >
-                      <Text style={s.angleText}>{angle}°</Text>
+                <Pressable onPress={() => router.push(`/place/${place.id}`)} style={s.card}>
+                  <View style={s.cardTop}>
+                    <View style={s.placeCopy}>
+                      <Text style={s.placeName}>{place.name}</Text>
+                      <Text style={s.hours}>{place.hours}</Text>
+                      <Text style={s.address}>{place.address}</Text>
                     </View>
-                  ))}
-                  <Text style={s.more}>+{place.pins}</Text>
-                </View>
-              </Pressable>
+                    <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
+                  </View>
+                  <View style={s.rule} />
+                  <Text style={s.pinMessage}>
+                    감지카메라 외 {Math.max(place.pins - 1, 1)}명이 핀을 업로드했습니다
+                  </Text>
+                  <View style={s.angleRow}>
+                    {angles.map((angle, angleIndex) => (
+                      <View
+                        key={`${place.id}-${angleIndex}`}
+                        style={[
+                          s.angleRing,
+                          { borderColor: relaxed ? color.pin.relaxed.strong : color.pin.wagle.soft },
+                        ]}
+                      >
+                        <Text style={s.angleText}>{angle}°</Text>
+                      </View>
+                    ))}
+                    <Text style={s.more}>+{place.pins}</Text>
+                  </View>
+                </Pressable>
               </View>
             ))}
           </ScrollView>
@@ -90,7 +156,7 @@ export default function Recommend() {
 const shadow = {
   shadowColor: colors.dark,
   shadowOffset: { width: 0, height: 5 },
-  shadowOpacity: .14,
+  shadowOpacity: 0.14,
   shadowRadius: 10,
   elevation: 5,
 };

@@ -27,10 +27,10 @@ export default function Profile() {
       <View style={s.screen}>
         <View style={s.header}>
           <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.headerButton}>
-            <Ionicons name="chevron-back" size={24} color={colors.gray400}/>
+            <Ionicons name="chevron-back" size={24} color={colors.gray400} />
           </Pressable>
           <Text style={s.headerTitle}>나의 정보</Text>
-          <View style={s.headerButton}/>
+          <View style={s.headerButton} />
         </View>
 
         <View style={s.content}>
@@ -53,21 +53,29 @@ export default function Profile() {
               onPress={() => setChecked(true)}
               style={[s.checkButton, !canCheck && s.checkDisabled, checked && s.checkedButton]}
             >
-              {checked && <Ionicons name="checkmark" size={14} color={colors.gray600}/>}
-              <Text style={[s.checkText, !canCheck && s.checkTextDisabled]}>{checked ? '확인됨' : '중복확인'}</Text>
+              {checked && <Ionicons name="checkmark" size={14} color={colors.gray600} />}
+              <Text style={[s.checkText, !canCheck && s.checkTextDisabled]}>
+                {checked ? '확인됨' : '중복확인'}
+              </Text>
             </Pressable>
           </View>
 
           <View style={s.helperRow}>
-            <Text style={[s.helper, checked && s.success]}>{checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.'}</Text>
+            <Text style={[s.helper, checked && s.success]}>
+              {checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.'}
+            </Text>
             <Text style={s.count}>{nickname.length} / 12</Text>
           </View>
 
-          <Pressable accessibilityRole="button" disabled={!checked} onPress={save} style={[s.saveButton, !checked && s.saveDisabled]}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!checked}
+            onPress={save}
+            style={[s.saveButton, !checked && s.saveDisabled]}
+          >
             <Text style={[s.saveText, !checked && s.saveTextDisabled]}>변경 저장</Text>
           </Pressable>
         </View>
-
       </View>
     </SafeAreaView>
   );
@@ -119,7 +127,12 @@ const s = StyleSheet.create({
   checkedButton: { backgroundColor: colors.limeSoft },
   checkText: { ...type.label, fontWeight: '600', color: colors.dark },
   checkTextDisabled: { color: colors.gray400 },
-  helperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.x2 },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.x2,
+  },
   helper: { ...type.caption, color: colors.gray600 },
   success: { color: colors.success, fontWeight: '500' },
   count: { ...type.caption, color: colors.gray400 },

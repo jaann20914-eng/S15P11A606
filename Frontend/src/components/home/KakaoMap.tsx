@@ -16,7 +16,9 @@ export type { KakaoMapHandle, KakaoMapProps } from './KakaoMap.types';
  * U+2028/2029는 JSON에서는 유효하지만 JS 소스에서는 줄바꿈이라 문자열을 깨뜨리므로 이스케이프한다.
  */
 function toScriptLiteral(value: unknown): string {
-  return JSON.stringify(value).replace(/[\u2028\u2029]/g, (char) => char === '\u2028' ? '\\u2028' : '\\u2029');
+  return JSON.stringify(value).replace(/[\u2028\u2029]/g, (char) =>
+    char === '\u2028' ? '\\u2028' : '\\u2029',
+  );
 }
 
 /**
@@ -208,5 +210,10 @@ const s = StyleSheet.create({
   inlineMap: { height: 260, overflow: 'hidden', borderRadius: radius.hero, backgroundColor: color.bg.map },
   fullMap: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', backgroundColor: color.bg.map },
   webview: { flex: 1, backgroundColor: color.bg.map },
-  loading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bg.map },
+  loading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.bg.map,
+  },
 });

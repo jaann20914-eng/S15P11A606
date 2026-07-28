@@ -63,7 +63,14 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  label: { position: 'absolute', top: '50%', transform: [{ translateY: -10 }], fontSize: 14, lineHeight: 20, fontWeight: '700' },
+  label: {
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -10 }],
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
   thumb: {
     position: 'absolute',
     top: '50%',

@@ -41,7 +41,7 @@ export default function Home() {
   const navBarHeight = useNavBarHeight();
 
   const snapPoints = useMemo(
-    // The middle stop deliberately exposes one complete place card only.
+    // 중간 단계는 장소 카드가 정확히 하나만 온전히 보이는 높이다.
     () => [Math.max(0, height - 92), Math.max(insets.top + 160, height - 372), Math.max(insets.top + 84, 96)],
     [height, insets.top],
   );
@@ -191,7 +191,9 @@ export default function Home() {
           >
             <View style={s.handle} />
             <View style={s.sheetHeading}>
-              <Text numberOfLines={1} style={s.sheetTitle}>주위를 둘러볼까요?</Text>
+              <Text numberOfLines={1} style={s.sheetTitle}>
+                주위를 둘러볼까요?
+              </Text>
               <CrowdFilterToggle value={crowdFilter} onChange={setCrowdFilter} />
             </View>
           </Pressable>
@@ -207,16 +209,16 @@ export default function Home() {
           ]}
         >
           {visiblePlaces.map((place) => (
-            <Pressable
-              key={place.id}
-              onPress={() => openPlace(place.id)}
-              style={s.placeCard}
-            >
+            <Pressable key={place.id} onPress={() => openPlace(place.id)} style={s.placeCard}>
               <View style={s.cardTop}>
                 <View style={s.placeCopy}>
-                  <Text numberOfLines={1} style={s.placeName}>{place.name}</Text>
+                  <Text numberOfLines={1} style={s.placeName}>
+                    {place.name}
+                  </Text>
                   <Text style={s.hours}>영업중 · 오후 10:00까지</Text>
-                  <Text numberOfLines={1} style={s.address}>{place.address}</Text>
+                  <Text numberOfLines={1} style={s.address}>
+                    {place.address}
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
               </View>
@@ -315,7 +317,12 @@ const s = StyleSheet.create({
   },
   sheetTitle: { ...type.body, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
   list: { paddingTop: 0, gap: spacing.x3 },
-  placeCard: { padding: spacing.x5, borderRadius: radius.card, backgroundColor: 'rgba(255,255,255,0.96)', ...glassShadow },
+  placeCard: {
+    padding: spacing.x5,
+    borderRadius: radius.card,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    ...glassShadow,
+  },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
   placeCopy: { flex: 1, minWidth: 0 },
   placeName: { ...type.title, flex: 1, color: colors.dark },
@@ -324,7 +331,16 @@ const s = StyleSheet.create({
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinUpload: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x3 },
-  angleRing: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.lime, backgroundColor: colors.white },
+  angleRing: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.lime,
+    backgroundColor: colors.white,
+  },
   angleText: { fontSize: 10, lineHeight: 14, color: colors.gray600 },
   morePins: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
   empty: { alignItems: 'center', paddingVertical: spacing.x10 },

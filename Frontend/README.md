@@ -61,4 +61,3 @@ WebView·Expo Go의 문서 주소는 콘솔에 등록하기 애매하고 팀원�
 - `src/types/`: API와 도메인 타입
 
 화면 파일은 라우팅과 화면 조립에 집중하고, 재사용 UI와 로직은 `src/`에서 관리합니다. 상세 설계 기준과 요구사항 추적표는 `docs/UX-SPEC.md`, 현재 폴더 기준은 `docs/FOLDER_STRUCTURE.md`에 정리했습니다.
-

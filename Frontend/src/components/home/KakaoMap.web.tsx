@@ -1,3 +1,5 @@
+// 이 파일을 import 하는 곳은 없지만 지우면 안 된다.
+// Metro가 웹 플랫폼에서 `KakaoMap.tsx` 대신 `.web.tsx`를 자동으로 선택한다(플랫폼 확장자 규칙).
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { MapUnavailable } from './MapUnavailable';

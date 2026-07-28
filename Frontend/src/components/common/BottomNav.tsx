@@ -17,7 +17,10 @@ import { color, colors, spacing } from '@/constants/theme';
 export type NavTab = 'home' | 'recommend' | 'chat' | 'mypage';
 
 /** [비활성 아이콘, 활성 아이콘] — 마이는 시안대로 선 아이콘을 유지한다. */
-export const navIcons: Record<NavTab, readonly [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]> = {
+export const navIcons: Record<
+  NavTab,
+  readonly [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]
+> = {
   home: ['map-outline', 'map'],
   recommend: ['sparkles-outline', 'sparkles'],
   chat: ['chatbubble-outline', 'chatbubble'],
@@ -126,7 +129,12 @@ export function StaticBottomNav({
       {tabs.slice(0, 2).map((tab) => (
         <NavCell key={tab} tab={tab} active={active} onPress={onPressTab} />
       ))}
-      <Pressable accessibilityRole="button" accessibilityLabel="영상핀 제보" onPress={onPressCapture} style={st.cell}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="영상핀 제보"
+        onPress={onPressCapture}
+        style={st.cell}
+      >
         <CaptureButton focused={false} />
       </Pressable>
       {tabs.slice(2).map((tab) => (
@@ -136,15 +144,7 @@ export function StaticBottomNav({
   );
 }
 
-function NavCell({
-  tab,
-  active,
-  onPress,
-}: {
-  tab: NavTab;
-  active: NavTab;
-  onPress: (tab: NavTab) => void;
-}) {
+function NavCell({ tab, active, onPress }: { tab: NavTab; active: NavTab; onPress: (tab: NavTab) => void }) {
   const focused = tab === active;
 
   return (

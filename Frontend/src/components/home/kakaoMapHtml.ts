@@ -67,7 +67,11 @@ export interface KakaoMapHtmlOptions {
   level?: number;
 }
 
-export function buildKakaoMapHtml({ appKey, center, level = DEFAULT_MAP_LEVEL }: KakaoMapHtmlOptions): string {
+export function buildKakaoMapHtml({
+  appKey,
+  center,
+  level = DEFAULT_MAP_LEVEL,
+}: KakaoMapHtmlOptions): string {
   const initial = JSON.stringify({
     lat: center.latitude,
     lng: center.longitude,

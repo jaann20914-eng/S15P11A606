@@ -61,7 +61,9 @@ export default function Login() {
           <View style={styles.copy}>
             <Text style={styles.eyebrow}>지금, 여기는 어때?</Text>
             <Text style={styles.title}>도착하기 전에{`\n`}현장을 먼저 보세요</Text>
-            <Text style={styles.description}>실시간 현장 영상으로 장소의 혼잡도를 확인하고{`\n`}더 나은 방문 시간을 선택해요.</Text>
+            <Text style={styles.description}>
+              실시간 현장 영상으로 장소의 혼잡도를 확인하고{`\n`}더 나은 방문 시간을 선택해요.
+            </Text>
           </View>
         </View>
 
