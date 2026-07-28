@@ -11,6 +11,7 @@ pin/detail.ts    GET    /api/v1/pins/{pinId}
 pin/unlock.ts    POST   /api/v1/pins/{pinId}/unlock
 pin/evaluate.ts  POST   /api/v1/pins/{pinId}/evaluations
 pin/remove.ts    DELETE /api/v1/pins/{pinId}
+chat/request.ts  POST   /api/v1/chat/request/{pinId}
 chat/leave.ts    POST   /api/v1/chat/pins/{pinId}/rooms/leave
 ```
 

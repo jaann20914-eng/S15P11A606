@@ -127,7 +127,13 @@ function PinDetailScreen({
         onConfirm={purchase.confirm}
       />
 
-      <PinChatRequestModal visible={chat.open} onCancel={chat.hide} onConfirm={chat.confirm} />
+      <PinChatRequestModal
+        visible={chat.open}
+        busy={chat.busy}
+        error={chat.error}
+        onCancel={chat.hide}
+        onConfirm={chat.confirm}
+      />
 
       <ConfirmModal
         visible={remove.open}

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { leavePinChats } from '@/api/chat/leave';
+import { createChatRequest } from '@/api/chat/request';
 import { evaluatePin } from '@/api/pin/evaluate';
 import { deletePin } from '@/api/pin/remove';
 import { unlockPin } from '@/api/pin/unlock';
@@ -144,10 +145,17 @@ export interface EvaluationState {
   submit: (rating: PinRating) => void;
 }
 
+/** 채팅 요청 모달. 실패하면 닫지 않고 문구를 남긴다. */
+export interface ChatRequestState extends ToggleState {
+  busy: boolean;
+  error: string | null;
+  confirm: () => void;
+}
+
 export interface PinDetailScreenState {
   menu: ToggleState & { toggle: () => void; edit: () => void };
   purchase: PurchaseState;
-  chat: ToggleState & { confirm: () => void };
+  chat: ChatRequestState;
   remove: ConfirmActionState;
   leave: ConfirmActionState;
   evaluation: EvaluationState;
@@ -198,6 +206,53 @@ function useEvaluation(
 }
 
 /**
+ * 익명 채팅 요청.
+ *
+ * 이미 대기 중인 요청이나 활성 방이 있으면 서버가 409를 준다.
+ * 그때는 오류로 남기지 않고 화면을 "수락 대기"로 넘긴다 — 서버 상태가 그게 맞다.
+ */
+function useChatRequest(
+  pinId: number,
+  onDetailChange: (patch: Partial<PinDetail>) => void,
+): ChatRequestState {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const show = useCallback(() => {
+    setError(null);
+    setOpen(true);
+  }, []);
+
+  const hide = useCallback(() => setOpen(false), []);
+
+  const confirm = useCallback(() => {
+    setBusy(true);
+    setError(null);
+
+    createChatRequest(pinId)
+      .then(() => {
+        setBusy(false);
+        setOpen(false);
+        onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
+      })
+      .catch((cause: unknown) => {
+        setBusy(false);
+
+        if (cause instanceof ApiError && cause.code === 'CHAT_REQUEST_ALREADY_EXISTS') {
+          setOpen(false);
+          onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
+          return;
+        }
+
+        setError(cause instanceof Error ? cause.message : '채팅을 요청하지 못했어요');
+      });
+  }, [pinId, onDetailChange]);
+
+  return { open, busy, error, show, hide, confirm };
+}
+
+/**
  * 게시글 상세 화면의 상호작용 상태를 모은다.
  * 화면 컴포넌트는 이 훅이 준 것만 쓰고 자체 `useState`를 두지 않는다.
  *
@@ -208,9 +263,9 @@ export function usePinDetailScreen(
   onDetailChange: (patch: Partial<PinDetail>) => void,
 ): PinDetailScreenState {
   const menu = useToggle();
-  const chat = useToggle();
   const purchase = usePurchase(detail.pinId, onDetailChange);
   const evaluation = useEvaluation(detail.pinId, onDetailChange);
+  const chat = useChatRequest(detail.pinId, onDetailChange);
 
   const remove = useConfirmAction(
     useCallback(() => deletePin(detail.pinId), [detail.pinId]),
@@ -221,12 +276,6 @@ export function usePinDetailScreen(
     useCallback(() => leavePinChats(detail.pinId), [detail.pinId]),
     '처리하지 못했어요',
   );
-
-  // TODO: 채팅 요청 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
-  const confirmChat = useCallback(() => {
-    onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
-    chat.hide();
-  }, [onDetailChange, chat]);
 
   return {
     menu: {
@@ -239,7 +288,7 @@ export function usePinDetailScreen(
       }, [menu]),
     },
     purchase,
-    chat: { ...chat, confirm: confirmChat },
+    chat,
     remove,
     leave,
     evaluation,

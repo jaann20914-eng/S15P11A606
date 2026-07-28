@@ -5,6 +5,21 @@
  * 채팅방 목록·메시지 API를 붙이면 여기에 추가한다.
  */
 
+/** 채팅방 상태. 요청 직후는 `PENDING`이고 작성자가 수락하면 `ACTIVE`가 된다. */
+export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'CLOSED' | 'LEFT';
+
+/**
+ * 익명 채팅 요청 응답 `data`.
+ *
+ * 요청이 곧 채팅방 생성이다. 수락 전(`PENDING`)에도 `roomId`가 발급된다.
+ */
+export type ChatRequestResult = {
+  roomId: number;
+  pinId: number;
+  status: 'PENDING';
+  createdAt: string;
+};
+
 /**
  * "핀 떠났어요" 응답 `data`.
  *

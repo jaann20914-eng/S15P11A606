@@ -233,4 +233,11 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   chatStartText: { ...type.label, color: '#91A700', fontWeight: '600' },
+  chatStartBusy: { opacity: 0.6 },
+  chatRequestError: {
+    ...type.caption,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.x3,
+  },
 });

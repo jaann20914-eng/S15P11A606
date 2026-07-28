@@ -44,7 +44,7 @@ src/
 │   ├── client.ts              axios 인스턴스·인터셉터·ApiError
 │   ├── config.ts              usesMockApi
 │   ├── pin/                   detail, unlock, evaluate, remove
-│   └── chat/                  leave
+│   └── chat/                  request, leave
 ├── mocks/                     pin, chat
 ├── components/
 │   ├── common/                ui, AppTabBar, ConfirmModal, ErrorView,
