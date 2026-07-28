@@ -38,4 +38,19 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// .env가 있으면 테스트 실행 환경변수로 주입
+	def envFile = file('.env')
+	if (envFile.exists()) {
+		envFile.readLines().each { line ->
+			def trimmed = line.trim()
+			if (trimmed.isEmpty() || trimmed.startsWith('#') || !trimmed.contains('=')) {
+				return
+			}
+			def idx = trimmed.indexOf('=')
+			def key = trimmed.substring(0, idx).trim().replaceFirst(/^export\s+/, '')
+			def value = trimmed.substring(idx + 1).trim().replaceAll(/^["']|["']$/, '')
+			environment key, value
+		}
+	}
 }
