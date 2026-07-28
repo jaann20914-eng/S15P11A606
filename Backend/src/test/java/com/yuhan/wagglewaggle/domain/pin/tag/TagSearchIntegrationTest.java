@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.pin.tag;
 
 import com.yuhan.wagglewaggle.domain.pin.tag.document.PinTagDocument;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.TagSearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,15 @@ class TagSearchIntegrationTest {
     @Autowired
     ElasticsearchOperations operations;
 
+    @Autowired
+    TagSearchService service;
+
+    private void save(String id, String tag, double lat, double lon) {
+        operations.save(new PinTagDocument(
+                id, tag, Long.parseLong(id), new GeoPoint(lat, lon), true,
+                Instant.now().plus(1, ChronoUnit.DAYS)));
+    }
+
     // 각 테스트 전에 인덱스를 지우고 매핑과 함께 새로 만들어, 테스트 간 데이터 간섭을 없앤다.
     @BeforeEach
     void cleanIndex() {
@@ -58,5 +68,30 @@ class TagSearchIntegrationTest {
         long count = operations.count(Query.findAll(), PinTagDocument.class);
 
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void 완전일치_접두어_부분일치_순으로_정렬하고_중복을_제거한다() {
+        // 중심(37.50,127.00) 반경 내
+        save("1", "데이트", 37.5001, 127.0001);       // 완전일치
+        save("2", "데이트코스", 37.5002, 127.0002);   // 접두어
+        save("3", "맛집데이트", 37.5003, 127.0003);   // 부분(포함)
+        save("4", "데이트", 37.5004, 127.0004);       // 중복 태그명 → 1건으로 합쳐져야
+        // 반경 밖(약 수십 km)
+        save("5", "데이트천국", 37.9000, 127.9000);
+        operations.indexOps(PinTagDocument.class).refresh();
+
+        var names = service.search("데이트", 37.50, 127.00).tags()
+                .stream().map(t -> t.name()).toList();
+
+        assertThat(names).containsExactly("데이트", "데이트코스", "맛집데이트");
+    }
+
+    @Test
+    void 반경_내에_일치하는_태그가_없으면_빈_결과를_반환한다() {
+        save("1", "데이트천국", 37.9000, 127.9000); // 반경 밖
+        operations.indexOps(PinTagDocument.class).refresh();
+
+        assertThat(service.search("데이트", 37.50, 127.00).tags()).isEmpty();
     }
 }
