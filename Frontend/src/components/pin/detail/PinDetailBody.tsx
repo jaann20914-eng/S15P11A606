@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { crowdLevels } from '@/constants/crowdLevels';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
+import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from './styles';
 
 /** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
@@ -38,6 +39,15 @@ export function PinDetailBody({
 
   const showChatAction = !own && unlocked;
 
+  // "2층 창가석 기준 · 40초 전 업로드". 없는 조각은 빠진 채로 조립된다.
+  const uploadedAt = formatRelativeTime(detail.createdAt);
+  const metaText = [
+    detail.detailLocation && `${detail.detailLocation} 기준`,
+    uploadedAt && `${uploadedAt} 업로드`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
       <View style={s.videoFrame}>
@@ -45,12 +55,16 @@ export function PinDetailBody({
       </View>
 
       <View style={s.detailSheet}>
-        {(detail.detailLocation || showChatAction) && (
-          <View style={s.metaRow}>
-            <Text style={s.detailLocation}>{detail.detailLocation ?? ''}</Text>
-            {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
+        <View style={s.authorRow}>
+          <View style={s.viewRing}>
+            <Text style={s.viewRingText}>{detail.authorViewAngle}°</Text>
           </View>
-        )}
+          <View style={s.authorCopy}>
+            <Text style={s.authorName}>{detail.authorNickname}</Text>
+            {metaText !== '' && <Text style={s.authorMeta}>{metaText}</Text>}
+          </View>
+          {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
+        </View>
 
         <Text style={s.placeName}>{detail.place.name}</Text>
         <Text style={s.address}>{detail.place.address}</Text>

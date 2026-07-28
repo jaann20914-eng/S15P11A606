@@ -41,6 +41,9 @@ function createBaseDetail(): PinDetail {
       name: '바나프레소 역삼점',
       address: '서울 광진구 동일로 60길 47 1층 (군자동)',
     },
+    authorViewAngle: 92,
+    authorNickname: '역삼동 익명러',
+    createdAt: new Date(Date.now() - 40_000).toISOString(),
     crowdLevel: 'CROWDED',
     detailLocation: '2층 창가석',
     memo: '2층 창가석에 앉아있습니다. 지금 사람이 엄청 많네요. 혹시 노트북 자리가 필요하신 분이 계시다면 3시반까지는 채팅 편하게 주세요.',
@@ -89,6 +92,8 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
     case 'owner':
       return {
         ...base,
+        authorViewAngle: 88,
+        authorNickname: '나',
         memo: '창가 쪽은 아직 자리 있어요. 콘센트는 벽면에만 있습니다.',
         videoAccess: 'OWNER',
         isEvaluated: null,

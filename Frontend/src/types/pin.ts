@@ -45,6 +45,7 @@ export type PinPlaceSummary = {
   address: string;
 };
 
+
 /**
  * `GET /api/v1/pins/{pinId}` 응답 `data`.
  *
@@ -54,6 +55,15 @@ export type PinPlaceSummary = {
 export type PinDetail = {
   pinId: number;
   place: PinPlaceSummary;
+  /**
+   * 작성자의 공개 뷰 각도. 프로필 링 안에 `90°`처럼 표시한다.
+   * DB `member.view_angle` 기준으로 90~360 범위다.
+   */
+  authorViewAngle: number;
+  /** 익명 정책이 적용된 작성자 표시명. 내 핀이어도 서버가 그대로 내려준다. */
+  authorNickname: string;
+  /** 핀 등록 시각(ISO 8601). "40초 전 업로드" 표기에 쓴다. */
+  createdAt: string;
   crowdLevel: CrowdLevelKey;
   /** 층·좌석 등 장소 내부 위치. 없으면 null. */
   detailLocation: string | null;
