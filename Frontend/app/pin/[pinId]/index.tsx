@@ -1,36 +1,33 @@
 import { useState } from 'react';
-import {
-  Image,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { StaticBottomNav } from '@/components/common/BottomNav';
+import type { NavTab } from '@/components/common/BottomNav';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+
+const tabRoutes: Record<NavTab, string> = {
+  home: '/(tabs)/home',
+  recommend: '/(tabs)/recommend',
+  chat: '/(tabs)/chat/sent',
+  mypage: '/(tabs)/mypage',
+};
 
 function ViewRing() {
   return <View style={s.viewRing}><Text style={s.viewRingText}>92°</Text></View>;
 }
 
+/** 탭 밖 화면이라 바텀바를 직접 그린다. 규격·시스템 바 여백은 공통 컴포넌트가 처리한다. */
 function BottomNavigation() {
-  const items = [
-    ['home-outline', '홈', '/(tabs)/home'],
-    ['menu-outline', '채팅', '/(tabs)/chat/sent'],
-    ['add', '제보', '/(tabs)/write'],
-    ['search-outline', '추천', '/(tabs)/recommend'],
-    ['person-outline', '마이', '/(tabs)/mypage'],
-  ] as const;
-  return <View style={s.bottomNav}>{items.map(([icon, label, href], index) => (
-    <Pressable key={label} onPress={() => router.push(href)} style={s.navItem}>
-      {index === 2 ? <View style={s.captureButton}><Ionicons name="add" size={32} color={colors.white}/></View> : <Ionicons name={icon} size={22} color={index === 1 ? colors.lime : colors.gray400}/>} 
-      <Text style={[s.navLabel, index === 1 && s.navActive, index === 2 && s.captureLabel]}>{label}</Text>
-    </Pressable>
-  ))}</View>;
+  return (
+    <StaticBottomNav
+      active="home"
+      onPressTab={(tab) => router.push(tabRoutes[tab] as never)}
+      onPressCapture={() => router.push('/(tabs)/write')}
+    />
+  );
 }
 
 export default function Video() {
@@ -46,7 +43,7 @@ export default function Video() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.header}>
         <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.headerButton}>
           <Ionicons name="chevron-back" size={25} color={colors.gray400}/>
@@ -195,12 +192,6 @@ const s = StyleSheet.create({
   rewardCoin:{width:48,height:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.white},
   rewardTitle:{...type.label,color:colors.dark,fontWeight:'600'},
   rewardText:{...type.caption,color:colors.gray600,marginTop:2},
-  bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:72,flexDirection:'row',paddingTop:spacing.x2,paddingBottom:spacing.x2,borderTopWidth:1,borderTopColor:colors.gray200,backgroundColor:colors.white},
-  navItem:{flex:1,alignItems:'center',justifyContent:'center'},
-  navLabel:{...type.caption,fontSize:11,lineHeight:16,color:colors.gray400,fontWeight:'600'},
-  navActive:{color:colors.lime},
-  captureButton:{width:52,height:52,marginTop:-25,alignItems:'center',justifyContent:'center',borderRadius:17,borderWidth:3,borderColor:colors.white,backgroundColor:'#D9ED76',...shadow},
-  captureLabel:{marginTop:spacing.x2},
   modalBackdrop:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:layout.gutter,backgroundColor:'rgba(255,255,255,.68)'},
   modalCard:{width:'100%',padding:spacing.x5,borderRadius:radius.md,backgroundColor:colors.white,...shadow},
   modalHead:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between'},

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   PanResponder,
@@ -12,10 +12,14 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { MapPlaceholder } from '@/components/home/MapPlaceholder';
+import { KakaoMap } from '@/components/home/KakaoMap';
+import type { KakaoMapHandle } from '@/components/home/KakaoMap';
+import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { CrowdFilterToggle } from '@/components/common';
-import { useMapStore } from '@/store/useMapStore';
+import { useNavBarHeight } from '@/components/common/BottomNav';
+import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
+import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
 import { places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -28,7 +32,13 @@ export default function Home() {
   const crowdFilter = useMapStore((state) => state.crowdFilter);
   const setCrowdFilter = useMapStore((state) => state.setCrowdFilter);
   const selectPlace = useMapStore((state) => state.selectPlace);
+  const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
+  const setCenter = useMapStore((state) => state.setCenter);
+  const setBounds = useMapStore((state) => state.setBounds);
   const [level, setLevel] = useState<SheetLevel>(1);
+  const mapRef = useRef<KakaoMapHandle>(null);
+  const myLocation = useCurrentLocation();
+  const navBarHeight = useNavBarHeight();
 
   const snapPoints = useMemo(
     // The middle stop deliberately exposes one complete place card only.
@@ -38,16 +48,19 @@ export default function Home() {
   const sheetY = useRef(new Animated.Value(snapPoints[1])).current;
   const dragStart = useRef(snapPoints[1]);
 
-  const moveTo = (next: SheetLevel) => {
-    setLevel(next);
-    Animated.spring(sheetY, {
-      toValue: snapPoints[next],
-      useNativeDriver: true,
-      damping: 24,
-      stiffness: 220,
-      mass: 0.8,
-    }).start();
-  };
+  const moveTo = useCallback(
+    (next: SheetLevel) => {
+      setLevel(next);
+      Animated.spring(sheetY, {
+        toValue: snapPoints[next],
+        useNativeDriver: true,
+        damping: 24,
+        stiffness: 220,
+        mass: 0.8,
+      }).start();
+    },
+    [snapPoints, sheetY],
+  );
 
   const panResponder = useMemo(
     () =>
@@ -70,37 +83,99 @@ export default function Home() {
           moveTo(nearest);
         },
       }),
-    [level, snapPoints, sheetY],
+    [level, moveTo, snapPoints, sheetY],
   );
 
-  const visiblePlaces = places.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter));
+  const visiblePlaces = useMemo(
+    () => places.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
+    [crowdFilter],
+  );
+
+  const markers = useMemo(
+    () => visiblePlaces.map(({ id, name, latitude, longitude }) => ({ id, name, latitude, longitude })),
+    [visiblePlaces],
+  );
 
   const openPlace = (placeId: string) => {
     selectPlace(placeId);
     router.push(`/place/${placeId}`);
   };
 
+  /** 핀 탭은 상세로 바로 넘어가지 않고 해당 장소를 지도 중앙에 두고 목록을 함께 보여준다. */
+  const focusPlace = useCallback(
+    (placeId: string) => {
+      const place = places.find((item) => item.id === placeId);
+      if (!place) return;
+
+      selectPlace(placeId);
+      mapRef.current?.panTo({ latitude: place.latitude, longitude: place.longitude });
+      if (level === 2) moveTo(1);
+    },
+    [level, moveTo, selectPlace],
+  );
+
+  const handleViewChange = useCallback(
+    (view: MapViewState) => {
+      setCenter({ latitude: view.latitude, longitude: view.longitude });
+      setBounds({
+        southWest: { latitude: view.bounds.swLat, longitude: view.bounds.swLng },
+        northEast: { latitude: view.bounds.neLat, longitude: view.bounds.neLng },
+      });
+    },
+    [setBounds, setCenter],
+  );
+
+  const clearSelection = useCallback(() => selectPlace(null), [selectPlace]);
+
+  /** 현재 위치 버튼: 권한을 받아 실제 좌표로 이동하고, 그 자리에 내 위치 마커를 찍는다. */
+  const goToMyLocation = useCallback(async () => {
+    const coordinate = await myLocation.request();
+    if (coordinate) mapRef.current?.panTo(coordinate);
+  }, [myLocation]);
+
+  // 바텀시트가 가리는 높이. 지도 중심 이동 시 이만큼 보정해 보이는 영역의 중앙에 놓는다.
+  const coveredHeight = Math.max(0, height - snapPoints[level]);
+
   return (
     <View style={s.screen}>
-      <MapPlaceholder fullScreen filter={crowdFilter} onPin={() => openPlace('1')} />
+      <KakaoMap
+        ref={mapRef}
+        fullScreen
+        center={DEFAULT_CENTER}
+        myLocation={myLocation.coordinate}
+        bottomInset={coveredHeight}
+        places={markers}
+        filter={crowdFilter}
+        selectedPlaceId={selectedPlaceId}
+        onReady={() => mapRef.current?.fitPlaces()}
+        onPinPress={focusPlace}
+        onMapPress={clearSelection}
+        onViewChange={handleViewChange}
+      />
 
-      <View style={[s.mapTop, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}>
+      {/* 검색바와 그 바로 아래 오른쪽에 붙는 현재 위치 버튼 (와이어프레임 기준).
+          box-none이 없으면 두 요소 사이 빈 공간이 지도 드래그를 가로챈다. */}
+      <View
+        pointerEvents="box-none"
+        style={[s.mapTop, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
+      >
         <Pressable style={s.search} onPress={() => router.push('/(tabs)/home/search')}>
           <Ionicons name="search" size={22} color={colors.gray600} />
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
-      </View>
-
-      {level !== 2 && (
-        <Animated.View
-          pointerEvents="box-none"
-          style={[s.locationMover, { right: gutter, transform: [{ translateY: Animated.subtract(sheetY, 60) }] }]}
+        <Pressable
+          accessibilityLabel="현재 위치로 돌아가기"
+          accessibilityState={{ busy: myLocation.status === 'loading' }}
+          onPress={goToMyLocation}
+          style={s.location}
         >
-          <Pressable accessibilityLabel="현재 위치로 돌아가기" style={s.location}>
-            <Ionicons name="locate-outline" size={23} color={colors.dark} />
-          </Pressable>
-        </Animated.View>
-      )}
+          <Ionicons
+            name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+            size={23}
+            color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+          />
+        </Pressable>
+      </View>
 
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
@@ -125,7 +200,11 @@ export default function Home() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           scrollEnabled={level > 0}
-          contentContainerStyle={[s.list, { paddingHorizontal: gutter, paddingBottom: spacing.x12 }]}
+          contentContainerStyle={[
+            s.list,
+            // 바텀바(+ 기기 시스템 바)에 마지막 카드가 가리지 않도록 확보한다.
+            { paddingHorizontal: gutter, paddingBottom: navBarHeight + spacing.x6 },
+          ]}
         >
           {visiblePlaces.map((place) => (
             <Pressable
@@ -192,13 +271,14 @@ const s = StyleSheet.create({
   location: {
     width: 48,
     height: 48,
+    alignSelf: 'flex-end',
+    marginTop: spacing.x3,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.lg,
     backgroundColor: 'rgba(255,255,255,0.92)',
     ...glassShadow,
   },
-  locationMover: { position: 'absolute', top: 0 },
   sheet: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',

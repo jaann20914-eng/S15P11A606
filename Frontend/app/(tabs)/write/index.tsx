@@ -1,11 +1,13 @@
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 export default function WriteEntry() {
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safe}>
       <View style={styles.content}>
         <View style={styles.icon}>
           <Ionicons name="videocam-outline" size={32} color={colors.dark} />

@@ -1,48 +1,34 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
-import { colors, radius } from '@/constants/theme';
-
-const icons = {
-  home: ['map-outline', 'map'],
-  recommend: ['sparkles-outline', 'sparkles'],
-  chat: ['chatbubbles-outline', 'chatbubbles'],
-  mypage: ['person-outline', 'person'],
-} as const;
-
-function CaptureIcon({ focused }: { focused: boolean }) {
-  return <View style={[s.captureButton, focused && s.captureButtonFocused]}><Ionicons name="add" size={30} color={colors.dark} /></View>;
-}
+import { CaptureButton, NavIcon, navBarStyles, useNavBarStyle } from '@/components/common/BottomNav';
+import type { NavTab } from '@/components/common/BottomNav';
+import { colors } from '@/constants/theme';
 
 export default function TabLayout() {
+  // 갤럭시 등 하단 시스템 바와 겹치지 않도록 기기별 inset을 반영한다.
+  const tabBarStyle = useNavBarStyle();
+
   return (
-    <Tabs screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarActiveTintColor: colors.dark,
-      tabBarInactiveTintColor: colors.gray400,
-      tabBarStyle: s.tabBar,
-      tabBarLabelStyle: s.label,
-      tabBarIcon: ({ focused, color }) => route.name === 'write'
-        ? <CaptureIcon focused={focused} />
-        : <Ionicons name={icons[route.name as keyof typeof icons]?.[focused ? 1 : 0] ?? 'ellipse'} size={22} color={color} />,
-    })}>
+    <Tabs
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.dark,
+        tabBarInactiveTintColor: colors.gray400,
+        tabBarStyle,
+        tabBarLabelStyle: navBarStyles.label,
+        tabBarIcon: ({ focused }) =>
+          route.name === 'write' ? (
+            <CaptureButton focused={focused} />
+          ) : (
+            <NavIcon tab={route.name as NavTab} focused={focused} />
+          ),
+      })}
+    >
       <Tabs.Screen name="home" options={{ title: '홈' }} />
       <Tabs.Screen name="recommend" options={{ title: '추천' }} />
-      <Tabs.Screen name="write" options={{ title: '제보', tabBarLabelStyle: s.captureLabel }} />
+      {/* 시안의 가운데 제보 버튼에는 라벨이 없다. */}
+      <Tabs.Screen name="write" options={{ title: '', tabBarAccessibilityLabel: '영상핀 제보' }} />
       <Tabs.Screen name="chat" options={{ title: '채팅' }} />
       <Tabs.Screen name="mypage" options={{ title: '마이' }} />
     </Tabs>
   );
 }
-
-const s = StyleSheet.create({
-  tabBar: { height: 72, paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: colors.gray200, backgroundColor: colors.white },
-  label: { fontSize: 11, lineHeight: 16, fontWeight: '600' },
-  captureLabel: { fontSize: 11, lineHeight: 16, fontWeight: '600', marginTop: 8 },
-  captureButton: {
-    width: 56, height: 56, marginTop: -20, alignItems: 'center', justifyContent: 'center',
-    borderRadius: radius.pill, borderWidth: 3, borderColor: colors.white, backgroundColor: colors.limeSoft,
-    shadowColor: colors.dark, shadowOffset: { width: 0, height: 7 }, shadowOpacity: .2, shadowRadius: 10, elevation: 9,
-  },
-  captureButtonFocused: { backgroundColor: colors.lime },
-});

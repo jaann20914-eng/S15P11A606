@@ -1,17 +1,12 @@
 import { useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
-const navItems = [
-  { label: '홈', icon: 'map-outline', path: '/(tabs)/home', capture: false },
-  { label: '추천', icon: 'sparkles-outline', path: '/(tabs)/recommend', capture: false },
-  { label: '제보', icon: 'add', path: '/(tabs)/write', capture: true },
-  { label: '채팅', icon: 'chatbubbles-outline', path: '/(tabs)/chat/sent', capture: false },
-  { label: '마이', icon: 'person', path: '/(tabs)/mypage', capture: false },
-] as const;
-
+// 이 화면은 (tabs) 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 바가 두 개로 겹친다.
 export default function Profile() {
   const [nickname, setNickname] = useState('');
   const [checked, setChecked] = useState(false);
@@ -28,7 +23,7 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
         <View style={s.header}>
           <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.headerButton}>
@@ -73,16 +68,6 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <View style={s.bottomNav}>
-          {navItems.map(item => (
-            <Pressable key={item.label} onPress={() => router.replace(item.path)} style={s.navItem}>
-              <View style={item.capture && s.captureButton}>
-                <Ionicons name={item.icon} size={item.capture ? 30 : 21} color={item.label === '마이' ? colors.dark : item.capture ? colors.white : colors.gray400}/>
-              </View>
-              <Text style={[s.navLabel, item.label === '마이' && s.navActive, item.capture && s.captureLabel]}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -150,32 +135,4 @@ const s = StyleSheet.create({
   saveDisabled: { backgroundColor: '#E3F58A' },
   saveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
   saveTextDisabled: { color: colors.gray400 },
-  bottomNav: {
-    height: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.gray200,
-    backgroundColor: colors.white,
-  },
-  navItem: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center' },
-  navLabel: { fontSize: 10, lineHeight: 14, fontWeight: '500', color: colors.gray400, marginTop: spacing.x1 },
-  navActive: { color: colors.dark, fontWeight: '600' },
-  captureButton: {
-    width: 54,
-    height: 54,
-    marginTop: -25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: colors.white,
-    backgroundColor: '#D9ED76',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: .18,
-    shadowRadius: 8,
-    elevation: 7,
-  },
-  captureLabel: { marginTop: spacing.x2 },
 });
