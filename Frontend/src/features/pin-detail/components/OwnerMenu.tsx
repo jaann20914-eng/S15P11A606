@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { pinDetailStyles as s } from './styles';
+import { pinDetailStyles as s } from '../styles';
 
 export interface OwnerMenuProps {
   onEdit: () => void;

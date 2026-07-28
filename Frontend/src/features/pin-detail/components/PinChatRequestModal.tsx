@@ -1,6 +1,6 @@
 import { Image, Modal, Pressable, Text, View } from 'react-native';
 import { MODAL_ANIMATION } from '@/components/common/modalAnimation';
-import { pinDetailStyles as s } from './styles';
+import { pinDetailStyles as s } from '../styles';
 
 const CHAT_IMAGE = require('../../../../assets/images/chat-request-3d.png');
 

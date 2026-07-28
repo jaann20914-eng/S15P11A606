@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { goBackOrHome } from '@/utils/navigation';
-import { pinDetailStyles as s } from './styles';
+import { pinDetailStyles as s } from '../styles';
 
 export interface PinDetailHeaderProps {
   /** 내 핀일 때만 준다. 신고 대신 수정·삭제 메뉴 버튼이 뜬다. */

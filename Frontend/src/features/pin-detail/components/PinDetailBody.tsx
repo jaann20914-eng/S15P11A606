@@ -6,7 +6,7 @@ import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
 import { formatRelativeTime } from '@/utils/datetime';
 import { getViewAngleImage } from '@/utils/viewAngle';
-import { pinDetailStyles as s } from './styles';
+import { pinDetailStyles as s } from '../styles';
 
 /** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
 const PLACEHOLDER_MEDIA = require('../../../../assets/images/video-pin-crowd.png');

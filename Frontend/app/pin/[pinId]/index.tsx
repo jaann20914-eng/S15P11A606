@@ -2,16 +2,14 @@ import { ActivityIndicator, SafeAreaView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { AppTabBar, ConfirmModal, ErrorView } from '@/components/common';
-import {
-  OwnerMenu,
-  PinChatRequestModal,
-  PinDetailBody,
-  PinDetailHeader,
-  PinPurchaseModal,
-  pinDetailStyles as s,
-} from '@/components/pin/detail';
-import { parsePinId, usePinDetail } from '@/hooks/usePinDetail';
-import { usePinDetailScreen } from '@/hooks/usePinDetailScreen';
+import { OwnerMenu } from '@/features/pin-detail/components/OwnerMenu';
+import { PinChatRequestModal } from '@/features/pin-detail/components/PinChatRequestModal';
+import { PinDetailBody } from '@/features/pin-detail/components/PinDetailBody';
+import { PinDetailHeader } from '@/features/pin-detail/components/PinDetailHeader';
+import { PinPurchaseModal } from '@/features/pin-detail/components/PinPurchaseModal';
+import { parsePinId, usePinDetail } from '@/features/pin-detail/hooks/usePinDetail';
+import { usePinDetailScreen } from '@/features/pin-detail/hooks/usePinDetailScreen';
+import { pinDetailStyles as s } from '@/features/pin-detail/styles';
 import { isOwnPin } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
 

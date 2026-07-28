@@ -2,7 +2,7 @@ import { ActivityIndicator, Image, Modal, Pressable, Text, View } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { MODAL_ANIMATION } from '@/components/common/modalAnimation';
-import { pinDetailStyles as s } from './styles';
+import { pinDetailStyles as s } from '../styles';
 
 const COIN_IMAGE = require('../../../../assets/images/credit-coin-3d.png');
 
