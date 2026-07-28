@@ -1,18 +1,35 @@
 import { useState } from 'react';
-import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { StaticBottomNav } from '@/components/common/BottomNav';
+import type { NavTab } from '@/components/common/BottomNav';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
+const tabRoutes: Record<NavTab, string> = {
+  home: '/(tabs)/home',
+  recommend: '/(tabs)/recommend',
+  chat: '/(tabs)/chat/sent',
+  mypage: '/(tabs)/mypage',
+};
+
+/** 탭 밖 화면이라 바텀바를 직접 그린다. 규격·시스템 바 여백은 공통 컴포넌트가 처리한다. */
 function BottomNavigation() {
-  const items = [['home-outline','홈','/(tabs)/home'],['menu-outline','채팅','/(tabs)/chat/sent'],['add','제보','/(tabs)/write'],['search-outline','추천','/(tabs)/recommend'],['person-outline','마이','/(tabs)/mypage']] as const;
-  return <View style={s.bottomNav}>{items.map(([icon,label,href],index)=><Pressable key={label} onPress={()=>router.push(href)} style={s.navItem}>{index===2?<View style={s.captureButton}><Ionicons name="add" size={32} color={colors.white}/></View>:<Ionicons name={icon} size={22} color={index===1?colors.lime:colors.gray400}/>}<Text style={[s.navLabel,index===1&&s.navActive,index===2&&s.captureLabel]}>{label}</Text></Pressable>)}</View>;
+  return (
+    <StaticBottomNav
+      active="mypage"
+      onPressTab={(tab) => router.push(tabRoutes[tab] as never)}
+      onPressCapture={() => router.push('/(tabs)/write')}
+    />
+  );
 }
 
 export default function MyVideo(){
   const [menuOpen,setMenuOpen]=useState(false);
   const removePost=()=>{setMenuOpen(false);Alert.alert('영상핀을 삭제할까요?','삭제한 영상핀은 다시 복구할 수 없어요.',[{text:'취소',style:'cancel'},{text:'삭제',style:'destructive',onPress:()=>router.replace('/(tabs)/mypage/activity')}]);};
-  return <SafeAreaView style={s.safe}>
+  return <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
     <View style={s.header}><Pressable accessibilityLabel="뒤로 가기" onPress={()=>router.back()} style={s.headerButton}><Ionicons name="chevron-back" size={26} color={colors.gray400}/></Pressable><Text style={s.headerTitle}>영상핀</Text><Pressable accessibilityLabel="게시물 메뉴" onPress={()=>setMenuOpen(v=>!v)} style={s.headerButton}><Ionicons name="menu" size={29} color={colors.gray600}/></Pressable></View>
     {menuOpen&&<View style={s.menuPopover}><Pressable onPress={()=>{setMenuOpen(false);router.push('/pin-create/detail-form');}} style={s.menuRow}><Ionicons name="pencil" size={17} color={colors.gray600}/><Text style={s.menuText}>수정하기</Text></Pressable><View style={s.menuRule}/><Pressable onPress={removePost} style={s.menuRow}><Ionicons name="trash" size={17} color={colors.gray600}/><Text style={s.menuText}>삭제하기</Text></Pressable></View>}
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
@@ -35,5 +52,4 @@ const s=StyleSheet.create({
   detailSheet:{marginTop:-8,paddingHorizontal:layout.gutter,paddingTop:spacing.x4,paddingBottom:spacing.x8,borderTopLeftRadius:radius.hero,borderTopRightRadius:radius.hero,backgroundColor:colors.white},authorRow:{minHeight:48,flexDirection:'row',alignItems:'center'},viewRing:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',borderWidth:4,borderColor:colors.lime,backgroundColor:colors.white},viewRingText:{fontSize:11,lineHeight:15,fontWeight:'600',color:colors.gray600},authorCopy:{flex:1,marginLeft:spacing.x3},authorName:{fontSize:16,lineHeight:22,fontWeight:'600',color:colors.dark},authorMeta:{...type.caption,color:colors.gray400,marginTop:2},
   placeName:{...type.title,color:colors.dark,marginTop:spacing.x5},address:{...type.caption,color:colors.gray400,marginTop:2},crowdChip:{alignSelf:'flex-start',marginTop:spacing.x2,paddingHorizontal:spacing.x3,paddingVertical:spacing.x1,borderRadius:radius.pill,backgroundColor:'#FFE3E4'},crowdText:{...type.caption,color:'#EF626B'},rule:{height:1,backgroundColor:colors.gray200,marginVertical:spacing.x4},memo:{fontSize:14,lineHeight:21,fontWeight:'400',color:colors.gray600},tags:{flexDirection:'row',gap:spacing.x3,marginTop:spacing.x3},tag:{...type.caption,color:'#2F80ED'},
   actions:{flexDirection:'row',gap:spacing.x2,marginTop:spacing.x10},actionButton:{flex:1,height:56,alignItems:'center',justifyContent:'center',borderRadius:radius.md},leftAction:{backgroundColor:colors.dark},rightAction:{backgroundColor:'#D9ED76'},leftActionText:{fontSize:16,lineHeight:22,fontWeight:'600',color:colors.lime},rightActionText:{fontSize:16,lineHeight:22,fontWeight:'600',color:colors.dark},
-  bottomNav:{position:'absolute',left:0,right:0,bottom:0,height:72,flexDirection:'row',paddingTop:spacing.x2,paddingBottom:spacing.x2,borderTopWidth:1,borderTopColor:colors.gray200,backgroundColor:colors.white},navItem:{flex:1,alignItems:'center',justifyContent:'center'},navLabel:{...type.caption,fontSize:11,lineHeight:16,color:colors.gray400,fontWeight:'600'},navActive:{color:colors.lime},captureButton:{width:52,height:52,marginTop:-25,alignItems:'center',justifyContent:'center',borderRadius:17,borderWidth:3,borderColor:colors.white,backgroundColor:'#D9ED76',...shadow},captureLabel:{marginTop:spacing.x2}
 });

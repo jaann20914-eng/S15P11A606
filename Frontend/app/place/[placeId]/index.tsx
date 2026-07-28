@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   PanResponder,
@@ -9,14 +9,20 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPlaceholder } from '@/components/home/MapPlaceholder';
+import { KakaoMap } from '@/components/home/KakaoMap';
+import type { KakaoMapHandle } from '@/components/home/KakaoMap';
+import type { ResolvedPlace } from '@/components/home/kakaoMapHtml';
+import { StaticBottomNav, useNavBarHeight } from '@/components/common/BottomNav';
+import type { NavTab } from '@/components/common/BottomNav';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
+import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapStore } from '@/store/useMapStore';
-import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { places } from '@/data/mock';
+import { colors, radius, spacing, type } from '@/constants/theme';
 
 type SheetLevel = 0 | 1 | 2;
 
@@ -96,33 +102,28 @@ function VideoCard({ index = 0 }: { index?: number }) {
   );
 }
 
-function BottomNavigation() {
-  const items = [
-    ['map', '홈', '/(tabs)/home'],
-    ['sparkles-outline', '추천', '/(tabs)/recommend'],
-    ['add', '제보', '/(tabs)/write'],
-    ['chatbubbles-outline', '채팅', '/(tabs)/chat/sent'],
-    ['person-outline', '마이', '/(tabs)/mypage'],
-  ] as const;
-  return (
-    <View style={s.bottomNav}>
-      {items.map(([icon, label, href], index) => (
-        <Pressable key={label} onPress={() => router.push(href)} style={s.navItem}>
-          {index === 2 ? (
-            <View style={s.captureButton}><Ionicons name={icon} size={32} color={colors.white} /></View>
-          ) : <Ionicons name={icon} size={22} color={index === 0 ? colors.dark : colors.gray400} />}
-          <Text style={[s.navLabel, index === 0 && s.navLabelActive, index === 2 && s.captureLabel]}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
+/** 탭 밖 화면이라 탭 네비게이션이 없다. 같은 규격의 바를 그리고 라우팅만 직접 처리한다. */
+const tabRoutes: Record<NavTab, string> = {
+  home: '/(tabs)/home',
+  recommend: '/(tabs)/recommend',
+  chat: '/(tabs)/chat/sent',
+  mypage: '/(tabs)/mypage',
+};
 
 export default function Place() {
+  const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
   const crowdFilter = useMapStore((state) => state.crowdFilter);
   const [level, setLevel] = useState<SheetLevel>(1);
+  const mapRef = useRef<KakaoMapHandle>(null);
+  const myLocation = useCurrentLocation();
+  const navBarHeight = useNavBarHeight();
+
+  /** 백엔드 연동 전이라 목업 장소를 기준으로 삼고, 실제 좌표·주소는 장소명 검색으로 채운다. */
+  const mockPlace = places.find((item) => item.id === placeId) ?? places[0];
+  const [resolved, setResolved] = useState<ResolvedPlace | null>(null);
+  const [searchFailed, setSearchFailed] = useState(false);
   const snapPoints = useMemo(
     () => [height - 196, Math.round(height * 0.46), Math.max(insets.top + 138, 154)],
     [height, insets.top],
@@ -147,18 +148,81 @@ export default function Place() {
     },
   }), [level, sheetY, snapPoints]);
 
+  const coveredHeight = Math.max(0, height - snapPoints[level]);
+
+  /**
+   * 백엔드 좌표 연동 전 임시 경로: 지도가 준비되면 장소명으로 검색해 좌표·주소를 채운다.
+   * 지도 SDK의 services(장소 검색)를 그대로 쓴다.
+   */
+  const handleMapReady = useCallback(() => {
+    mapRef.current?.searchPlace(mockPlace.name);
+  }, [mockPlace.name]);
+
+  const handleResolved = useCallback((place: ResolvedPlace) => {
+    setResolved(place);
+    setSearchFailed(false);
+  }, []);
+
+  /** 검색이 안 되면 등록된 좌표로라도 지도를 맞춘다. */
+  const handleNotFound = useCallback(
+    (keyword: string, reason: string) => {
+      if (__DEV__) console.warn(`[place] "${keyword}" 검색 실패 (${reason})`);
+      setSearchFailed(true);
+      mapRef.current?.panTo({ latitude: mockPlace.latitude, longitude: mockPlace.longitude });
+    },
+    [mockPlace.latitude, mockPlace.longitude],
+  );
+
+  const goToMyLocation = useCallback(async () => {
+    const coordinate = await myLocation.request();
+    if (coordinate) mapRef.current?.panTo(coordinate);
+  }, [myLocation]);
+
+  const marker = useMemo(
+    () => [
+      {
+        id: mockPlace.id,
+        name: resolved?.name ?? mockPlace.name,
+        latitude: resolved?.latitude ?? mockPlace.latitude,
+        longitude: resolved?.longitude ?? mockPlace.longitude,
+      },
+    ],
+    [mockPlace, resolved],
+  );
+
   return (
     <View style={s.screen}>
-      <MapPlaceholder fullScreen local filter={crowdFilter} onPin={() => router.push('/pin/1')} />
+      <KakaoMap
+        ref={mapRef}
+        fullScreen
+        center={{ latitude: mockPlace.latitude, longitude: mockPlace.longitude }}
+        myLocation={myLocation.coordinate}
+        bottomInset={coveredHeight}
+        places={marker}
+        filter={crowdFilter}
+        selectedPlaceId={mockPlace.id}
+        onReady={handleMapReady}
+        onPlaceResolved={handleResolved}
+        onPlaceNotFound={handleNotFound}
+        onPinPress={() => router.push('/pin/1')}
+      />
 
-      <View style={[s.topControls, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}>
+      {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
+      <View
+        pointerEvents="box-none"
+        style={[s.topControls, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
+      >
         <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.search}>
           <Ionicons name="search" size={22} color={colors.gray600} />
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
         {level !== 2 && (
-          <Pressable accessibilityLabel="현재 위치로 이동" style={s.location}>
-            <Ionicons name="locate-outline" size={22} color={colors.dark} />
+          <Pressable accessibilityLabel="현재 위치로 이동" onPress={goToMyLocation} style={s.location}>
+            <Ionicons
+              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+              size={22}
+              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+            />
           </Pressable>
         )}
       </View>
@@ -175,12 +239,20 @@ export default function Place() {
         <ScrollView
           scrollEnabled={level > 0}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[s.sheetContent, { paddingHorizontal: gutter }]}
+          contentContainerStyle={[
+            s.sheetContent,
+            { paddingHorizontal: gutter, paddingBottom: navBarHeight + spacing.x10 },
+          ]}
         >
           <View style={s.placeInfo}>
-            <Text style={s.placeName}>바나프레소 역삼점</Text>
-            <Text style={s.placeMeta}>연락처 : 010 - 1111 - 1111</Text>
-            <Text style={s.placeAddress}>서울 광진구 동일로 60길 47 1층 (군자동)</Text>
+            <Text style={s.placeName}>{resolved?.name ?? mockPlace.name}</Text>
+            {resolved?.phone ? <Text style={s.placeMeta}>연락처 : {resolved.phone}</Text> : null}
+            <Text style={s.placeAddress}>
+              {resolved?.roadAddress || resolved?.address || mockPlace.address}
+            </Text>
+            {searchFailed && (
+              <Text style={s.placeNotice}>검색 결과가 없어 등록된 좌표로 표시했어요.</Text>
+            )}
           </View>
 
           {level === 2 && <CrowdChart />}
@@ -198,7 +270,11 @@ export default function Place() {
         </ScrollView>
       </Animated.View>
 
-      <BottomNavigation />
+      <StaticBottomNav
+        active="home"
+        onPressTab={(tab) => router.push(tabRoutes[tab] as never)}
+        onPressCapture={() => router.push('/(tabs)/write')}
+      />
     </View>
   );
 }
@@ -221,11 +297,13 @@ const s = StyleSheet.create({
   sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
   handleArea: { height: 40, alignItems: 'center', paddingTop: spacing.x3 },
   handle: { width: 40, height: 4, borderRadius: radius.pill, backgroundColor: 'rgba(59,56,56,0.32)' },
-  sheetContent: { paddingBottom: 160, gap: spacing.x6 },
+  // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
+  sheetContent: { gap: spacing.x6 },
   placeInfo: { padding: spacing.x4, borderRadius: radius.lg, backgroundColor: colors.white },
   placeName: { ...type.h3, fontWeight: '700', color: colors.dark },
   placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
+  placeNotice: { ...type.caption, color: colors.gray400, marginTop: spacing.x2 },
   chartCard: { padding: spacing.x4, borderRadius: radius.card, backgroundColor: colors.white },
   chartTitle: { ...type.label, fontWeight: '600', color: colors.dark, marginBottom: spacing.x3 },
   chartBody: { flexDirection: 'row', alignItems: 'stretch' },

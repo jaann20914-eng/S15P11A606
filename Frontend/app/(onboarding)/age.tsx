@@ -1,16 +1,6 @@
 import { useState } from 'react';
-import {
-  Image,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextStyle,
-  View,
-} from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TextStyle, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -195,7 +185,7 @@ export default function Onboarding() {
 
         <View style={s.footer}>
           <Button
-            label={step === 3 ? '지금핀 시작하기' : '다음'}
+            label={step === 3 ? '와글와글 시작하기' : '다음'}
             disabled={(step === 2 && !checked) || (step === 3 && selected.length === 0)}
             onPress={next}
           />

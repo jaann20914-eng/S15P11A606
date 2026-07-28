@@ -11,12 +11,15 @@ type MockPlace = {
   pins: number;
   distance: string;
   tag: string;
+  /** 지도 핀 좌표 (WGS84). 실제 연동 시 `/places` 응답의 좌표로 대체한다. */
+  latitude: number;
+  longitude: number;
 };
 
 export const places: MockPlace[] = [
-  { id: '1', name: '성수 연무장길', address: '서울 성동구 연무장길', crowdLevel: 1, pins: 8, distance: '620m', tag: '팝업 · 카페' },
-  { id: '2', name: '서울숲', address: '서울 성동구 뚝섬로 273', crowdLevel: 2, pins: 12, distance: '1.2km', tag: '공원 · 산책' },
-  { id: '3', name: '어린이대공원', address: '서울 광진구 능동로 216', crowdLevel: 4, pins: 5, distance: '2.8km', tag: '공원 · 피크닉' },
+  { id: '1', name: '성수 연무장길', address: '서울 성동구 연무장길', crowdLevel: 1, pins: 8, distance: '620m', tag: '팝업 · 카페', latitude: 37.5427, longitude: 127.0561 },
+  { id: '2', name: '서울숲', address: '서울 성동구 뚝섬로 273', crowdLevel: 2, pins: 12, distance: '1.2km', tag: '공원 · 산책', latitude: 37.5444, longitude: 127.0374 },
+  { id: '3', name: '어린이대공원', address: '서울 광진구 능동로 216', crowdLevel: 4, pins: 5, distance: '2.8km', tag: '공원 · 피크닉', latitude: 37.5497, longitude: 127.0817 },
 ];
 
 /** 혼잡도 라벨/색은 단계 값에서 파생한다 (표시 문자열을 데이터에 중복 저장하지 않는다). */
