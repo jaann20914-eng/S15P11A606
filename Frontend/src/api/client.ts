@@ -1,3 +1,5 @@
+import axios from 'axios';
+import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 import type { ApiResponse, ErrorResponse } from '@/types/common';
 
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -9,7 +11,7 @@ let provideAccessToken: TokenProvider = () => null;
 
 /**
  * 액세스 토큰 공급자를 등록한다. 인증 스토어가 준비되면 앱 시작 시 한 번 호출한다.
- * 요청 시점에 매번 다시 읽으므로 토큰이 갱신돼도 별도 처리가 필요 없다.
+ * 요청 인터셉터가 매번 다시 읽으므로 토큰이 갱신돼도 별도 처리가 필요 없다.
  */
 export function setAccessTokenProvider(provider: TokenProvider): void {
   provideAccessToken = provider;
@@ -32,36 +34,68 @@ export class ApiError extends Error {
   }
 }
 
-/** 오류 응답 본문을 파싱한다. 규격에 맞지 않으면 상태 코드만으로 예외를 만든다. */
-async function toApiError(response: Response): Promise<ApiError> {
-  try {
-    const body = (await response.json()) as ErrorResponse;
-    return new ApiError(body.statusCode, body.error.code, body.message);
-  } catch {
-    return new ApiError(response.status, 'UNKNOWN_ERROR', '잠시 후 다시 시도해 주세요');
+/** 응답 자체를 받지 못했을 때(연결 실패·타임아웃) 쓰는 코드. 서버가 준 값이 아니다. */
+export const NETWORK_ERROR_CODE = 'NETWORK_ERROR';
+/** 응답은 왔지만 오류 규격과 다를 때 쓰는 코드. */
+export const UNKNOWN_ERROR_CODE = 'UNKNOWN_ERROR';
+
+/**
+ * axios 오류를 `ApiError`로 바꾼다.
+ *
+ * 백엔드는 실패 시 `{ statusCode, message, error: { code } }`를 준다.
+ * 그 규격이 아니면(프록시 오류, 타임아웃 등) 상태 코드만으로 만든다.
+ */
+function toApiError(error: AxiosError<ErrorResponse>): ApiError {
+  const response = error.response;
+
+  if (!response) {
+    return new ApiError(0, NETWORK_ERROR_CODE, '네트워크 연결을 확인해 주세요');
   }
+
+  const body = response.data;
+  if (body?.error?.code) {
+    return new ApiError(body.statusCode ?? response.status, body.error.code, body.message);
+  }
+
+  return new ApiError(response.status, UNKNOWN_ERROR_CODE, '잠시 후 다시 시도해 주세요');
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+/**
+ * 공용 axios 인스턴스.
+ *
+ * 인터셉터가 두 가지를 맡는다.
+ * - 요청: 액세스 토큰이 있으면 `Authorization` 헤더를 붙인다
+ * - 응답: 오류를 전부 `ApiError`로 바꿔 화면이 axios를 몰라도 되게 한다
+ */
+export const httpClient: AxiosInstance = axios.create({
+  baseURL: apiBaseUrl,
+  timeout: 10_000,
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+});
+
+httpClient.interceptors.request.use((config) => {
+  const accessToken = provideAccessToken();
+  if (accessToken) {
+    config.headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+  return config;
+});
+
+httpClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ErrorResponse>) => Promise.reject(toApiError(error)),
+);
+
+/**
+ * 공용 응답 봉투(`{ statusCode, message, data }`)를 벗겨 `data`만 돌려준다.
+ *
+ * 실패는 인터셉터가 이미 `ApiError`로 바꿔 두었으므로 호출부는 그대로 던지면 된다.
+ */
+export async function apiRequest<T>(config: AxiosRequestConfig): Promise<T> {
   if (!apiBaseUrl) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았어요');
   }
 
-  const accessToken = provideAccessToken();
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...init?.headers,
-    },
-  });
-
-  if (!response.ok) {
-    throw await toApiError(response);
-  }
-
-  return response.json() as Promise<ApiResponse<T>>;
+  const response = await httpClient.request<ApiResponse<T>>(config);
+  return response.data.data;
 }

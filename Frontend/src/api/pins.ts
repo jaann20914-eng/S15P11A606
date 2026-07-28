@@ -24,9 +24,8 @@ export const usesMockApi =
  * 명세에 URI가 적혀 있지 않아 경로는 아직 추정이다. 서버 구현이 나오면 이 줄만 고친다.
  * 응답 구조가 달라지면 이 함수 안에서 변환해 화면 쪽 변경을 막는다.
  */
-async function requestPinDetail(pinId: number): Promise<PinDetail> {
-  const { data } = await apiRequest<PinDetail>(`/api/v1/pins/${pinId}`);
-  return data;
+function requestPinDetail(pinId: number): Promise<PinDetail> {
+  return apiRequest<PinDetail>({ method: 'GET', url: `/api/v1/pins/${pinId}` });
 }
 
 export function getPinDetail(pinId: number): Promise<PinDetail> {
@@ -44,12 +43,12 @@ export function getPinDetail(pinId: number): Promise<PinDetail> {
  *
  * 명세에 URI가 없어 경로는 추정이다.
  */
-async function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
-  const { data } = await apiRequest<PinUnlockResult>(`/api/v1/pins/${pinId}/unlock`, {
+function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+  return apiRequest<PinUnlockResult>({
     method: 'POST',
+    url: `/api/v1/pins/${pinId}/unlock`,
     headers: { 'Idempotency-Key': idempotencyKey },
   });
-  return data;
 }
 
 export function unlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
@@ -58,7 +57,7 @@ export function unlockPin(pinId: number, idempotencyKey: string): Promise<PinUnl
 
 /** 내가 쓴 게시글 삭제. 작성자가 아니면 서버가 403을 준다. */
 async function requestDeletePin(pinId: number): Promise<void> {
-  await apiRequest<null>(`/api/v1/pins/${pinId}`, { method: 'DELETE' });
+  await apiRequest<null>({ method: 'DELETE', url: `/api/v1/pins/${pinId}` });
 }
 
 export function deletePin(pinId: number): Promise<void> {
@@ -70,10 +69,10 @@ export function deletePin(pinId: number): Promise<void> {
  * 핀 자체와 크레딧 거래는 그대로 두므로 삭제와 다르다.
  */
 async function requestLeavePinChats(pinId: number): Promise<number[]> {
-  const { data } = await apiRequest<{ leftChatRoomIds: number[] }>(
-    `/api/v1/chat/pins/${pinId}/rooms/leave`,
-    { method: 'POST' },
-  );
+  const data = await apiRequest<{ leftChatRoomIds: number[] }>({
+    method: 'POST',
+    url: `/api/v1/chat/pins/${pinId}/rooms/leave`,
+  });
   return data.leftChatRoomIds;
 }
 
