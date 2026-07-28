@@ -35,7 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
-src/main/resources/application.yaml
+src/main/resources/db/db.sql
 
 # Environment
 .env
@@ -48,3 +48,5 @@ logs/
 
 # OS
 Thumbs.db
+
+CLAUDE.md
