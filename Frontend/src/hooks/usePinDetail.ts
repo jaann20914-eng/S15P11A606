@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getPinDetail } from '@/api/pins';
+import { getPinDetail } from '@/api/pin';
 import { ApiError } from '@/api/client';
 import type { AsyncStatus } from '@/types/common';
 import type { PinDetail } from '@/types/pin';
@@ -34,7 +34,7 @@ function toErrorState(error: unknown): PinDetailState {
 }
 
 /**
- * 게시글 상세를 불러온다. 목업/실서버 판단은 `@/api/pins`가 하므로 화면은 구분하지 않는다.
+ * 게시글 상세를 불러온다. 목업/실서버 판단은 `@/api/pin`이 하므로 화면은 구분하지 않는다.
  *
  * `pinId`가 null이면(경로 파라미터가 아직 없거나 숫자가 아니면) 요청하지 않고 대기한다.
  */

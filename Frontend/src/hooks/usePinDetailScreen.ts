@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { deletePin, leavePinChats, unlockPin } from '@/api/pins';
+import { leavePinChats } from '@/api/chat';
+import { deletePin, unlockPin } from '@/api/pin';
 import { createIdempotencyKey } from '@/utils/idempotency';
 import { goBackOrHome } from '@/utils/navigation';
 import type { PinDetail, PinRating } from '@/types/pin';

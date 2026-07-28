@@ -11,7 +11,7 @@ import type { PinDetailResponse, PinUnlockResult } from '@/types/pin';
  */
 
 /** 실제 네트워크처럼 로딩 상태를 볼 수 있도록 주는 지연. */
-const MOCK_LATENCY_MS = 400;
+export const MOCK_LATENCY_MS = 400;
 
 export type PinDetailScenario = 'preview' | 'unlocked' | 'evaluated' | 'owner' | 'notFound';
 
@@ -107,7 +107,7 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
   }
 }
 
-function delay(ms: number): Promise<void> {
+export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -193,15 +193,4 @@ export async function deleteMockPin(pinId: number): Promise<void> {
   if (resolvePinDetailScenario(pinId) !== 'owner') {
     throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '내가 작성한 영상핀만 삭제할 수 있어요.');
   }
-}
-
-/** "이미 떠났어요" 목업. 실제 API는 핀에 연결된 채팅방 id 목록을 돌려준다. */
-export async function leaveMockPinChats(pinId: number): Promise<number[]> {
-  await delay(MOCK_LATENCY_MS);
-
-  if (resolvePinDetailScenario(pinId) !== 'owner') {
-    throw new ApiError(403, 'CHAT_PIN_LEAVE_FORBIDDEN', '해당 핀의 채팅방에서 나갈 권한이 없어요.');
-  }
-
-  return [7];
 }
