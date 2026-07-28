@@ -90,16 +90,9 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 작성자 프로필(뷰 각도 링 · 닉네임 · 상세위치·업로드 시각) + 채팅 버튼 줄 */
   authorRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center' },
-  viewRing: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
+  /** 링은 각도별 이미지라 테두리를 그리지 않고 이미지를 깔고 그 위에 숫자를 얹는다. */
+  viewRing: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  viewRingImage: { position: 'absolute', width: '100%', height: '100%', resizeMode: 'contain' },
   viewRingText: { fontSize: 11, lineHeight: 15, fontWeight: '600', color: colors.gray600 },
   authorCopy: { flex: 1, marginLeft: spacing.x3 },
   authorName: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },

@@ -5,6 +5,7 @@ import { crowdLevels } from '@/constants/crowdLevels';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
 import { formatRelativeTime } from '@/utils/datetime';
+import { getViewAngleImage } from '@/utils/viewAngle';
 import { pinDetailStyles as s } from './styles';
 
 /** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
@@ -57,6 +58,7 @@ export function PinDetailBody({
       <View style={s.detailSheet}>
         <View style={s.authorRow}>
           <View style={s.viewRing}>
+            <Image source={getViewAngleImage(detail.authorViewAngle)} style={s.viewRingImage} />
             <Text style={s.viewRingText}>{detail.authorViewAngle}°</Text>
           </View>
           <View style={s.authorCopy}>
