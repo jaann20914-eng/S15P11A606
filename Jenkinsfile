@@ -18,6 +18,9 @@ pipeline {
         DB_NAME = 'wagglewaggle'
         DB_USER = 'waggle'
 
+        DB_URL = 'jdbc:postgresql://waggle-postgis:5432/wagglewaggle'
+        DB_USERNAME = 'waggle'
+
         HOST_PORT = '8990'
 
         // Jenkins Global Credentials
