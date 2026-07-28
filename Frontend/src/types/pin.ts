@@ -34,6 +34,12 @@ export type PinVideoAccess = 'OWNER' | 'UNLOCKED' | 'PREVIEW_BLURRED';
 export type PinChatRequestState = 'NONE' | 'PENDING' | 'ACTIVE' | 'CLOSED';
 
 /**
+ * 서버가 쓰는 혼잡 단계 값(DB `pin.crowd_level`).
+ * 프론트 공용 토큰 `CrowdLevelKey`와 이름이 달라 API 경계에서 변환한다.
+ */
+export type PinCrowdLevel = 'WAGLE_WAGLE' | 'WAGLE' | 'RELAXED' | 'LEISURELY';
+
+/**
  * 핀이 등록된 장소 요약.
  *
  * 명세에 `place: {}`로만 적혀 있어 필드가 확정되지 않았다.
@@ -47,10 +53,19 @@ export type PinPlaceSummary = {
 
 
 /**
- * `GET /api/v1/pins/{pinId}` 응답 `data`.
+ * `GET /api/v1/pins/{pinId}` 응답 `data` 원형.
  *
- * 서버 응답을 그대로 옮긴 계약 타입이다. 화면 편의를 위한 파생값은 넣지 않고
- * 아래 헬퍼(`isOwnPin` 등)로 판정한다.
+ * 서버가 보낸 그대로다. 화면은 이 타입을 쓰지 않고, API 경계에서 `PinDetail`로 바꾼 값을 쓴다.
+ */
+export type PinDetailResponse = Omit<PinDetail, 'crowdLevel'> & {
+  crowdLevel: PinCrowdLevel;
+};
+
+/**
+ * 화면이 쓰는 게시글 상세.
+ *
+ * 서버 응답과 한 가지만 다르다. `crowdLevel`이 프론트 공용 토큰(`CrowdLevelKey`)으로 바뀐다.
+ * 화면 편의를 위한 파생값은 넣지 않고 아래 헬퍼(`isOwnPin` 등)로 판정한다.
  */
 export type PinDetail = {
   pinId: number;
@@ -79,6 +94,19 @@ export type PinDetail = {
   canRequestChat: boolean;
   chatRequestState: PinChatRequestState;
 };
+
+/** 서버 혼잡 단계 → 프론트 공용 토큰. 지도·추천이 쓰는 `crowdLevels`와 같은 키를 쓴다. */
+const CROWD_LEVEL_BY_SERVER_VALUE: Record<PinCrowdLevel, CrowdLevelKey> = {
+  LEISURELY: 'QUIET',
+  RELAXED: 'NOT_CROWDED',
+  WAGLE: 'CROWDED',
+  WAGLE_WAGLE: 'VERY_CROWDED',
+};
+
+/** 모르는 값이 와도 화면이 죽지 않도록 가장 낮은 단계로 떨어뜨린다. */
+export function toCrowdLevelKey(value: PinCrowdLevel): CrowdLevelKey {
+  return CROWD_LEVEL_BY_SERVER_VALUE[value] ?? 'QUIET';
+}
 
 /** 영상 잠금 해제(결제) 응답 `data`. */
 export type PinUnlockResult = {

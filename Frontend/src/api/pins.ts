@@ -5,7 +5,8 @@ import {
   leaveMockPinChats,
   unlockMockPin,
 } from '@/mocks/pinDetail';
-import type { PinDetail, PinUnlockResult } from '@/types/pin';
+import { toCrowdLevelKey } from '@/types/pin';
+import type { PinDetail, PinDetailResponse, PinUnlockResult } from '@/types/pin';
 
 /**
  * 고정 데이터를 쓸지 여부.
@@ -21,15 +22,20 @@ export const usesMockApi =
  * 오류 코드: `INVALID_PIN_ID` `UNAUTHORIZED` `PIN_NOT_FOUND`
  * `PIN_DETAIL_FETCH_FAILED` `VIDEO_URL_ISSUE_FAILED`.
  *
- * 명세에 URI가 적혀 있지 않아 경로는 아직 추정이다. 서버 구현이 나오면 이 줄만 고친다.
  * 응답 구조가 달라지면 이 함수 안에서 변환해 화면 쪽 변경을 막는다.
  */
-function requestPinDetail(pinId: number): Promise<PinDetail> {
-  return apiRequest<PinDetail>({ method: 'GET', url: `/api/v1/pins/${pinId}` });
+function requestPinDetail(pinId: number): Promise<PinDetailResponse> {
+  return apiRequest<PinDetailResponse>({ method: 'GET', url: `/api/v1/pins/${pinId}` });
 }
 
-export function getPinDetail(pinId: number): Promise<PinDetail> {
-  return usesMockApi ? fetchMockPinDetail(pinId) : requestPinDetail(pinId);
+/** 서버 응답을 화면이 쓰는 모양으로 바꾼다. 지금은 혼잡 단계 enum 하나만 다르다. */
+function toPinDetail(response: PinDetailResponse): PinDetail {
+  return { ...response, crowdLevel: toCrowdLevelKey(response.crowdLevel) };
+}
+
+export async function getPinDetail(pinId: number): Promise<PinDetail> {
+  const response = usesMockApi ? await fetchMockPinDetail(pinId) : await requestPinDetail(pinId);
+  return toPinDetail(response);
 }
 
 /**
@@ -40,8 +46,6 @@ export function getPinDetail(pinId: number): Promise<PinDetail> {
  *
  * 오류 코드: `INVALID_PIN_ID` `IDEMPOTENCY_KEY_REQUIRED` `UNAUTHORIZED` `PIN_NOT_FOUND`
  * `IDEMPOTENCY_KEY_CONFLICT` `INSUFFICIENT_CREDIT` `PIN_UNLOCK_FAILED` `VIDEO_URL_ISSUE_FAILED`.
- *
- * 명세에 URI가 없어 경로는 추정이다.
  */
 function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
   return apiRequest<PinUnlockResult>({

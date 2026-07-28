@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/client';
-import type { PinDetail, PinUnlockResult } from '@/types/pin';
+import type { PinDetailResponse, PinUnlockResult } from '@/types/pin';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -37,7 +37,7 @@ export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
  * `videoUrl`·`previewUrl`은 빈 문자열이다. Object Storage signed URL이 아직 없어서
  * 화면이 번들에 포함된 디자인 시안 이미지로 폴백하도록 두었다.
  */
-function createBaseDetail(): PinDetail {
+function createBaseDetail(): PinDetailResponse {
   return {
     pinId: 1,
     place: {
@@ -48,7 +48,7 @@ function createBaseDetail(): PinDetail {
     authorViewAngle: 92,
     authorNickname: '역삼동 익명러',
     createdAt: new Date(Date.now() - 40_000).toISOString(),
-    crowdLevel: 'CROWDED',
+    crowdLevel: 'WAGLE',
     detailLocation: '2층 창가석',
     memo: '2층 창가석에 앉아있습니다. 지금 사람이 엄청 많네요. 혹시 노트북 자리가 필요하신 분이 계시다면 3시반까지는 채팅 편하게 주세요.',
     tags: ['좌석없음', '콘센트', '조용함'],
@@ -61,7 +61,7 @@ function createBaseDetail(): PinDetail {
   };
 }
 
-function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDetail {
+function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDetailResponse {
   const base = createBaseDetail();
 
   switch (scenario) {
@@ -112,7 +112,7 @@ function delay(ms: number): Promise<void> {
 }
 
 /** 실제 API와 같은 시그니처. 실패 시에도 `ApiError`를 던져 화면 분기가 동일하게 동작한다. */
-export async function fetchMockPinDetail(pinId: number): Promise<PinDetail> {
+export async function fetchMockPinDetail(pinId: number): Promise<PinDetailResponse> {
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);
