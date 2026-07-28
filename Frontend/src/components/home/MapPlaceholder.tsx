@@ -32,7 +32,7 @@ export function MapPlaceholder({ local = false, fullScreen = false, filter = 're
   const markers = local ? markerLayout.local : markerLayout.wide;
 
   return (
-    <View style={fullScreen ? s.fullMap : s.inlineMap} accessibilityLabel="카카오맵이 표시될 지도 영역">
+    <View style={[s.map, fullScreen && s.fullMap]} accessibilityLabel="카카오맵이 표시될 지도 영역">
       <Image
         source={require('../../../assets/images/map-reference-latest.png')}
         style={StyleSheet.absoluteFill}
@@ -53,14 +53,13 @@ export function MapPlaceholder({ local = false, fullScreen = false, filter = 're
 }
 
 const s = StyleSheet.create({
-  // 고정 height와 absoluteFill을 한 배열에 섞으면 height가 남아 전체화면이 깨진다. 두 스타일을 분리해 둔다.
-  inlineMap: {
+  map: {
     height: 260,
     position: 'relative',
     overflow: 'hidden',
     borderRadius: radius.hero,
     backgroundColor: color.bg.map,
   },
-  fullMap: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', backgroundColor: color.bg.map },
+  fullMap: { ...StyleSheet.absoluteFillObject, height: undefined, borderRadius: 0 },
   currentLocation: { position: 'absolute', left: '49%', top: '48%' },
 });

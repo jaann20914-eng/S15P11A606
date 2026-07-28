@@ -1,6 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -21,7 +19,7 @@ const menus = [
 
 export default function My() {
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    <SafeAreaView style={s.safe}>
       <View style={s.header}>
         <View style={s.headerSide}/>
         <Text style={s.headerTitle}>마이페이지</Text>
