@@ -117,7 +117,13 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 내 핀 하단 액션 */
   ownerFooter: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x10 },
-  footerButton: { flex: 1, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  footerButton: {
+    flex: 1,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
   leaveButton: { backgroundColor: colors.dark },
   leaveButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.lime },
   goChatButton: { backgroundColor: '#D9ED76' },
@@ -144,7 +150,13 @@ export const pinDetailStyles = StyleSheet.create({
   ratingHint: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   ratingError: { ...type.caption, color: colors.danger, marginTop: spacing.x3 },
   ratingButtons: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x4 },
-  ratingButton: { flex: 1, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  ratingButton: {
+    flex: 1,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
   ratingButtonBusy: { opacity: 0.6 },
   helpfulButton: { backgroundColor: colors.lime },
   missButton: { backgroundColor: colors.gray100 },

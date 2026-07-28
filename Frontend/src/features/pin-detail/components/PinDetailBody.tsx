@@ -155,13 +155,7 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
   );
 }
 
-function RatingSection({
-  evaluated,
-  evaluation,
-}: {
-  evaluated: boolean;
-  evaluation: EvaluationState;
-}) {
+function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluation: EvaluationState }) {
   if (evaluated) {
     const { submitted, rewardCredit } = evaluation;
 

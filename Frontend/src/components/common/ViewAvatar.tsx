@@ -23,10 +23,7 @@ export function ViewAvatar({ angle, size = 48, showLabel = false, style }: ViewA
   const rounded = Math.round(angle);
 
   return (
-    <View
-      accessibilityLabel={`뷰 각도 ${rounded}도`}
-      style={[s.wrap, { width: size, height: size }, style]}
-    >
+    <View accessibilityLabel={`뷰 각도 ${rounded}도`} style={[s.wrap, { width: size, height: size }, style]}>
       <Image source={getViewAngleImage(angle)} style={s.ring} />
       <Text style={[s.value, { fontSize: Math.round(size * 0.275) }]}>{rounded}°</Text>
       {showLabel && <Text style={s.label}>VIEW</Text>}

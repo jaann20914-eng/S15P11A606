@@ -12,5 +12,13 @@ export { ErrorView } from './ErrorView';
 export type { ErrorViewProps } from './ErrorView';
 export { ConfirmModal } from './ConfirmModal';
 export type { ConfirmModalProps } from './ConfirmModal';
-export { AppTabBar, APP_TABS, APP_TAB_BAR_HEIGHT, TabBarIcon, appTabBarTheme } from './AppTabBar';
+export {
+  AppTabBar,
+  APP_TABS,
+  APP_TAB_BAR_HEIGHT,
+  TabBarIcon,
+  appTabBarTheme,
+  useAppTabBarHeight,
+  useAppTabBarStyle,
+} from './AppTabBar';
 export type { AppTab, AppTabBarProps, AppTabDefinition } from './AppTabBar';

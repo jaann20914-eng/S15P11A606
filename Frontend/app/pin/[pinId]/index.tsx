@@ -88,10 +88,7 @@ function PinDetailScreen({
   detail: PinDetail;
   onDetailChange: (patch: Partial<PinDetail>) => void;
 }) {
-  const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(
-    detail,
-    onDetailChange,
-  );
+  const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(detail, onDetailChange);
   const isMine = isOwnPin(detail);
 
   return (

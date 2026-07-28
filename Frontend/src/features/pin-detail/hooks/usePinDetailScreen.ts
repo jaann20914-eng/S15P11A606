@@ -82,10 +82,7 @@ export interface PurchaseState extends ToggleState {
  * 멱등성 키는 모달을 열 때 한 번 만들고 그 모달이 닫힐 때까지 재사용한다.
  * 실패해서 다시 누르는 것은 "같은 결제의 재시도"이므로 같은 키를 보내야 중복 차감되지 않는다.
  */
-function usePurchase(
-  pinId: number,
-  onDetailChange: (patch: Partial<PinDetail>) => void,
-): PurchaseState {
+function usePurchase(pinId: number, onDetailChange: (patch: Partial<PinDetail>) => void): PurchaseState {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,10 +164,7 @@ export interface PinDetailScreenState {
  * 이미 평가한 핀이면 서버가 409를 준다. 그때는 오류로 남기지 않고
  * 화면을 "평가 완료"로 넘긴다 — 서버 상태가 그게 맞기 때문이다.
  */
-function useEvaluation(
-  pinId: number,
-  onDetailChange: (patch: Partial<PinDetail>) => void,
-): EvaluationState {
+function useEvaluation(pinId: number, onDetailChange: (patch: Partial<PinDetail>) => void): EvaluationState {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<PinRating | null>(null);

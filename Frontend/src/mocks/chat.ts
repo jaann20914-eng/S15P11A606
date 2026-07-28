@@ -34,11 +34,7 @@ export async function createMockChatRequest(pinId: number): Promise<ChatRequestR
 
   // 'evaluated' 시나리오는 이미 PENDING 방을 갖고 있다.
   if (scenario === 'evaluated' || chatRoomIdByPinId.has(pinId)) {
-    throw new ApiError(
-      409,
-      'CHAT_REQUEST_ALREADY_EXISTS',
-      '이미 대기 중인 요청 또는 채팅방이 있습니다.',
-    );
+    throw new ApiError(409, 'CHAT_REQUEST_ALREADY_EXISTS', '이미 대기 중인 요청 또는 채팅방이 있습니다.');
   }
 
   const roomId = nextMockRoomId++;

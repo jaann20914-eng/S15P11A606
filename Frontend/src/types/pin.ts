@@ -1,3 +1,4 @@
+// 백엔드 영상핀 응답에 맞춘 도메인 타입. 연동 전이라 아직 참조하는 화면이 없다.
 import type { CrowdLevelKey } from '@/constants/crowdLevels';
 
 /**
@@ -79,7 +80,6 @@ export type PinPlaceSummary = {
   name: string;
   address: string;
 };
-
 
 /**
  * `GET /api/v1/pins/{pinId}` 응답 `data` 원형.

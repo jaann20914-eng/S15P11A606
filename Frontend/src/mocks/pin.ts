@@ -144,10 +144,7 @@ const evaluatedPinIds = new Set<number>();
  * 평가 등록 목업.
  * 권한 없음·본인 핀·중복 평가를 실제 서버와 같은 코드로 실패하게 만든다.
  */
-export async function evaluateMockPin(
-  pinId: number,
-  rating: PinRating,
-): Promise<PinEvaluationResult> {
+export async function evaluateMockPin(pinId: number, rating: PinRating): Promise<PinEvaluationResult> {
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);
@@ -184,10 +181,7 @@ const unlockResultsByKey = new Map<string, PinUnlockResult>();
  * 잠금 해제 목업.
  * 멱등성 키 재사용·잔액 부족·중복 구매까지 실제 서버와 같은 코드로 실패하게 만든다.
  */
-export async function unlockMockPin(
-  pinId: number,
-  idempotencyKey: string,
-): Promise<PinUnlockResult> {
+export async function unlockMockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
   await delay(MOCK_LATENCY_MS);
 
   if (!idempotencyKey) {
@@ -197,11 +191,7 @@ export async function unlockMockPin(
   const cached = unlockResultsByKey.get(idempotencyKey);
   if (cached) {
     if (cached.pinId !== pinId) {
-      throw new ApiError(
-        409,
-        'IDEMPOTENCY_KEY_CONFLICT',
-        '동일한 멱등성 키가 다른 요청에 사용되었습니다.',
-      );
+      throw new ApiError(409, 'IDEMPOTENCY_KEY_CONFLICT', '동일한 멱등성 키가 다른 요청에 사용되었습니다.');
     }
     // 같은 키·같은 요청은 다시 차감하지 않고 새 URL만 발급한다.
     return { ...cached, creditCharged: 0 };
@@ -257,11 +247,7 @@ export async function deleteMockPin(pinId: number): Promise<PinDeleteResult> {
   }
 
   if (DELETE_NOT_ALLOWED_PIN_IDS.has(pinId)) {
-    throw new ApiError(
-      409,
-      'PIN_DELETE_NOT_ALLOWED',
-      '현재 상태에서는 핀을 삭제할 수 없습니다.',
-    );
+    throw new ApiError(409, 'PIN_DELETE_NOT_ALLOWED', '현재 상태에서는 핀을 삭제할 수 없습니다.');
   }
 
   const result: PinDeleteResult = {

@@ -33,12 +33,7 @@ export function PinPurchaseModal({
               <Text style={s.modalTitle}>뷰포인트 결제</Text>
               <Text style={s.modalCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
             </View>
-            <Pressable
-              accessibilityLabel="닫기"
-              disabled={busy}
-              onPress={onCancel}
-              style={s.modalClose}
-            >
+            <Pressable accessibilityLabel="닫기" disabled={busy} onPress={onCancel} style={s.modalClose}>
               <Ionicons name="close" size={18} color={colors.white} />
             </Pressable>
           </View>
