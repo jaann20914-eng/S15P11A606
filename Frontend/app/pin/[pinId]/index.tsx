@@ -12,7 +12,8 @@ import {
 } from '@/components/pin/detail';
 import { parsePinId, usePinDetail } from '@/hooks/usePinDetail';
 import { usePinDetailScreen } from '@/hooks/usePinDetailScreen';
-import type { PinDetail, PinViewerState } from '@/types/pin';
+import { isOwnPin } from '@/types/pin';
+import type { PinDetail } from '@/types/pin';
 
 /**
  * 게시글 상세 라우트.
@@ -22,7 +23,7 @@ import type { PinDetail, PinViewerState } from '@/types/pin';
 export default function PinDetailRoute() {
   const { pinId: pinIdParam } = useLocalSearchParams<{ pinId: string }>();
   const pinId = parsePinId(pinIdParam);
-  const { status, data, error, errorCode, reload, patchViewer } = usePinDetail(pinId);
+  const { status, data, error, errorCode, reload, patchDetail } = usePinDetail(pinId);
 
   const goHome = () => router.replace('/(tabs)/home');
 
@@ -68,7 +69,7 @@ export default function PinDetailRoute() {
     );
   }
 
-  return <PinDetailScreen detail={data} onViewerChange={patchViewer} />;
+  return <PinDetailScreen detail={data} onDetailChange={patchDetail} />;
 }
 
 /** 로딩·오류 화면이 공유하는 껍데기. 소유 여부를 모르므로 헤더 우측은 비운다. */
@@ -84,13 +85,16 @@ function PinDetailShell({ children }: { children: React.ReactNode }) {
 
 function PinDetailScreen({
   detail,
-  onViewerChange,
+  onDetailChange,
 }: {
   detail: PinDetail;
-  onViewerChange: (patch: Partial<PinViewerState>) => void;
+  onDetailChange: (patch: Partial<PinDetail>) => void;
 }) {
-  const { menu, purchase, chat, remove, leave, rate } = usePinDetailScreen(detail, onViewerChange);
-  const isMine = detail.viewer.isMine;
+  const { menu, purchase, chat, remove, leave, rate, submittedRating } = usePinDetailScreen(
+    detail,
+    onDetailChange,
+  );
+  const isMine = isOwnPin(detail);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -109,6 +113,7 @@ function PinDetailScreen({
 
       <PinDetailBody
         detail={detail}
+        submittedRating={submittedRating}
         onRequestChat={chat.show}
         onRequestPurchase={purchase.show}
         onRate={rate}

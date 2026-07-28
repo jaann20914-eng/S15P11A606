@@ -5,7 +5,7 @@ import type { CrowdLevelKey } from '@/constants/crowdLevels';
  *
  * 2026-07-28 기준 DB(`PENDING/PROCESSING/COMPLETED/FAILED`)와
  * API 명세(`PROCESSING/ACTIVE/RESHOOT`)의 값이 서로 달라 확정되지 않았다.
- * 백엔드 답변 후 정리한다.
+ * 상세 조회 응답에는 포함되지 않는다(삭제·만료 핀은 404).
  */
 export type PinStatus = 'UPLOADING' | 'PROCESSING' | 'ACTIVE' | 'EXPIRED' | 'HIDDEN' | 'FAILED';
 
@@ -19,59 +19,68 @@ export type VideoPin = {
   status: PinStatus;
 };
 
-/** 영상핀 평가. 열람한 사용자만 한 번 남길 수 있다. */
+/** 평가 버튼이 보내는 값. 서버는 완료 여부(`isEvaluated`)만 돌려주고 어느 쪽인지는 알려주지 않는다. */
 export type PinRating = 'HELPFUL' | 'MISS';
 
 /**
- * 상세 화면이 구분하는 채팅방 상태.
- *
- * `chat_room.status` enum이 문서마다 달라(API 명세 `PENDING/ACTIVE/CLOSED` vs
- * DB `ACTIVE/REFUSED/LEFT`) 아직 확정되지 않았다. 상세 화면은 "요청 가능 / 수락 대기 /
- * 입장 가능" 세 가지만 구분하면 되므로 확정 전까지 이 최소 집합으로 다룬다.
+ * 현재 사용자의 영상 접근 수준.
+ * - `OWNER` 작성자 본인
+ * - `UNLOCKED` 크레딧을 써서 열람함
+ * - `PREVIEW_BLURRED` 미구매. 블러 미리보기만 받는다
  */
-export type PinChatStatus = 'PENDING' | 'ACTIVE' | 'CLOSED';
+export type PinVideoAccess = 'OWNER' | 'UNLOCKED' | 'PREVIEW_BLURRED';
 
-/** 핀 작성자 중 상세 화면에 공개되는 정보. 익명 정책이 적용된 값이다. */
-export type PinAuthor = {
-  nickname: string;
-  /** 공개 뷰 온도. 프로필 링에 표시한다. */
-  viewTemperature: number;
-  /** 신뢰도 상위 백분율. 산출 대상이 아니면 null. */
-  trustPercentile: number | null;
+/** 현재 사용자와 이 핀 사이의 채팅 요청·방 상태. */
+export type PinChatRequestState = 'NONE' | 'PENDING' | 'ACTIVE' | 'CLOSED';
+
+/**
+ * 핀이 등록된 장소 요약.
+ *
+ * 명세에 `place: {}`로만 적혀 있어 필드가 확정되지 않았다.
+ * 상세 화면이 실제로 쓰는 값만 우선 정의했고 서버 응답이 나오면 맞춘다.
+ */
+export type PinPlaceSummary = {
+  placeId: number;
+  name: string;
+  address: string;
 };
 
 /**
- * 현재 사용자 기준 상태. 블러 · 결제 버튼 · 평가 · 삭제 분기가 전부 여기에 달려 있다.
- * 서버가 뷰어별로 계산해 내려줘야 하며 프론트가 유추할 수 없다.
+ * `GET /api/v1/pins/{pinId}` 응답 `data`.
+ *
+ * 서버 응답을 그대로 옮긴 계약 타입이다. 화면 편의를 위한 파생값은 넣지 않고
+ * 아래 헬퍼(`isOwnPin` 등)로 판정한다.
  */
-export type PinViewerState = {
-  /** 내가 작성한 핀인지. true면 결제·채팅 대신 삭제를 노출한다. */
-  isMine: boolean;
-  /** 크레딧을 써서 영상을 열람했는지. false면 블러를 유지한다. */
-  isPurchased: boolean;
-  /** 이미 남긴 평가. 없으면 null. */
-  myRating: PinRating | null;
-  /** 이 핀으로 만든 채팅방. 아직 요청하지 않았으면 null. */
-  chatRoomId: number | null;
-  chatStatus: PinChatStatus | null;
-};
-
-/** 게시글 상세 보기 화면이 필요한 전체 데이터. */
 export type PinDetail = {
   pinId: number;
-  placeId: number;
-  placeName: string;
-  address: string;
-  /** 블러 해제된 원본 영상. 미열람이면 서버가 내려주지 않는다. */
-  videoUrl: string | null;
-  /** 미열람 상태에서도 블러 처리해 노출하는 썸네일. */
-  thumbnailUrl: string;
-  memo: string;
-  tags: string[];
+  place: PinPlaceSummary;
   crowdLevel: CrowdLevelKey;
-  capturedAt: string;
-  expiresAt: string;
-  status: PinStatus;
-  author: PinAuthor;
-  viewer: PinViewerState;
+  /** 층·좌석 등 장소 내부 위치. 없으면 null. */
+  detailLocation: string | null;
+  memo: string | null;
+  tags: string[];
+  videoAccess: PinVideoAccess;
+  /** `UNLOCKED`일 때만 boolean, 그 외에는 null. */
+  isEvaluated: boolean | null;
+  /** `OWNER`·`UNLOCKED`일 때만 발급되는 signed URL. */
+  videoUrl: string | null;
+  /** `PREVIEW_BLURRED`일 때 제공되는 블러 미리보기 signed URL. */
+  previewUrl: string | null;
+  canRequestChat: boolean;
+  chatRequestState: PinChatRequestState;
 };
+
+/** 내가 쓴 핀인지. 수정·삭제·떠났어요 노출 기준이다. */
+export function isOwnPin(detail: PinDetail): boolean {
+  return detail.videoAccess === 'OWNER';
+}
+
+/** 블러 없이 원본을 볼 수 있는지. */
+export function isVideoUnlocked(detail: PinDetail): boolean {
+  return detail.videoAccess === 'OWNER' || detail.videoAccess === 'UNLOCKED';
+}
+
+/** 평가 영역을 보여줄 상황인지. 작성자 본인과 미구매자는 평가 대상이 아니다. */
+export function canEvaluate(detail: PinDetail): boolean {
+  return detail.videoAccess === 'UNLOCKED';
+}

@@ -88,23 +88,13 @@ export const pinDetailStyles = StyleSheet.create({
     backgroundColor: colors.white,
   },
 
-  /* 작성자 */
-  authorRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center' },
-  viewRing: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
-  viewRingText: { fontSize: 11, lineHeight: 15, fontWeight: '600', color: colors.gray600 },
-  authorCopy: { flex: 1, marginLeft: spacing.x3 },
-  authorName: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
-  authorTrust: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
-  authorMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
+  /*
+   * 상세 위치 + 채팅 버튼 줄.
+   * 원래 작성자 프로필(뷰 온도 링·닉네임·신뢰도)이 있던 자리인데
+   * 상세 조회 응답에 작성자 정보가 없어 비워 두었다. 서버가 추가하면 여기에 되살린다.
+   */
+  metaRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
+  detailLocation: { flex: 1, ...type.small, color: colors.gray400 },
   chatButton: {
     height: 40,
     paddingHorizontal: spacing.x4,

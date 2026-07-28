@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { router } from 'expo-router';
 import { deletePin, leavePinChats } from '@/api/pins';
 import { goBackOrHome } from '@/utils/navigation';
-import type { PinDetail, PinRating, PinViewerState } from '@/types/pin';
+import type { PinDetail, PinRating } from '@/types/pin';
 
 /** 열림/닫힘만 있는 단순 모달. */
 export interface ToggleState {
@@ -70,6 +70,13 @@ export interface PinDetailScreenState {
   remove: ConfirmActionState;
   leave: ConfirmActionState;
   rate: (rating: PinRating) => void;
+  /**
+   * 이번 화면에서 사용자가 고른 평가.
+   *
+   * 서버는 완료 여부(`isEvaluated`)만 돌려주고 유익/아쉬움을 구분하지 않는다.
+   * 방금 누른 직후에만 구체적인 문구를 보여주고 재진입하면 일반 문구로 돌아간다.
+   */
+  submittedRating: PinRating | null;
 }
 
 /**
@@ -80,11 +87,12 @@ export interface PinDetailScreenState {
  */
 export function usePinDetailScreen(
   detail: PinDetail,
-  onViewerChange: (patch: Partial<PinViewerState>) => void,
+  onDetailChange: (patch: Partial<PinDetail>) => void,
 ): PinDetailScreenState {
   const menu = useToggle();
   const purchase = useToggle();
   const chat = useToggle();
+  const [submittedRating, setSubmittedRating] = useState<PinRating | null>(null);
 
   const remove = useConfirmAction(
     useCallback(() => deletePin(detail.pinId), [detail.pinId]),
@@ -96,20 +104,23 @@ export function usePinDetailScreen(
     '처리하지 못했어요',
   );
 
-  // TODO(S15P11A606-67~69): 결제·채팅요청·평가 API가 붙으면 낙관적 갱신 전에 서버 호출을 넣는다.
+  // TODO: 결제·채팅요청·평가 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
   const confirmPurchase = useCallback(() => {
-    onViewerChange({ isPurchased: true });
+    onDetailChange({ videoAccess: 'UNLOCKED', isEvaluated: false, canRequestChat: true });
     purchase.hide();
-  }, [onViewerChange, purchase]);
+  }, [onDetailChange, purchase]);
 
   const confirmChat = useCallback(() => {
-    onViewerChange({ chatStatus: 'PENDING' });
+    onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
     chat.hide();
-  }, [onViewerChange, chat]);
+  }, [onDetailChange, chat]);
 
   const rate = useCallback(
-    (rating: PinRating) => onViewerChange({ myRating: rating }),
-    [onViewerChange],
+    (rating: PinRating) => {
+      setSubmittedRating(rating);
+      onDetailChange({ isEvaluated: true });
+    },
+    [onDetailChange],
   );
 
   return {
@@ -127,5 +138,6 @@ export function usePinDetailScreen(
     remove,
     leave,
     rate,
+    submittedRating,
   };
 }

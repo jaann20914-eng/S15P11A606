@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPinDetail } from '@/api/pins';
 import { ApiError } from '@/api/client';
 import type { AsyncStatus } from '@/types/common';
-import type { PinDetail, PinViewerState } from '@/types/pin';
+import type { PinDetail } from '@/types/pin';
 
 export interface PinDetailState {
   status: AsyncStatus;
@@ -16,10 +16,10 @@ export interface PinDetailState {
 export interface UsePinDetailResult extends PinDetailState {
   reload: () => void;
   /**
-   * 뷰어 상태만 즉시 갱신한다.
+   * 이미 받아 둔 상세를 부분 갱신한다.
    * 결제·평가·채팅 요청 직후 전체를 다시 불러오지 않고 화면을 먼저 바꾸기 위한 통로다.
    */
-  patchViewer: (patch: Partial<PinViewerState>) => void;
+  patchDetail: (patch: Partial<PinDetail>) => void;
 }
 
 const idleState: PinDetailState = { status: 'idle', data: null, error: null, errorCode: null };
@@ -69,15 +69,11 @@ export function usePinDetail(pinId: number | null): UsePinDetailResult {
     load();
   }, [load]);
 
-  const patchViewer = useCallback((patch: Partial<PinViewerState>) => {
-    setState((prev) =>
-      prev.data
-        ? { ...prev, data: { ...prev.data, viewer: { ...prev.data.viewer, ...patch } } }
-        : prev,
-    );
+  const patchDetail = useCallback((patch: Partial<PinDetail>) => {
+    setState((prev) => (prev.data ? { ...prev, data: { ...prev.data, ...patch } } : prev));
   }, []);
 
-  return { ...state, reload: load, patchViewer };
+  return { ...state, reload: load, patchDetail };
 }
 
 /** 경로 파라미터(`string | string[]`)를 핀 식별자로 바꾼다. 숫자가 아니면 null. */

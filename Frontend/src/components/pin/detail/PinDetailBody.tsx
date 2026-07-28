@@ -2,23 +2,17 @@ import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { crowdLevels } from '@/constants/crowdLevels';
-import { formatRelativeTime } from '@/utils/datetime';
+import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
 import { pinDetailStyles as s } from './styles';
 
-/** 아직 Object Storage URL 규격이 없어 썸네일이 비어 있을 때 쓰는 디자인 시안 이미지. */
-const PLACEHOLDER_THUMBNAIL = require('../../../../assets/images/video-pin-crowd.png');
-
-function ViewRing({ temperature }: { temperature: number }) {
-  return (
-    <View style={s.viewRing}>
-      <Text style={s.viewRingText}>{temperature}°</Text>
-    </View>
-  );
-}
+/** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
+const PLACEHOLDER_MEDIA = require('../../../../assets/images/video-pin-crowd.png');
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
+  /** 방금 고른 평가. 서버는 유익/아쉬움을 구분해 주지 않아 이번 진입에서만 유지된다. */
+  submittedRating: PinRating | null;
   onRequestChat: () => void;
   onRequestPurchase: () => void;
   onRate: (rating: PinRating) => void;
@@ -27,55 +21,39 @@ export interface PinDetailBodyProps {
 
 export function PinDetailBody({
   detail,
+  submittedRating,
   onRequestChat,
   onRequestPurchase,
   onRate,
   onLeave,
 }: PinDetailBodyProps) {
-  const { viewer, author } = detail;
+  const own = isOwnPin(detail);
+  const unlocked = isVideoUnlocked(detail);
 
-  // 서버 enum이 아직 프론트 4단계 키와 다르다(DB `WAGLE_WAGLE/WAGLE/RELAXED/LEISURELY`).
-  // 확정 전까지는 모르는 값이 와도 라벨만 비우고 화면은 살려 둔다.
   const crowd = crowdLevels.find((level) => level.key === detail.crowdLevel) ?? null;
-  const uploadedAt = formatRelativeTime(detail.capturedAt);
-  const thumbnail = detail.thumbnailUrl ? { uri: detail.thumbnailUrl } : PLACEHOLDER_THUMBNAIL;
 
-  // 내 핀은 결제 없이 항상 원본을 본다.
-  const unlocked = viewer.isMine || viewer.isPurchased;
-  const chatPending = viewer.chatStatus === 'PENDING';
+  // 열람 전에는 블러 미리보기만 내려온다. 둘 다 비어 있으면 시안 이미지로 대체한다.
+  const mediaUrl = unlocked ? detail.videoUrl : detail.previewUrl;
+  const media = mediaUrl ? { uri: mediaUrl } : PLACEHOLDER_MEDIA;
+
+  const showChatAction = !own && unlocked;
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
       <View style={s.videoFrame}>
-        <Image source={thumbnail} blurRadius={unlocked ? 0 : 18} style={s.videoImage} />
+        <Image source={media} blurRadius={unlocked ? 0 : 18} style={s.videoImage} />
       </View>
 
       <View style={s.detailSheet}>
-        <View style={s.authorRow}>
-          <ViewRing temperature={author.viewTemperature} />
-
-          <View style={s.authorCopy}>
-            <Text style={s.authorName}>{author.nickname}</Text>
-            {author.trustPercentile !== null && (
-              <Text style={s.authorTrust}>신뢰도 상위 {author.trustPercentile}%</Text>
-            )}
-            {uploadedAt !== '' && <Text style={s.authorMeta}>{uploadedAt} 업로드</Text>}
+        {(detail.detailLocation || showChatAction) && (
+          <View style={s.metaRow}>
+            <Text style={s.detailLocation}>{detail.detailLocation ?? ''}</Text>
+            {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
           </View>
+        )}
 
-          {!viewer.isMine && viewer.isPurchased && (
-            <Pressable
-              accessibilityRole="button"
-              disabled={chatPending}
-              onPress={onRequestChat}
-              style={[s.chatButton, chatPending && s.chatPending]}
-            >
-              <Text style={s.chatText}>{chatPending ? '수락 대기' : '채팅 요청'}</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <Text style={s.placeName}>{detail.placeName}</Text>
-        <Text style={s.address}>{detail.address}</Text>
+        <Text style={s.placeName}>{detail.place.name}</Text>
+        <Text style={s.address}>{detail.place.address}</Text>
 
         {crowd && (
           <View style={[s.crowdChip, { backgroundColor: crowd.color }]}>
@@ -85,7 +63,7 @@ export function PinDetailBody({
 
         <View style={s.rule} />
 
-        <Text style={s.memo}>{detail.memo}</Text>
+        {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
 
         {detail.tags.length > 0 && (
           <View style={s.tags}>
@@ -97,15 +75,53 @@ export function PinDetailBody({
           </View>
         )}
 
-        {viewer.isMine ? (
+        {own ? (
           <OwnerFooter onLeave={onLeave} />
-        ) : !viewer.isPurchased ? (
-          <PurchasePrompt onPress={onRequestPurchase} />
+        ) : unlocked ? (
+          <RatingSection
+            evaluated={detail.isEvaluated === true}
+            submittedRating={submittedRating}
+            onRate={onRate}
+          />
         ) : (
-          <RatingSection rating={viewer.myRating} onRate={onRate} />
+          <PurchasePrompt onPress={onRequestPurchase} />
         )}
       </View>
     </ScrollView>
+  );
+}
+
+/**
+ * 채팅 버튼. 상태에 따라 요청 · 대기 · 입장으로 갈린다.
+ *
+ * `ACTIVE`일 때 이동할 `roomId`가 상세 응답에 없어 채팅 목록으로 보낸다.
+ * 서버가 roomId를 내려주면 방으로 바로 보낼 수 있다.
+ */
+function ChatAction({ detail, onRequestChat }: { detail: PinDetail; onRequestChat: () => void }) {
+  if (detail.chatRequestState === 'ACTIVE') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/(tabs)/chat/sent')}
+        style={s.chatButton}
+      >
+        <Text style={s.chatText}>채팅방 이동</Text>
+      </Pressable>
+    );
+  }
+
+  const waiting = detail.chatRequestState === 'PENDING';
+  const disabled = waiting || !detail.canRequestChat;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onRequestChat}
+      style={[s.chatButton, disabled && s.chatPending]}
+    >
+      <Text style={s.chatText}>{waiting ? '수락 대기' : '채팅 요청'}</Text>
+    </Pressable>
   );
 }
 
@@ -139,16 +155,24 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
 }
 
 function RatingSection({
-  rating,
+  evaluated,
+  submittedRating,
   onRate,
 }: {
-  rating: PinRating | null;
+  evaluated: boolean;
+  submittedRating: PinRating | null;
   onRate: (rating: PinRating) => void;
 }) {
-  if (rating) {
+  if (evaluated) {
     return (
       <View style={s.ratingArea}>
-        <Text style={s.selectedRating}>{rating === 'HELPFUL' ? '유익해요!' : '아쉬워요!'}</Text>
+        <Text style={s.selectedRating}>
+          {submittedRating === null
+            ? '평가를 남겼어요'
+            : submittedRating === 'HELPFUL'
+              ? '유익해요!'
+              : '아쉬워요!'}
+        </Text>
         <View style={s.reward}>
           <View style={s.rewardCoin}>
             <Ionicons name="leaf" size={24} color="#91A700" />

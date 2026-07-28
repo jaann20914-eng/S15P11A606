@@ -4,8 +4,8 @@ import type { PinDetail } from '@/types/pin';
 /**
  * 게시글 상세 고정 데이터.
  *
- * 백엔드 연동 전까지 화면이 실제 응답과 같은 모양의 데이터를 받아 렌더링하도록 하는 것이 목적이다.
- * 로딩·오류·상태별 분기를 전부 여기서 재현할 수 있어야 하므로 시나리오를 `pinId`에 매핑해 둔다.
+ * 백엔드에 pin 도메인이 아직 없어(2026-07-28 dev 기준 places만 구현) 목업으로 화면을 돌린다.
+ * 필드와 오류 코드는 상세 조회 명세를 그대로 따르므로 서버가 생기면 값만 바뀐다.
  *
  * 화면에서 확인하는 법: `/pin/1` ~ `/pin/4`로 이동한다. 그 밖의 id는 조회 실패 화면이 뜬다.
  */
@@ -13,61 +13,44 @@ import type { PinDetail } from '@/types/pin';
 /** 실제 네트워크처럼 로딩 상태를 볼 수 있도록 주는 지연. */
 const MOCK_LATENCY_MS = 400;
 
-export type PinDetailScenario = 'locked' | 'purchased' | 'rated' | 'mine' | 'notFound';
+export type PinDetailScenario = 'preview' | 'unlocked' | 'evaluated' | 'owner' | 'notFound';
 
 /** `pinId` → 시나리오. 표에 없는 id는 실제 서버와 같이 조회 실패로 처리한다. */
 const scenarioByPinId: Record<number, PinDetailScenario> = {
-  1: 'locked',
-  2: 'purchased',
-  3: 'rated',
-  4: 'mine',
+  1: 'preview',
+  2: 'unlocked',
+  3: 'evaluated',
+  4: 'owner',
 };
 
 export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
   return scenarioByPinId[pinId] ?? 'notFound';
 }
 
-function minutesAgo(minutes: number): string {
-  return new Date(Date.now() - minutes * 60_000).toISOString();
-}
-
-function hoursLater(hours: number): string {
-  return new Date(Date.now() + hours * 3_600_000).toISOString();
-}
-
 /**
  * 모든 시나리오가 공유하는 본문.
  *
- * `thumbnailUrl`·`videoUrl`은 빈 문자열이다. 아직 Object Storage URL 규격이 없어서
+ * `videoUrl`·`previewUrl`은 빈 문자열이다. Object Storage signed URL이 아직 없어서
  * 화면이 번들에 포함된 디자인 시안 이미지로 폴백하도록 두었다.
- * 실제 URL이 정해지면 이 두 값만 채우면 화면은 그대로 동작한다.
  */
 function createBaseDetail(): PinDetail {
   return {
     pinId: 1,
-    placeId: 11,
-    placeName: '바나프레소 역삼점',
-    address: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    videoUrl: '',
-    thumbnailUrl: '',
+    place: {
+      placeId: 11,
+      name: '바나프레소 역삼점',
+      address: '서울 광진구 동일로 60길 47 1층 (군자동)',
+    },
+    crowdLevel: 'CROWDED',
+    detailLocation: '2층 창가석',
     memo: '2층 창가석에 앉아있습니다. 지금 사람이 엄청 많네요. 혹시 노트북 자리가 필요하신 분이 계시다면 3시반까지는 채팅 편하게 주세요.',
     tags: ['좌석없음', '콘센트', '조용함'],
-    crowdLevel: 'CROWDED',
-    capturedAt: minutesAgo(1),
-    expiresAt: hoursLater(3),
-    status: 'ACTIVE',
-    author: {
-      nickname: '역삼동 익명러',
-      viewTemperature: 92,
-      trustPercentile: 12,
-    },
-    viewer: {
-      isMine: false,
-      isPurchased: false,
-      myRating: null,
-      chatRoomId: null,
-      chatStatus: null,
-    },
+    videoAccess: 'PREVIEW_BLURRED',
+    isEvaluated: null,
+    videoUrl: null,
+    previewUrl: '',
+    canRequestChat: false,
+    chatRequestState: 'NONE',
   };
 }
 
@@ -75,37 +58,42 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
   const base = createBaseDetail();
 
   switch (scenario) {
-    /** 타인 핀 · 미열람. 블러와 결제 버튼이 보인다. */
-    case 'locked':
+    /** 미구매. 블러 미리보기와 결제 버튼이 보인다. */
+    case 'preview':
       return base;
 
-    /** 열람 완료 · 평가 전. 블러가 풀리고 평가 버튼과 채팅 요청이 보인다. */
-    case 'purchased':
+    /** 열람 완료 · 평가 전. 평가 버튼과 채팅 요청이 보인다. */
+    case 'unlocked':
       return {
         ...base,
-        viewer: { ...base.viewer, isPurchased: true },
+        videoAccess: 'UNLOCKED',
+        isEvaluated: false,
+        videoUrl: '',
+        previewUrl: null,
+        canRequestChat: true,
       };
 
-    /** 열람 · 평가 완료 · 채팅 수락 대기. 적립 안내와 "수락 대기"가 보인다. */
-    case 'rated':
+    /** 열람 · 평가 완료 · 채팅 수락 대기. */
+    case 'evaluated':
       return {
         ...base,
-        viewer: {
-          ...base.viewer,
-          isPurchased: true,
-          myRating: 'HELPFUL',
-          chatRoomId: 7,
-          chatStatus: 'PENDING',
-        },
+        videoAccess: 'UNLOCKED',
+        isEvaluated: true,
+        videoUrl: '',
+        previewUrl: null,
+        canRequestChat: false,
+        chatRequestState: 'PENDING',
       };
 
-    /** 내가 쓴 핀. 결제·채팅·평가 대신 삭제가 보인다. */
-    case 'mine':
+    /** 내가 쓴 핀. 결제·채팅·평가 대신 수정·삭제·떠났어요가 보인다. */
+    case 'owner':
       return {
         ...base,
         memo: '창가 쪽은 아직 자리 있어요. 콘센트는 벽면에만 있습니다.',
-        author: { nickname: '나', viewTemperature: 88, trustPercentile: null },
-        viewer: { ...base.viewer, isMine: true, isPurchased: true },
+        videoAccess: 'OWNER',
+        isEvaluated: null,
+        videoUrl: '',
+        previewUrl: null,
       };
   }
 }
@@ -134,7 +122,7 @@ export async function fetchMockPinDetail(pinId: number): Promise<PinDetail> {
 export async function deleteMockPin(pinId: number): Promise<void> {
   await delay(MOCK_LATENCY_MS);
 
-  if (resolvePinDetailScenario(pinId) !== 'mine') {
+  if (resolvePinDetailScenario(pinId) !== 'owner') {
     throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '내가 작성한 영상핀만 삭제할 수 있어요.');
   }
 }
@@ -143,7 +131,7 @@ export async function deleteMockPin(pinId: number): Promise<void> {
 export async function leaveMockPinChats(pinId: number): Promise<number[]> {
   await delay(MOCK_LATENCY_MS);
 
-  if (resolvePinDetailScenario(pinId) !== 'mine') {
+  if (resolvePinDetailScenario(pinId) !== 'owner') {
     throw new ApiError(403, 'CHAT_PIN_LEAVE_FORBIDDEN', '해당 핀의 채팅방에서 나갈 권한이 없어요.');
   }
 
