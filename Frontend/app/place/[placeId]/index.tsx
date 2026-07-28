@@ -16,8 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { ResolvedPlace } from '@/components/home/kakaoMapHtml';
-import { StaticBottomNav, useNavBarHeight } from '@/components/common/BottomNav';
-import type { NavTab } from '@/components/common/BottomNav';
+import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapStore } from '@/store/useMapStore';
@@ -128,14 +127,6 @@ function VideoCard({ index = 0 }: { index?: number }) {
   );
 }
 
-/** 탭 밖 화면이라 탭 네비게이션이 없다. 같은 규격의 바를 그리고 라우팅만 직접 처리한다. */
-const tabRoutes: Record<NavTab, string> = {
-  home: '/(tabs)/home',
-  recommend: '/(tabs)/recommend',
-  chat: '/(tabs)/chat/sent',
-  mypage: '/(tabs)/mypage',
-};
-
 export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const { height } = useWindowDimensions();
@@ -144,7 +135,7 @@ export default function Place() {
   const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
   const myLocation = useCurrentLocation();
-  const navBarHeight = useNavBarHeight();
+  const navBarHeight = useAppTabBarHeight();
 
   /** 백엔드 연동 전이라 목업 장소를 기준으로 삼고, 실제 좌표·주소는 장소명 검색으로 채운다. */
   const mockPlace = places.find((item) => item.id === placeId) ?? places[0];
@@ -309,11 +300,7 @@ export default function Place() {
         </ScrollView>
       </Animated.View>
 
-      <StaticBottomNav
-        active="home"
-        onPressTab={(tab) => router.push(tabRoutes[tab] as never)}
-        onPressCapture={() => router.push('/(tabs)/write')}
-      />
+      <AppTabBar active="home" />
     </View>
   );
 }

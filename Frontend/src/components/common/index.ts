@@ -2,5 +2,23 @@ export { Button, Card, Chip, CrowdBadge, ScreenHeader, SearchField, SectionTitle
 export { ListGroup, RowDivider } from './ListGroup';
 export { ScreenContainer } from './ScreenContainer';
 export type { ScreenContainerProps, ScreenEdge } from './ScreenContainer';
+export { CrowdLevelBadge } from './CrowdLevelBadge';
+export type { CrowdLevelBadgeProps } from './CrowdLevelBadge';
+export { ViewAvatar } from './ViewAvatar';
+export type { ViewAvatarProps } from './ViewAvatar';
 export { CrowdFilterToggle } from './CrowdFilterToggle';
 export type { CrowdFilterToggleProps } from './CrowdFilterToggle';
+export { ErrorView } from './ErrorView';
+export type { ErrorViewProps } from './ErrorView';
+export { ConfirmModal } from './ConfirmModal';
+export type { ConfirmModalProps } from './ConfirmModal';
+export {
+  AppTabBar,
+  APP_TABS,
+  APP_TAB_BAR_HEIGHT,
+  TabBarIcon,
+  appTabBarTheme,
+  useAppTabBarHeight,
+  useAppTabBarStyle,
+} from './AppTabBar';
+export type { AppTab, AppTabBarProps, AppTabDefinition } from './AppTabBar';

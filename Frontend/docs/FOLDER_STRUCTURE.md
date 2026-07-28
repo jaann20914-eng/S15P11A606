@@ -1,5 +1,9 @@
 # 폴더 구조
 
+**배치 규칙은 [`../README.md`](../README.md)의 "배치 규칙"에 있다.** 이 문서는 현재 파일 목록만 담는다.
+
+## 라우트
+
 ```text
 app/
 ├── _layout.tsx
@@ -14,55 +18,43 @@ app/
 │   ├── nickname.tsx
 │   └── preferred-categories.tsx
 ├── (tabs)/
-│   ├── _layout.tsx
-│   ├── home/
-│   ├── recommend/
-│   ├── write/
-│   ├── chat/
-│   └── mypage/
-├── place/[placeId]/
-├── pin/[pinId]/
-├── pin-create/
+│   ├── _layout.tsx            탭 순서·아이콘은 src/components/common/AppTabBar와 공유
+│   ├── home/                  index, search
+│   ├── chat/                  sent, received
+│   ├── write/                 index
+│   ├── recommend/             index
+│   └── mypage/                index, activity, credits, edit-nickname
+├── place/[placeId]/index.tsx
+├── pin/[pinId]/index.tsx
+├── pin-create/                camera, detail-form, ai-review, publishing
 └── chat-room/[roomId].tsx
-
-src/
-├── api/
-├── hooks/
-├── store/
-├── components/
-│   ├── common/
-│   ├── home/
-│   └── pin/
-├── constants/
-├── data/
-└── types/
-
-assets/          # 화면에서 require 하는 이미지
-deliverables/    # 브랜드 가이드 등 디자인 산출물 (앱 실행과 무관)
-docs/            # 설계 문서
 ```
 
-## 실행에 필요한 것과 아닌 것
+## 소스
 
-앱 실행에 필요한 것은 `app/`, `src/`, `assets/`, 그리고 루트 설정 파일(`app.json`, `package.json`,
-`tsconfig.json`, `.env`)뿐이다. `docs/`, `deliverables/`, `DESIGN_GUIDE.md`는 문서·산출물이라
-없어도 앱은 동작한다.
-
-`assets/`에는 아직 화면에 연결되지 않은 이미지도 있다(뷰포인트용 `view-angles/` 등).
-Metro는 `require` 되지 않은 파일을 번들에 넣지 않으므로 앱 용량에는 영향이 없다.
-
-## 지우면 안 되는 파일
-
-- `src/components/home/KakaoMap.web.tsx` — `import` 구문에 나타나지 않지만 Metro가 웹 플랫폼에서
-  `KakaoMap.tsx` 대신 자동으로 선택한다. 참조가 없어 보여도 삭제하면 웹 빌드가 깨진다.
-- `src/api/client.ts`, `src/types/place.ts`, `src/types/pin.ts` — 아직 호출되지 않지만
-  백엔드 연동이 들어올 자리다.
-
-## 경계
-
-- `app/`은 Expo Router 라우팅과 화면 조립을 담당한다.
-- 공용 컴포넌트는 두 화면 이상에서 재사용할 때 `src/components/common/`에 둔다.
-- 도메인 전용 컴포넌트는 `src/components/<domain>/`에 둔다.
-- 색상, 간격, 반경, 타이포그래피는 `src/constants/theme.ts`를 통해 사용한다.
-- 화면은 API URL을 직접 호출하지 않고 `src/api/`를 통해 접근한다.
-- 실제 서버 상태 및 전역 상태 라이브러리는 백엔드 계약과 기술 선택이 확정된 뒤 연결한다.
+```text
+src/
+├── features/
+│   └── pin-detail/            /pin/[pinId] 전용
+│       ├── components/        PinDetailHeader, PinDetailBody, OwnerMenu,
+│       │                      PinPurchaseModal, PinChatRequestModal
+│       ├── hooks/             usePinDetail, usePinDetailScreen
+│       └── styles.ts
+├── api/
+│   ├── client.ts              axios 인스턴스·인터셉터·ApiError
+│   ├── config.ts              usesMockApi
+│   ├── pin/                   detail, unlock, evaluate, remove
+│   └── chat/                  request, leave
+├── mocks/                     pin, chat
+├── components/
+│   ├── common/                ui, AppTabBar, ConfirmModal, ErrorView,
+│   │                          ScreenContainer, ListGroup, CrowdFilterToggle,
+│   │                          CrowdLevelBadge, ViewAvatar, modalAnimation
+│   └── home/                  MapPlaceholder, MapMarker
+├── hooks/                     useResponsivePadding
+├── store/                     createStore, useMapStore
+├── types/                     common, pin, chat, place, env.d.ts
+├── constants/                 theme, crowdLevels, categories
+├── utils/                     datetime, viewAngle, idempotency, navigation
+└── data/                      mock.ts (목업 화면 하드코딩, API 연동 시 제거 예정)
+```

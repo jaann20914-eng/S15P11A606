@@ -1,34 +1,36 @@
 import { Tabs } from 'expo-router';
-import { CaptureButton, NavIcon, navBarStyles, useNavBarStyle } from '@/components/common/BottomNav';
-import type { NavTab } from '@/components/common/BottomNav';
-import { colors } from '@/constants/theme';
+import { APP_TABS, TabBarIcon, appTabBarTheme, useAppTabBarStyle } from '@/components/common';
 
+/**
+ * 탭 순서·아이콘·색은 `src/components/common/AppTabBar`가 단일 소스다.
+ * 탭 그룹 밖 화면이 쓰는 `<AppTabBar/>`와 같은 정의를 공유하므로 여기서 따로 정의하지 않는다.
+ */
 export default function TabLayout() {
   // 갤럭시 등 하단 시스템 바와 겹치지 않도록 기기별 inset을 반영한다.
-  const tabBarStyle = useNavBarStyle();
+  const tabBarStyle = useAppTabBarStyle();
 
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.dark,
-        tabBarInactiveTintColor: colors.gray400,
+        tabBarActiveTintColor: appTabBarTheme.activeTintColor,
+        tabBarInactiveTintColor: appTabBarTheme.inactiveTintColor,
         tabBarStyle,
-        tabBarLabelStyle: navBarStyles.label,
-        tabBarIcon: ({ focused }) =>
-          route.name === 'write' ? (
-            <CaptureButton focused={focused} />
-          ) : (
-            <NavIcon tab={route.name as NavTab} focused={focused} />
-          ),
-      })}
+        tabBarLabelStyle: appTabBarTheme.labelStyle,
+      }}
     >
-      <Tabs.Screen name="home" options={{ title: '홈' }} />
-      <Tabs.Screen name="recommend" options={{ title: '추천' }} />
-      {/* 시안의 가운데 제보 버튼에는 라벨이 없다. */}
-      <Tabs.Screen name="write" options={{ title: '', tabBarAccessibilityLabel: '영상핀 제보' }} />
-      <Tabs.Screen name="chat" options={{ title: '채팅' }} />
-      <Tabs.Screen name="mypage" options={{ title: '마이' }} />
+      {APP_TABS.map(({ key, label }) => (
+        <Tabs.Screen
+          key={key}
+          name={key}
+          options={{
+            title: label,
+            tabBarLabelStyle: key === 'write' ? appTabBarTheme.captureLabelStyle : appTabBarTheme.labelStyle,
+            tabBarAccessibilityLabel: key === 'write' ? '영상핀 제보' : label,
+            tabBarIcon: ({ focused, color }) => <TabBarIcon tab={key} focused={focused} color={color} />,
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
