@@ -1,3 +1,4 @@
+// 혼잡도 4단계 뱃지. 공용 컴포넌트로 정의만 해 둔 상태이고 아직 쓰는 화면이 없다(DESIGN_GUIDE 9.1).
 import { StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { color, shape, space, typography } from '@/constants/theme';

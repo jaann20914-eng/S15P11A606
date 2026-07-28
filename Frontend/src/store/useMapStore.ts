@@ -12,8 +12,8 @@ export interface MapBounds {
   northEast: Coordinate;
 }
 
-/** 서울숲 일대 — 목업 기본 중심 좌표 */
-const DEFAULT_CENTER: Coordinate = { latitude: 37.5445, longitude: 127.0374 };
+/** 서울숲 일대 — 지도 최초 중심이자 위치 권한 연동 전 "내 위치" 목업 좌표 */
+export const DEFAULT_CENTER: Coordinate = { latitude: 37.5445, longitude: 127.0374 };
 
 export interface MapState {
   center: Coordinate;
