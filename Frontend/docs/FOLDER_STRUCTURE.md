@@ -49,9 +49,8 @@ src/
 ├── components/
 │   ├── common/                ui, AppTabBar, ConfirmModal, ErrorView,
 │   │                          ScreenContainer, ListGroup, CrowdFilterToggle,
-│   │                          modalAnimation
-│   ├── home/                  MapPlaceholder, MapMarker
-│   └── pin/                   CrowdLevelBadge, ViewAvatar (현재 미사용)
+│   │                          CrowdLevelBadge, ViewAvatar, modalAnimation
+│   └── home/                  MapPlaceholder, MapMarker
 ├── hooks/                     useResponsivePadding
 ├── store/                     createStore, useMapStore
 ├── types/                     common, pin, place, env.d.ts

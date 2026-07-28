@@ -91,9 +91,6 @@ export const pinDetailStyles = StyleSheet.create({
   /* 작성자 프로필(뷰 각도 링 · 닉네임 · 상세위치·업로드 시각) + 채팅 버튼 줄 */
   authorRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center' },
   /** 링은 각도별 이미지라 테두리를 그리지 않고 이미지를 깔고 그 위에 숫자를 얹는다. */
-  viewRing: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  viewRingImage: { position: 'absolute', width: '100%', height: '100%', resizeMode: 'contain' },
-  viewRingText: { fontSize: 11, lineHeight: 15, fontWeight: '600', color: colors.gray600 },
   authorCopy: { flex: 1, marginLeft: spacing.x3 },
   authorName: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
   authorMeta: { ...type.small, color: colors.gray400 },
@@ -111,14 +108,8 @@ export const pinDetailStyles = StyleSheet.create({
   /* 장소 */
   placeName: { ...type.h3, fontWeight: '700', color: colors.dark, marginTop: spacing.x8 },
   address: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
-  crowdChip: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.x3,
-    paddingHorizontal: spacing.x3,
-    paddingVertical: spacing.x1,
-    borderRadius: radius.pill,
-  },
-  crowdChipText: { ...type.caption, color: colors.dark, fontWeight: '600' },
+  /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */
+  crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x3 },
   rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x6 },
   memo: { ...type.body, color: colors.gray400 },
   tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },

@@ -67,8 +67,7 @@ import 경로만 보고 대상을 알 수 있어야 한다 — `@/api/pin/unlock
   새 코드는 배럴 대신 파일을 직접 import한다.
 - 목업 위치가 두 곳이다. `src/data/mock.ts`(목업 화면용 하드코딩)와 `src/mocks/`(API 고정 데이터).
   전자는 화면이 API에 붙는 순서대로 사라질 예정이다.
-- `src/types/place.ts`의 `Place`, `src/components/pin/CrowdLevelBadge.tsx`,
-  `src/components/pin/ViewAvatar.tsx`는 현재 참조하는 곳이 없다.
+- `src/types/place.ts`의 `Place`는 현재 참조하는 곳이 없다.
 
 현재 파일 목록은 `docs/FOLDER_STRUCTURE.md`, 설계 기준과 요구사항 추적표는 `docs/UX-SPEC.md`에 있습니다.
 

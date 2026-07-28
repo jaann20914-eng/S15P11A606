@@ -1,11 +1,10 @@
 import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { crowdLevels } from '@/constants/crowdLevels';
+import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
 import { formatRelativeTime } from '@/utils/datetime';
-import { getViewAngleImage } from '@/utils/viewAngle';
 import { pinDetailStyles as s } from '../styles';
 
 /** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
@@ -32,8 +31,6 @@ export function PinDetailBody({
   const own = isOwnPin(detail);
   const unlocked = isVideoUnlocked(detail);
 
-  const crowd = crowdLevels.find((level) => level.key === detail.crowdLevel) ?? null;
-
   // 열람 전에는 블러 미리보기만 내려온다. 둘 다 비어 있으면 시안 이미지로 대체한다.
   const mediaUrl = unlocked ? detail.videoUrl : detail.previewUrl;
   const media = mediaUrl ? { uri: mediaUrl } : PLACEHOLDER_MEDIA;
@@ -57,10 +54,7 @@ export function PinDetailBody({
 
       <View style={s.detailSheet}>
         <View style={s.authorRow}>
-          <View style={s.viewRing}>
-            <Image source={getViewAngleImage(detail.authorViewAngle)} style={s.viewRingImage} />
-            <Text style={s.viewRingText}>{detail.authorViewAngle}°</Text>
-          </View>
+          <ViewAvatar angle={detail.authorViewAngle} size={40} />
           <View style={s.authorCopy}>
             <Text style={s.authorName}>{detail.authorNickname}</Text>
             {metaText !== '' && <Text style={s.authorMeta}>{metaText}</Text>}
@@ -71,11 +65,7 @@ export function PinDetailBody({
         <Text style={s.placeName}>{detail.place.name}</Text>
         <Text style={s.address}>{detail.place.address}</Text>
 
-        {crowd && (
-          <View style={[s.crowdChip, { backgroundColor: crowd.color }]}>
-            <Text style={s.crowdChipText}>{crowd.label}</Text>
-          </View>
-        )}
+        <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
 
         <View style={s.rule} />
 
