@@ -53,7 +53,7 @@ src/
 │   └── home/                  MapPlaceholder, MapMarker
 ├── hooks/                     useResponsivePadding
 ├── store/                     createStore, useMapStore
-├── types/                     common, pin, place, env.d.ts
+├── types/                     common, pin, chat, place, env.d.ts
 ├── constants/                 theme, crowdLevels, categories
 ├── utils/                     datetime, viewAngle, idempotency, navigation
 └── data/                      mock.ts (목업 화면 하드코딩, API 연동 시 제거 예정)
