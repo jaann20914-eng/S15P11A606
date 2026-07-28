@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { router } from 'expo-router';
+import { ApiError } from '@/api/client';
 import { leavePinChats } from '@/api/chat/leave';
+import { evaluatePin } from '@/api/pin/evaluate';
 import { deletePin } from '@/api/pin/remove';
 import { unlockPin } from '@/api/pin/unlock';
 import { createIdempotencyKey } from '@/utils/idempotency';
@@ -126,20 +128,73 @@ function usePurchase(
   return { open, busy, error, show, hide, confirm };
 }
 
+/** 평가 등록. 인라인 영역이라 모달처럼 열고 닫지 않고 버튼을 바로 누른다. */
+export interface EvaluationState {
+  busy: boolean;
+  error: string | null;
+  /**
+   * 이번 화면에서 사용자가 고른 평가.
+   *
+   * 상세 조회는 완료 여부(`isEvaluated`)만 돌려주고 유익/아쉬움을 구분하지 않는다.
+   * 방금 누른 직후에만 구체적인 문구를 보여주고 재진입하면 일반 문구로 돌아간다.
+   */
+  submitted: PinRating | null;
+  /** 서버가 지급한 크레딧. 재진입 시에는 알 수 없어 null이다. */
+  rewardCredit: number | null;
+  submit: (rating: PinRating) => void;
+}
+
 export interface PinDetailScreenState {
   menu: ToggleState & { toggle: () => void; edit: () => void };
   purchase: PurchaseState;
   chat: ToggleState & { confirm: () => void };
   remove: ConfirmActionState;
   leave: ConfirmActionState;
-  rate: (rating: PinRating) => void;
-  /**
-   * 이번 화면에서 사용자가 고른 평가.
-   *
-   * 서버는 완료 여부(`isEvaluated`)만 돌려주고 유익/아쉬움을 구분하지 않는다.
-   * 방금 누른 직후에만 구체적인 문구를 보여주고 재진입하면 일반 문구로 돌아간다.
-   */
-  submittedRating: PinRating | null;
+  evaluation: EvaluationState;
+}
+
+/**
+ * 핀 평가 등록.
+ *
+ * 이미 평가한 핀이면 서버가 409를 준다. 그때는 오류로 남기지 않고
+ * 화면을 "평가 완료"로 넘긴다 — 서버 상태가 그게 맞기 때문이다.
+ */
+function useEvaluation(
+  pinId: number,
+  onDetailChange: (patch: Partial<PinDetail>) => void,
+): EvaluationState {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState<PinRating | null>(null);
+  const [rewardCredit, setRewardCredit] = useState<number | null>(null);
+
+  const submit = useCallback(
+    (rating: PinRating) => {
+      setBusy(true);
+      setError(null);
+
+      evaluatePin(pinId, rating)
+        .then((result) => {
+          setBusy(false);
+          setSubmitted(result.rating);
+          setRewardCredit(result.rewardCredit);
+          onDetailChange({ isEvaluated: true });
+        })
+        .catch((cause: unknown) => {
+          setBusy(false);
+
+          if (cause instanceof ApiError && cause.code === 'PIN_ALREADY_EVALUATED') {
+            onDetailChange({ isEvaluated: true });
+            return;
+          }
+
+          setError(cause instanceof Error ? cause.message : '평가를 등록하지 못했어요');
+        });
+    },
+    [pinId, onDetailChange],
+  );
+
+  return { busy, error, submitted, rewardCredit, submit };
 }
 
 /**
@@ -154,8 +209,8 @@ export function usePinDetailScreen(
 ): PinDetailScreenState {
   const menu = useToggle();
   const chat = useToggle();
-  const [submittedRating, setSubmittedRating] = useState<PinRating | null>(null);
   const purchase = usePurchase(detail.pinId, onDetailChange);
+  const evaluation = useEvaluation(detail.pinId, onDetailChange);
 
   const remove = useConfirmAction(
     useCallback(() => deletePin(detail.pinId), [detail.pinId]),
@@ -167,19 +222,11 @@ export function usePinDetailScreen(
     '처리하지 못했어요',
   );
 
-  // TODO: 채팅요청·평가 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
+  // TODO: 채팅 요청 API 명세가 나오면 낙관적 갱신 전에 서버 호출을 넣는다.
   const confirmChat = useCallback(() => {
     onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
     chat.hide();
   }, [onDetailChange, chat]);
-
-  const rate = useCallback(
-    (rating: PinRating) => {
-      setSubmittedRating(rating);
-      onDetailChange({ isEvaluated: true });
-    },
-    [onDetailChange],
-  );
 
   return {
     menu: {
@@ -195,7 +242,6 @@ export function usePinDetailScreen(
     chat: { ...chat, confirm: confirmChat },
     remove,
     leave,
-    rate,
-    submittedRating,
+    evaluation,
   };
 }

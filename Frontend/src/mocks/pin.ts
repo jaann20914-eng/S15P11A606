@@ -1,5 +1,10 @@
 import { ApiError } from '@/api/client';
-import type { PinDetailResponse, PinUnlockResult } from '@/types/pin';
+import type {
+  PinDetailResponse,
+  PinEvaluationResult,
+  PinRating,
+  PinUnlockResult,
+} from '@/types/pin';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -96,7 +101,7 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
     case 'owner':
       return {
         ...base,
-        authorViewAngle: 88,
+        authorViewAngle: 320,
         authorNickname: '나',
         memo: '창가 쪽은 아직 자리 있어요. 콘센트는 벽면에만 있습니다.',
         videoAccess: 'OWNER',
@@ -124,11 +129,51 @@ export async function fetchMockPinDetail(pinId: number): Promise<PinDetailRespon
   return { ...createFixture(scenario), pinId };
 }
 
+/** 목업 지갑 잔액. 결제하면 줄고 평가 보상으로 늘어난다. */
+let mockCreditBalance = 12;
+
+/** 이번 세션에서 평가한 핀. 중복 평가 409를 재현한다. */
+const evaluatedPinIds = new Set<number>();
+
+/**
+ * 평가 등록 목업.
+ * 권한 없음·본인 핀·중복 평가를 실제 서버와 같은 코드로 실패하게 만든다.
+ */
+export async function evaluateMockPin(
+  pinId: number,
+  rating: PinRating,
+): Promise<PinEvaluationResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  const scenario = resolvePinDetailScenario(pinId);
+
+  if (scenario === 'notFound') {
+    throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
+  }
+
+  // 작성자 본인과 미열람자는 평가 대상이 아니다.
+  if (scenario === 'owner' || scenario === 'preview') {
+    throw new ApiError(403, 'PIN_EVALUATION_FORBIDDEN', '이 핀을 평가할 수 없습니다.');
+  }
+
+  if (scenario === 'evaluated' || evaluatedPinIds.has(pinId)) {
+    throw new ApiError(409, 'PIN_ALREADY_EVALUATED', '이미 평가한 핀입니다.');
+  }
+
+  evaluatedPinIds.add(pinId);
+  mockCreditBalance += 1;
+
+  return {
+    evaluationId: evaluatedPinIds.size,
+    pinId,
+    rating,
+    rewardCredit: 1,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 /** 멱등성 키 → 이미 처리한 결과. 같은 키로 다시 부르면 차감 없이 그대로 돌려준다. */
 const unlockResultsByKey = new Map<string, PinUnlockResult>();
-
-/** 목업 지갑 잔액. 결제할 때마다 줄어든다. */
-let mockCreditBalance = 12;
 
 /**
  * 잠금 해제 목업.

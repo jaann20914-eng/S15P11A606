@@ -1,9 +1,11 @@
-import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
+import { colors } from '@/constants/theme';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
-import type { PinDetail, PinRating } from '@/types/pin';
+import type { PinDetail } from '@/types/pin';
+import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from '../styles';
 
@@ -12,20 +14,17 @@ const PLACEHOLDER_MEDIA = require('../../../../assets/images/video-pin-crowd.png
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
-  /** 방금 고른 평가. 서버는 유익/아쉬움을 구분해 주지 않아 이번 진입에서만 유지된다. */
-  submittedRating: PinRating | null;
+  evaluation: EvaluationState;
   onRequestChat: () => void;
   onRequestPurchase: () => void;
-  onRate: (rating: PinRating) => void;
   onLeave: () => void;
 }
 
 export function PinDetailBody({
   detail,
-  submittedRating,
+  evaluation,
   onRequestChat,
   onRequestPurchase,
-  onRate,
   onLeave,
 }: PinDetailBodyProps) {
   const own = isOwnPin(detail);
@@ -84,11 +83,7 @@ export function PinDetailBody({
         {own ? (
           <OwnerFooter onLeave={onLeave} />
         ) : unlocked ? (
-          <RatingSection
-            evaluated={detail.isEvaluated === true}
-            submittedRating={submittedRating}
-            onRate={onRate}
-          />
+          <RatingSection evaluated={detail.isEvaluated === true} evaluation={evaluation} />
         ) : (
           <PurchasePrompt onPress={onRequestPurchase} />
         )}
@@ -162,52 +157,55 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
 
 function RatingSection({
   evaluated,
-  submittedRating,
-  onRate,
+  evaluation,
 }: {
   evaluated: boolean;
-  submittedRating: PinRating | null;
-  onRate: (rating: PinRating) => void;
+  evaluation: EvaluationState;
 }) {
   if (evaluated) {
+    const { submitted, rewardCredit } = evaluation;
+
     return (
       <View style={s.ratingArea}>
         <Text style={s.selectedRating}>
-          {submittedRating === null
-            ? '평가를 남겼어요'
-            : submittedRating === 'HELPFUL'
-              ? '유익해요!'
-              : '아쉬워요!'}
+          {submitted === null ? '평가를 남겼어요' : submitted === 'HELPFUL' ? '유익해요!' : '아쉬워요!'}
         </Text>
         <View style={s.reward}>
           <View style={s.rewardCoin}>
             <Ionicons name="leaf" size={24} color="#91A700" />
           </View>
           <View>
-            <Text style={s.rewardTitle}>1크레딧을 받았어요</Text>
-            <Text style={s.rewardText}>게시자의 뷰 신뢰도에도 반영했어요.</Text>
+            <Text style={s.rewardTitle}>
+              {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}
+            </Text>
+            <Text style={s.rewardText}>게시자의 뷰에도 반영했어요.</Text>
           </View>
         </View>
       </View>
     );
   }
 
+  const { busy, error, submit } = evaluation;
+
   return (
     <View style={s.ratingArea}>
       <Text style={s.ratingTitle}>이 영상핀이 유익했나요?</Text>
       <Text style={s.ratingHint}>평가하면 1크레딧을 적립하고 게시자의 뷰에 반영해요.</Text>
+      {error && <Text style={s.ratingError}>{error}</Text>}
       <View style={s.ratingButtons}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => onRate('HELPFUL')}
-          style={[s.ratingButton, s.helpfulButton]}
+          disabled={busy}
+          onPress={() => submit('HELPFUL')}
+          style={[s.ratingButton, s.helpfulButton, busy && s.ratingButtonBusy]}
         >
-          <Text style={s.helpfulText}>유익해요</Text>
+          {busy ? <ActivityIndicator color={colors.dark} /> : <Text style={s.helpfulText}>유익해요</Text>}
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          onPress={() => onRate('MISS')}
-          style={[s.ratingButton, s.missButton]}
+          disabled={busy}
+          onPress={() => submit('NOT_HELPFUL')}
+          style={[s.ratingButton, s.missButton, busy && s.ratingButtonBusy]}
         >
           <Text style={s.missText}>아쉬워요</Text>
         </Pressable>

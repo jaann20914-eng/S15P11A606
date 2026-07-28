@@ -88,7 +88,7 @@ function PinDetailScreen({
   detail: PinDetail;
   onDetailChange: (patch: Partial<PinDetail>) => void;
 }) {
-  const { menu, purchase, chat, remove, leave, rate, submittedRating } = usePinDetailScreen(
+  const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(
     detail,
     onDetailChange,
   );
@@ -111,10 +111,9 @@ function PinDetailScreen({
 
       <PinDetailBody
         detail={detail}
-        submittedRating={submittedRating}
+        evaluation={evaluation}
         onRequestChat={chat.show}
         onRequestPurchase={purchase.show}
-        onRate={rate}
         onLeave={leave.show}
       />
 

@@ -19,8 +19,23 @@ export type VideoPin = {
   status: PinStatus;
 };
 
-/** 평가 버튼이 보내는 값. 서버는 완료 여부(`isEvaluated`)만 돌려주고 어느 쪽인지는 알려주지 않는다. */
-export type PinRating = 'HELPFUL' | 'MISS';
+/**
+ * 핀 유용성 평가.
+ *
+ * 상세 조회는 완료 여부(`isEvaluated`)만 주고 어느 쪽을 골랐는지는 알려주지 않는다.
+ * 작성자 뷰 각도에 `HELPFUL` +1, `NOT_HELPFUL` -0.5로 반영된다.
+ */
+export type PinRating = 'HELPFUL' | 'NOT_HELPFUL';
+
+/** 평가 등록 응답 `data`. */
+export type PinEvaluationResult = {
+  evaluationId: number;
+  pinId: number;
+  rating: PinRating;
+  /** 평가자에게 지급된 크레딧. 정상 최초 평가는 1이다. */
+  rewardCredit: number;
+  createdAt: string;
+};
 
 /**
  * 현재 사용자의 영상 접근 수준.

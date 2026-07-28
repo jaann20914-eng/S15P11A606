@@ -43,7 +43,7 @@ src/
 ├── api/
 │   ├── client.ts              axios 인스턴스·인터셉터·ApiError
 │   ├── config.ts              usesMockApi
-│   ├── pin/                   detail, unlock, remove
+│   ├── pin/                   detail, unlock, evaluate, remove
 │   └── chat/                  leave
 ├── mocks/                     pin, chat
 ├── components/

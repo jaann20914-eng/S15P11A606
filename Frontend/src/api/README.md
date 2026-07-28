@@ -9,6 +9,7 @@ client.ts        공용 axios 인스턴스, 인터셉터, ApiError. axios를 imp
 config.ts        목업/실서버 전환 스위치(usesMockApi)
 pin/detail.ts    GET    /api/v1/pins/{pinId}
 pin/unlock.ts    POST   /api/v1/pins/{pinId}/unlock
+pin/evaluate.ts  POST   /api/v1/pins/{pinId}/evaluations
 pin/remove.ts    DELETE /api/v1/pins/{pinId}
 chat/leave.ts    POST   /api/v1/chat/pins/{pinId}/rooms/leave
 ```
