@@ -27,6 +27,20 @@ export type VideoPin = {
  */
 export type PinRating = 'HELPFUL' | 'NOT_HELPFUL';
 
+/**
+ * 핀 삭제 응답 `data`.
+ *
+ * 물리 삭제가 아니라 `DELETED` 상태 전환이다.
+ * 같은 작성자가 이미 삭제된 핀을 다시 요청하면 같은 결과를 돌려준다(멱등).
+ */
+export type PinDeleteResult = {
+  pinId: number;
+  status: 'DELETED';
+  /** 삭제와 함께 CLOSED로 바뀐 채팅방. 없으면 빈 배열이다. */
+  closedChatRoomIds: number[];
+  deletedAt: string;
+};
+
 /** 평가 등록 응답 `data`. */
 export type PinEvaluationResult = {
   evaluationId: number;

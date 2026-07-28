@@ -1,5 +1,6 @@
 import { ApiError } from '@/api/client';
 import type {
+  PinDeleteResult,
   PinDetailResponse,
   PinEvaluationResult,
   PinRating,
@@ -27,10 +28,14 @@ const scenarioByPinId: Record<number, PinDetailScenario> = {
   3: 'evaluated',
   4: 'owner',
   5: 'preview',
+  6: 'owner',
 };
 
 /** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
 const INSUFFICIENT_CREDIT_PIN_IDS = new Set([5]);
+
+/** 삭제 실패 화면을 확인하기 위한 내 핀. 삭제 요청에서 409가 난다. */
+const DELETE_NOT_ALLOWED_PIN_IDS = new Set([6]);
 
 export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
   return scenarioByPinId[pinId] ?? 'notFound';
@@ -228,14 +233,44 @@ export async function unlockMockPin(
   return result;
 }
 
+/** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */
+const deleteResultsByPinId = new Map<number, PinDeleteResult>();
+
 /**
- * 삭제 목업. 저장소가 없으므로 성공/실패 판정만 재현한다.
- * 내 핀이 아닌 id로 부르면 실제 서버와 같은 403을 던져 화면 분기를 확인할 수 있다.
+ * 삭제 목업.
+ * 권한 없음·삭제 불가 상태·재요청 멱등성을 실제 서버와 같은 코드로 재현한다.
  */
-export async function deleteMockPin(pinId: number): Promise<void> {
+export async function deleteMockPin(pinId: number): Promise<PinDeleteResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (resolvePinDetailScenario(pinId) !== 'owner') {
-    throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '내가 작성한 영상핀만 삭제할 수 있어요.');
+  const cached = deleteResultsByPinId.get(pinId);
+  if (cached) return cached;
+
+  const scenario = resolvePinDetailScenario(pinId);
+
+  if (scenario === 'notFound') {
+    throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
   }
+
+  if (scenario !== 'owner') {
+    throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '핀을 삭제할 권한이 없습니다.');
+  }
+
+  if (DELETE_NOT_ALLOWED_PIN_IDS.has(pinId)) {
+    throw new ApiError(
+      409,
+      'PIN_DELETE_NOT_ALLOWED',
+      '현재 상태에서는 핀을 삭제할 수 없습니다.',
+    );
+  }
+
+  const result: PinDeleteResult = {
+    pinId,
+    status: 'DELETED',
+    closedChatRoomIds: [1],
+    deletedAt: new Date().toISOString(),
+  };
+
+  deleteResultsByPinId.set(pinId, result);
+  return result;
 }
