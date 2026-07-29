@@ -1,4 +1,5 @@
-import type { CrowdLevelKey, CrowdLevelValue } from '@/constants/crowdLevels';
+import type { CrowdLevelValue } from '@/constants/crowdLevels';
+import type { PinCrowdLevel } from '@/types/pin';
 import type { PlaceSearchItem } from '@/types/place';
 
 /**
@@ -82,8 +83,8 @@ export type VideoUploadPhase = 'idle' | 'issuing' | 'uploading' | 'registering' 
  * 영상 자체도, 영상 URL도 보내지 않는다. Presigned URL로 외부 스토리지에 업로드한 뒤
  * 받은 객체 키만 보낸다.
  *
- * `crowdLevel`은 `CrowdLevelKey`(`QUIET`·`NOT_CROWDED`·`CROWDED`·`VERY_CROWDED`)와 값이 같아
- * 별도 변환이 없다. 상세 조회 응답의 enum과는 표기가 다르다.
+ * `crowdLevel`은 서버 enum(`WAGLE_WAGLE`·`WAGLE`·`RELAXED`·`LEISURELY`)으로 보낸다.
+ * 프론트 토큰(`CrowdLevelKey`)과 표기가 달라 `toServerCrowdLevel`로 변환한다.
  *
  * `latitude`·`longitude`는 촬영 좌표이며 선택한 장소와 50m 이내여야 한다.
  * 선택 항목은 비어 있으면 보내지 않는다.
@@ -91,22 +92,28 @@ export type VideoUploadPhase = 'idle' | 'issuing' | 'uploading' | 'registering' 
 export interface PinCreateRequest {
   /** Back이 발급한 원본 영상 객체 키. URL이 아니다. 최대 1024자. */
   originalVideoKey: string;
-  placeId: number;
+  /**
+   * 선택한 장소의 카카오 식별자.
+   *
+   * 장소 검색은 카카오 결과를 중계만 하고 `Place`를 저장하지 않아 내부 `placeId`가 없다.
+   * 그래서 등록 시점에 이 값을 보내고 서버가 내부 장소로 연결한다.
+   */
+  kakaoPlaceId: string;
   latitude: number;
   longitude: number;
-  crowdLevel: CrowdLevelKey;
+  crowdLevel: PinCrowdLevel;
   detailLocation?: string;
   memo?: string;
   tags?: string[];
 }
 
 /**
- * 영상 처리 상태.
+ * 영상 처리 상태. 백엔드 `VideoStatus` enum과 값을 맞춘다.
  *
- * 접수 시 `PENDING`이고 AI 검수 결과에 따라 갈린다. `ACTIVE`만 공개된다.
- * `REJECTED`는 영상 기준 미충족, `FAILED`는 AI·시스템 오류다. 재검수나 재촬영 안내는 없다.
+ * 접수 시 `PENDING`이고 AI 처리를 거쳐 갈린다. `COMPLETED`만 공개된다.
+ * `FAILED`는 검수 탈락과 시스템 오류를 함께 담는다.
  */
-export type PinVideoStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'FAILED';
+export type PinVideoStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 /**
  * `POST /api/v1/pins` 응답의 `data`.

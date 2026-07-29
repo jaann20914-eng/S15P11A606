@@ -291,7 +291,7 @@ export async function issueMockVideoUpload(
 export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (!body.originalVideoKey) {
+  if (!body.originalVideoKey || !body.kakaoPlaceId) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
 

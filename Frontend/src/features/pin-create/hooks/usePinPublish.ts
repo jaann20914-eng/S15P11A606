@@ -4,6 +4,7 @@ import { createPin } from '@/api/pin/create';
 import { issueVideoUploadTicket } from '@/api/pin/videoUpload';
 import { readVideoSize, startVideoUpload } from '@/api/pin/videoUploadTask';
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
+import { toServerCrowdLevel } from '@/types/pin';
 import { MAX_PLACE_DISTANCE_METERS, VIDEO_CONTENT_TYPE } from '@/types/pinCreate';
 import type {
   PinCreateRequest,
@@ -48,12 +49,10 @@ function toRequest(draft: PinDraft, originalVideoKey: string): PinCreateRequest 
 
   return {
     originalVideoKey,
-    // 검색 결과는 카카오 장소 식별자(문자열)를 준다. 서버가 요구하는 내부 placeId(숫자)로
-    // 바꿔 줄 경로가 아직 없어 임시로 숫자 변환만 한다. 백엔드 확인이 필요하다.
-    placeId: Number(draft.place.kakaoPlaceId),
+    kakaoPlaceId: draft.place.kakaoPlaceId,
     latitude: draft.place.latitude,
     longitude: draft.place.longitude,
-    crowdLevel: getCrowdLevelByValue(draft.crowdLevel).key,
+    crowdLevel: toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key),
     // 선택 항목은 비어 있으면 보내지 않는다.
     ...(detailLocation ? { detailLocation } : {}),
     ...(memo ? { memo } : {}),
