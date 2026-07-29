@@ -21,6 +21,9 @@ public enum ErrorCode {
     INVALID_PLACE_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "장소 검색 조건이 올바르지 않습니다."),
     EXTERNAL_PLACE_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 장소 검색 API 오류가 발생했습니다."),
     EXTERNAL_PLACE_API_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "외부 장소 검색 서비스를 사용할 수 없습니다."),
+    INVALID_MAP_RANGE(HttpStatus.BAD_REQUEST, "지도 조회 범위가 올바르지 않습니다."),
+    INVALID_PLACE_FILTER(HttpStatus.BAD_REQUEST, "지원하지 않는 장소 필터입니다."),
+    PLACES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "장소 목록 조회 중 오류가 발생했습니다."),
 
     // Tag
     INVALID_TAG_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "태그 검색 조건이 올바르지 않습니다."),
