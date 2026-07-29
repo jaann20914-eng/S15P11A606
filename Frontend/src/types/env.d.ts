@@ -1,5 +1,6 @@
 declare const process: {
   env: {
+    /** 백엔드 서버 주소 (`src/constants/env.ts`에서만 읽는다) */
     EXPO_PUBLIC_API_BASE_URL?: string;
     /**
      * `'true'`면 실제 서버 대신 `src/mocks`의 고정 데이터를 사용한다.
