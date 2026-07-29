@@ -1,0 +1,1 @@
+"""Chat-risk request consumer."""

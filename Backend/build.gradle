@@ -33,8 +33,38 @@ dependencies {
 	// jpa
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-	// .env 자동 로드 (application.yml의 ${...} 해석)
-	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
+	// flyway (스키마 마이그레이션)
+	// Spring Boot 4는 오토컨피그가 모듈별로 분리되어, Flyway 자동 실행을 위해 spring-boot-flyway 모듈이 필요하다.
+	implementation 'org.springframework.boot:spring-boot-flyway'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
+	// PostGIS Point 매핑 (GEOGRAPHY(POINT,4326) ↔ JTS Point)
+	implementation 'org.hibernate.orm:hibernate-spatial'
+
+
+	// elasticsearch
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
+	// elasticsearch 테스트
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.6')
+	testImplementation 'org.testcontainers:elasticsearch'
+	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:junit-jupiter'
+
+	// security
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+
+	// validation (@Valid, GlobalExceptionHandler가 이미 대비)
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// JWT (jjwt 0.12.x)
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
 	testRuntimeOnly 'com.h2database:h2'
 }

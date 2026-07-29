@@ -10,18 +10,30 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME    = 'wagglewaggle-backend'
+        IMAGE_NAME     = 'wagglewaggle-backend'
         CONTAINER_NAME = 'waggle-backend'
-        NETWORK_NAME  = 'waggle-network'
+        NETWORK_NAME   = 'waggle-network'
 
         DB_HOST = 'waggle-postgis'
         DB_NAME = 'wagglewaggle'
         DB_USER = 'waggle'
 
+        DB_URL = 'jdbc:postgresql://waggle-postgis:5432/wagglewaggle'
+        DB_USERNAME = 'waggle'
+
         HOST_PORT = '8990'
 
-        // Jenkins Credentials에 저장한 Secret Text의 ID
-        DB_PASSWORD = credentials('waggle-db-password')
+        // Jenkins Global Credentials
+        DB_PASSWORD         = credentials('waggle-db-password')
+        KAKAO_REST_API_KEY  = credentials('waggle-kakao-rest-api-key')
+        KAKAO_CLIENT_SECRET = credentials('waggle-kakao-client-secret')
+        NAVER_CLIENT_ID     = credentials('waggle-naver-client-id')
+        NAVER_CLIENT_SECRET = credentials('waggle-naver-client-secret')
+        JWT_SECRET          = credentials('waggle-jwt-secret')
+
+        // 비밀값이 아니므로 직접 작성 가능
+        KAKAO_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/kakao'
+        NAVER_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/naver'
     }
 
     stages {
@@ -90,15 +102,22 @@ pipeline {
                         IMAGE_TO_RUN="$1"
 
                         docker run -d \
-                          --name "$CONTAINER_NAME" \
-                          --restart unless-stopped \
-                          --network "$NETWORK_NAME" \
-                          -e SPRING_DATASOURCE_URL="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}" \
-                          -e SPRING_DATASOURCE_USERNAME="$DB_USER" \
-                          -e SPRING_DATASOURCE_PASSWORD="$DB_PASSWORD" \
-                          -e SPRING_JPA_OPEN_IN_VIEW="false" \
-                          -p "127.0.0.1:${HOST_PORT}:8080" \
-                          "$IMAGE_TO_RUN"
+                        --name "$CONTAINER_NAME" \
+                        --restart unless-stopped \
+                        --network "$NETWORK_NAME" \
+                        -e DB_URL="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}" \
+                        -e DB_USERNAME="$DB_USER" \
+                        -e DB_PASSWORD="$DB_PASSWORD" \
+                        -e KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY" \
+                        -e KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET" \
+                        -e KAKAO_REDIRECT_URI="$KAKAO_REDIRECT_URI" \
+                        -e NAVER_CLIENT_ID="$NAVER_CLIENT_ID" \
+                        -e NAVER_CLIENT_SECRET="$NAVER_CLIENT_SECRET" \
+                        -e NAVER_REDIRECT_URI="$NAVER_REDIRECT_URI" \
+                        -e JWT_SECRET="$JWT_SECRET" \
+                        -e SPRING_JPA_OPEN_IN_VIEW="false" \
+                        -p "127.0.0.1:${HOST_PORT}:8080" \
+                        "$IMAGE_TO_RUN"
                     }
 
                     # 기존 백엔드가 있다면 현재 이미지 ID를 저장한다.

@@ -6,12 +6,41 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
 
 kakao:
   local:
     base-url: https://dapi.kakao.com
     rest-api-key: ${KAKAO_REST_API_KEY}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 3000
+
+oauth:
+  kakao:
+    # 카카오 OAuth의 client_id는 앱의 REST API 키다 (지도 검색과 동일 앱 → 기존 키 재사용)
+    client-id: ${KAKAO_REST_API_KEY}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${KAKAO_REDIRECT_URI}
+    token-uri: https://kauth.kakao.com
+    api-uri: https://kapi.kakao.com
+  naver:
+    client-id: ${NAVER_CLIENT_ID}
+    client-secret: ${NAVER_CLIENT_SECRET}
+    redirect-uri: ${NAVER_REDIRECT_URI}
+    token-uri: https://nid.naver.com
+    api-uri: https://openapi.naver.com
+
+jwt:
+  secret: ${JWT_SECRET}
+  issuer: wagglewaggle
+  access-token-expiration-seconds: 3600
+  refresh-token-expiration-seconds: 1209600
+  onboarding-token-expiration-seconds: 600

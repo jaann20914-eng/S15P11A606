@@ -1,0 +1,1 @@
+"""Recommendation RabbitMQ topology declarations."""

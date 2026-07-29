@@ -16,7 +16,7 @@ import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { CrowdFilterToggle } from '@/components/common';
-import { useNavBarHeight } from '@/components/common/BottomNav';
+import { useAppTabBarHeight } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -38,7 +38,7 @@ export default function Home() {
   const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
   const myLocation = useCurrentLocation();
-  const navBarHeight = useNavBarHeight();
+  const navBarHeight = useAppTabBarHeight();
 
   const snapPoints = useMemo(
     // 중간 단계는 장소 카드가 정확히 하나만 온전히 보이는 높이다.
