@@ -20,6 +20,7 @@ pipeline {
 
         DB_URL = 'jdbc:postgresql://waggle-postgis:5432/wagglewaggle'
         DB_USERNAME = 'waggle'
+        ES_URIS = 'http://waggle-elasticsearch:9200'
 
         HOST_PORT = '8990'
 
@@ -111,6 +112,7 @@ pipeline {
                         -e DB_URL="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}" \
                         -e DB_USERNAME="$DB_USER" \
                         -e DB_PASSWORD="$DB_PASSWORD" \
+                        -e ES_URIS="$ES_URIS" \
                         -e KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY" \
                         -e KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET" \
                         -e KAKAO_REDIRECT_URI="$KAKAO_REDIRECT_URI" \
