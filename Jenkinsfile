@@ -32,8 +32,8 @@ pipeline {
         JWT_SECRET          = credentials('waggle-jwt-secret')
 
         // 비밀값이 아니므로 직접 작성 가능
-        KAKAO_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/kakao'
-        NAVER_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/naver'
+        KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
+        NAVER_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/naver'
     }
 
     stages {
