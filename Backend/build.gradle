@@ -33,6 +33,10 @@ dependencies {
 	// jpa
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
+	// flyway (스키마 마이그레이션)
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
 	// elasticsearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 
