@@ -10,11 +10,15 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
 
 kakao:
   local:
     base-url: https://dapi.kakao.com
     rest-api-key: ${KAKAO_REST_API_KEY}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 3000
 
 oauth:
   kakao:
