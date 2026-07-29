@@ -25,19 +25,19 @@ public class Place extends BaseEntity {
     @Column(name = "kakao_place_id", nullable = false, length = 200)
     private String kakaoPlaceId;
 
-    @Column(name = "kakao_place_url", nullable = false, length = 500)
-    private String kakaoPlaceUrl;
+    @Column(name = "name", nullable = false, length = 100)
+    private String name;
 
     @Column(name = "location", columnDefinition = "geography(Point,4326)", nullable = false)
     private Point location;
 
-    private Place(String kakaoPlaceId, String kakaoPlaceUrl, Point location) {
+    private Place(String kakaoPlaceId, String name, Point location) {
         this.kakaoPlaceId = kakaoPlaceId;
-        this.kakaoPlaceUrl = kakaoPlaceUrl;
+        this.name = name;
         this.location = location;
     }
 
-    public static Place create(String kakaoPlaceId, String kakaoPlaceUrl, Point location) {
-        return new Place(kakaoPlaceId, kakaoPlaceUrl, location);
+    public static Place create(String kakaoPlaceId, String name, Point location) {
+        return new Place(kakaoPlaceId, name, location);
     }
 }
