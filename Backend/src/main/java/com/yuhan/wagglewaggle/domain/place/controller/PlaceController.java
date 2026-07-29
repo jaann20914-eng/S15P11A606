@@ -1,6 +1,8 @@
 package com.yuhan.wagglewaggle.domain.place.controller;
 
+import com.yuhan.wagglewaggle.domain.place.dto.PlaceListResponse;
 import com.yuhan.wagglewaggle.domain.place.dto.PlaceSearchResponse;
+import com.yuhan.wagglewaggle.domain.place.service.PlacePinService;
 import com.yuhan.wagglewaggle.domain.place.service.PlaceService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlaceController {
 
     private final PlaceService placeService;
+    private final PlacePinService placePinService;
 
     @GetMapping("/search")
     public ApiResponse<PlaceSearchResponse> searchPlaces(
@@ -27,5 +30,19 @@ public class PlaceController {
         PlaceSearchResponse result = placeService.searchPlaces(q, latitude, longitude, radius);
 
         return ApiResponse.success(HttpStatus.OK.value(), "장소 검색이 완료되었습니다.", result);
+    }
+
+    @GetMapping
+    public ApiResponse<PlaceListResponse> getPlaces(
+            @RequestParam double southWestLatitude,
+            @RequestParam double southWestLongitude,
+            @RequestParam double northEastLatitude,
+            @RequestParam double northEastLongitude,
+            @RequestParam String filter
+    ) {
+        PlaceListResponse result = placePinService.getPlacesInMapRange(
+                southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude, filter);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "장소 목록 조회가 완료되었습니다.", result);
     }
 }
