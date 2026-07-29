@@ -1,3 +1,6 @@
-# Query hooks
+# 공용 훅
 
-서버 상태 라이브러리가 확정되면 `src/api`와 일대일로 대응하는 도메인 훅을 이 폴더에 둔다. 현재 목업 화면에는 네트워크 훅을 임의로 추가하지 않는다.
+**여러 화면이 함께 쓰는 훅만** 둔다. 한 화면 전용 훅은 `src/features/{화면}/hooks/`에 둔다.
+
+`useResponsivePadding`은 온보딩·홈·추천·장소 상세가 모두 쓰므로 여기 있고,
+`usePinDetail`은 `/pin/[pinId]`만 쓰므로 `src/features/pin-detail/hooks/`에 있다.

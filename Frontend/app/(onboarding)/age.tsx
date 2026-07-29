@@ -3,7 +3,6 @@ import {
   Image,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -20,9 +20,7 @@ import { colors, radius, spacing, type } from '@/constants/theme';
 
 const ages = ['10대', '20대', '30대', '40대', '50대', '60대', '70대+'];
 const preferences = ['공원', '축제', '팝업', '맛집', '공연', '쇼핑', '관광지', '대학교'];
-const webNoOutline = Platform.OS === 'web'
-  ? ({ outlineStyle: 'none' } as unknown as TextStyle)
-  : undefined;
+const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
 export default function Onboarding() {
   const screenGutter = useResponsivePadding();
@@ -195,7 +193,7 @@ export default function Onboarding() {
 
         <View style={s.footer}>
           <Button
-            label={step === 3 ? '지금핀 시작하기' : '다음'}
+            label={step === 3 ? '와글와글 시작하기' : '다음'}
             disabled={(step === 2 && !checked) || (step === 3 && selected.length === 0)}
             onPress={next}
           />

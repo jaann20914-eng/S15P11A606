@@ -1,14 +1,27 @@
 {
   "expo": {
-    "name": "지금핀",
-    "slug": "nowpin-mobile",
+    "name": "와글와글",
+    "slug": "waglewagle-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "nowpin",
+    "scheme": "waglewagle",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "android": { "package": "com.nowpin.mobile", "adaptiveIcon": { "backgroundColor": "#FAFAFA" } },
+    "android": {
+      "package": "com.waglewagle.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FAFAFA"
+      }
+    },
     "plugins": ["expo-router"],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4b468b20-9f5b-451e-8038-991c9bdf05b7"
+      }
+    }
   }
 }

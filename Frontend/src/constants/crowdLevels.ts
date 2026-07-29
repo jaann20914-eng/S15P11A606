@@ -8,10 +8,38 @@ import { crowdPalette } from './theme';
  * 링/게이지는 그라데이션이 아니라 `fill` 구간 단위로 채운다.
  */
 export const crowdLevels = [
-  { key: 'QUIET', level: 1, label: '유유자적', group: 'RELAXED', color: crowdPalette.quiet, fill: { from: 0, to: 30 } },
-  { key: 'NOT_CROWDED', level: 2, label: '여유', group: 'RELAXED', color: crowdPalette.notCrowded, fill: { from: 30, to: 50 } },
-  { key: 'CROWDED', level: 3, label: '와글', group: 'WAGLE', color: crowdPalette.crowded, fill: { from: 50, to: 80 } },
-  { key: 'VERY_CROWDED', level: 4, label: '와글와글', group: 'WAGLE', color: crowdPalette.veryCrowded, fill: { from: 80, to: 100 } },
+  {
+    key: 'QUIET',
+    level: 1,
+    label: '유유자적',
+    group: 'RELAXED',
+    color: crowdPalette.quiet,
+    fill: { from: 0, to: 30 },
+  },
+  {
+    key: 'NOT_CROWDED',
+    level: 2,
+    label: '여유',
+    group: 'RELAXED',
+    color: crowdPalette.notCrowded,
+    fill: { from: 30, to: 50 },
+  },
+  {
+    key: 'CROWDED',
+    level: 3,
+    label: '와글',
+    group: 'WAGLE',
+    color: crowdPalette.crowded,
+    fill: { from: 50, to: 80 },
+  },
+  {
+    key: 'VERY_CROWDED',
+    level: 4,
+    label: '와글와글',
+    group: 'WAGLE',
+    color: crowdPalette.veryCrowded,
+    fill: { from: 80, to: 100 },
+  },
 ] as const;
 
 export type CrowdLevel = (typeof crowdLevels)[number];

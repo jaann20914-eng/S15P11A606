@@ -1,5 +1,9 @@
 # 폴더 구조
 
+**배치 규칙은 [`../README.md`](../README.md)의 "배치 규칙"에 있다.** 이 문서는 현재 파일 목록만 담는다.
+
+## 라우트
+
 ```text
 app/
 ├── _layout.tsx
@@ -14,35 +18,43 @@ app/
 │   ├── nickname.tsx
 │   └── preferred-categories.tsx
 ├── (tabs)/
-│   ├── _layout.tsx
-│   ├── home/
-│   ├── recommend/
-│   ├── write/
-│   ├── chat/
-│   └── mypage/
-├── place/[placeId]/
-├── pin/[pinId]/
-├── pin-create/
+│   ├── _layout.tsx            탭 순서·아이콘은 src/components/common/AppTabBar와 공유
+│   ├── home/                  index, search
+│   ├── chat/                  sent, received
+│   ├── write/                 index
+│   ├── recommend/             index
+│   └── mypage/                index, activity, credits, edit-nickname
+├── place/[placeId]/index.tsx
+├── pin/[pinId]/index.tsx
+├── pin-create/                camera, detail-form, ai-review, publishing
 └── chat-room/[roomId].tsx
-
-src/
-├── api/
-├── hooks/
-├── store/
-├── components/
-│   ├── common/
-│   ├── home/
-│   └── pin/
-├── constants/
-├── data/
-└── types/
 ```
 
-## 경계
+## 소스
 
-- `app/`은 Expo Router 라우팅과 화면 조립을 담당한다.
-- 공용 컴포넌트는 두 화면 이상에서 재사용할 때 `src/components/common/`에 둔다.
-- 도메인 전용 컴포넌트는 `src/components/<domain>/`에 둔다.
-- 색상, 간격, 반경, 타이포그래피는 `src/constants/theme.ts`를 통해 사용한다.
-- 화면은 API URL을 직접 호출하지 않고 `src/api/`를 통해 접근한다.
-- 실제 서버 상태 및 전역 상태 라이브러리는 백엔드 계약과 기술 선택이 확정된 뒤 연결한다.
+```text
+src/
+├── features/
+│   └── pin-detail/            /pin/[pinId] 전용
+│       ├── components/        PinDetailHeader, PinDetailBody, OwnerMenu,
+│       │                      PinPurchaseModal, PinChatRequestModal
+│       ├── hooks/             usePinDetail, usePinDetailScreen
+│       └── styles.ts
+├── api/
+│   ├── client.ts              axios 인스턴스·인터셉터·ApiError
+│   ├── config.ts              usesMockApi
+│   ├── pin/                   detail, unlock, evaluate, remove
+│   └── chat/                  request, leave
+├── mocks/                     pin, chat
+├── components/
+│   ├── common/                ui, AppTabBar, ConfirmModal, ErrorView,
+│   │                          ScreenContainer, ListGroup, CrowdFilterToggle,
+│   │                          CrowdLevelBadge, ViewAvatar, modalAnimation
+│   └── home/                  MapPlaceholder, MapMarker
+├── hooks/                     useResponsivePadding
+├── store/                     createStore, useMapStore
+├── types/                     common, pin, chat, place, env.d.ts
+├── constants/                 theme, crowdLevels, categories
+├── utils/                     datetime, viewAngle, idempotency, navigation
+└── data/                      mock.ts (목업 화면 하드코딩, API 연동 시 제거 예정)
+```
