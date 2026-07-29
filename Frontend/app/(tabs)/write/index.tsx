@@ -78,7 +78,7 @@ export default function PinCreateScreen() {
         <PinCreateHeader title={copy.title} />
 
         {!focused ? null : publish.publishing ? (
-          <PublishingOverlay />
+          <PublishingOverlay phase={publish.phase} progress={publish.progress} onCancel={publish.cancel} />
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}

@@ -6,7 +6,7 @@ import type {
   PinRating,
   PinUnlockResult,
 } from '@/types/pin';
-import type { PinCreateRequest, PinCreateResult } from '@/types/pinCreate';
+import type { PinCreateRequest, PinCreateResult, VideoUploadTicket } from '@/types/pinCreate';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -241,18 +241,57 @@ export async function unlockMockPin(pinId: number, idempotencyKey: string): Prom
 /** 등록 목업이 발급할 다음 핀 id. */
 let nextMockPinId = 100;
 
+/** 등록에 이미 쓴 영상 키. 같은 키로 다시 등록하면 409가 난다. */
+const usedVideoKeys = new Set<string>();
+
+/** 발급한 업로드 티켓 수. 키를 매번 다르게 만들기 위해서만 쓴다. */
+let issuedUploadCount = 0;
+
+/**
+ * Presigned POST 발급 목업.
+ *
+ * 실제 서명을 만들 수 없으므로 업로드는 `videoUploadTask`가 흉내낸다.
+ * 키 형식은 명세 예시를 따른다.
+ */
+export async function issueMockVideoUpload(
+  contentType: string,
+  contentLength: number,
+): Promise<VideoUploadTicket> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (!contentType) {
+    throw new ApiError(400, 'INVALID_REQUEST', '업로드 요청이 올바르지 않습니다.');
+  }
+
+  const serial = ++issuedUploadCount;
+  const originalVideoKey = `pins/original/1/mock-${serial}-${contentLength}.mp4`;
+
+  return {
+    // Presigned POST라 URL은 버킷 주소만이고 객체 경로는 fields.key가 갖는다.
+    uploadUrl: 'https://storage.example.com',
+    originalVideoKey,
+    fields: {
+      key: originalVideoKey,
+      policy: 'mock-policy',
+      'x-amz-algorithm': 'AWS4-HMAC-SHA256',
+      'x-amz-signature': 'mock-signature',
+    },
+  };
+}
+
 /**
  * 핀 등록 목업.
  *
- * 서버는 202로 접수만 하고 AI 검수는 비동기로 돈다. 목업도 `PROCESSING`을 돌려준다.
+ * 서버는 202로 접수만 하고 AI 검수는 비동기로 돈다. 목업도 `PENDING`을 돌려준다.
  *
  * 화면에서 오류를 확인하는 법: 상세 위치에 아래 문구를 넣는다.
- * `범위밖` → 422 위치 초과, `영상오류` → 422 영상 접근 불가, `실패` → 500.
+ * `범위밖` → 422 위치 초과, `영상오류` → 422 영상 접근 불가,
+ * `한도초과` → 429 일일 한도, `실패` → 500.
  */
 export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (!body.videoUrl) {
+  if (!body.originalVideoKey) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
 
@@ -266,11 +305,21 @@ export async function createMockPin(body: PinCreateRequest): Promise<PinCreateRe
     throw new ApiError(422, 'VIDEO_NOT_ACCESSIBLE', '영상에 접근할 수 없습니다.');
   }
 
+  if (hint.includes('한도초과')) {
+    throw new ApiError(429, 'DAILY_PIN_LIMIT_EXCEEDED', '오늘 등록 가능한 핀 수를 초과했습니다.');
+  }
+
   if (hint.includes('실패')) {
     throw new ApiError(500, 'PIN_CREATE_FAILED', '핀 등록 중 오류가 발생했습니다.');
   }
 
-  return { pinId: nextMockPinId++, status: 'PROCESSING' };
+  // 같은 영상으로 두 번 등록하는 것을 막는다.
+  if (usedVideoKeys.has(body.originalVideoKey)) {
+    throw new ApiError(409, 'VIDEO_ALREADY_REGISTERED', '이미 핀 등록에 사용된 영상입니다.');
+  }
+
+  usedVideoKeys.add(body.originalVideoKey);
+  return { pinId: nextMockPinId++, videoStatus: 'PENDING' };
 }
 
 /** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */

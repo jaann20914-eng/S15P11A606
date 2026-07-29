@@ -45,21 +45,52 @@ export const MAX_MEMO_LENGTH = 50;
 /** 태그 최대 개수. */
 export const MAX_TAG_COUNT = 3;
 
+/** 태그 하나의 최대 길이. 앞뒤 공백을 지운 뒤 1자 이상이어야 한다. */
+export const MAX_TAG_LENGTH = 30;
+
 /** 상세 위치 최대 길이. */
 export const MAX_DETAIL_LOCATION_LENGTH = 100;
+
+/** 촬영 좌표와 선택한 장소 사이에 허용되는 거리. 서버가 검증한다. */
+export const MAX_PLACE_DISTANCE_METERS = 50;
+
+/** 촬영 영상의 MIME. Presigned URL 서명에 포함될 수 있어 업로드 때도 같은 값을 보낸다. */
+export const VIDEO_CONTENT_TYPE = 'video/mp4';
+
+/**
+ * 업로드 한 건에 필요한 정보.
+ *
+ * Presigned POST 방식이다. 서명이 URL이 아니라 `fields`에 담기므로 `uploadUrl`은 버킷 주소이고
+ * 객체 경로는 `fields.key`가 갖는다. 업로드는 `fields`를 그대로 실은 `multipart/form-data`
+ * `POST`로 보낸다.
+ *
+ * `fields`의 키 이름과 개수는 서버가 정한다. 프론트는 해석하지 않고 폼에 옮겨 담기만 한다.
+ * 등록 API에는 URL이 아니라 `originalVideoKey`만 보낸다.
+ */
+export interface VideoUploadTicket {
+  uploadUrl: string;
+  originalVideoKey: string;
+  fields: Record<string, string>;
+}
+
+/** 업로드 진행 상태. 진행 화면이 이 값으로 문구와 퍼센트를 고른다. */
+export type VideoUploadPhase = 'idle' | 'issuing' | 'uploading' | 'registering' | 'done';
 
 /**
  * `POST /api/v1/pins` 요청 본문.
  *
+ * 영상 자체도, 영상 URL도 보내지 않는다. Presigned URL로 외부 스토리지에 업로드한 뒤
+ * 받은 객체 키만 보낸다.
+ *
  * `crowdLevel`은 `CrowdLevelKey`(`QUIET`·`NOT_CROWDED`·`CROWDED`·`VERY_CROWDED`)와 값이 같아
  * 별도 변환이 없다. 상세 조회 응답의 enum과는 표기가 다르다.
  *
- * `latitude`·`longitude`는 촬영 좌표이며 선택한 장소와 20m 이내여야 한다.
+ * `latitude`·`longitude`는 촬영 좌표이며 선택한 장소와 50m 이내여야 한다.
  * 선택 항목은 비어 있으면 보내지 않는다.
  */
 export interface PinCreateRequest {
-  /** 외부 스토리지에 업로드한 뒤 받은 접근 가능한 URL. */
-  videoUrl: string;
+  /** Back이 발급한 원본 영상 객체 키. URL이 아니다. 최대 1024자. */
+  originalVideoKey: string;
   placeId: number;
   latitude: number;
   longitude: number;
@@ -69,11 +100,20 @@ export interface PinCreateRequest {
   tags?: string[];
 }
 
-/** 접수된 핀의 처리 상태. AI 검수를 통과하면 `ACTIVE`가 된다. */
-export type PinProcessingStatus = 'PROCESSING' | 'ACTIVE';
+/**
+ * 영상 처리 상태.
+ *
+ * 접수 시 `PENDING`이고 AI 검수 결과에 따라 갈린다. `ACTIVE`만 공개된다.
+ * `REJECTED`는 영상 기준 미충족, `FAILED`는 AI·시스템 오류다. 재검수나 재촬영 안내는 없다.
+ */
+export type PinVideoStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'FAILED';
 
-/** `POST /api/v1/pins` 응답의 `data`. 202로 접수만 되고 처리는 비동기다. */
+/**
+ * `POST /api/v1/pins` 응답의 `data`.
+ *
+ * 202로 접수만 된다. 블러 영상 URL은 여기서 주지 않고 이후 상세·상태 조회에서 받는다.
+ */
 export interface PinCreateResult {
   pinId: number;
-  status: PinProcessingStatus;
+  videoStatus: PinVideoStatus;
 }

@@ -291,6 +291,24 @@ export const pinCreateStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.white,
   },
+  /** 업로드 퍼센트. 안내 문구 아래에 크게 놓는다. */
+  publishingProgress: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: '700',
+    color: colors.dark,
+    marginTop: spacing.x2,
+  },
+  publishingCancel: {
+    marginTop: spacing.x6,
+    height: 44,
+    paddingHorizontal: spacing.x6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.gray100,
+  },
+  publishingCancelText: { ...type.label, color: colors.gray600, fontWeight: '600' },
   publishingText: {
     fontSize: 18,
     lineHeight: 27,

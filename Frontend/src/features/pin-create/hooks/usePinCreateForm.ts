@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
-import { MAX_TAG_COUNT } from '@/types/pinCreate';
+import { MAX_TAG_COUNT, MAX_TAG_LENGTH } from '@/types/pinCreate';
+import { countGraphemes } from '@/utils/graphemes';
 import type { PinDraft, PinDraftPlace, PinDraftVideo } from '@/types/pinCreate';
 
 export interface PinCreateForm {
@@ -42,9 +43,11 @@ export function usePinCreateForm(initial?: Partial<PinDraft>): PinCreateForm {
   );
 
   const addTag = useCallback((raw: string) => {
-    // 사용자가 직접 `#`을 붙여도 저장값에는 넣지 않는다.
-    const value = raw.trim().replace(/^#/, '');
-    if (!value) return;
+    // 사용자가 직접 `#`을 붙여도 저장값에는 넣지 않는다. 서버도 공백을 지운 값을 기준으로 본다.
+    const value = raw.replace(/^\s*#/, '').trim();
+
+    // 빈 문자열과 길이 초과는 서버가 거부한다. 보내기 전에 막는다.
+    if (!value || countGraphemes(value) > MAX_TAG_LENGTH) return;
 
     setDraft((current) => {
       if (current.tags.length >= MAX_TAG_COUNT || current.tags.includes(value)) return current;
