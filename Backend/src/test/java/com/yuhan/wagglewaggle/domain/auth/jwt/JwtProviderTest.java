@@ -59,22 +59,24 @@ class JwtProviderTest {
     @Test
     void createOnboardingToken_클레임_검증() {
         JwtProvider provider = jwtProvider(600);
+        String jti = "11111111-1111-1111-1111-111111111111";
 
-        String token = provider.createOnboardingToken(789L, OAuthProvider.KAKAO);
+        String token = provider.createOnboardingToken(789L, OAuthProvider.KAKAO, jti);
         Claims claims = provider.parse(token);
 
         assertEquals("789", claims.getSubject());
         assertEquals(789L, claims.get(JwtProvider.CLAIM_SOCIAL_ACCOUNT_ID, Long.class));
         assertEquals("kakao", claims.get(JwtProvider.CLAIM_PROVIDER, String.class));
         assertEquals(TokenPurpose.ONBOARDING, provider.getPurpose(claims));
-        assertNotNull(claims.getId()); // jti
+        assertEquals(jti, claims.getId()); // jti는 주입값과 동일
     }
 
     @Test
     void 만료된_토큰_파싱시_예외() {
         JwtProvider provider = jwtProvider(-1); // 이미 만료된 온보딩 토큰
 
-        String token = provider.createOnboardingToken(1L, OAuthProvider.NAVER);
+        String token = provider.createOnboardingToken(1L, OAuthProvider.NAVER,
+                "22222222-2222-2222-2222-222222222222");
 
         assertThrows(ExpiredJwtException.class, () -> provider.parse(token));
     }

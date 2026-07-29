@@ -48,7 +48,8 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void ONBOARDING_토큰이면_인증이_설정되지_않는다() throws Exception {
-        String token = jwtProvider.createOnboardingToken(7L, OAuthProvider.KAKAO);
+        String token = jwtProvider.createOnboardingToken(7L, OAuthProvider.KAKAO,
+                "33333333-3333-3333-3333-333333333333");
 
         doFilter("Bearer " + token);
 
