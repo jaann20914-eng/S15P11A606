@@ -11,6 +11,7 @@ import com.yuhan.wagglewaggle.domain.auth.dto.TokenRefreshResponse;
 import com.yuhan.wagglewaggle.domain.auth.entity.OAuthProvider;
 import com.yuhan.wagglewaggle.domain.auth.jwt.JwtProvider;
 import com.yuhan.wagglewaggle.domain.auth.jwt.TokenPurpose;
+import com.yuhan.wagglewaggle.domain.onboarding.service.OnboardingSessionService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -39,6 +41,8 @@ class AuthServiceTest {
     private SocialAccountService socialAccountService;
     @Mock
     private RefreshTokenService refreshTokenService;
+    @Mock
+    private OnboardingSessionService onboardingSessionService;
     @Mock
     private JwtProvider jwtProvider;
 
@@ -77,7 +81,9 @@ class AuthServiceTest {
         mockKakaoClient();
         given(socialAccountService.findOrCreate(eq(OAuthProvider.KAKAO), any()))
                 .willReturn(new SocialAuthResult(10L, null));
-        given(jwtProvider.createOnboardingToken(10L, OAuthProvider.KAKAO)).willReturn("onboarding-jwt");
+        given(jwtProvider.getOnboardingTokenExpirationSeconds()).willReturn(600L);
+        given(jwtProvider.createOnboardingToken(eq(10L), eq(OAuthProvider.KAKAO), anyString()))
+                .willReturn("onboarding-jwt");
 
         OAuthLoginResponse response = authService.login("kakao", VALID_REQUEST);
 
