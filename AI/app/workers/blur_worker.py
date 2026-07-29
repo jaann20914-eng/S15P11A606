@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import Any
 
-import aio_pika
+from aio_pika.abc import AbstractIncomingMessage
 from pydantic import ValidationError
 
 from app.common.exceptions import AIServiceError
@@ -46,7 +46,7 @@ class BlurWorker:
 
     async def handle_message(
         self,
-        message: aio_pika.IncomingMessage,
+        message: AbstractIncomingMessage,
     ) -> None:
         try:
             request = BlurRequest.model_validate(
@@ -292,7 +292,7 @@ class BlurWorker:
 
     @staticmethod
     def _decode_message(
-        message: aio_pika.IncomingMessage,
+        message: AbstractIncomingMessage,
     ) -> dict[str, Any]:
         data = json.loads(message.body.decode("utf-8"))
         if not isinstance(data, dict):
