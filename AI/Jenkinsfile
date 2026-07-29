@@ -1,0 +1,228 @@
+pipeline {
+    agent any
+
+    options {
+        // 같은 Job의 배포가 동시에 실행되는 것을 방지한다.
+        disableConcurrentBuilds()
+
+        // 자동 Checkout 대신 Checkout 단계를 명시적으로 사용한다.
+        skipDefaultCheckout(true)
+    }
+
+    environment {
+        IMAGE_NAME     = 'wagglewaggle-ai'
+        CONTAINER_NAME = 'waggle-ai'
+        NETWORK_NAME   = 'waggle-network'
+
+        // 컨테이너가 listen하는 포트. Back은 이 포트로 waggle-ai를 호출한다.
+        APP_PORT = '8000'
+
+        // EC2 호스트에서 디버깅용으로만 열어두는 포트 (Backend는 8990을 쓴다).
+        HOST_PORT = '8991'
+
+        LOG_LEVEL = 'INFO'
+
+        // Jenkins Credentials에 저장한 Secret Text의 ID
+        INTERNAL_API_KEY = credentials('waggle-ai-internal-api-key')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '=== GitLab 코드 가져오기 ==='
+
+                checkout scm
+
+                script {
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse --short=8 HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    env.NEW_IMAGE =
+                        "${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                }
+
+                sh 'git log -1 --oneline'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo '=== AI 검증 (mypy, pytest, ruff) ==='
+
+                dir('AI') {
+                    sh '''
+                        set -eu
+
+                        # --progress=plain: Jenkins 콘솔에서 mypy/pytest 출력을 그대로 읽기 위함
+                        docker build \
+                          --progress=plain \
+                          --target test \
+                          --tag "$IMAGE_NAME:test" \
+                          .
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo '=== AI Docker 이미지 생성 ==='
+
+                dir('AI') {
+                    sh '''
+                        set -eu
+
+                        docker build \
+                          --target runtime \
+                          --tag "$NEW_IMAGE" \
+                          --tag "$IMAGE_NAME:latest" \
+                          .
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo '=== AI 컨테이너 교체 ==='
+
+                sh '''
+                    set -eu
+
+                    OLD_IMAGE_ID=""
+
+                    run_ai() {
+                        IMAGE_TO_RUN="$1"
+
+                        docker run -d \
+                          --name "$CONTAINER_NAME" \
+                          --restart unless-stopped \
+                          --network "$NETWORK_NAME" \
+                          -e INTERNAL_API_KEY="$INTERNAL_API_KEY" \
+                          -e LOG_LEVEL="$LOG_LEVEL" \
+                          -p "127.0.0.1:${HOST_PORT}:${APP_PORT}" \
+                          "$IMAGE_TO_RUN"
+                    }
+
+                    check_health() {
+                        docker exec "$CONTAINER_NAME" python -c \
+                          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${APP_PORT}/health', timeout=2)" \
+                          >/dev/null 2>&1
+                    }
+
+                    # 네트워크는 Backend 배포가 먼저 만들어 두지만, 없을 때 원인이 불분명해지므로 확인한다.
+                    if ! docker network inspect "$NETWORK_NAME" \
+                        >/dev/null 2>&1
+                    then
+                        echo "네트워크가 없어 생성합니다."
+                        docker network create "$NETWORK_NAME"
+                    fi
+
+                    # 기존 AI 서버가 있다면 현재 이미지 ID를 저장한다.
+                    if docker container inspect "$CONTAINER_NAME" \
+                        >/dev/null 2>&1
+                    then
+                        OLD_IMAGE_ID="$(
+                            docker inspect \
+                              --format '{{.Image}}' \
+                              "$CONTAINER_NAME"
+                        )"
+
+                        echo "기존 컨테이너를 제거합니다."
+                        docker rm -f "$CONTAINER_NAME"
+                    else
+                        echo "기존 AI 컨테이너가 없습니다."
+                    fi
+
+                    echo "새 컨테이너를 실행합니다."
+                    run_ai "$NEW_IMAGE"
+
+                    echo "/health 응답을 확인합니다."
+
+                    HEALTHY="false"
+                    COUNT=0
+
+                    while [ "$COUNT" -lt 30 ]; do
+                        RUNNING="$(
+                            docker inspect \
+                              --format '{{.State.Running}}' \
+                              "$CONTAINER_NAME" 2>/dev/null \
+                            || echo "false"
+                        )"
+
+                        if [ "$RUNNING" != "true" ]; then
+                            break
+                        fi
+
+                        if check_health; then
+                            HEALTHY="true"
+                            break
+                        fi
+
+                        sleep 1
+                        COUNT=$((COUNT + 1))
+                    done
+
+                    if [ "$HEALTHY" != "true" ]; then
+                        echo "새 버전 실행에 실패했습니다."
+
+                        docker logs --tail 100 "$CONTAINER_NAME" \
+                            || true
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_IMAGE_ID" ]; then
+                            echo "이전 이미지로 복구합니다."
+                            run_ai "$OLD_IMAGE_ID"
+                        else
+                            echo "복구할 이전 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
+
+                    echo "새 버전 실행에 성공했습니다."
+
+                    docker ps \
+                      --filter "name=${CONTAINER_NAME}" \
+                      --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            mattermostSend(
+                color: '#2EB67D',
+                message: """
+### ✅ 와글와글 AI 배포 성공
+
+**브랜치:** `${env.GIT_BRANCH ?: 'dev'}`
+**Docker 이미지:** `${env.NEW_IMAGE ?: '-'}`
+**빌드:** [${env.JOB_NAME} #${env.BUILD_NUMBER}](${env.BUILD_URL})
+
+`/health` 응답을 확인하고 새 컨테이너로 교체했습니다.
+"""
+            )
+        }
+
+        failure {
+            mattermostSend(
+                color: '#E01E5A',
+                message: """
+### ❌ 와글와글 AI 배포 실패
+
+**브랜치:** `${env.GIT_BRANCH ?: 'dev'}`
+**Docker 이미지:** `${env.NEW_IMAGE ?: '-'}`
+**빌드:** [실패 로그 확인](${env.BUILD_URL}console)
+
+검증(mypy·pytest·ruff), 이미지 생성 또는 컨테이너 실행 로그를 확인해 주세요.
+"""
+            )
+        }
+    }
+}

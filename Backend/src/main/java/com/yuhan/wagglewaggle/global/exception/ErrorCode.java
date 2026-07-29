@@ -39,7 +39,15 @@ public enum ErrorCode {
     REFRESH_TOKEN_REQUIRED(HttpStatus.BAD_REQUEST, "리프레시 토큰이 필요합니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."),
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "리프레시 토큰 재사용이 감지되었습니다. 다시 로그인해 주세요."),
-    TOKEN_REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토큰 재발급 중 오류가 발생했습니다.");
+    TOKEN_REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토큰 재발급 중 오류가 발생했습니다."),
+
+    // Onboarding
+    INVALID_ONBOARDING_REQUEST(HttpStatus.BAD_REQUEST, "온보딩 입력값이 올바르지 않습니다."),
+    INVALID_ONBOARDING_TOKEN(HttpStatus.UNAUTHORIZED, "온보딩 토큰이 유효하지 않습니다."),
+    ONBOARDING_TOKEN_ALREADY_USED(HttpStatus.UNAUTHORIZED, "이미 사용된 온보딩 토큰입니다."),
+    NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
+    ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 온보딩을 완료한 사용자입니다."),
+    ONBOARDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "온보딩 처리 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

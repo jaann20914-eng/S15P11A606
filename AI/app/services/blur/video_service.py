@@ -107,7 +107,8 @@ class VideoService:
 
         writer = cv2.VideoWriter(
             silent_output_path,
-            cv2.VideoWriter_fourcc(
+            # opencv 타입 스텁에 이 함수가 빠져 있다. 런타임에는 존재한다.
+            cv2.VideoWriter_fourcc(  # type: ignore[attr-defined]
                 *"mp4v"
             ),
             fps,
