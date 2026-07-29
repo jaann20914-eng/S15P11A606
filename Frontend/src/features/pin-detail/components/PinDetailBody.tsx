@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
@@ -8,9 +8,7 @@ import type { PinDetail } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from '../styles';
-
-/** signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 디자인 시안 이미지. */
-const PLACEHOLDER_MEDIA = require('../../../../assets/images/video-pin-crowd.png');
+import { PinDetailMedia } from './PinDetailMedia';
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -30,10 +28,6 @@ export function PinDetailBody({
   const own = isOwnPin(detail);
   const unlocked = isVideoUnlocked(detail);
 
-  // 열람 전에는 블러 미리보기만 내려온다. 둘 다 비어 있으면 시안 이미지로 대체한다.
-  const mediaUrl = unlocked ? detail.videoUrl : detail.previewUrl;
-  const media = mediaUrl ? { uri: mediaUrl } : PLACEHOLDER_MEDIA;
-
   const showChatAction = !own && unlocked;
 
   // "2층 창가석 기준 · 40초 전 업로드". 없는 조각은 빠진 채로 조립된다.
@@ -47,9 +41,7 @@ export function PinDetailBody({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
-      <View style={s.videoFrame}>
-        <Image source={media} blurRadius={unlocked ? 0 : 18} style={s.videoImage} />
-      </View>
+      <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
 
       <View style={s.detailSheet}>
         <View style={s.authorRow}>
