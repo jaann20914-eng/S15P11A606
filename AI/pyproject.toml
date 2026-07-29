@@ -13,3 +13,5 @@ plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/가 패키지가 아니라 pytest가 프로젝트 루트를 sys.path에 넣지 않는다. app import를 위해 명시한다.
+pythonpath = ["."]
