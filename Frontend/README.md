@@ -26,6 +26,84 @@ npx expo-doctor
 
 `Check that required peer dependencies are installed`가 실패하면 EAS 빌드 전에 반드시 해결한다.
 
+## 소셜 로그인 설정
+
+카카오/네이버 네이티브 SDK를 쓰지 않습니다. 시스템 브라우저(Custom Tabs)에서 인증을 마치고
+**Android App Link**로 앱에 복귀한 뒤, 인가 코드를 백엔드에 넘겨 서비스 토큰으로 바꿉니다.
+
+1. `.env`에 세 값을 채웁니다. 하나라도 비면 로그인 버튼이 목업으로 동작하거나 설정 오류를 띄웁니다.
+
+   ```
+   EXPO_PUBLIC_API_BASE_URL=https://i15a606.p.ssafy.io
+   EXPO_PUBLIC_USE_MOCK_API=false
+   EXPO_PUBLIC_KAKAO_REST_API_KEY=카카오_REST_API_키
+   EXPO_PUBLIC_NAVER_CLIENT_ID=네이버_Client_ID
+   ```
+
+   `EXPO_PUBLIC_` 값은 **번들 시점에 코드로 박히므로** 바꾼 뒤에는 `npx expo start -c`로 다시 띄워야 합니다.
+   목업 모드로 돌고 있으면 로그인 화면 하단에 그 사실이 표시됩니다.
+
+2. Redirect URI는 `src/utils/oauth.ts`에 상수로 고정돼 있습니다. 콘솔·서버와 한 글자도 달라선 안 되므로
+   환경변수로 빼지 않았습니다.
+
+   ```
+   https://i15a606.p.ssafy.io/oauth/callback/kakao
+   https://i15a606.p.ssafy.io/oauth/callback/naver
+   ```
+
+3. **이 주소는 서버가 404를 반환하는 게 정상입니다.** 앱이 App Link로 가로채는 용도이기 때문입니다.
+   따라서 App Link 검증이 실패하면 인증까지 성공해도 앱으로 돌아오지 못하고 브라우저에 404만 남습니다.
+
+### 제공자 콘솔 설정
+
+브라우저 기반 흐름이므로 **두 콘솔 모두 "웹" 환경으로 등록해야 한다.**
+Android 네이티브 환경(패키지명·키 해시·다운로드 URL)은 네이티브 SDK 방식용이라 이 구조에서는 쓰지 않는다.
+
+- **카카오**: 제품 설정 > 카카오 로그인을 **활성화**하고 **Redirect URI**에 위 주소를 등록한다.
+  키는 앱 키 > **REST API 키**(지도용 JavaScript 키와 다른 값)를 쓴다.
+  브라우저 방식이라 Android 플랫폼 키 해시 등록은 필요 없다.
+- **네이버**: 애플리케이션 > API 설정 > **로그인 오픈 API 서비스 환경**에 **PC웹 또는 모바일웹**을 추가하고
+  서비스 URL과 **Callback URL**을 등록한다. Callback URL 입력란은 웹 환경에만 있다 —
+  Android 환경만 등록하면 `client_id`는 유효한데도 인증 페이지가
+  "서비스 설정에 오류가 있어 로그인할 수 없습니다"로 끊긴다.
+
+네이버 설정 오류는 `authorize` 응답의 `disp_stat` 값으로 확인할 수 있다.
+redirect_uri를 바꿔도 값이 그대로면 애플리케이션 자체의 설정 문제다.
+
+```bash
+curl -s "https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=$NAVER_CLIENT_ID&redirect_uri=https%3A%2F%2Fi15a606.p.ssafy.io%2Foauth%2Fcallback%2Fnaver&state=t"
+```
+
+### App Link 검증 확인
+
+`https://i15a606.p.ssafy.io/.well-known/assetlinks.json`의 `package_name`이 `app.json`의
+`android.package`와 **정확히 같아야** 하고, `sha256_cert_fingerprints`에 빌드 서명 지문이 있어야 합니다.
+
+실기기를 **USB로 연결하고**(무선 QR 연결로는 adb가 붙지 않습니다) 확인합니다.
+`adb`는 Android SDK에 들어 있고 PATH에 없을 수 있습니다. PowerShell에서 현재 세션에만 추가하려면:
+
+```powershell
+$env:Path += ";$env:LOCALAPPDATA\Android\Sdk\platform-tools"
+```
+
+```bash
+adb shell pm get-app-links com.waglewagle.mobile
+```
+
+`i15a606.p.ssafy.io: verified`가 나와야 합니다. **`assetlinks.json`을 앱 설치 이후에 고쳤다면
+Android가 이전 결과를 캐시하고 있으므로** 반드시 재검증을 요청합니다(또는 앱을 삭제하고 다시 설치합니다).
+
+```bash
+adb shell pm verify-app-links --re-verify com.waglewagle.mobile
+```
+
+OAuth 흐름과 무관하게 복귀 동작만 따로 시험하려면 인텐트를 직접 던집니다.
+앱이 열리면 App Link가 동작하는 것이고, 브라우저가 열리면 검증이 실패한 상태입니다.
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "https://i15a606.p.ssafy.io/oauth/callback/kakao?code=test&state=test"
+```
+
 ## 카카오맵 설정
 
 홈 지도는 카카오맵 JavaScript SDK를 WebView(웹에서는 iframe) 안에서 구동합니다.

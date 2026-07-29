@@ -57,7 +57,7 @@ function LoginButton({
 }
 
 export default function Login() {
-  const { pendingProvider, error, signIn } = useOAuthLogin();
+  const { pendingProvider, error, isMocked, signIn } = useOAuthLogin();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -102,6 +102,16 @@ export default function Login() {
             disabled={pendingProvider === 'kakao'}
             onPress={() => signIn('naver')}
           />
+          {/*
+            목업 모드에서는 브라우저를 열지 않고 바로 온보딩으로 넘어간다.
+            표시가 없으면 실제 소셜 로그인이 된 것으로 착각하게 된다.
+          */}
+          {isMocked && (
+            <Text style={styles.mockNotice}>
+              목업 모드 — 실제 소셜 로그인을 건너뜁니다{`\n`}
+              (.env의 EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_USE_MOCK_API 확인)
+            </Text>
+          )}
         </View>
       </LinearGradient>
     </SafeAreaView>
@@ -143,6 +153,7 @@ const styles = StyleSheet.create({
   loginButtonPressed: { opacity: 0.76 },
   loginButtonDisabled: { opacity: 0.5 },
   error: { ...type.caption, color: colors.danger, textAlign: 'center' },
+  mockNotice: { ...type.caption, color: colors.gray600, textAlign: 'center' },
   brandIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   kakaoBubble: {
     minWidth: 42,

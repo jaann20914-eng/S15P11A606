@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -43,7 +43,30 @@ export interface OAuthLoginState {
   pendingProvider: OAuthProvider | null;
   /** 실패 문구. 같은 화면에 그대로 노출하고 사용자가 다시 누르면 사라진다. */
   error: string | null;
+  /**
+   * 목업 모드 여부. 이때는 브라우저를 열지 않고 가짜로 성공하므로
+   * 화면에 그 사실을 드러내야 한다 — 실제 연동이 안 되는 걸 성공으로 착각하기 쉽다.
+   */
+  isMocked: boolean;
   signIn: (provider: OAuthProvider) => void;
+}
+
+/**
+ * 진행 중인 시도. 컴포넌트가 아니라 모듈에 두는 이유는 이 흐름이 앱 전역이기 때문이다.
+ *
+ * 브라우저에 다녀오는 동안 화면이 다시 마운트될 수 있고, App Link 복귀 화면
+ * (`app/oauth/callback/[provider].tsx`)도 "지금 처리 중인 로그인이 있는지" 알아야 한다.
+ */
+let pendingProviderRef: OAuthProvider | null = null;
+
+/**
+ * 처리 중인 소셜 로그인이 있는지. App Link 복귀 화면이 자기 역할을 판단하는 데 쓴다.
+ *
+ * `false`면 앱이 종료된 상태에서 복귀한 것이다. 그때는 `state`가 메모리에서 사라졌으므로
+ * 검증할 수단이 없고, 인가 코드를 그대로 서버에 넘기면 CSRF 검증을 스스로 포기하는 셈이다.
+ */
+export function isOAuthLoginInFlight(): boolean {
+  return pendingProviderRef !== null;
 }
 
 /**
@@ -61,29 +84,28 @@ export interface OAuthLoginState {
  * 고정 응답으로 온보딩까지 넘어간다. 콘솔 키 없이 화면 흐름을 볼 수 있게 하려는 것이다.
  */
 export function useOAuthLogin(): OAuthLoginState {
-  const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(null);
+  // 브라우저에 다녀오는 사이 화면이 다시 마운트되면 모듈 쪽 값이 진실이다.
+  const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(() => pendingProviderRef);
   const [error, setError] = useState<string | null>(null);
   const completeOAuthLogin = useAuthStore((state) => state.completeOAuthLogin);
 
-  /** 진행 중인 시도. 두 버튼을 연달아 눌러 흐름이 겹치는 것을 막는다. */
-  const pendingRef = useRef<OAuthProvider | null>(null);
-
   const signIn = useCallback(
     (provider: OAuthProvider) => {
-      if (pendingRef.current !== null) return;
+      // 두 버튼을 연달아 누르면 나중 요청이 앞의 흐름을 덮어써 둘 다 실패한다.
+      if (pendingProviderRef !== null) return;
 
-      pendingRef.current = provider;
+      pendingProviderRef = provider;
       setPendingProvider(provider);
       setError(null);
 
       const finish = (message: string | null) => {
-        pendingRef.current = null;
+        pendingProviderRef = null;
         setPendingProvider(null);
         setError(message);
       };
 
       const goNext = (authStatus: 'AUTHENTICATED' | 'ONBOARDING_REQUIRED') => {
-        pendingRef.current = null;
+        pendingProviderRef = null;
         setPendingProvider(null);
         // replace로 이동해 뒤로 가기가 로그인 화면으로 돌아오지 않게 한다.
         router.replace(authStatus === 'AUTHENTICATED' ? '/(tabs)/home' : '/(onboarding)/age');
@@ -106,7 +128,7 @@ export function useOAuthLogin(): OAuthLoginState {
     [completeOAuthLogin],
   );
 
-  return { pendingProvider, error, signIn };
+  return { pendingProvider, error, isMocked: usesMockApi, signIn };
 }
 
 interface Authorization {
@@ -145,9 +167,22 @@ async function authorize(provider: OAuthProvider): Promise<Authorization | null>
   const code = firstValue(queryParams?.code);
   const returnedState = firstValue(queryParams?.state);
 
-  // 사용자가 동의를 거부하면 code 대신 error가 온다(카카오·네이버 공통).
-  if (firstValue(queryParams?.error) !== null || code === null) {
-    throw new ApiError(401, 'AUTH_OAUTH_FAILED', ERROR_MESSAGE.AUTH_OAUTH_FAILED);
+  // 카카오·네이버 모두 실패하면 code 대신 error를 붙여 돌려보낸다.
+  const providerError = firstValue(queryParams?.error);
+
+  // 동의 화면에서 사용자가 직접 취소한 것은 실패가 아니다. 문구 없이 조용히 돌아온다.
+  if (providerError === 'access_denied') {
+    return null;
+  }
+
+  if (providerError !== null || code === null) {
+    // 제공자가 준 코드를 문구에 남긴다. 콘솔 설정 오류는 이 값이 유일한 단서라
+    // 버리면 화면만 보고는 원인을 좁힐 수 없다.
+    throw new ApiError(
+      401,
+      'AUTH_OAUTH_FAILED',
+      `${ERROR_MESSAGE.AUTH_OAUTH_FAILED} (${providerError ?? 'no_code'})`,
+    );
   }
 
   if (returnedState !== state) {
