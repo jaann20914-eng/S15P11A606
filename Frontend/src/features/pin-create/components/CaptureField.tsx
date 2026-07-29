@@ -1,24 +1,18 @@
-import { useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { CameraView } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { MAX_VIDEO_SECONDS } from '@/types/pinCreate';
 import type { PinDraftVideo } from '@/types/pinCreate';
+import { useVideoCapture } from '../hooks/useVideoCapture';
 import { pinCreateStyles as s } from '../styles';
-
-/**
- * 카메라 미리보기 자리를 채우는 시안 이미지.
- *
- * 기기 카메라 연동 전까지만 쓴다. `expo-camera`가 붙으면 이 이미지는 사라진다.
- */
-const PREVIEW_PLACEHOLDER = require('../../../../assets/images/capture-cafe-preview.png');
+import { CapturePreview } from './CapturePreview';
 
 export interface CaptureFieldProps {
   video: PinDraftVideo | null;
   onCaptured: (video: PinDraftVideo | null) => void;
 }
-
-type RecordState = 'idle' | 'recording' | 'done';
 
 /** `0:00:05` 형태. 최대 5초라 분·시는 항상 0이지만 시안 표기를 따른다. */
 function formatTimer(seconds: number): string {
@@ -28,61 +22,92 @@ function formatTimer(seconds: number): string {
 /**
  * 영상 촬영 영역.
  *
- * 지금은 촬영 상태만 흉내내고 실제 녹화는 하지 않는다. 기기 카메라 연동은 다음 단계이며
- * 그때 이 컴포넌트 안만 바뀌고 화면과 폼은 그대로 쓴다.
+ * 갤러리 선택은 두지 않는다. 지금 현장이라는 것이 이 서비스의 전제이므로 실시간 촬영만 받는다.
+ * 5초가 되면 카메라가 스스로 멈추고, 그 전에 버튼을 다시 누르면 거기서 끝난다.
+ * 촬영이 끝나면 결과를 그 자리에서 재생해 보여주고 다시 찍을 수 있게 한다.
  */
 export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
-  const [state, setState] = useState<RecordState>(video ? 'done' : 'idle');
+  const capture = useVideoCapture(onCaptured);
+  const { requestPermissions } = capture;
 
-  const press = () => {
-    if (state === 'idle') {
-      setState('recording');
-      return;
-    }
+  // 화면에 들어오면 바로 권한을 물어야 미리보기를 띄울 수 있다.
+  useEffect(() => {
+    requestPermissions();
+  }, [requestPermissions]);
 
-    if (state === 'recording') {
-      setState('done');
-      // 실제 파일이 없어 경로는 비워 둔다. 카메라가 붙으면 녹화 결과 uri가 들어온다.
-      onCaptured({ uri: '', durationSeconds: MAX_VIDEO_SECONDS });
-      return;
-    }
+  if (capture.permissionMessage) {
+    return (
+      <View style={[s.camera, s.cameraBlocked]}>
+        <Ionicons name="videocam-off-outline" size={28} color={colors.gray400} />
+        <Text style={s.cameraBlockedText}>{capture.permissionMessage}</Text>
+        <Pressable accessibilityRole="button" onPress={requestPermissions} style={s.cameraRetry}>
+          <Text style={s.cameraRetryText}>권한 다시 요청</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
-    // 재촬영. 이전 결과를 버리고 처음부터 다시 찍는다.
-    setState('recording');
-    onCaptured(null);
-  };
+  // 촬영이 끝났으면 카메라를 내리고 결과 영상을 보여준다.
+  if (capture.state === 'done' && video) {
+    return (
+      <View style={s.camera}>
+        <CapturePreview uri={video.uri} />
 
-  const retake = () => {
-    setState('idle');
-    onCaptured(null);
-  };
+        <View style={s.timer}>
+          <Text style={s.timerText}>{formatTimer(video.durationSeconds)}</Text>
+        </View>
 
-  const elapsed = state === 'idle' ? 0 : state === 'recording' ? 3 : MAX_VIDEO_SECONDS;
+        <Pressable accessibilityLabel="다시 촬영" onPress={capture.retake} style={s.cameraAction}>
+          <Ionicons name="refresh" size={18} color={colors.white} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  const recording = capture.state === 'recording';
 
   return (
     <View style={s.camera}>
-      <Image source={PREVIEW_PLACEHOLDER} style={s.cameraImage} />
+      {capture.ready ? (
+        <CameraView
+          ref={capture.cameraRef}
+          facing={capture.facing}
+          mode="video"
+          videoQuality="720p"
+          style={s.cameraView}
+        />
+      ) : (
+        <View style={s.cameraBlocked}>
+          <Text style={s.cameraBlockedText}>카메라를 준비하고 있어요</Text>
+        </View>
+      )}
 
       <View style={s.timer}>
-        <Text style={s.timerText}>{formatTimer(elapsed)}</Text>
+        <Text style={s.timerText}>{formatTimer(capture.elapsedSeconds)}</Text>
       </View>
 
-      {state === 'done' && (
-        <Pressable accessibilityLabel="다시 촬영" onPress={retake} style={s.cameraAction}>
-          <Ionicons name="refresh" size={18} color={colors.white} />
+      {/* 녹화 중에는 렌즈를 바꿀 수 없다. 중간에 바꾸면 녹화가 끊긴다. */}
+      {!recording && capture.ready && (
+        <Pressable
+          accessibilityLabel="전면 · 후면 전환"
+          onPress={capture.toggleFacing}
+          style={s.cameraAction}
+        >
+          <Ionicons name="camera-reverse-outline" size={20} color={colors.white} />
         </Pressable>
       )}
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={state === 'recording' ? '촬영 종료' : '촬영 시작'}
-        onPress={press}
+        accessibilityLabel={recording ? '촬영 종료' : '촬영 시작'}
+        disabled={!capture.ready}
+        onPress={recording ? capture.stopRecording : capture.startRecording}
         style={s.recordOuter}
       >
-        <View
-          style={[s.recordInner, state === 'recording' && s.recording, state === 'done' && s.recordDone]}
-        />
+        <View style={[s.recordInner, recording && s.recording]} />
       </Pressable>
+
+      {!recording && <Text style={s.captureHint}>최대 {MAX_VIDEO_SECONDS}초까지 촬영돼요</Text>}
     </View>
   );
 }

@@ -15,7 +15,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "현장 영상을 촬영하려면 카메라 접근이 필요해요.",
+          "microphonePermission": "현장 소리를 함께 담으려면 마이크 접근이 필요해요.",
+          "recordAudioAndroid": true
+        }
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

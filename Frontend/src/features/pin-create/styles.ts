@@ -47,7 +47,39 @@ export const pinCreateStyles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.dark,
   },
-  cameraImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  /** 카메라 미리보기와 촬영 결과 재생이 같은 영역을 채운다. */
+  cameraView: { width: '100%', height: '100%' },
+  /** 권한이 없거나 준비 중일 때 카메라 자리에 대신 놓는 안내. */
+  cameraBlocked: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.x2,
+    paddingHorizontal: spacing.x6,
+    backgroundColor: colors.gray100,
+  },
+  cameraBlockedText: { ...type.caption, color: colors.gray600, textAlign: 'center' },
+  cameraRetry: {
+    height: 36,
+    paddingHorizontal: spacing.x4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.dark,
+  },
+  cameraRetryText: { ...type.caption, color: colors.white, fontWeight: '600' },
+  /** 촬영 버튼 아래 안내 문구. */
+  captureHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 4,
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+    color: 'rgba(255,255,255,.75)',
+  },
   timer: {
     position: 'absolute',
     right: spacing.x2,
