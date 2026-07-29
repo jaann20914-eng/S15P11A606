@@ -59,6 +59,7 @@ public class JwtProvider {
         return baseBuilder(now)
                 .subject(String.valueOf(memberId))
                 .claim(CLAIM_PURPOSE, TokenPurpose.REFRESH.name())
+                .id(UUID.randomUUID().toString())
                 .expiration(Date.from(now.plusSeconds(refreshTokenExpirationSeconds)))
                 .compact();
     }
@@ -93,6 +94,14 @@ public class JwtProvider {
 
     public TokenPurpose getPurpose(Claims claims) {
         return TokenPurpose.valueOf(claims.get(CLAIM_PURPOSE, String.class));
+    }
+
+    public long getAccessTokenExpirationSeconds() {
+        return accessTokenExpirationSeconds;
+    }
+
+    public long getRefreshTokenExpirationSeconds() {
+        return refreshTokenExpirationSeconds;
     }
 
     private io.jsonwebtoken.JwtBuilder baseBuilder(Instant now) {
