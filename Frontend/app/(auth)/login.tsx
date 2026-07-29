@@ -1,17 +1,24 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { useOAuthLogin } from '@/features/auth/hooks/useOAuthLogin';
+import type { OAuthProvider } from '@/types/auth';
 
 function LoginButton({
   brand,
   label,
+  busy,
+  disabled,
   onPress,
 }: {
-  brand: 'kakao' | 'naver';
+  brand: OAuthProvider;
   label: string;
+  /** 이 버튼으로 시작한 로그인이 진행 중인지. 스피너로 바꿔 보여준다. */
+  busy: boolean;
+  /** 다른 버튼으로 로그인이 진행 중인지. 흐리게 처리하고 입력을 막는다. */
+  disabled: boolean;
   onPress: () => void;
 }) {
   const isKakao = brand === 'kakao';
@@ -20,11 +27,14 @@ function LoginButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ busy, disabled }}
+      disabled={busy || disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.loginButton,
         { backgroundColor: isKakao ? colors.kakao : colors.naver },
         pressed && styles.loginButtonPressed,
+        disabled && styles.loginButtonDisabled,
       ]}
     >
       <View style={styles.brandIcon}>
@@ -36,14 +46,18 @@ function LoginButton({
           <Text style={styles.naverMark}>N</Text>
         )}
       </View>
-      <Text style={[styles.loginLabel, !isKakao && styles.naverLabel]}>{label}</Text>
+      {busy ? (
+        <ActivityIndicator color={isKakao ? colors.dark : colors.white} />
+      ) : (
+        <Text style={[styles.loginLabel, !isKakao && styles.naverLabel]}>{label}</Text>
+      )}
       <View style={styles.brandIcon} />
     </Pressable>
   );
 }
 
 export default function Login() {
-  const startOnboarding = () => router.push('/(onboarding)/age');
+  const { pendingProvider, error, signIn } = useOAuthLogin();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -68,8 +82,26 @@ export default function Login() {
         </View>
 
         <View style={styles.actions}>
-          <LoginButton brand="kakao" label="카카오로 로그인" onPress={startOnboarding} />
-          <LoginButton brand="naver" label="네이버로 로그인" onPress={startOnboarding} />
+          {/* 실패 문구는 버튼 위에 남겨 둔다. 다시 누르면 사라진다. */}
+          {error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          )}
+          <LoginButton
+            brand="kakao"
+            label="카카오로 로그인"
+            busy={pendingProvider === 'kakao'}
+            disabled={pendingProvider === 'naver'}
+            onPress={() => signIn('kakao')}
+          />
+          <LoginButton
+            brand="naver"
+            label="네이버로 로그인"
+            busy={pendingProvider === 'naver'}
+            disabled={pendingProvider === 'kakao'}
+            onPress={() => signIn('naver')}
+          />
         </View>
       </LinearGradient>
     </SafeAreaView>
@@ -109,6 +141,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   loginButtonPressed: { opacity: 0.76 },
+  loginButtonDisabled: { opacity: 0.5 },
+  error: { ...type.caption, color: colors.danger, textAlign: 'center' },
   brandIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   kakaoBubble: {
     minWidth: 42,

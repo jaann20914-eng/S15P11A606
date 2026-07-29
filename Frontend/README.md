@@ -11,6 +11,21 @@ npm run start
 
 Expo Go 또는 Android 에뮬레이터에서 실행할 수 있습니다.
 
+## 네이티브 모듈 추가 규칙
+
+**`npm install` 대신 `npx expo install`을 쓰고, import하는 네이티브 모듈은 전부 `package.json`에 직접 선언한다.**
+
+전이 의존성으로 들어온 네이티브 모듈은 SDK와 다른 버전이 최상위에 깔릴 수 있다.
+실제로 `@expo/vector-icons`의 peer 범위(`expo-font: >=14.0.4`)가 버전 점프한
+`expo-font@57`을 끌어와, JS는 정상인데 APK만 `NoSuchMethodError`로 죽는 일이 있었다.
+번들에는 잡히지 않고 실기기 빌드에서만 드러나므로 의존성을 건드린 뒤에는 이걸 돌린다.
+
+```bash
+npx expo-doctor
+```
+
+`Check that required peer dependencies are installed`가 실패하면 EAS 빌드 전에 반드시 해결한다.
+
 ## 카카오맵 설정
 
 홈 지도는 카카오맵 JavaScript SDK를 WebView(웹에서는 iframe) 안에서 구동합니다.
@@ -102,4 +117,3 @@ import 경로만 보고 대상을 알 수 있어야 한다 — `@/api/pin/unlock
 - `src/types/place.ts`의 `Place`는 현재 참조하는 곳이 없다.
 
 현재 파일 목록은 `docs/FOLDER_STRUCTURE.md`, 설계 기준과 요구사항 추적표는 `docs/UX-SPEC.md`에 있습니다.
-
