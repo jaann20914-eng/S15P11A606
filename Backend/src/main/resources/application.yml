@@ -38,6 +38,11 @@ oauth:
     token-uri: https://nid.naver.com
     api-uri: https://openapi.naver.com
 
+app:
+  oauth:
+    # 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (app.json의 scheme와 일치)
+    callback-scheme: ${OAUTH_CALLBACK_SCHEME}
+
 jwt:
   secret: ${JWT_SECRET}
   issuer: wagglewaggle
