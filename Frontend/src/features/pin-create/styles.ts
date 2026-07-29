@@ -219,6 +219,17 @@ export const pinCreateStyles = StyleSheet.create({
   placeName: { ...type.label, color: colors.dark },
   placeAddress: { ...type.caption, color: colors.gray400, marginTop: 2 },
   placeEmpty: { ...type.caption, color: colors.gray400, padding: spacing.x4 },
+  /** 검색 중·실패 상태를 목록 자리에 대신 놓는다. */
+  placeStatus: { alignItems: 'center', justifyContent: 'center', gap: spacing.x2, padding: spacing.x4 },
+  placeRetry: {
+    height: 32,
+    paddingHorizontal: spacing.x4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.gray100,
+  },
+  placeRetryText: { ...type.caption, color: colors.gray600, fontWeight: '600' },
 
   /* 상세 위치 */
   detailInput: {

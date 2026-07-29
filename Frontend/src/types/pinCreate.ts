@@ -1,4 +1,5 @@
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
+import type { PlaceSearchItem } from '@/types/place';
 
 /**
  * 게시글 작성 화면의 진입 유형.
@@ -27,12 +28,13 @@ export interface PinDraft {
   detailLocation: string;
 }
 
-/** 장소 검색 결과에서 선택한 항목. */
-export interface PinDraftPlace {
-  placeId: number;
-  name: string;
-  address: string;
-}
+/**
+ * 장소 검색 결과에서 선택한 항목.
+ *
+ * 카카오 장소이므로 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다.
+ * 좌표까지 들고 있어야 등록 요청에 그대로 실을 수 있다.
+ */
+export type PinDraftPlace = PlaceSearchItem;
 
 /** 영상 최대 길이(초). 이 시간이 지나면 녹화가 자동으로 멈춘다. */
 export const MAX_VIDEO_SECONDS = 5;
