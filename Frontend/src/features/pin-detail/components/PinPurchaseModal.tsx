@@ -1,10 +1,11 @@
-import { ActivityIndicator, Image, Modal, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { MODAL_ANIMATION } from '@/components/common/modalAnimation';
 import { pinDetailStyles as s } from '../styles';
+import { IllustrationVideo } from './IllustrationVideo';
 
-const COIN_IMAGE = require('../../../../assets/images/credit-coin-3d.png');
+const COIN_VIDEO = require('../../../../assets/videos/credit-coin-3d.mp4');
 
 export interface PinPurchaseModalProps {
   visible: boolean;
@@ -39,7 +40,8 @@ export function PinPurchaseModal({
           </View>
 
           <View style={s.payPanel}>
-            <Image source={COIN_IMAGE} style={s.coinImage} />
+            {/* 모달이 열릴 때만 마운트해 매번 처음부터 재생되게 한다. */}
+            {visible && <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />}
             <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
             {error && <Text style={s.payError}>{error}</Text>}
             <Pressable
