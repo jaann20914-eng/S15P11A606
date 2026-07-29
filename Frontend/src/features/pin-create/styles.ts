@@ -69,21 +69,21 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: colors.dark,
   },
   cameraRetryText: { ...type.caption, color: colors.white, fontWeight: '600' },
-  /** 촬영 버튼 아래 안내 문구. */
+  /** 타이머 왼쪽의 촬영 안내 문구. */
   captureHint: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 4,
     fontSize: 10,
     lineHeight: 14,
-    textAlign: 'center',
     color: 'rgba(255,255,255,.75)',
   },
-  timer: {
+  captureMeta: {
     position: 'absolute',
     right: spacing.x2,
     top: spacing.x2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.x2,
+  },
+  timer: {
     paddingHorizontal: spacing.x2,
     paddingVertical: 2,
     borderRadius: 4,

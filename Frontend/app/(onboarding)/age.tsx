@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -10,6 +11,8 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import * as Location from 'expo-location';
+import { Camera } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,8 +33,49 @@ export default function Onboarding() {
   const [nickname, setNickname] = useState('');
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState(['팝업', '공원']);
+  const [requestingPermissions, setRequestingPermissions] = useState(false);
 
-  const next = () => (step < 3 ? setStep(step + 1) : router.replace('/(tabs)/home'));
+  const finishOnboarding = async () => {
+    if (requestingPermissions) return;
+    setRequestingPermissions(true);
+
+    try {
+      const location = await Location.requestForegroundPermissionsAsync();
+      const camera = await Camera.requestCameraPermissionsAsync();
+      const microphone = await Camera.requestMicrophonePermissionsAsync();
+
+      if (!location.granted || !camera.granted || !microphone.granted) {
+        Alert.alert(
+          '필수 권한이 필요해요',
+          '위치, 카메라, 마이크 권한을 모두 허용해야 가입을 완료할 수 있어요.',
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      console.info('[onboarding] 가입 시 확인한 기기 좌표', {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+
+      router.replace('/(tabs)/home');
+    } catch (cause) {
+      console.error('[onboarding] 필수 권한 또는 위치 확인 실패', cause);
+      Alert.alert('권한을 확인하지 못했어요', '기기의 위치 서비스를 켜고 다시 시도해 주세요.');
+    } finally {
+      setRequestingPermissions(false);
+    }
+  };
+
+  const next = () => {
+    if (step < 3) {
+      setStep(step + 1);
+      return;
+    }
+    void finishOnboarding();
+  };
   const checkNickname = () => {
     if (nickname.trim().length >= 2) setChecked(true);
   };
@@ -194,7 +238,11 @@ export default function Onboarding() {
         <View style={s.footer}>
           <Button
             label={step === 3 ? '와글와글 시작하기' : '다음'}
-            disabled={(step === 2 && !checked) || (step === 3 && selected.length === 0)}
+            disabled={
+              requestingPermissions ||
+              (step === 2 && !checked) ||
+              (step === 3 && selected.length === 0)
+            }
             onPress={next}
           />
         </View>

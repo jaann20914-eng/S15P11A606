@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
@@ -29,6 +30,18 @@ export default function PinCreateScreen() {
   const form = usePinCreateForm();
   const publish = usePinPublish();
   const tabBarHeight = useAppTabBarHeight();
+  const [focused, setFocused] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+
+      return () => {
+        setFocused(false);
+        form.reset();
+      };
+    }, [form.reset]),
+  );
 
   const submit = () => {
     if (!form.draft.video) {
@@ -64,7 +77,7 @@ export default function PinCreateScreen() {
       <View style={s.screen}>
         <PinCreateHeader title={copy.title} />
 
-        {publish.publishing ? (
+        {!focused ? null : publish.publishing ? (
           <PublishingOverlay />
         ) : (
           <ScrollView

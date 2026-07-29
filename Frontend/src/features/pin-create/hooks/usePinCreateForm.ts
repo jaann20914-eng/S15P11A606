@@ -5,6 +5,7 @@ import type { PinDraft, PinDraftPlace, PinDraftVideo } from '@/types/pinCreate';
 
 export interface PinCreateForm {
   draft: PinDraft;
+  reset: () => void;
   setCrowdLevel: (level: CrowdLevelValue) => void;
   setVideo: (video: PinDraftVideo | null) => void;
   setMemo: (memo: string) => void;
@@ -33,6 +34,7 @@ const emptyDraft: PinDraft = {
  */
 export function usePinCreateForm(initial?: Partial<PinDraft>): PinCreateForm {
   const [draft, setDraft] = useState<PinDraft>({ ...emptyDraft, ...initial });
+  const reset = useCallback(() => setDraft({ ...emptyDraft, ...initial }), [initial]);
 
   const patch = useCallback(
     (change: Partial<PinDraft>) => setDraft((current) => ({ ...current, ...change })),
@@ -56,6 +58,7 @@ export function usePinCreateForm(initial?: Partial<PinDraft>): PinCreateForm {
 
   return {
     draft,
+    reset,
     setCrowdLevel: useCallback((crowdLevel: CrowdLevelValue) => patch({ crowdLevel }), [patch]),
     setVideo: useCallback((video: PinDraftVideo | null) => patch({ video }), [patch]),
     setMemo: useCallback((memo: string) => patch({ memo }), [patch]),

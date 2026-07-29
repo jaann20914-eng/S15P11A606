@@ -154,8 +154,8 @@ export async function evaluateMockPin(pinId: number, rating: PinRating): Promise
     throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
   }
 
-  // 작성자 본인과 미열람자는 평가 대상이 아니다.
-  if (scenario === 'owner' || scenario === 'preview') {
+  // 작성자 본인과 미열람자는 평가 대상이 아니다. 결제로 열람했으면 평가할 수 있다.
+  if (scenario === 'owner' || (scenario === 'preview' && !unlockedPinIds.has(pinId))) {
     throw new ApiError(403, 'PIN_EVALUATION_FORBIDDEN', '이 핀을 평가할 수 없습니다.');
   }
 
@@ -177,6 +177,19 @@ export async function evaluateMockPin(pinId: number, rating: PinRating): Promise
 
 /** 멱등성 키 → 이미 처리한 결과. 같은 키로 다시 부르면 차감 없이 그대로 돌려준다. */
 const unlockResultsByKey = new Map<string, PinUnlockResult>();
+
+/**
+ * 이번 세션에서 결제로 열람한 핀.
+ *
+ * 시나리오 표는 고정이라 결제 후에도 `preview`로 남는다. 그 상태로는 평가와 채팅 요청이
+ * 403으로 막혀 결제 다음 흐름을 확인할 수 없다. 실제 서버는 결제를 기억하므로 목업도 기억한다.
+ */
+const unlockedPinIds = new Set<number>();
+
+/** 결제로 열람한 핀인지. 평가·채팅 요청 목업이 권한을 판정할 때 쓴다. */
+export function isMockPinUnlocked(pinId: number): boolean {
+  return unlockedPinIds.has(pinId);
+}
 
 /**
  * 잠금 해제 목업.
@@ -221,6 +234,7 @@ export async function unlockMockPin(pinId: number, idempotencyKey: string): Prom
   };
 
   unlockResultsByKey.set(idempotencyKey, result);
+  unlockedPinIds.add(pinId);
   return result;
 }
 

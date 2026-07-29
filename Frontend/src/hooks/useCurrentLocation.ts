@@ -30,8 +30,16 @@ export function useCurrentLocation(): CurrentLocation {
     setStatus('loading');
 
     try {
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        console.warn('[location] 기기의 위치 서비스가 꺼져 있습니다.');
+        setStatus('failed');
+        return null;
+      }
+
       const { granted } = await Location.requestForegroundPermissionsAsync();
       if (!granted) {
+        console.warn('[location] 사용자가 전경 위치 권한을 허용하지 않았습니다.');
         setStatus('denied');
         return null;
       }
@@ -44,10 +52,12 @@ export function useCurrentLocation(): CurrentLocation {
         longitude: position.coords.longitude,
       };
 
+      console.info('[location] 현재 기기 좌표', next);
       setCoordinate(next);
       setStatus('granted');
       return next;
-    } catch {
+    } catch (cause) {
+      console.error('[location] 현재 좌표 취득 실패', cause);
       setStatus('failed');
       return null;
     } finally {

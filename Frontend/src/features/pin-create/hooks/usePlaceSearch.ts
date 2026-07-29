@@ -13,11 +13,28 @@ import type { PlaceSearchItem } from '@/types/place';
  */
 async function readCoordinate(): Promise<Location.LocationObjectCoords | null> {
   try {
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    const permission = await Location.getForegroundPermissionsAsync();
+
+    if (!servicesEnabled) {
+      console.warn('[place-search] 기기의 위치 서비스가 꺼져 있습니다.');
+      return null;
+    }
+    if (!permission.granted) {
+      console.warn('[place-search] 전경 위치 권한이 없습니다.');
+      return null;
+    }
+
     const position = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
+    console.info('[place-search] 검색에 사용하는 기기 좌표', {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    });
     return position.coords;
-  } catch {
+  } catch (cause) {
+    console.error('[place-search] 현재 좌표 취득 실패', cause);
     return null;
   }
 }

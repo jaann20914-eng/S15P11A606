@@ -53,8 +53,11 @@ export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
       <View style={s.camera}>
         <CapturePreview uri={video.uri} />
 
-        <View style={s.timer}>
-          <Text style={s.timerText}>{formatTimer(video.durationSeconds)}</Text>
+        <View style={s.captureMeta}>
+          <Text style={s.captureHint}>최대 {MAX_VIDEO_SECONDS}초까지 촬영돼요</Text>
+          <View style={s.timer}>
+            <Text style={s.timerText}>{formatTimer(video.durationSeconds)}</Text>
+          </View>
         </View>
 
         <Pressable accessibilityLabel="다시 촬영" onPress={capture.retake} style={s.cameraAction}>
@@ -82,8 +85,11 @@ export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
         </View>
       )}
 
-      <View style={s.timer}>
-        <Text style={s.timerText}>{formatTimer(capture.elapsedSeconds)}</Text>
+      <View style={s.captureMeta}>
+        {!recording && <Text style={s.captureHint}>최대 {MAX_VIDEO_SECONDS}초까지 촬영돼요</Text>}
+        <View style={s.timer}>
+          <Text style={s.timerText}>{formatTimer(capture.elapsedSeconds)}</Text>
+        </View>
       </View>
 
       {/* 녹화 중에는 렌즈를 바꿀 수 없다. 중간에 바꾸면 녹화가 끊긴다. */}
@@ -107,7 +113,6 @@ export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
         <View style={[s.recordInner, recording && s.recording]} />
       </Pressable>
 
-      {!recording && <Text style={s.captureHint}>최대 {MAX_VIDEO_SECONDS}초까지 촬영돼요</Text>}
     </View>
   );
 }

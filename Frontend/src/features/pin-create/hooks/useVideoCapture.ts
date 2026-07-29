@@ -50,6 +50,15 @@ export function useVideoCapture(onCaptured: (video: PinDraftVideo | null) => voi
   /** 녹화를 멈춘 뒤 도착한 결과가 새 녹화를 덮지 않도록 확인한다. */
   const recordingId = useRef(0);
 
+  useEffect(
+    () => () => {
+      recordingId.current += 1;
+      cameraRef.current?.stopRecording();
+      onCaptured(null);
+    },
+    [onCaptured],
+  );
+
   // 화면 표시용 경과 시간. 실제 정지는 maxDuration이 담당한다.
   useEffect(() => {
     if (state !== 'recording') return;
