@@ -34,6 +34,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
 	// flyway (스키마 마이그레이션)
+	// Spring Boot 4는 오토컨피그가 모듈별로 분리되어, Flyway 자동 실행을 위해 spring-boot-flyway 모듈이 필요하다.
+	implementation 'org.springframework.boot:spring-boot-flyway'
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 
@@ -44,6 +46,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation platform('org.testcontainers:testcontainers-bom:1.20.6')
 	testImplementation 'org.testcontainers:elasticsearch'
+	testImplementation 'org.testcontainers:postgresql'
 	testImplementation 'org.testcontainers:junit-jupiter'
 
 	// security
