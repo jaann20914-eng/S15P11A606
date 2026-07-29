@@ -75,7 +75,53 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 영상 */
   videoFrame: { height: 294, position: 'relative', overflow: 'hidden', backgroundColor: colors.gray200 },
-  videoImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  /**
+   * 서버가 준 영상. 프레임을 그대로 채운다.
+   *
+   * 촬영을 이 프레임 비율로 받으므로 잘라낼 것이 없다. 비율이 어긋나는 영상이
+   * 들어오면 `contentFit="cover"`가 가운데를 기준으로 맞춘다.
+   *
+   * 너비·높이를 `100%`로 명시해야 한다. 웹의 `<video>`는 replaced element라서
+   * 크기가 `auto`면 `left`·`right`로 늘어나지 않고 고유 너비를 쓰며 왼쪽에 붙는다.
+   */
+  videoPlayer: { width: '100%', height: '100%' },
+
+  /**
+   * 시안 영상 전용 배치. 프레임보다 크게 잡아 아래에 붙이고 위를 잘라낸다.
+   *
+   * 시안이 16:9 가로 영상이고 위쪽에 워터마크가 있어서 필요한 보정이다.
+   * 실제 촬영 영상에는 적용하지 않는다 — 그쪽은 프레임 비율로 들어오므로
+   * 확대하면 오히려 화면이 잘린다.
+   *
+   * 높이 160%는 프레임 기준이라 아래 62.5%만 보이고 위 37.5%가 잘린다.
+   * 넘친 부분은 `videoFrame`의 `overflow: hidden`이 자른다.
+   * 시안이 바뀌어 잘리는 양을 조절할 때만 이 값을 건드린다.
+   */
+  placeholderVideoPlayer: {
+    position: 'absolute',
+    left: 0,
+    bottom: 0,
+    width: '100%',
+    height: '160%',
+  },
+
+  /**
+   * 소리 켜기·끄기 버튼. 영상 위 우측 하단에 얹는다.
+   *
+   * 블러 위에 와야 눌리므로 `videoFrame`에서 블러보다 뒤에 그린다.
+   * 배경은 밝은 화면에서도 아이콘이 보이도록 반투명 검정을 깐다.
+   */
+  muteToggle: {
+    position: 'absolute',
+    right: spacing.x4,
+    bottom: spacing.x4,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(0,0,0,.45)',
+  },
 
   /* 본문 시트 */
   detailSheet: {
