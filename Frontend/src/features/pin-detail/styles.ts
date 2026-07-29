@@ -8,6 +8,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  */
 
 /** 목업 시안 기준 그림자. 테마의 `elevation.card`보다 조금 더 진하다. */
+/**
+ * 3D 일러스트 영상의 배경색.
+ *
+ * 영상은 알파 채널이 없어 배경이 사각형으로 그대로 보인다. 카드를 영상과 같은 색으로
+ * 맞춰야 경계가 사라진다. 코인 영상에서 추출한 값이며, 새 일러스트 영상도 이 색을 배경으로
+ * 내보낸다. 순백(`#FFFFFF`)보다 파랑이 미세하게 높다.
+ */
+const ILLUSTRATION_BACKGROUND = '#FAFAFF';
+
 const shadow = {
   shadowColor: colors.dark,
   shadowOffset: { width: 0, height: 5 },
@@ -240,7 +249,7 @@ export const pinDetailStyles = StyleSheet.create({
     width: '100%',
     padding: spacing.x5,
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: ILLUSTRATION_BACKGROUND,
     ...shadow,
   },
   modalHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -262,7 +271,8 @@ export const pinDetailStyles = StyleSheet.create({
     borderColor: colors.lime,
     borderRadius: radius.md,
   },
-  coinImage: { width: 76, height: 76, resizeMode: 'contain' },
+  /** 비율 처리는 IllustrationVideo의 `contentFit`이 맡으므로 크기만 준다. */
+  coinVideo: { width: 110, height: 110 },
   payError: { ...type.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.x3 },
   payButton: { alignSelf: 'stretch' },
   payButtonBusy: { opacity: 0.6 },
@@ -278,7 +288,7 @@ export const pinDetailStyles = StyleSheet.create({
     width: '100%',
     padding: spacing.x6,
     borderRadius: radius.lg,
-    backgroundColor: colors.white,
+    backgroundColor: ILLUSTRATION_BACKGROUND,
     ...shadow,
   },
   chatIllustration: { width: 150, height: 150, resizeMode: 'contain', alignSelf: 'center' },
