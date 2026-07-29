@@ -31,6 +31,27 @@ export function oauthRedirectUri(provider: OAuthProvider): string {
   return REDIRECT_URI[provider];
 }
 
+/**
+ * 커스텀 스킴 복귀 주소. `app.json`의 `scheme`과 같아야 한다.
+ *
+ * 카카오·네이버 콘솔은 Redirect URI에 http(s)만 받으므로 제공자에게 직접 줄 수는 없다.
+ * 대신 **백엔드가 위 https 주소를 받아 이 주소로 302**를 주면 복귀가 확실해진다.
+ * Chrome은 https를 자기가 처리할 수 있어 Custom Tab 안에서 앱으로 넘기지 않지만,
+ * 모르는 스킴은 처리할 방법이 없어 반드시 인텐트를 던진다.
+ */
+export function appSchemeRedirectUri(provider: OAuthProvider): string {
+  return `waglewagle://oauth/callback/${provider}`;
+}
+
+/**
+ * 복귀로 인정할 주소들. https(App Link)와 커스텀 스킴을 모두 받는다.
+ *
+ * 둘 중 어느 쪽으로 와도 처리되므로, 백엔드가 302를 넣기 전과 후 모두 같은 코드로 동작한다.
+ */
+export function acceptedRedirectPrefixes(provider: OAuthProvider): string[] {
+  return [REDIRECT_URI[provider], appSchemeRedirectUri(provider)];
+}
+
 /** 해당 제공자의 로그인을 시도할 수 있는지. 키가 비어 있으면 버튼을 잠근다. */
 export function hasOAuthClientId(provider: OAuthProvider): boolean {
   return CLIENT_ID[provider].length > 0;

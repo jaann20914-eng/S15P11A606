@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import * as Linking from 'expo-linking';
 import { router, useSegments } from 'expo-router';
 import { setAccessTokenProvider, setTokenRefresher } from '@/api/client';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -32,6 +33,8 @@ export function useAuthSession(): void {
     void hydrate();
   }, [hydrate]);
 
+  useDeepLinkLogging();
+
   useEffect(() => {
     if (!hydrated || authStatus !== 'UNAUTHENTICATED') return;
 
@@ -41,4 +44,30 @@ export function useAuthSession(): void {
 
     router.replace('/(auth)/login');
   }, [hydrated, authStatus, segments]);
+}
+
+/**
+ * 앱에 들어오는 모든 딥링크를 개발 중에만 찍는다.
+ *
+ * OAuth 복귀가 실패할 때 "앱은 열렸는데 JS가 URL을 못 받은 것"과
+ * "URL 자체가 오지 않은 것"을 구분할 수단이 없어서 둔다. 개발 빌드는
+ * `expo-dev-launcher`가 들어오는 링크를 가로챌 수 있어 앱만 열리고 끝날 수 있다.
+ *
+ * `useOAuthLogin`의 리스너는 로그인 시도 중에만 살아 있으므로 여기서 따로 듣는다.
+ */
+function useDeepLinkLogging(): void {
+  useEffect(() => {
+    if (!__DEV__) return;
+
+    // 앱이 꺼진 상태에서 링크로 열렸을 때의 최초 URL.
+    void Linking.getInitialURL().then((url) => {
+      if (url !== null) console.log('[deeplink] 최초 URL', url);
+    });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      console.log('[deeplink] 수신', url);
+    });
+
+    return () => subscription.remove();
+  }, []);
 }

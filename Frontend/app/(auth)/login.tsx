@@ -57,7 +57,7 @@ function LoginButton({
 }
 
 export default function Login() {
-  const { pendingProvider, error, isMocked, signIn } = useOAuthLogin();
+  const { pendingProvider, error, isMocked, platformUnsupported, signIn } = useOAuthLogin();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -92,16 +92,27 @@ export default function Login() {
             brand="kakao"
             label="카카오로 로그인"
             busy={pendingProvider === 'kakao'}
-            disabled={pendingProvider === 'naver'}
+            disabled={platformUnsupported || pendingProvider === 'naver'}
             onPress={() => signIn('kakao')}
           />
           <LoginButton
             brand="naver"
             label="네이버로 로그인"
             busy={pendingProvider === 'naver'}
-            disabled={pendingProvider === 'kakao'}
+            disabled={platformUnsupported || pendingProvider === 'kakao'}
             onPress={() => signIn('naver')}
           />
+          {/*
+            복귀 경로가 Android App Link뿐이라 웹에서는 완주할 수 없다.
+            안내 없이 버튼만 두면 카카오는 서버 404, 네이버는 미등록 URL 오류로 끝나
+            원인을 앱에서 찾게 된다.
+          */}
+          {platformUnsupported && (
+            <Text style={styles.mockNotice}>
+              소셜 로그인은 안드로이드 개발 빌드에서만 동작합니다{`\n`}
+              (복귀 경로가 App Link이기 때문입니다)
+            </Text>
+          )}
           {/*
             목업 모드에서는 브라우저를 열지 않고 바로 온보딩으로 넘어간다.
             표시가 없으면 실제 소셜 로그인이 된 것으로 착각하게 된다.
