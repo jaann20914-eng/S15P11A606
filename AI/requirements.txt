@@ -2,8 +2,21 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
-httpx
+httpx2
 
 ruff
 mypy
 pytest
+
+
+aio-pika
+python-dotenv
+
+numpy
+opencv-python
+
+insightface
+onnxruntime
+
+boto3
+redis
