@@ -1,4 +1,4 @@
-import type { CrowdLevelValue } from '@/constants/crowdLevels';
+import type { CrowdLevelKey, CrowdLevelValue } from '@/constants/crowdLevels';
 import type { PlaceSearchItem } from '@/types/place';
 
 /**
@@ -44,3 +44,36 @@ export const MAX_MEMO_LENGTH = 50;
 
 /** 태그 최대 개수. */
 export const MAX_TAG_COUNT = 3;
+
+/** 상세 위치 최대 길이. */
+export const MAX_DETAIL_LOCATION_LENGTH = 100;
+
+/**
+ * `POST /api/v1/pins` 요청 본문.
+ *
+ * `crowdLevel`은 `CrowdLevelKey`(`QUIET`·`NOT_CROWDED`·`CROWDED`·`VERY_CROWDED`)와 값이 같아
+ * 별도 변환이 없다. 상세 조회 응답의 enum과는 표기가 다르다.
+ *
+ * `latitude`·`longitude`는 촬영 좌표이며 선택한 장소와 20m 이내여야 한다.
+ * 선택 항목은 비어 있으면 보내지 않는다.
+ */
+export interface PinCreateRequest {
+  /** 외부 스토리지에 업로드한 뒤 받은 접근 가능한 URL. */
+  videoUrl: string;
+  placeId: number;
+  latitude: number;
+  longitude: number;
+  crowdLevel: CrowdLevelKey;
+  detailLocation?: string;
+  memo?: string;
+  tags?: string[];
+}
+
+/** 접수된 핀의 처리 상태. AI 검수를 통과하면 `ACTIVE`가 된다. */
+export type PinProcessingStatus = 'PROCESSING' | 'ACTIVE';
+
+/** `POST /api/v1/pins` 응답의 `data`. 202로 접수만 되고 처리는 비동기다. */
+export interface PinCreateResult {
+  pinId: number;
+  status: PinProcessingStatus;
+}

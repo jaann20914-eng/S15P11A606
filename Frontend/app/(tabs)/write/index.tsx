@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import { PublishingOverlay } from '@/features/pin-create/components/PublishingOv
 import { TagField } from '@/features/pin-create/components/TagField';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
+import { usePinPublish } from '@/features/pin-create/hooks/usePinPublish';
 import { pinCreateStyles as s } from '@/features/pin-create/styles';
 
 /**
@@ -26,7 +27,7 @@ import { pinCreateStyles as s } from '@/features/pin-create/styles';
 export default function PinCreateScreen() {
   const { mode, copy } = usePinCreateMode();
   const form = usePinCreateForm();
-  const [publishing, setPublishing] = useState(false);
+  const publish = usePinPublish();
   const tabBarHeight = useAppTabBarHeight();
 
   const submit = () => {
@@ -40,23 +41,30 @@ export default function PinCreateScreen() {
       return;
     }
 
-    setPublishing(true);
-
-    // 요청은 다음 단계에서 붙인다. 등록과 수정이 다른 엔드포인트를 쓰므로 여기서 갈린다.
     if (mode.type === 'edit') {
-      // PATCH /api/v1/pins/{pinId} — mode.pinId를 쓴다.
+      // 수정 API는 아직 명세가 없다. 등록과 다른 엔드포인트를 쓰므로 여기서 갈린다.
+      Alert.alert('수정은 아직 준비 중이에요');
       return;
     }
 
-    // POST /api/v1/pins
+    publish.publish(form.draft);
   };
+
+  // 등록 실패는 진행 화면을 닫고 작성 화면에서 알린다. 입력값은 그대로 남는다.
+  useEffect(() => {
+    if (!publish.error) return;
+
+    Alert.alert('영상핀을 등록하지 못했어요', publish.error, [
+      { text: '확인', onPress: publish.dismissError },
+    ]);
+  }, [publish.error, publish.dismissError]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
         <PinCreateHeader title={copy.title} />
 
-        {publishing ? (
+        {publish.publishing ? (
           <PublishingOverlay />
         ) : (
           <ScrollView

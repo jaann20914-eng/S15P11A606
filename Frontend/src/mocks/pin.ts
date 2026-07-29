@@ -6,6 +6,7 @@ import type {
   PinRating,
   PinUnlockResult,
 } from '@/types/pin';
+import type { PinCreateRequest, PinCreateResult } from '@/types/pinCreate';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -221,6 +222,41 @@ export async function unlockMockPin(pinId: number, idempotencyKey: string): Prom
 
   unlockResultsByKey.set(idempotencyKey, result);
   return result;
+}
+
+/** 등록 목업이 발급할 다음 핀 id. */
+let nextMockPinId = 100;
+
+/**
+ * 핀 등록 목업.
+ *
+ * 서버는 202로 접수만 하고 AI 검수는 비동기로 돈다. 목업도 `PROCESSING`을 돌려준다.
+ *
+ * 화면에서 오류를 확인하는 법: 상세 위치에 아래 문구를 넣는다.
+ * `범위밖` → 422 위치 초과, `영상오류` → 422 영상 접근 불가, `실패` → 500.
+ */
+export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (!body.videoUrl) {
+    throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
+  }
+
+  const hint = body.detailLocation ?? '';
+
+  if (hint.includes('범위밖')) {
+    throw new ApiError(422, 'LOCATION_OUT_OF_RANGE', '선택한 장소와 촬영 위치가 너무 멉니다.');
+  }
+
+  if (hint.includes('영상오류')) {
+    throw new ApiError(422, 'VIDEO_NOT_ACCESSIBLE', '영상에 접근할 수 없습니다.');
+  }
+
+  if (hint.includes('실패')) {
+    throw new ApiError(500, 'PIN_CREATE_FAILED', '핀 등록 중 오류가 발생했습니다.');
+  }
+
+  return { pinId: nextMockPinId++, status: 'PROCESSING' };
 }
 
 /** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */

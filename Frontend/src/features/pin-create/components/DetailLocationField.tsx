@@ -1,5 +1,7 @@
 import { Text, TextInput } from 'react-native';
 import { colors } from '@/constants/theme';
+import { MAX_DETAIL_LOCATION_LENGTH } from '@/types/pinCreate';
+import { truncateGraphemes } from '@/utils/graphemes';
 import { pinCreateStyles as s } from '../styles';
 
 export interface DetailLocationFieldProps {
@@ -14,7 +16,7 @@ export function DetailLocationField({ value, onChange }: DetailLocationFieldProp
       <Text style={s.label}>상세 위치</Text>
       <TextInput
         value={value}
-        onChangeText={onChange}
+        onChangeText={(text) => onChange(truncateGraphemes(text, MAX_DETAIL_LOCATION_LENGTH))}
         placeholder="선택 입력"
         placeholderTextColor={colors.gray400}
         style={s.detailInput}
