@@ -1,8 +1,7 @@
 import axios from 'axios';
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+import { apiBaseUrl } from '@/constants/env';
 import type { ApiResponse, ErrorResponse } from '@/types/common';
-
-const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /** 액세스 토큰을 반환한다. 없으면 null. */
 type TokenProvider = () => string | null;
