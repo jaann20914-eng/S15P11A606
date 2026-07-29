@@ -52,4 +52,11 @@ public class OnboardingSession extends BaseEntity {
     public boolean isExpired(Instant now) {
         return expiresAt.isBefore(now);
     }
+
+    /**
+     * 온보딩 완료 시 세션을 사용 처리한다. 성공 트랜잭션 커밋 시에만 반영된다.
+     */
+    public void markUsed(Instant now) {
+        this.usedAt = now;
+    }
 }
