@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -27,5 +28,60 @@ public interface PinRepository extends JpaRepository<Pin, Long> {
             @Param("placeIds") Collection<Long> placeIds,
             @Param("from") Instant from,
             @Param("now") Instant now
+    );
+
+    /**
+     * 단일 장소의 활성 핀을 조회한다(장소 홈용).
+     * 활성 = 삭제되지 않음(deletedAt IS NULL) AND createdAt이 from 이후(최근 1시간 이내)
+     *        AND (expiresAt이 없거나 아직 만료되지 않음).
+     * 작성자 닉네임·뷰 각도 사용을 위해 member를 fetch join 하여 N+1을 방지하고 최신순으로 정렬한다.
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            WHERE p.place.id = :placeId
+              AND p.deletedAt IS NULL
+              AND p.createdAt >= :from
+              AND (p.expiresAt IS NULL OR p.expiresAt > :now)
+            ORDER BY p.createdAt DESC
+            """)
+    List<Pin> findActivePinsByPlaceId(
+            @Param("placeId") Long placeId,
+            @Param("from") Instant from,
+            @Param("now") Instant now
+    );
+
+    /**
+     * 단일 장소의 요일별 혼잡 통계를 DB에서 한 번에 집계한다(장소 홈용).
+     * - 삭제된 핀 제외(deleted_at IS NULL). 만료 핀은 포함하며 최신성 창은 적용하지 않는다(전체 기간).
+     * - created_at을 KST(Asia/Seoul)로 변환한 time-of-day가 [startTime, endTime] 창에 드는 핀만 집계한다.
+     *   자정을 넘는 창(wrap)은 startTime 이상 OR endTime 이하로 판정한다.
+     * - 요일은 KST 기준 EXTRACT(DOW): 0=일 ... 6=토.
+     * - crowd_level은 enum 문자열로 저장되므로 SQL에서 CASE로 가중치(1~4)를 매핑해 평균낸다.
+     * 데이터가 있는 요일만 행으로 반환되며, 없는 요일은 결과에 포함되지 않는다.
+     */
+    @Query(value = """
+            SELECT EXTRACT(DOW FROM (p.created_at AT TIME ZONE 'Asia/Seoul'))::int AS "dayOfWeek",
+                   AVG(CASE p.crowd_level
+                           WHEN 'WAGLE_WAGLE' THEN 4
+                           WHEN 'WAGLE' THEN 3
+                           WHEN 'RELAXED' THEN 2
+                           WHEN 'LEISURELY' THEN 1
+                       END) AS "averageWeight"
+            FROM pins p
+            WHERE p.place_id = :placeId
+              AND p.deleted_at IS NULL
+              AND ( (:wrap = FALSE
+                        AND (p.created_at AT TIME ZONE 'Asia/Seoul')::time BETWEEN :startTime AND :endTime)
+                 OR (:wrap = TRUE
+                        AND ((p.created_at AT TIME ZONE 'Asia/Seoul')::time >= :startTime
+                          OR (p.created_at AT TIME ZONE 'Asia/Seoul')::time <= :endTime)) )
+            GROUP BY 1
+            """, nativeQuery = true)
+    List<WeeklyCrowdStatRow> findWeeklyCrowdStats(
+            @Param("placeId") Long placeId,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime,
+            @Param("wrap") boolean wrap
     );
 }
