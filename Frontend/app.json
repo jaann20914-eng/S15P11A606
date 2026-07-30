@@ -11,11 +11,31 @@
       "package": "com.waglewagle.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#FAFAFA"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "i15a606.p.ssafy.io",
+              "pathPrefix": "/oauth/callback"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
-      "expo-video"
+      "expo-video",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
