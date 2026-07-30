@@ -38,6 +38,9 @@ pipeline {
 
         // 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (Frontend app.json의 scheme와 일치)
         OAUTH_CALLBACK_SCHEME = 'waglewagle'
+
+        // CI에서 Ryuk disable
+        TESTCONTAINERS_RYUK_DISABLED = 'true'
     }
 
     stages {
