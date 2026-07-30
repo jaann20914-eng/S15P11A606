@@ -3,6 +3,13 @@ import { VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
 import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 
+/**
+ * 전체화면 버튼을 내보내지 않는다. 컨트롤을 모두 끈 화면이라 들어갈 수단이 없다.
+ *
+ * 매 렌더마다 새 객체를 만들면 네이티브 쪽이 바뀐 것으로 보고 다시 설정하므로 상수로 둔다.
+ */
+const NO_FULLSCREEN = { enable: false } as const;
+
 export interface IllustrationVideoProps {
   source: VideoSource;
   style?: StyleProp<ViewStyle>;
@@ -33,7 +40,7 @@ export function IllustrationVideo({ source, style, contentFit = 'cover' }: Illus
       style={style}
       contentFit={contentFit}
       nativeControls={false}
-      allowsFullscreen={false}
+      fullscreenOptions={NO_FULLSCREEN}
       allowsPictureInPicture={false}
       pointerEvents="none"
     />
