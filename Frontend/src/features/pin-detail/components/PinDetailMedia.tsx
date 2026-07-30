@@ -9,6 +9,13 @@ import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 import { pinDetailStyles as s } from '../styles';
 
 /**
+ * 전체화면 버튼을 내보내지 않는다. 컨트롤을 모두 끈 화면이라 들어갈 수단이 없다.
+ *
+ * 매 렌더마다 새 객체를 만들면 네이티브 쪽이 바뀐 것으로 보고 다시 설정하므로 상수로 둔다.
+ */
+const NO_FULLSCREEN = { enable: false } as const;
+
+/**
  * signed URL이 아직 없어 미디어가 비어 있을 때 쓰는 시안 영상.
  *
  * Object Storage가 붙으면 서버가 준 URL을 쓰고 이 파일은 폴백으로만 남는다.
@@ -109,7 +116,7 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
       style={usesPlaceholder ? s.placeholderVideoPlayer : s.videoPlayer}
       contentFit="cover"
       nativeControls={false}
-      allowsFullscreen={false}
+      fullscreenOptions={NO_FULLSCREEN}
       allowsPictureInPicture={false}
       // 블러가 영상까지 닿아야 한다. PREVIEW_SURFACE_TYPE 설명 참고.
       surfaceType={PREVIEW_SURFACE_TYPE}
