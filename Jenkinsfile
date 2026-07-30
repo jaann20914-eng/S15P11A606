@@ -38,9 +38,6 @@ pipeline {
 
         // 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (Frontend app.json의 scheme와 일치)
         OAUTH_CALLBACK_SCHEME = 'waglewagle'
-
-        // CI에서 Ryuk disable
-        TESTCONTAINERS_RYUK_DISABLED = 'true'
     }
 
     stages {
@@ -73,6 +70,18 @@ pipeline {
                         set -eu
 
                         chmod +x gradlew
+
+                        export TESTCONTAINERS_RYUK_DISABLED=true
+
+                        # DooD: 테스트컨테이너의 published 포트에 닿을 호스트 주소(= 기본 게이트웨이)를 지정
+                        HOST_GW="$(ip -4 route show default 2>/dev/null | awk '{print $3; exit}')"
+                        if [ -z "$HOST_GW" ]; then
+                            echo "ERROR: 게이트웨이 주소를 못 찾았습니다. ip 명령 유무를 확인하거나 값을 수동 지정하세요." >&2
+                            exit 1
+                        fi
+                        export TESTCONTAINERS_HOST_OVERRIDE="$HOST_GW"
+                        echo "HOST_OVERRIDE=$TESTCONTAINERS_HOST_OVERRIDE"
+
                         ./gradlew clean test --no-daemon
                     '''
                 }
