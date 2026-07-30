@@ -10,7 +10,6 @@ from aio_pika.abc import AbstractIncomingMessage
 from pydantic import ValidationError
 
 from app.common.exceptions import AIServiceError
-from app.common.idempotency import ClaimResult, IdempotencyStore
 from app.core.config import settings
 from app.messaging.blur.consumer import get_request_queue
 from app.messaging.blur.publisher import publish_result
@@ -18,6 +17,9 @@ from app.schemas.blur import BlurRequest, BlurResult
 from app.services.blur.face_detector import FaceDetector
 from app.services.blur.video_service import VideoService
 from app.storage.object_storage import ObjectStorage
+
+# Redis 멱등성 처리를 사용하지 않아 비활성화한다.
+# from app.common.idempotency import ClaimResult, IdempotencyStore
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +29,18 @@ class BlurWorker:
         self,
         storage: ObjectStorage | None = None,
         video_service: VideoService | None = None,
-        idempotency_store: IdempotencyStore | None = None,
+        # idempotency_store: IdempotencyStore | None = None,
     ) -> None:
         self.storage = storage
         self.video_service = video_service
-        self.idempotency_store = (
-            idempotency_store or IdempotencyStore()
-        )
+        # Redis 멱등성 저장소를 생성하지 않는다.
+        # self.idempotency_store = (
+        #     idempotency_store or IdempotencyStore()
+        # )
 
     async def start(self) -> None:
-        await asyncio.to_thread(self.idempotency_store.ping)
+        # Redis 연결 여부를 확인하지 않는다.
+        # await asyncio.to_thread(self.idempotency_store.ping)
         queue = await get_request_queue()
         logger.info(
             "Blur worker started. queue=%s",
@@ -68,53 +72,55 @@ class BlurWorker:
             request.pinId,
         )
 
-        try:
-            claimed = await asyncio.to_thread(
-                self.idempotency_store.try_start,
-                request.requestId,
-                request.pinId,
-                request.originalVideoKey,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to claim requestId=%s",
-                request.requestId,
-            )
-            await message.reject(requeue=False)
-            return
-
-        if claimed is ClaimResult.COMPLETED:
-            logger.info(
-                "Duplicate blur request ACKed. requestId=%s",
-                request.requestId,
-            )
-            await message.ack()
-            return
-
-        if claimed is ClaimResult.CONFLICT:
-            logger.error(
-                "Conflicting duplicate blur request rejected. "
-                "requestId=%s pinId=%s originalVideoKey=%s",
-                request.requestId,
-                request.pinId,
-                request.originalVideoKey,
-            )
-            await message.reject(requeue=False)
-            return
-
-        if claimed is ClaimResult.BUSY:
-            logger.info(
-                "Blur request is owned by another worker; requeueing. "
-                "requestId=%s",
-                request.requestId,
-            )
-            await asyncio.sleep(settings.busy_requeue_delay_seconds)
-            await message.reject(requeue=True)
-            return
-
-        heartbeat = asyncio.create_task(
-            self._keep_lease_alive(request)
-        )
+        # requestId 멱등성은 ai_blur_job DB의 UNIQUE 제약으로 처리한다.
+        # Redis 작업 선점, 중복 검사, 리스 heartbeat는 사용하지 않는다.
+        # try:
+        #     claimed = await asyncio.to_thread(
+        #         self.idempotency_store.try_start,
+        #         request.requestId,
+        #         request.pinId,
+        #         request.originalVideoKey,
+        #     )
+        # except Exception:
+        #     logger.exception(
+        #         "Failed to claim requestId=%s",
+        #         request.requestId,
+        #     )
+        #     await message.reject(requeue=False)
+        #     return
+        #
+        # if claimed is ClaimResult.COMPLETED:
+        #     logger.info(
+        #         "Duplicate blur request ACKed. requestId=%s",
+        #         request.requestId,
+        #     )
+        #     await message.ack()
+        #     return
+        #
+        # if claimed is ClaimResult.CONFLICT:
+        #     logger.error(
+        #         "Conflicting duplicate blur request rejected. "
+        #         "requestId=%s pinId=%s originalVideoKey=%s",
+        #         request.requestId,
+        #         request.pinId,
+        #         request.originalVideoKey,
+        #     )
+        #     await message.reject(requeue=False)
+        #     return
+        #
+        # if claimed is ClaimResult.BUSY:
+        #     logger.info(
+        #         "Blur request is owned by another worker; requeueing. "
+        #         "requestId=%s",
+        #         request.requestId,
+        #     )
+        #     await asyncio.sleep(settings.busy_requeue_delay_seconds)
+        #     await message.reject(requeue=True)
+        #     return
+        #
+        # heartbeat = asyncio.create_task(
+        #     self._keep_lease_alive(request)
+        # )
 
         try:
             # 정책상 AI 파이프라인은 재시도하지 않고 한 번만 실행한다.
@@ -139,16 +145,17 @@ class BlurWorker:
                 "INTERNAL_WORKER_ERROR",
             )
 
-        if heartbeat.done():
-            try:
-                await heartbeat
-            except Exception:
-                logger.exception(
-                    "Lost blur request lease. requestId=%s",
-                    request.requestId,
-                )
-                await message.reject(requeue=True)
-                return
+        # Redis heartbeat 상태를 확인하지 않는다.
+        # if heartbeat.done():
+        #     try:
+        #         await heartbeat
+        #     except Exception:
+        #         logger.exception(
+        #             "Lost blur request lease. requestId=%s",
+        #             request.requestId,
+        #         )
+        #         await message.reject(requeue=True)
+        #         return
 
         try:
             await publish_result(result.to_message_payload())
@@ -157,38 +164,40 @@ class BlurWorker:
                 "Failed to publish result. requestId=%s",
                 request.requestId,
             )
-            await self._cancel_heartbeat(heartbeat)
-            await self._release_claim(request)
+            # Redis heartbeat 취소 및 작업 선점 해제를 사용하지 않는다.
+            # await self._cancel_heartbeat(heartbeat)
+            # await self._release_claim(request)
             await message.reject(requeue=False)
             return
 
-        if heartbeat.done():
-            try:
-                await heartbeat
-            except Exception:
-                logger.exception(
-                    "Lost lease after publishing result. requestId=%s",
-                    request.requestId,
-                )
-                await message.reject(requeue=True)
-                return
-
-        try:
-            await asyncio.to_thread(
-                self.idempotency_store.complete,
-                request.requestId,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to complete idempotency record. requestId=%s",
-                request.requestId,
-            )
-            await self._cancel_heartbeat(heartbeat)
-            await self._release_claim(request)
-            await message.reject(requeue=False)
-            return
-
-        await self._cancel_heartbeat(heartbeat)
+        # Redis 리스 확인 및 멱등성 완료 기록을 사용하지 않는다.
+        # if heartbeat.done():
+        #     try:
+        #         await heartbeat
+        #     except Exception:
+        #         logger.exception(
+        #             "Lost lease after publishing result. requestId=%s",
+        #             request.requestId,
+        #         )
+        #         await message.reject(requeue=True)
+        #         return
+        #
+        # try:
+        #     await asyncio.to_thread(
+        #         self.idempotency_store.complete,
+        #         request.requestId,
+        #     )
+        # except Exception:
+        #     logger.exception(
+        #         "Failed to complete idempotency record. requestId=%s",
+        #         request.requestId,
+        #     )
+        #     await self._cancel_heartbeat(heartbeat)
+        #     await self._release_claim(request)
+        #     await message.reject(requeue=False)
+        #     return
+        #
+        # await self._cancel_heartbeat(heartbeat)
         await message.ack()
         logger.info(
             "Blur request completed and ACKed. requestId=%s status=%s",
@@ -196,33 +205,34 @@ class BlurWorker:
             result.processingStatus,
         )
 
-    async def _keep_lease_alive(self, request: BlurRequest) -> None:
-        while True:
-            await asyncio.sleep(
-                settings.job_lease_renew_interval_seconds
-            )
-            renewed = await asyncio.to_thread(
-                self.idempotency_store.renew,
-                request.requestId,
-            )
-            if not renewed:
-                raise RuntimeError(
-                    f"Lost request lease: {request.requestId}"
-                )
-
-    @staticmethod
-    async def _cancel_heartbeat(
-        heartbeat: asyncio.Task[None],
-    ) -> None:
-        heartbeat.cancel()
-        try:
-            await heartbeat
-        except asyncio.CancelledError:
-            pass
-        except Exception:
-            # Completion can race with one final renewal. Once the caller has
-            # persisted COMPLETED, a failed renewal is expected and harmless.
-            pass
+    # Redis 리스 갱신 및 heartbeat 취소 로직을 사용하지 않는다.
+    # async def _keep_lease_alive(self, request: BlurRequest) -> None:
+    #     while True:
+    #         await asyncio.sleep(
+    #             settings.job_lease_renew_interval_seconds
+    #         )
+    #         renewed = await asyncio.to_thread(
+    #             self.idempotency_store.renew,
+    #             request.requestId,
+    #         )
+    #         if not renewed:
+    #             raise RuntimeError(
+    #                 f"Lost request lease: {request.requestId}"
+    #             )
+    #
+    # @staticmethod
+    # async def _cancel_heartbeat(
+    #     heartbeat: asyncio.Task[None],
+    # ) -> None:
+    #     heartbeat.cancel()
+    #     try:
+    #         await heartbeat
+    #     except asyncio.CancelledError:
+    #         pass
+    #     except Exception:
+    #         # Completion can race with one final renewal. Once the caller has
+    #         # persisted COMPLETED, a failed renewal is expected and harmless.
+    #         pass
 
     async def process_request(
         self,
@@ -278,17 +288,18 @@ class BlurWorker:
             completedAt=datetime.now(timezone.utc),
         )
 
-    async def _release_claim(self, request: BlurRequest) -> None:
-        try:
-            await asyncio.to_thread(
-                self.idempotency_store.release,
-                request.requestId,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to release request claim. requestId=%s",
-                request.requestId,
-            )
+    # Redis 작업 선점 해제 로직을 사용하지 않는다.
+    # async def _release_claim(self, request: BlurRequest) -> None:
+    #     try:
+    #         await asyncio.to_thread(
+    #             self.idempotency_store.release,
+    #             request.requestId,
+    #         )
+    #     except Exception:
+    #         logger.exception(
+    #             "Failed to release request claim. requestId=%s",
+    #             request.requestId,
+    #         )
 
     @staticmethod
     def _decode_message(

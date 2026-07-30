@@ -1,25 +1,26 @@
-import os
-import socket
-from uuid import uuid4
-
-from pydantic import Field, field_validator
+# Redis 멱등성용 worker ID를 사용하지 않아 비활성화한다.
+# import os
+# import socket
+# from uuid import uuid4
+#
+# from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_PROCESS_INSTANCE_UUID = uuid4().hex
-
-
-def make_process_unique_worker_id(configured_id: str) -> str:
-    base_id = configured_id.strip() or socket.gethostname()
-    process_suffix = (
-        f":{socket.gethostname()}:"
-        f"{os.getpid()}:"
-        f"{_PROCESS_INSTANCE_UUID}"
-    )
-
-    if base_id.endswith(process_suffix):
-        return base_id
-
-    return f"{base_id}{process_suffix}"
+# _PROCESS_INSTANCE_UUID = uuid4().hex
+#
+#
+# def make_process_unique_worker_id(configured_id: str) -> str:
+#     base_id = configured_id.strip() or socket.gethostname()
+#     process_suffix = (
+#         f":{socket.gethostname()}:"
+#         f"{os.getpid()}:"
+#         f"{_PROCESS_INSTANCE_UUID}"
+#     )
+#
+#     if base_id.endswith(process_suffix):
+#         return base_id
+#
+#     return f"{base_id}{process_suffix}"
 
 
 class Settings(BaseSettings):
@@ -64,33 +65,33 @@ class Settings(BaseSettings):
     storage_secret_key: str = ""
     storage_region: str = "ap-northeast-2"
 
-    # Worker idempotency
-    redis_url: str = "redis://localhost:6379/0"
-    redis_socket_timeout_seconds: float = Field(
-        default=5.0,
-        gt=0,
-    )
-    idempotency_key_prefix: str = "ai:blur:job:"
-    idempotency_retention_seconds: int = Field(
-        default=604800,
-        ge=3600,
-    )
-    worker_id: str = Field(
-        default_factory=socket.gethostname,
-        validate_default=True,
-    )
-    job_lease_seconds: int = Field(
-        default=300,
-        ge=30,
-    )
-    job_lease_renew_interval_seconds: int = Field(
-        default=60,
-        ge=5,
-    )
-    busy_requeue_delay_seconds: float = Field(
-        default=2.0,
-        ge=0.1,
-    )
+    # Redis worker idempotency는 ai_blur_job DB의 UNIQUE 제약으로 대체한다.
+    # redis_url: str = "redis://localhost:6379/0"
+    # redis_socket_timeout_seconds: float = Field(
+    #     default=5.0,
+    #     gt=0,
+    # )
+    # idempotency_key_prefix: str = "ai:blur:job:"
+    # idempotency_retention_seconds: int = Field(
+    #     default=604800,
+    #     ge=3600,
+    # )
+    # worker_id: str = Field(
+    #     default_factory=socket.gethostname,
+    #     validate_default=True,
+    # )
+    # job_lease_seconds: int = Field(
+    #     default=300,
+    #     ge=30,
+    # )
+    # job_lease_renew_interval_seconds: int = Field(
+    #     default=60,
+    #     ge=5,
+    # )
+    # busy_requeue_delay_seconds: float = Field(
+    #     default=2.0,
+    #     ge=0.1,
+    # )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -98,13 +99,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("worker_id")
-    @classmethod
-    def make_worker_id_process_unique(
-        cls,
-        configured_id: str,
-    ) -> str:
-        return make_process_unique_worker_id(configured_id)
+    # @field_validator("worker_id")
+    # @classmethod
+    # def make_worker_id_process_unique(
+    #     cls,
+    #     configured_id: str,
+    # ) -> str:
+    #     return make_process_unique_worker_id(configured_id)
 
 
 settings = Settings()
