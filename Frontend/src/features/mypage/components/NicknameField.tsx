@@ -1,12 +1,12 @@
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { MAX_NICKNAME_LENGTH } from '@/types/mypage';
-import type { NicknameEdit } from '../hooks/useNicknameEdit';
+import type { NicknameCheck } from '@/hooks/useNicknameCheck';
+import { MAX_NICKNAME_LENGTH } from '@/utils/nickname';
 import { mypageStyles as s } from '../styles';
 
 export interface NicknameFieldProps {
-  edit: NicknameEdit;
+  edit: NicknameCheck;
 }
 
 /** 닉네임 입력과 중복 확인. */

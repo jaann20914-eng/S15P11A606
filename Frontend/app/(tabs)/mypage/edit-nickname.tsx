@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
 import { NicknameField } from '@/features/mypage/components/NicknameField';
-import { useNicknameEdit } from '@/features/mypage/hooks/useNicknameEdit';
+import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { mypageStyles as s } from '@/features/mypage/styles';
 
 /**
@@ -13,7 +13,7 @@ import { mypageStyles as s } from '@/features/mypage/styles';
  * 이 화면은 `(tabs)` 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
 export default function EditNicknameScreen() {
-  const edit = useNicknameEdit();
+  const edit = useNicknameCheck();
 
   const save = () => {
     if (!edit.checked) return;

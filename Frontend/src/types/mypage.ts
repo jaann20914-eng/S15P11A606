@@ -39,10 +39,6 @@ export type CreditFilter = 'ALL' | 'SPENT' | 'EARNED';
 /** 내역 목록의 기간 필터. */
 export type CreditPeriod = 'TODAY' | 'WEEK' | 'MONTH';
 
-/** 닉네임 최소·최대 길이. */
-export const MIN_NICKNAME_LENGTH = 2;
-export const MAX_NICKNAME_LENGTH = 12;
-
 /** 종류 필터에 노출하는 한글 라벨. */
 export const creditFilterLabel: Record<CreditFilter, string> = {
   ALL: '전체',

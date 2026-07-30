@@ -52,3 +52,15 @@ export interface ActivityMonth {
   year: number;
   month: number;
 }
+
+/**
+ * `GET /api/v1/users/nickname-availability` 응답의 `data`.
+ *
+ * `nickname`은 정규화된 요청값이다. 영문 대소문자를 구분하지 않아 보낸 값과 다를 수 있고,
+ * 실제로 저장되는 값은 이쪽이다.
+ */
+export interface NicknameAvailabilityResponse {
+  nickname: string;
+  /** 형식이 유효하고 다른 사용자가 쓰지 않으면 `true`. */
+  available: boolean;
+}

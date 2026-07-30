@@ -1,5 +1,11 @@
 import type { CreditEntry, CreditPeriod, MyPin } from '@/types/mypage';
-import type { ActivityDay, ActivityMonth, MyProfileResponse } from '@/types/user';
+import type {
+  ActivityDay,
+  ActivityMonth,
+  MyProfileResponse,
+  NicknameAvailabilityResponse,
+} from '@/types/user';
+import { isValidNickname, normalizeNickname } from '@/utils/nickname';
 import { MOCK_LATENCY_MS, delay } from './pin';
 
 /**
@@ -192,11 +198,25 @@ export async function fetchMockCreditEntries(period: CreditPeriod): Promise<Cred
     .map(({ period: _period, ...entry }) => entry);
 }
 
-/** 이번 세션에서 이미 쓴 닉네임. 중복 확인 실패를 재현한다. */
-const takenNicknames = new Set(['와글이', '테스트']);
+/**
+ * 이미 다른 사용자가 쓰는 닉네임. 중복을 재현한다.
+ *
+ * 서버가 정규화한 값으로 비교하므로 목업도 정규화된 형태로 적어 둔다.
+ */
+const takenNicknames = new Set(['와글이', '테스트', 'waggle']);
 
-/** 닉네임 중복 확인 목업. 위 목록에 있으면 사용할 수 없다고 답한다. */
-export async function checkMockNickname(nickname: string): Promise<boolean> {
+/**
+ * 닉네임 중복 확인 목업.
+ *
+ * 서버와 같이 형식을 먼저 보고, 어긋나면 `available: false`로 답한다. 형식 위반은 원래
+ * 400이지만 화면이 보내기 전에 걸러 이 경로로는 오지 않는다.
+ */
+export async function checkMockNickname(nickname: string): Promise<NicknameAvailabilityResponse> {
   await delay(MOCK_LATENCY_MS);
-  return !takenNicknames.has(nickname.trim());
+
+  const normalized = normalizeNickname(nickname);
+  return {
+    nickname: normalized,
+    available: isValidNickname(normalized) && !takenNicknames.has(normalized),
+  };
 }
