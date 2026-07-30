@@ -1,12 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getNicknameAvailability } from '@/api/user/nickname';
-import {
-  MAX_NICKNAME_LENGTH,
-  MIN_NICKNAME_LENGTH,
-  isValidNickname,
-  normalizeNickname,
-} from '@/utils/nickname';
+import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH } from '@/constants/onboarding';
+import { isValidNickname, normalizeNickname } from '@/utils/nickname';
 
 export interface NicknameCheck {
   nickname: string;
@@ -32,7 +28,7 @@ export interface NicknameCheck {
 
 /** 오류 코드별 안내. */
 const messageByCode: Record<string, string> = {
-  INVALID_NICKNAME: `${MIN_NICKNAME_LENGTH}~${MAX_NICKNAME_LENGTH}자의 한글, 영문, 숫자만 쓸 수 있어요.`,
+  INVALID_NICKNAME: `${NICKNAME_MIN_LENGTH}~${NICKNAME_MAX_LENGTH}자의 한글, 영문, 숫자만 쓸 수 있어요.`,
   UNAUTHORIZED: '로그인이 필요해요.',
   NICKNAME_AVAILABILITY_CHECK_FAILED: '중복을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
@@ -133,7 +129,7 @@ export function useNicknameCheck(initial = ''): NicknameCheck {
     checked,
     checking,
     error,
-    canCheck: length >= MIN_NICKNAME_LENGTH && !checking,
+    canCheck: length >= NICKNAME_MIN_LENGTH && !checking,
     change,
     check,
     invalidate,

@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import type { NicknameCheck } from '@/hooks/useNicknameCheck';
-import { MAX_NICKNAME_LENGTH } from '@/utils/nickname';
+import { NICKNAME_MAX_LENGTH } from '@/constants/onboarding';
 import { mypageStyles as s } from '../styles';
 
 export interface NicknameFieldProps {
@@ -17,9 +17,9 @@ export function NicknameField({ edit }: NicknameFieldProps) {
         <TextInput
           value={edit.nickname}
           onChangeText={edit.change}
-          maxLength={MAX_NICKNAME_LENGTH}
+          maxLength={NICKNAME_MAX_LENGTH}
           autoCapitalize="none"
-          placeholder={`2~${MAX_NICKNAME_LENGTH}자를 입력해주세요`}
+          placeholder={`2~${NICKNAME_MAX_LENGTH}자를 입력해주세요`}
           placeholderTextColor={colors.gray400}
           style={s.input}
         />
@@ -48,7 +48,7 @@ export function NicknameField({ edit }: NicknameFieldProps) {
             (edit.checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.')}
         </Text>
         <Text style={s.count}>
-          {edit.length} / {MAX_NICKNAME_LENGTH}
+          {edit.length} / {NICKNAME_MAX_LENGTH}
         </Text>
       </View>
     </>
