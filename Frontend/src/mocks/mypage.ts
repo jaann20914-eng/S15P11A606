@@ -1,9 +1,11 @@
+import { ApiError } from '@/api/client';
 import type { CreditEntry, CreditPeriod, MyPin } from '@/types/mypage';
 import type {
   ActivityDay,
   ActivityMonth,
   MyProfileResponse,
   NicknameAvailabilityResponse,
+  NicknameUpdateResponse,
 } from '@/types/user';
 import { isValidNickname, normalizeNickname } from '@/utils/nickname';
 import { MOCK_LATENCY_MS, delay } from './pin';
@@ -75,7 +77,8 @@ export async function fetchMockMyProfile(month?: ActivityMonth): Promise<MyProfi
 
   return {
     userId: 1,
-    nickname: '와글러',
+    // 수정 목업이 바꾼 값을 그대로 돌려준다. 저장이 반영되는 것을 확인할 수 있다.
+    nickname: currentNickname,
     viewReliability: 92.5,
     creditBalance: 120,
     todayVideoPinCount: 2,
@@ -206,6 +209,14 @@ export async function fetchMockCreditEntries(period: CreditPeriod): Promise<Cred
 const takenNicknames = new Set(['와글이', '테스트', 'waggle']);
 
 /**
+ * 지금 내 닉네임. 수정 목업이 이 값을 바꾸고 프로필 조회가 이 값을 돌려준다.
+ *
+ * 자기 이름도 이미 쓰이는 이름이라 중복으로 잡힌다. 서버도 사용자를 가리지 않고 검사한다.
+ */
+let currentNickname = '와글러';
+takenNicknames.add(currentNickname);
+
+/**
  * 닉네임 중복 확인 목업.
  *
  * 서버와 같이 형식을 먼저 보고, 어긋나면 `available: false`로 답한다. 형식 위반은 원래
@@ -219,4 +230,32 @@ export async function checkMockNickname(nickname: string): Promise<NicknameAvail
     nickname: normalized,
     available: isValidNickname(normalized) && !takenNicknames.has(normalized),
   };
+}
+
+/**
+ * 닉네임 수정 목업.
+ *
+ * 서버처럼 형식과 중복을 다시 검사한다. 미리 확인했더라도 실패할 수 있는 경로라 실제와 같은
+ * `ApiError`를 던져 화면 분기를 그대로 확인할 수 있게 한다.
+ *
+ * 성공하면 프로필 조회가 바뀐 이름을 돌려준다. 저장된 것처럼 보이지 않으면 확인이 어렵다.
+ */
+export async function updateMockNickname(nickname: string): Promise<NicknameUpdateResponse> {
+  await delay(MOCK_LATENCY_MS);
+
+  const normalized = normalizeNickname(nickname);
+
+  if (!isValidNickname(normalized)) {
+    throw new ApiError(400, 'INVALID_NICKNAME', '닉네임 형식이 올바르지 않습니다.');
+  }
+  if (takenNicknames.has(normalized)) {
+    throw new ApiError(409, 'NICKNAME_ALREADY_EXISTS', '이미 사용 중인 닉네임입니다.');
+  }
+
+  // 쓰던 이름은 다시 비워 준다. 바꿨다 되돌리는 확인이 막히지 않게 한다.
+  takenNicknames.delete(currentNickname);
+  currentNickname = normalized;
+  takenNicknames.add(currentNickname);
+
+  return { nickname: currentNickname };
 }

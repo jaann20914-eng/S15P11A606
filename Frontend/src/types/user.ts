@@ -64,3 +64,13 @@ export interface NicknameAvailabilityResponse {
   /** 형식이 유효하고 다른 사용자가 쓰지 않으면 `true`. */
   available: boolean;
 }
+
+/**
+ * `PATCH /api/v1/users/me` 응답의 `data`.
+ *
+ * `nickname`은 저장이 끝난 최종 값이다. 화면에 보여주는 닉네임은 보낸 값이 아니라 이 값으로
+ * 갱신한다.
+ */
+export interface NicknameUpdateResponse {
+  nickname: string;
+}

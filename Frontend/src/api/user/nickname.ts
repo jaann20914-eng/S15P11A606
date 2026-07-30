@@ -1,7 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMockApi } from '../config';
-import { checkMockNickname } from '@/mocks/mypage';
-import type { NicknameAvailabilityResponse } from '@/types/user';
+import { checkMockNickname, updateMockNickname } from '@/mocks/mypage';
+import type { NicknameAvailabilityResponse, NicknameUpdateResponse } from '@/types/user';
 
 /**
  * 닉네임 중복 확인 — `GET /api/v1/users/nickname-availability`
@@ -28,4 +28,29 @@ export async function getNicknameAvailability(
 ): Promise<NicknameAvailabilityResponse> {
   if (usesMockApi) return checkMockNickname(nickname);
   return requestNicknameAvailability(nickname);
+}
+
+/**
+ * 내 닉네임 수정 — `PATCH /api/v1/users/me`
+ *
+ * 사용자는 액세스 토큰에서 정하므로 식별자를 보내지 않는다.
+ *
+ * 미리 중복을 확인했더라도 서버가 형식과 중복을 다시 검사한다. 확인과 저장 사이에 다른
+ * 사용자가 먼저 쓸 수 있어 `NICKNAME_ALREADY_EXISTS`가 올 수 있고, 그때 닉네임은 바뀌지
+ * 않는다.
+ *
+ * 오류 코드: `INVALID_NICKNAME` `UNAUTHORIZED` `NICKNAME_ALREADY_EXISTS`
+ * `NICKNAME_UPDATE_FAILED`.
+ */
+function requestNicknameUpdate(nickname: string): Promise<NicknameUpdateResponse> {
+  return apiRequest<NicknameUpdateResponse>({
+    method: 'PATCH',
+    url: '/api/v1/users/me',
+    data: { nickname },
+  });
+}
+
+export async function updateMyNickname(nickname: string): Promise<NicknameUpdateResponse> {
+  if (usesMockApi) return updateMockNickname(nickname);
+  return requestNicknameUpdate(nickname);
 }

@@ -21,6 +21,13 @@ export interface NicknameCheck {
   canCheck: boolean;
   change: (value: string) => void;
   check: () => void;
+  /**
+   * 확인을 무르고 이유를 보여준다.
+   *
+   * 저장할 때 서버가 다시 검사해 거절하면 "확인됨"이 사실과 다르다. 확인을 풀어 다시 누르게
+   * 한다.
+   */
+  invalidate: (reason: string) => void;
 }
 
 /** 오류 코드별 안내. */
@@ -67,6 +74,11 @@ export function useNicknameCheck(initial = ''): NicknameCheck {
     requested.current = '';
     // 버린 응답은 확인 중 표시를 내리지 못한다. 여기서 내려야 버튼이 스피너에 갇히지 않는다.
     setChecking(false);
+  }, []);
+
+  const invalidate = useCallback((reason: string) => {
+    setChecked(false);
+    setError(reason);
   }, []);
 
   const check = useCallback(() => {
@@ -124,5 +136,6 @@ export function useNicknameCheck(initial = ''): NicknameCheck {
     canCheck: length >= MIN_NICKNAME_LENGTH && !checking,
     change,
     check,
+    invalidate,
   };
 }

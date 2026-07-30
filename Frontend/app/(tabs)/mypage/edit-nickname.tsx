@@ -1,9 +1,11 @@
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+import { colors } from '@/constants/theme';
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
 import { NicknameField } from '@/features/mypage/components/NicknameField';
+import { useNicknameSave } from '@/features/mypage/hooks/useNicknameSave';
 import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { mypageStyles as s } from '@/features/mypage/styles';
 
@@ -14,10 +16,21 @@ import { mypageStyles as s } from '@/features/mypage/styles';
  */
 export default function EditNicknameScreen() {
   const edit = useNicknameCheck();
+  const saving = useNicknameSave();
 
-  const save = () => {
-    if (!edit.checked) return;
-    // 저장 API가 아직 없다. 확정되면 여기서 호출하고 성공 후에 돌아간다.
+  /** 저장을 누를 수 있는지. 중복 확인을 통과했고 저장 중이 아니어야 한다. */
+  const canSave = edit.checked && !saving.saving;
+
+  const save = async () => {
+    if (!canSave) return;
+
+    const saved = await saving.save(edit.nickname);
+    if (saved === null) {
+      // 서버가 거절했다. "확인됨"이 더는 맞지 않으므로 확인을 풀고 화면에 남는다.
+      edit.invalidate(saving.error ?? '닉네임을 저장하지 못했어요.');
+      return;
+    }
+
     router.replace('/(tabs)/mypage');
   };
 
@@ -34,11 +47,16 @@ export default function EditNicknameScreen() {
 
           <Pressable
             accessibilityRole="button"
-            disabled={!edit.checked}
+            accessibilityState={{ disabled: !canSave, busy: saving.saving }}
+            disabled={!canSave}
             onPress={save}
-            style={[s.saveButton, !edit.checked && s.saveDisabled]}
+            style={[s.saveButton, !canSave && s.saveDisabled]}
           >
-            <Text style={[s.saveText, !edit.checked && s.saveTextDisabled]}>변경 저장</Text>
+            {saving.saving ? (
+              <ActivityIndicator color={colors.gray600} />
+            ) : (
+              <Text style={[s.saveText, !canSave && s.saveTextDisabled]}>변경 저장</Text>
+            )}
           </Pressable>
         </View>
       </View>
