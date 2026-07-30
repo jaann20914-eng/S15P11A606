@@ -275,10 +275,10 @@ export function usePinDetailScreen(
     menu: {
       ...menu,
       toggle: useCallback(() => (menu.open ? menu.hide() : menu.show()), [menu]),
-      // 실제 수정 폼은 pin-create 흐름을 재사용한다.
+      // 수정은 작성 화면을 그대로 쓴다. pinId가 붙으면 그 화면이 수정 모드로 뜬다.
       edit: useCallback(() => {
         menu.hide();
-        router.push('/pin-create/detail-form');
+        router.push({ pathname: '/(tabs)/write', params: { pinId: detail.pinId } });
       }, [menu]),
     },
     purchase,

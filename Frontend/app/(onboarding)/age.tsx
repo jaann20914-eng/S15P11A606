@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -10,30 +11,113 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import { Camera } from 'expo-camera';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Button, Chip, ScreenHeader } from '@/components/common/ui';
+import { Button, ScreenHeader } from '@/components/common/ui';
+import { PreferenceCard } from '@/features/onboarding/components/PreferenceCard';
+import { preferenceCategoryImages } from '@/features/onboarding/preferenceAssets';
+import { useOnboardingSubmit } from '@/features/onboarding/hooks/useOnboardingSubmit';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
+import {
+  MAX_PREFERENCES,
+  MIN_PREFERENCES,
+  preferenceCategories,
+  preferenceCategoryLabel,
+} from '@/constants/categories';
+import type { PreferenceCategoryCode } from '@/constants/categories';
+import { NICKNAME_MIN_LENGTH, ageGroups, genders } from '@/constants/onboarding';
 import { colors, radius, spacing, type } from '@/constants/theme';
+import type { AgeGroup, Gender } from '@/types/onboarding';
 
-const ages = ['10대', '20대', '30대', '40대', '50대', '60대', '70대+'];
-const preferences = ['공원', '축제', '팝업', '맛집', '공연', '쇼핑', '관광지', '대학교'];
 const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
 
 export default function Onboarding() {
   const screenGutter = useResponsivePadding();
   const [step, setStep] = useState(1);
-  const [age, setAge] = useState('20대');
-  const [gender, setGender] = useState('여');
+  // 화면 상태에 서버 enum을 그대로 담는다. 전송 직전에 한글 문구를 변환하지 않는다.
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>('TWENTIES');
+  const [gender, setGender] = useState<Gender>('FEMALE');
   const [nickname, setNickname] = useState('');
   const [checked, setChecked] = useState(false);
-  const [selected, setSelected] = useState(['팝업', '공원']);
+  // 서버로 보내는 값은 code다(`preferredCategories`). 라벨은 표시에만 쓴다.
+  const [selected, setSelected] = useState<PreferenceCategoryCode[]>(['PARK']);
 
-  const next = () => (step < 3 ? setStep(step + 1) : router.replace('/(tabs)/home'));
+  // 서버가 닉네임 중복을 알려주면 입력 단계로 되돌린다. 중복확인 API는 아직 없어
+  // 이 경로가 유일한 검증 지점이다.
+  const returnToNickname = useCallback(() => {
+    setChecked(false);
+    setStep(2);
+  }, []);
+
+  const onboarding = useOnboardingSubmit(returnToNickname);
+
+  /** 권한 대화상자를 띄우는 동안 버튼을 잠근다. 연속으로 누르면 대화상자가 겹친다. */
+  const [requestingPermissions, setRequestingPermissions] = useState(false);
+
+  /**
+   * 영상핀에 필요한 권한을 미리 받는다.
+   *
+   * 위치·카메라·마이크가 없으면 제보를 아예 할 수 없어 가입 직후 막힌다. 촬영 화면에서
+   * 처음 물으면 거절했을 때 되돌릴 곳이 없으므로 가입을 끝내기 전에 받는다.
+   */
+  const ensurePermissions = useCallback(async (): Promise<boolean> => {
+    // 웹은 촬영 자체를 지원하지 않아 물을 것이 없다. 물으면 거절돼 가입이 막힌다.
+    if (Platform.OS === 'web') return true;
+
+    try {
+      const location = await Location.requestForegroundPermissionsAsync();
+      const camera = await Camera.requestCameraPermissionsAsync();
+      const microphone = await Camera.requestMicrophonePermissionsAsync();
+
+      if (!location.granted || !camera.granted || !microphone.granted) {
+        Alert.alert(
+          '필수 권한이 필요해요',
+          '위치, 카메라, 마이크 권한을 모두 허용해야 가입을 완료할 수 있어요.',
+        );
+        return false;
+      }
+
+      // 권한만으로는 부족하다. 기기의 위치 서비스가 꺼져 있으면 여기서 실패한다.
+      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return true;
+    } catch {
+      Alert.alert('권한을 확인하지 못했어요', '기기의 위치 서비스를 켜고 다시 시도해 주세요.');
+      return false;
+    }
+  }, []);
+
+  const next = () => {
+    if (step < 3) {
+      setStep(step + 1);
+      return;
+    }
+
+    // 권한을 받은 뒤에 가입을 요청한다. 거절하면 요청하지 않고 화면에 남는다.
+    void (async () => {
+      if (requestingPermissions) return;
+      setRequestingPermissions(true);
+      try {
+        if (!(await ensurePermissions())) return;
+      } finally {
+        setRequestingPermissions(false);
+      }
+
+      onboarding.submit({ ageGroup, gender, nickname: nickname.trim(), preferredCategories: selected });
+    })();
+  };
+
+  /** 이미 고른 것은 항상 해제할 수 있고, 상한에 닿았을 때만 추가를 막는다. */
+  const togglePreference = (code: PreferenceCategoryCode) =>
+    setSelected((current) => {
+      if (current.includes(code)) return current.filter((value) => value !== code);
+      return current.length < MAX_PREFERENCES ? [...current, code] : current;
+    });
+
   const checkNickname = () => {
-    if (nickname.trim().length >= 2) setChecked(true);
+    if (nickname.trim().length >= NICKNAME_MIN_LENGTH) setChecked(true);
   };
 
   return (
@@ -70,30 +154,32 @@ export default function Onboarding() {
 
               <Text style={s.sectionLabel}>연령대</Text>
               <View style={s.ageSelector}>
-                {ages.map((item) => (
+                {ageGroups.map(({ value, label }) => (
                   <Pressable
-                    key={item}
+                    key={value}
                     accessibilityRole="radio"
-                    accessibilityState={{ checked: age === item }}
-                    onPress={() => setAge(item)}
-                    style={[s.ageItem, age === item && s.ageItemSelected]}
+                    accessibilityLabel={label}
+                    accessibilityState={{ checked: ageGroup === value }}
+                    onPress={() => setAgeGroup(value)}
+                    style={[s.ageItem, ageGroup === value && s.ageItemSelected]}
                   >
-                    <Text style={[s.ageText, age === item && s.ageTextSelected]}>{item}</Text>
+                    <Text style={[s.ageText, ageGroup === value && s.ageTextSelected]}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
 
               <Text style={s.sectionLabel}>성별</Text>
               <View style={s.genderGroup}>
-                {['여', '남'].map((item) => (
+                {genders.map(({ value, label }) => (
                   <Pressable
-                    key={item}
+                    key={value}
                     accessibilityRole="radio"
-                    accessibilityState={{ checked: gender === item }}
-                    onPress={() => setGender(item)}
-                    style={[s.genderItem, gender === item && s.genderItemSelected]}
+                    accessibilityLabel={label}
+                    accessibilityState={{ checked: gender === value }}
+                    onPress={() => setGender(value)}
+                    style={[s.genderItem, gender === value && s.genderItemSelected]}
                   >
-                    <Text style={[s.genderText, gender === item && s.genderTextSelected]}>{item}</Text>
+                    <Text style={[s.genderText, gender === value && s.genderTextSelected]}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -157,44 +243,65 @@ export default function Onboarding() {
               <Text style={s.title}>어떤 장소를{`\n`}자주 찾으세요?</Text>
               <Text style={s.description}>선택한 취향으로 여유로운 곳과 활기찬 곳을 나눠 추천해요.</Text>
 
-              <View style={s.visualFrame}>
-                <Image
-                  source={require('../../assets/images/onboarding-preferences-transparent.png')}
-                  style={s.visualImage}
-                  resizeMode="contain"
-                />
+              {/*
+                고른 순서가 곧 순위다. 아직 아무것도 안 골랐으면 규칙을 알려주고,
+                고르는 중에는 지금까지의 순위를 그대로 되짚어 준다.
+              */}
+              <Text style={s.rankHint}>
+                {selected.length === 0
+                  ? `먼저 고른 순서대로 1~${MAX_PREFERENCES}순위가 정해져요`
+                  : selected
+                      .map((code, index) => `${index + 1}순위 ${preferenceCategoryLabel(code)}`)
+                      .join('   ')}
+              </Text>
+
+              {/*
+                와이어프레임은 이 자리에 큰 일러스트 대신 카테고리 카드 6개를 둔다.
+                카드마다 3D 에셋이 들어가므로 대표 일러스트가 따로 필요하지 않다.
+              */}
+              <View style={s.preferenceGrid}>
+                {preferenceCategories.map(({ code, label }) => {
+                  const isSelected = selected.includes(code);
+                  return (
+                    <View key={code} style={s.preferenceCell}>
+                      <PreferenceCard
+                        label={label}
+                        selected={isSelected}
+                        image={preferenceCategoryImages[code]}
+                        disabled={!isSelected && selected.length >= MAX_PREFERENCES}
+                        onPress={() => togglePreference(code)}
+                      />
+                    </View>
+                  );
+                })}
               </View>
 
-              <View style={s.selectionHeader}>
-                <Text style={s.helper}>최소 1개부터 최대 4개</Text>
-                <Text style={s.selectionCount}>{selected.length} / 4 선택</Text>
-              </View>
-              <View style={s.chips}>
-                {preferences.map((item) => (
-                  <Chip
-                    key={item}
-                    label={item}
-                    selected={selected.includes(item)}
-                    onPress={() =>
-                      setSelected((current) =>
-                        current.includes(item)
-                          ? current.filter((value) => value !== item)
-                          : current.length < 4
-                            ? [...current, item]
-                            : current,
-                      )
-                    }
-                  />
-                ))}
-              </View>
+              {/*
+                와이어프레임에는 개수 안내가 없지만 상한이 정해져 있다.
+                안내가 없으면 네 번째 탭이 무반응으로만 보이므로 상한에 닿을 때만 알린다.
+              */}
+              {selected.length >= MAX_PREFERENCES && (
+                <Text style={s.limitNotice}>최대 {MAX_PREFERENCES}개까지 선택할 수 있어요</Text>
+              )}
             </>
           )}
         </ScrollView>
 
         <View style={s.footer}>
+          {/* 가입 실패 문구. 스크롤 위치와 무관하게 보이도록 버튼 바로 위에 둔다. */}
+          {onboarding.error && (
+            <Text accessibilityRole="alert" style={s.submitError}>
+              {onboarding.error}
+            </Text>
+          )}
           <Button
-            label={step === 3 ? '와글와글 시작하기' : '다음'}
-            disabled={(step === 2 && !checked) || (step === 3 && selected.length === 0)}
+            label={step === 3 ? (onboarding.busy ? '가입 중이에요…' : '와글와글 시작하기') : '다음'}
+            disabled={
+              onboarding.busy ||
+              requestingPermissions ||
+              (step === 2 && !checked) ||
+              (step === 3 && selected.length < MIN_PREFERENCES)
+            }
             onPress={next}
           />
         </View>
@@ -315,15 +422,39 @@ const s = StyleSheet.create({
   helper: { ...type.small, color: colors.gray600 },
   helperSuccess: { color: colors.success, fontWeight: '500' },
   characterCount: { ...type.caption, color: colors.gray400 },
-  selectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.x5,
-    marginBottom: spacing.x3,
+  /**
+   * 3열 2행 그리드.
+   *
+   * 셀 폭을 퍼센트로 주고 `space-between`으로 간격을 만든다. RN에서 퍼센트 폭은
+   * `gap`을 계산에 넣지 않아 둘을 같이 쓰면 3열이 안 맞는다. 세로 간격만 `rowGap`으로 준다.
+   */
+  /**
+   * 순위 안내. 격자 바로 위에 작게 둔다.
+   *
+   * 최장 조합("1순위 전시, 문화공간 …" 3개)이 360dp에서 268px로 컨테이너 318px에 들어가
+   * 한 줄로 유지된다. 잘리면 뒤쪽 순위가 사라지므로 `numberOfLines`로 막지 않고,
+   * 라벨이 길어지면 줄바꿈되며 격자가 밀리도록 둔다.
+   */
+  rankHint: {
+    ...type.caption,
+    color: colors.gray600,
+    marginTop: spacing.x6,
+    marginBottom: spacing.x2,
   },
-  selectionCount: { ...type.label, color: colors.dark },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.x2 },
+  preferenceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.x3,
+  },
+  preferenceCell: { width: '31.5%' },
+  limitNotice: { ...type.small, color: colors.gray600, marginTop: spacing.x3, textAlign: 'center' },
+  submitError: {
+    ...type.caption,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.x2,
+  },
   footer: {
     paddingTop: spacing.x3,
     paddingBottom: spacing.x4,

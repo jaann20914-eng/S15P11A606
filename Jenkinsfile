@@ -69,8 +69,20 @@ pipeline {
                     sh '''
                         set -eu
 
-                        chmod +x gradlew
-                        ./gradlew clean test --no-daemon
+                        # DooD 호스트에서 published 포트가 브리지 게이트웨이로 안 닿으므로(hairpin 불가),
+                        # 호스트 네트워크를 쓰는 사이드카 컨테이너 안에서 테스트를 실행한다.
+                        #  --network host      : 테스트 JVM이 호스트 네트워크 공유 → localhost 로 컨테이너 포트 접근 가능
+                        #  --volumes-from      : Jenkins의 워크스페이스와 도커 소켓을 같은 경로로 물려받음(DooD 볼륨 경로 문제 회피)
+                        #  -v ...:/gradle      : 그래들 캐시를 전용 볼륨에 유지(재다운로드 최소화)
+                        docker run --rm \
+                            --network host \
+                            --volumes-from "$(hostname)" \
+                            -v waggle-gradle-cache:/gradle \
+                            -w "$PWD" \
+                            -e GRADLE_USER_HOME=/gradle \
+                            -e TESTCONTAINERS_RYUK_DISABLED=true \
+                            eclipse-temurin:21-jdk \
+                            sh -c "chmod +x gradlew && ./gradlew clean test --no-daemon"
                     '''
                 }
             }

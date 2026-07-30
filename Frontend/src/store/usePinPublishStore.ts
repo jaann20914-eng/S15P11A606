@@ -1,0 +1,247 @@
+import { ApiError } from '@/api/client';
+import { createPin } from '@/api/pin/create';
+import { getPinVideoStatus } from '@/api/pin/status';
+import { issueVideoUploadTicket } from '@/api/pin/videoUpload';
+import { readVideoSize, startVideoUpload } from '@/api/pin/videoUploadTask';
+import { getCrowdLevelByValue } from '@/constants/crowdLevels';
+import { toServerCrowdLevel } from '@/types/pin';
+import {
+  MAX_PLACE_DISTANCE_METERS,
+  STATUS_POLL_INTERVAL_MS,
+  STATUS_POLL_TIMEOUT_MS,
+  VIDEO_CONTENT_TYPE,
+} from '@/types/pinCreate';
+import type {
+  PinCreateRequest,
+  PinDraft,
+  PinVideoStatus,
+  VideoUploadPhase,
+  VideoUploadTicket,
+} from '@/types/pinCreate';
+import { createStore } from './createStore';
+
+/**
+ * 핀 등록 진행 상태.
+ *
+ * 화면이 아니라 스토어에 둔다. 업로드 도중에 사용자가 다른 탭으로 가도 끊기지 않아야 하고,
+ * 작성 화면이 사라져도 요청은 계속 진행돼야 한다. 앱을 종료할 때만 중단된다.
+ */
+export interface PinPublishState {
+  phase: VideoUploadPhase;
+  /** 업로드 진행률 0~1. `uploading` 단계에서만 의미가 있다. */
+  progress: number;
+  /** 접수된 핀. 202를 받으면 채워진다. */
+  pinId: number | null;
+  videoStatus: PinVideoStatus | null;
+  error: string | null;
+  /** 다시 시도할 값이 있는 실패인지. */
+  retryable: boolean;
+  publish: (draft: PinDraft) => void;
+  /** 진행 중인 업로드를 중단한다. */
+  cancel: () => void;
+  dismissError: () => void;
+  /** 완료 처리를 끝낸 뒤 초기 상태로 돌린다. */
+  reset: () => void;
+}
+
+/**
+ * 촬영 좌표.
+ *
+ * 서버가 선택한 장소와 50m 이내인지 검증한다. 촬영 시점 좌표를 따로 들고 있지 않아
+ * 지금은 선택한 장소의 좌표를 쓴다.
+ */
+function toRequest(draft: PinDraft, originalVideoKey: string): PinCreateRequest | null {
+  if (!draft.place) return null;
+
+  const memo = draft.memo.trim();
+  const detailLocation = draft.detailLocation.trim();
+
+  return {
+    originalVideoKey,
+    kakaoPlaceId: draft.place.kakaoPlaceId,
+    placeName: draft.place.name,
+    placeAddress: draft.place.address,
+    latitude: draft.place.latitude,
+    longitude: draft.place.longitude,
+    crowdLevel: toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key),
+    // 선택 항목은 비어 있으면 보내지 않는다.
+    ...(detailLocation ? { detailLocation } : {}),
+    ...(memo ? { memo } : {}),
+    ...(draft.tags.length > 0 ? { tags: draft.tags } : {}),
+  };
+}
+
+/** 오류 코드별 안내. 사용자가 다음에 무엇을 해야 하는지가 다르다. */
+const messageByCode: Record<string, string> = {
+  LOCATION_OUT_OF_RANGE: `선택한 장소와 촬영 위치가 너무 멀어요. ${MAX_PLACE_DISTANCE_METERS}m 안의 장소를 골라 주세요.`,
+  VIDEO_NOT_ACCESSIBLE: '영상을 올리지 못했어요. 다시 촬영해 주세요.',
+  VIDEO_ALREADY_REGISTERED: '이미 등록에 사용한 영상이에요. 다시 촬영해 주세요.',
+  PLACE_NOT_FOUND: '선택한 장소를 찾을 수 없어요. 다시 검색해 주세요.',
+  INVALID_CROWD_LEVEL: '혼잡 단계를 다시 선택해 주세요.',
+  DAILY_PIN_LIMIT_EXCEEDED: '오늘 등록할 수 있는 핀 수를 다 썼어요. 내일 다시 시도해 주세요.',
+  PIN_CREATE_FAILED: '핀 등록에 실패했어요. 잠시 후 다시 시도해 주세요.',
+};
+
+/** 다시 시도해서 풀릴 수 있는 실패. 입력을 고쳐야 하는 실패와 구분한다. */
+const retryableCodes = new Set(['PIN_CREATE_FAILED', 'NETWORK_ERROR']);
+
+/** 잠시 기다린다. 상태 조회 사이 간격에 쓴다. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * AI 처리가 끝날 때까지 상태를 물어본다.
+ *
+ * 접수 직후 핀은 `PENDING`이고 그 상태에서는 상세 조회가 되지 않는다. `COMPLETED`가 되면
+ * 공개할 수 있어 화면이 상세로 넘어간다.
+ *
+ * 최대 대기 시간을 넘기면 포기한다. 실패가 아니라 접수는 됐으므로 그 사실만 알린다.
+ */
+async function waitForCompletion(
+  pinId: number,
+  alive: () => boolean,
+  set: (partial: Partial<PinPublishState>) => void,
+): Promise<void> {
+  const deadline = Date.now() + STATUS_POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    await sleep(STATUS_POLL_INTERVAL_MS);
+    if (!alive()) return;
+
+    const { videoStatus } = await getPinVideoStatus(pinId);
+    if (!alive()) return;
+
+    set({ videoStatus });
+
+    if (videoStatus === 'COMPLETED') {
+      set({ phase: 'done' });
+      return;
+    }
+
+    if (videoStatus === 'FAILED') {
+      set({
+        phase: 'idle',
+        error: '영상을 처리하지 못했어요. 다시 촬영해 주세요.',
+        retryable: false,
+      });
+      return;
+    }
+  }
+
+  if (!alive()) return;
+
+  set({
+    phase: 'idle',
+    error: '처리가 오래 걸리고 있어요. 등록은 접수됐으니 잠시 후 확인해 주세요.',
+    retryable: false,
+  });
+}
+
+/** 발급받은 티켓. 재시도할 때 같은 키를 쓰기 위해 화면 밖에 둔다. */
+let ticket: VideoUploadTicket | null = null;
+/** 진행 중인 업로드를 취소하기 위한 손잡이. */
+let cancelUpload: (() => void) | null = null;
+/** 취소된 시도의 결과가 상태를 되살리지 못하게 막는다. */
+let attempt = 0;
+
+const initialState = {
+  phase: 'idle' as VideoUploadPhase,
+  progress: 0,
+  pinId: null as number | null,
+  videoStatus: null as PinVideoStatus | null,
+  error: null as string | null,
+  retryable: false,
+};
+
+/**
+ * 핀 등록을 발급 → 업로드 → 등록 순서로 진행한다.
+ *
+ * 업로드가 2xx일 때만 등록 API를 부른다. 재시도할 때는 이미 올린 영상을 다시 올리지 않고
+ * 같은 `originalVideoKey`를 재사용한다. 서버는 중복 등록을 409로 거절한다.
+ */
+export const usePinPublishStore = createStore<PinPublishState>((set) => ({
+  ...initialState,
+
+  publish: (draft) => {
+    if (!draft.video || !draft.place) return;
+
+    attempt += 1;
+    const current = attempt;
+    const alive = () => attempt === current;
+
+    set({ error: null, retryable: false, progress: 0 });
+
+    const fileUri = draft.video.uri;
+
+    const run = async () => {
+      // 1. 발급 — 이미 받은 티켓이 있으면 재사용한다.
+      if (!ticket) {
+        set({ phase: 'issuing' });
+        const size = await readVideoSize(fileUri);
+        const issued = await issueVideoUploadTicket(VIDEO_CONTENT_TYPE, size);
+        if (!alive()) return;
+        ticket = issued;
+
+        // 2. 업로드 — 티켓을 새로 받았을 때만 올린다.
+        set({ phase: 'uploading' });
+        const upload = startVideoUpload(issued, fileUri, (ratio) => {
+          if (alive()) set({ progress: ratio });
+        });
+        cancelUpload = upload.cancel;
+
+        await upload.completed;
+        cancelUpload = null;
+        if (!alive()) return;
+      }
+
+      // 3. 등록 — 업로드가 끝난 뒤에만 호출한다.
+      const body = toRequest(draft, ticket.originalVideoKey);
+      if (!body) return;
+
+      set({ phase: 'registering' });
+      const result = await createPin(body);
+      if (!alive()) return;
+
+      // 4. 처리 대기 — 접수만 된 상태다. 완료될 때까지 상태를 물어본다.
+      set({ phase: 'processing', pinId: result.pinId, videoStatus: result.videoStatus });
+      await waitForCompletion(result.pinId, alive, set);
+    };
+
+    run().catch((cause: unknown) => {
+      cancelUpload = null;
+      if (!alive()) return;
+
+      const isApiError = cause instanceof ApiError;
+      set({
+        phase: 'idle',
+        progress: 0,
+        error: isApiError
+          ? (messageByCode[cause.code] ?? cause.message)
+          : cause instanceof Error
+            ? cause.message
+            : '핀을 등록하지 못했어요',
+        // 업로드 실패는 네트워크 문제가 대부분이라 다시 시도할 값이 있다.
+        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+      });
+    });
+  },
+
+  cancel: () => {
+    attempt += 1;
+    cancelUpload?.();
+    cancelUpload = null;
+    // 취소하면 올려 둔 영상을 쓰지 않으므로 티켓도 버린다.
+    ticket = null;
+    set(initialState);
+  },
+
+  dismissError: () => set({ error: null }),
+
+  reset: () => {
+    attempt += 1;
+    cancelUpload = null;
+    ticket = null;
+    set(initialState);
+  },
+}));

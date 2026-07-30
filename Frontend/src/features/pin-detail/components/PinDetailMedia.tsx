@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
 import { colors } from '@/constants/theme';
+import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 import { pinDetailStyles as s } from '../styles';
 
 /**
@@ -46,20 +47,22 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
 
   const [muted, setMuted] = useState(true);
 
-  const player = useVideoPlayer(source, (instance) => {
-    instance.loop = true;
-    instance.muted = true;
-    instance.play();
-  });
-
-  // 웹에서는 setup의 play()가 소스 준비 전에 실행돼 무시된다. 마운트 후 한 번 더 건다.
-  useEffect(() => {
-    player.play();
-  }, [player]);
+  const player = useAutoplayVideo(source, { loop: true, muted: true });
 
   useEffect(() => {
     player.muted = muted;
   }, [player, muted]);
+
+  /**
+   * 결제 전후가 바뀌면 재생을 한 번 더 건다.
+   *
+   * 결제 모달이 닫힐 때 그 안의 일러스트 영상 플레이어가 정리되는데, 그 과정에서 이쪽 재생이
+   * 함께 멈추는 경우가 있다. 목업에서는 결제 전후 소스가 같아 플레이어가 그대로 남으므로
+   * 스스로 다시 시작하지 않는다. 이미 재생 중이면 이 호출은 아무 일도 하지 않는다.
+   */
+  useEffect(() => {
+    player.play();
+  }, [player, unlocked]);
 
   const toggleMuted = useCallback(() => setMuted((previous) => !previous), []);
 

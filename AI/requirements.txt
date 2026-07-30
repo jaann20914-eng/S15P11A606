@@ -14,4 +14,5 @@ insightface
 onnxruntime
 
 boto3
-redis
+# Redis idempotency disabled: ai_blur_job DB UNIQUE 사용
+# redis

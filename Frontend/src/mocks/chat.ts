@@ -1,6 +1,6 @@
 import { ApiError } from '@/api/client';
 import type { ChatRequestResult, PinChatLeaveResult } from '@/types/chat';
-import { MOCK_LATENCY_MS, delay, resolvePinDetailScenario } from './pin';
+import { MOCK_LATENCY_MS, delay, isMockPinUnlocked, resolvePinDetailScenario } from './pin';
 
 /**
  * 채팅 도메인 고정 데이터.
@@ -27,8 +27,8 @@ export async function createMockChatRequest(pinId: number): Promise<ChatRequestR
     throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
   }
 
-  // 작성자 본인과 미구매자는 요청할 수 없다.
-  if (scenario === 'owner' || scenario === 'preview') {
+  // 작성자 본인과 미구매자는 요청할 수 없다. 결제로 열람했으면 요청할 수 있다.
+  if (scenario === 'owner' || (scenario === 'preview' && !isMockPinUnlocked(pinId))) {
     throw new ApiError(403, 'CHAT_REQUEST_FORBIDDEN', '채팅을 요청할 수 없습니다.');
   }
 
