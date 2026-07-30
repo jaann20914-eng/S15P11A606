@@ -236,6 +236,40 @@ const SILENT_CANCEL_LIMIT_MS = 5000;
 /** 복귀 URL을 받았는지, 못 받았다면 얼마나 머물렀는지. */
 type RedirectOutcome = { url: string } | { url: null; dwellMs: number };
 
+/** Chrome의 Android 패키지명. */
+const CHROME_PACKAGE = 'com.android.chrome';
+
+/**
+ * Custom Tab을 열 브라우저를 고른다. 고르지 못하면 `undefined`(기본 브라우저).
+ *
+ * 기기 기본 브라우저가 무엇이냐에 따라 복귀 처리가 달라진다 — 갤럭시는 삼성 인터넷이
+ * 기본인 경우가 많고, 그쪽 Custom Tab은 App Link나 커스텀 스킴 인텐트를 Chrome과 다르게
+ * 다룰 수 있다. 그래서 Chrome이 있으면 Chrome으로 고정해 기기별 편차를 줄인다.
+ *
+ * 판단 기준은 `servicePackages`다. Custom Tab을 띄우는 데 필요한 것은 Custom Tabs **서비스**
+ * 지원이고, `browserPackages`는 일반 VIEW 인텐트를 처리하는 브라우저 목록이라 성격이 다르다.
+ * 실제로 노트20에서는 Chrome이 `servicePackages`에만 있었는데, 그 이유로 Chrome을 건너뛰고
+ * 삼성 인터넷으로 열려 복귀가 앱에 전달되지 않았다.
+ */
+async function resolveBrowserPackage(): Promise<string | undefined> {
+  try {
+    const result = await WebBrowser.getCustomTabsSupportingBrowsersAsync();
+
+    logOAuth('Custom Tab 브라우저', {
+      기본: result.defaultBrowserPackage ?? 'none',
+      선호: result.preferredBrowserPackage ?? 'none',
+      브라우저: result.browserPackages,
+      서비스: result.servicePackages,
+    });
+
+    return result.servicePackages.includes(CHROME_PACKAGE) ? CHROME_PACKAGE : undefined;
+  } catch (cause) {
+    // 조회에 실패하면 기본 브라우저로 진행한다. 진단용이라 흐름을 막지 않는다.
+    logOAuth('브라우저 조회 실패 — 기본 브라우저 사용', { cause: String(cause) });
+    return undefined;
+  }
+}
+
 /**
  * 브라우저를 열고 복귀 URL을 받아온다.
  *
@@ -266,9 +300,12 @@ async function openBrowserAndAwaitRedirect(
   const openedAt = Date.now();
 
   try {
-    logOAuth('브라우저 열기', { authorizeUrl });
+    const browserPackage = await resolveBrowserPackage();
+    logOAuth('브라우저 열기', { authorizeUrl, browserPackage: browserPackage ?? '기본' });
 
-    const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, redirectUri);
+    const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, redirectUri, {
+      browserPackage,
+    });
 
     // 머문 시간으로 "곧바로 뒤로 나감"과 "로그인까지 마쳤는데 복귀가 없음"을 구분한다.
     // 후자는 App Link 검증 문제이고, 전자는 그냥 사용자가 그만둔 것이다.
