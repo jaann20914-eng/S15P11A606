@@ -20,6 +20,7 @@ import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.domain.user.repository.MemberRepository;
+import com.yuhan.wagglewaggle.domain.user.service.NicknamePolicy;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
@@ -32,10 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 /**
  * 온보딩 완료 처리. 온보딩 토큰/세션 검증 → 회원 생성 → 소셜 계정 연결 →
@@ -47,7 +46,6 @@ import java.util.regex.Pattern;
 public class OnboardingService {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final Pattern NICKNAME_PATTERN = Pattern.compile("^[0-9A-Za-z가-힣]{2,12}$");
     private static final int MAX_PREFERRED_CATEGORIES = 3;
 
     private final OnboardingSessionRepository onboardingSessionRepository;
@@ -192,11 +190,11 @@ public class OnboardingService {
     }
 
     private String normalizeAndValidateNickname(String nickname) {
-        if (nickname == null || !NICKNAME_PATTERN.matcher(nickname).matches()) {
+        if (!NicknamePolicy.isValid(nickname)) {
             throw new CustomException(ErrorCode.INVALID_ONBOARDING_REQUEST);
         }
         // 영문은 소문자로 정규화한 값으로 중복 검사·저장한다.
-        return nickname.toLowerCase(Locale.ROOT);
+        return NicknamePolicy.normalize(nickname);
     }
 
     private List<Category> resolveCategories(List<String> codes) {
