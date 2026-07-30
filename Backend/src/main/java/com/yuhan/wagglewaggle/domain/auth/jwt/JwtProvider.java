@@ -68,15 +68,16 @@ public class JwtProvider {
      * 온보딩 완료 요청용 임시 토큰. purpose=ONBOARDING, sub=socialAccountId.
      * social_account_id에는 서비스 DB의 내부 social_account 식별자를 사용한다.
      * Provider 토큰/개인정보는 payload에 포함하지 않는다.
+     * jti는 온보딩 세션(onboarding_sessions)의 PK와 동일한 값을 사용하므로 호출부에서 주입한다.
      */
-    public String createOnboardingToken(Long socialAccountId, OAuthProvider provider) {
+    public String createOnboardingToken(Long socialAccountId, OAuthProvider provider, String jti) {
         Instant now = Instant.now();
         return baseBuilder(now)
                 .subject(String.valueOf(socialAccountId))
                 .claim(CLAIM_SOCIAL_ACCOUNT_ID, socialAccountId)
                 .claim(CLAIM_PROVIDER, provider.toLowerCase())
                 .claim(CLAIM_PURPOSE, TokenPurpose.ONBOARDING.name())
-                .id(UUID.randomUUID().toString())
+                .id(jti)
                 .expiration(Date.from(now.plusSeconds(onboardingTokenExpirationSeconds)))
                 .compact();
     }
@@ -102,6 +103,10 @@ public class JwtProvider {
 
     public long getRefreshTokenExpirationSeconds() {
         return refreshTokenExpirationSeconds;
+    }
+
+    public long getOnboardingTokenExpirationSeconds() {
+        return onboardingTokenExpirationSeconds;
     }
 
     private io.jsonwebtoken.JwtBuilder baseBuilder(Instant now) {

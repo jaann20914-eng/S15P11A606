@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from aio_pika import ExchangeType
 from aio_pika.abc import AbstractExchange, AbstractQueue
@@ -32,7 +33,7 @@ async def declare_blur_topology() -> BlurTopology:
         ExchangeType.DIRECT,
         durable=True,
     )
-    queue_arguments = {
+    queue_arguments: dict[str, Any] = {
         "x-dead-letter-exchange": settings.blur_dlx,
         "x-dead-letter-routing-key": settings.blur_dead_letter_routing_key,
     }

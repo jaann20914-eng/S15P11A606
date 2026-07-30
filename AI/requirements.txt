@@ -2,12 +2,7 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
-httpx2
-
-ruff
-mypy
-pytest
-
+httpx
 
 aio-pika
 python-dotenv

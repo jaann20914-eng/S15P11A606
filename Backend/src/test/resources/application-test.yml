@@ -1,0 +1,42 @@
+# 통합 테스트 전용 설정. datasource/elasticsearch 주소는 Testcontainers가 @DynamicPropertySource로 주입한다.
+# 나머지 env 기반 속성은 더미값으로 채워 .env 없이도 컨텍스트가 로드되게 한다.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  elasticsearch:
+    uris: http://localhost:9200
+
+jwt:
+  secret: test-secret-key-that-is-at-least-32-bytes-long!!
+  issuer: wagglewaggle-test
+  access-token-expiration-seconds: 3600
+  refresh-token-expiration-seconds: 1209600
+  onboarding-token-expiration-seconds: 600
+
+kakao:
+  local:
+    base-url: https://dapi.kakao.com
+    rest-api-key: test-kakao-rest-api-key
+    connect-timeout-ms: 3000
+    read-timeout-ms: 3000
+
+oauth:
+  kakao:
+    client-id: test-kakao-client-id
+    client-secret: test-kakao-client-secret
+    redirect-uri: http://localhost/oauth/kakao/callback
+    token-uri: https://kauth.kakao.com
+    api-uri: https://kapi.kakao.com
+  naver:
+    client-id: test-naver-client-id
+    client-secret: test-naver-client-secret
+    redirect-uri: http://localhost/oauth/naver/callback
+    token-uri: https://nid.naver.com
+    api-uri: https://openapi.naver.com

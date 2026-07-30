@@ -28,4 +28,25 @@ public class KakaoLocalClient {
                 .retrieve()
                 .body(KakaoKeywordResponse.class);
     }
+
+    /**
+     * 특정 좌표 주변을 정렬 기준(sort)과 페이지 조건을 지정해 키워드 검색한다.
+     * 지도 장소 조회에서 장소별 주소·전화번호를 실시간으로 얻기 위해 사용한다.
+     */
+    public KakaoKeywordResponse searchNearby(
+            String query, double longitude, double latitude, int radius, int page, int size, String sort) {
+        return kakaoRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(KEYWORD_SEARCH_PATH)
+                        .queryParam("query", query)
+                        .queryParam("x", longitude)
+                        .queryParam("y", latitude)
+                        .queryParam("radius", radius)
+                        .queryParam("page", page)
+                        .queryParam("size", size)
+                        .queryParam("sort", sort)
+                        .build())
+                .retrieve()
+                .body(KakaoKeywordResponse.class);
+    }
 }

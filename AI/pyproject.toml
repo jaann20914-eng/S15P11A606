@@ -11,5 +11,12 @@ strict = true
 # BaseSettings 필드는 .env에서 채워지므로 생성자 인자가 없어도 정상임을 mypy에 알려준다
 plugins = ["pydantic.mypy"]
 
+# 타입 스텁을 제공하지 않는 서드파티 라이브러리
+[[tool.mypy.overrides]]
+module = ["boto3.*", "botocore.*", "onnxruntime.*", "insightface.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/가 패키지가 아니라 pytest가 프로젝트 루트를 sys.path에 넣지 않는다. app import를 위해 명시한다.
+pythonpath = ["."]

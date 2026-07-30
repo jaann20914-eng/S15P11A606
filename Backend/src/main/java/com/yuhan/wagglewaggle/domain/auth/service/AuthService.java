@@ -10,6 +10,7 @@ import com.yuhan.wagglewaggle.domain.auth.dto.TokenRefreshResponse;
 import com.yuhan.wagglewaggle.domain.auth.entity.OAuthProvider;
 import com.yuhan.wagglewaggle.domain.auth.jwt.JwtProvider;
 import com.yuhan.wagglewaggle.domain.auth.jwt.TokenPurpose;
+import com.yuhan.wagglewaggle.domain.onboarding.service.OnboardingSessionService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * OAuth 로그인 오케스트레이션.
@@ -33,6 +35,7 @@ public class AuthService {
     private final OAuthClientResolver oAuthClientResolver;
     private final SocialAccountService socialAccountService;
     private final RefreshTokenService refreshTokenService;
+    private final OnboardingSessionService onboardingSessionService;
     private final JwtProvider jwtProvider;
 
     public OAuthLoginResponse login(String providerPath, OAuthLoginRequest request) {
@@ -77,7 +80,12 @@ public class AuthService {
                         Instant.now().plusSeconds(jwtProvider.getRefreshTokenExpirationSeconds()));
                 return OAuthLoginResponse.authenticated(accessToken, refreshToken);
             }
-            String onboardingToken = jwtProvider.createOnboardingToken(result.socialAccountId(), provider);
+            // 온보딩 토큰의 jti와 동일한 온보딩 세션을 발급 시점에 저장한다(완료 시 used_at으로 소비).
+            UUID jti = UUID.randomUUID();
+            Instant expiresAt = Instant.now().plusSeconds(jwtProvider.getOnboardingTokenExpirationSeconds());
+            onboardingSessionService.issue(jti, result.socialAccountId(), expiresAt);
+            String onboardingToken =
+                    jwtProvider.createOnboardingToken(result.socialAccountId(), provider, jti.toString());
             return OAuthLoginResponse.onboardingRequired(onboardingToken);
         } catch (Exception e) {
             log.error("토큰 발급 실패: {}", e.getMessage());

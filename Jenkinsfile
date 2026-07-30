@@ -20,6 +20,7 @@ pipeline {
 
         DB_URL = 'jdbc:postgresql://waggle-postgis:5432/wagglewaggle'
         DB_USERNAME = 'waggle'
+        ES_URIS = 'http://waggle-elasticsearch:9200'
 
         HOST_PORT = '8990'
 
@@ -32,8 +33,11 @@ pipeline {
         JWT_SECRET          = credentials('waggle-jwt-secret')
 
         // 비밀값이 아니므로 직접 작성 가능
-        KAKAO_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/kakao'
-        NAVER_REDIRECT_URI = 'https://api.wagle.site/oauth/callback/naver'
+        KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
+        NAVER_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/naver'
+
+        // 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (Frontend app.json의 scheme와 일치)
+        OAUTH_CALLBACK_SCHEME = 'waglewagle'
     }
 
     stages {
@@ -65,8 +69,20 @@ pipeline {
                     sh '''
                         set -eu
 
-                        chmod +x gradlew
-                        ./gradlew clean test --no-daemon
+                        # DooD 호스트에서 published 포트가 브리지 게이트웨이로 안 닿으므로(hairpin 불가),
+                        # 호스트 네트워크를 쓰는 사이드카 컨테이너 안에서 테스트를 실행한다.
+                        #  --network host      : 테스트 JVM이 호스트 네트워크 공유 → localhost 로 컨테이너 포트 접근 가능
+                        #  --volumes-from      : Jenkins의 워크스페이스와 도커 소켓을 같은 경로로 물려받음(DooD 볼륨 경로 문제 회피)
+                        #  -v ...:/gradle      : 그래들 캐시를 전용 볼륨에 유지(재다운로드 최소화)
+                        docker run --rm \
+                            --network host \
+                            --volumes-from "$(hostname)" \
+                            -v waggle-gradle-cache:/gradle \
+                            -w "$PWD" \
+                            -e GRADLE_USER_HOME=/gradle \
+                            -e TESTCONTAINERS_RYUK_DISABLED=true \
+                            eclipse-temurin:21-jdk \
+                            sh -c "chmod +x gradlew && ./gradlew clean test --no-daemon"
                     '''
                 }
             }
@@ -108,12 +124,14 @@ pipeline {
                         -e DB_URL="jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}" \
                         -e DB_USERNAME="$DB_USER" \
                         -e DB_PASSWORD="$DB_PASSWORD" \
+                        -e ES_URIS="$ES_URIS" \
                         -e KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY" \
                         -e KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET" \
                         -e KAKAO_REDIRECT_URI="$KAKAO_REDIRECT_URI" \
                         -e NAVER_CLIENT_ID="$NAVER_CLIENT_ID" \
                         -e NAVER_CLIENT_SECRET="$NAVER_CLIENT_SECRET" \
                         -e NAVER_REDIRECT_URI="$NAVER_REDIRECT_URI" \
+                        -e OAUTH_CALLBACK_SCHEME="$OAUTH_CALLBACK_SCHEME" \
                         -e JWT_SECRET="$JWT_SECRET" \
                         -e SPRING_JPA_OPEN_IN_VIEW="false" \
                         -p "127.0.0.1:${HOST_PORT}:8080" \

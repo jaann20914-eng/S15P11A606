@@ -20,6 +20,7 @@ public record KakaoKeywordResponse(
             @JsonProperty("place_name") String placeName,
             @JsonProperty("address_name") String addressName,
             @JsonProperty("road_address_name") String roadAddressName,
+            String phone,
             String x,
             String y,
             String distance

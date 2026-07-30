@@ -6,10 +6,13 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
 
@@ -34,6 +37,11 @@ oauth:
     redirect-uri: ${NAVER_REDIRECT_URI}
     token-uri: https://nid.naver.com
     api-uri: https://openapi.naver.com
+
+app:
+  oauth:
+    # 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (app.json의 scheme와 일치)
+    callback-scheme: ${OAUTH_CALLBACK_SCHEME}
 
 jwt:
   secret: ${JWT_SECRET}

@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.global.config;
 
+import com.yuhan.wagglewaggle.global.properties.AppOAuthProperties;
 import com.yuhan.wagglewaggle.global.properties.JwtProperties;
 import com.yuhan.wagglewaggle.global.properties.KakaoOAuthProperties;
 import com.yuhan.wagglewaggle.global.properties.KakaoProperties;
@@ -17,7 +18,8 @@ import java.time.Duration;
         KakaoProperties.class,
         JwtProperties.class,
         KakaoOAuthProperties.class,
-        NaverOAuthProperties.class
+        NaverOAuthProperties.class,
+        AppOAuthProperties.class
 })
 public class RestClientConfig {
 
