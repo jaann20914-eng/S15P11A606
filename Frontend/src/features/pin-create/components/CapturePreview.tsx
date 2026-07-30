@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView } from 'expo-video';
+import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 import { pinCreateStyles as s } from '../styles';
 
 export interface CapturePreviewProps {
@@ -14,16 +14,7 @@ export interface CapturePreviewProps {
  * 재생 위치를 되돌릴 컨트롤은 두지 않고 반복으로 대신한다.
  */
 export function CapturePreview({ uri }: CapturePreviewProps) {
-  const player = useVideoPlayer(uri, (instance) => {
-    instance.loop = true;
-    instance.muted = false;
-    instance.play();
-  });
-
-  // 웹에서는 setup의 play()가 소스 준비 전에 실행돼 무시된다. 마운트 후 한 번 더 건다.
-  useEffect(() => {
-    player.play();
-  }, [player]);
+  const player = useAutoplayVideo(uri, { loop: true, muted: false });
 
   return (
     <VideoView
