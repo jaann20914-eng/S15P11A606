@@ -136,14 +136,18 @@ class PlacePinServiceTest {
     // ===== 정렬 / 상한 =====
 
     @Test
-    void 지도_중심에서_가까운순으로_정렬되고_최대_10개만_반환한다() {
+    void 활성핀이_많은_장소가_우선_선택되고_최대_10개만_반환한다() {
         List<Place> places = new ArrayList<>();
         List<Pin> pins = new ArrayList<>();
-        // 중심(37.50,127.03) 기준 동쪽으로 갈수록 멀어지는 12개 장소, 모두 평균 3.0(WAGLE)
+        // 활성 핀 수는 id=1이 가장 많고(12개) id=12가 가장 적다(1개).
+        // 반대로 거리는 id=1이 가장 멀다 → 거리 기준이 아니라 활성 핀 수 기준으로 정렬됨을 검증.
         for (long k = 1; k <= 12; k++) {
-            Place place = place(k, "P" + k, "장소" + k, 127.030 + k * 0.0005, 37.500);
+            Place place = place(k, "P" + k, "장소" + k, 127.030 + (13 - k) * 0.0005, 37.500);
             places.add(place);
-            pins.add(pin(100 + k, place, member(90), CrowdLevel.WAGLE));
+            int pinCount = (int) (13 - k);
+            for (int i = 0; i < pinCount; i++) {
+                pins.add(pin(k * 100 + i, place, member(90), CrowdLevel.WAGLE));
+            }
         }
         given(placeRepository.findWithinBounds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .willReturn(places);
@@ -155,6 +159,26 @@ class PlacePinServiceTest {
         List<Long> ids = response.places().stream().map(PlaceListItem::placeId).toList();
         assertThat(ids).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
         assertThat(ids).doesNotContain(11L, 12L);
+    }
+
+    @Test
+    void 활성핀_수가_같으면_지도_중심에_가까운_장소가_우선한다() {
+        // 세 장소 모두 활성 핀 2개(평균 WAGLE). 중심(37.50,127.03)에서 가까운 순으로 정렬되어야 함.
+        Place near = place(1L, "P1", "가까움", 127.0305, 37.500);
+        Place mid = place(2L, "P2", "중간", 127.033, 37.500);
+        Place far = place(3L, "P3", "멈", 127.038, 37.500);
+        List<Pin> pins = new ArrayList<>();
+        for (Place place : List.of(mid, far, near)) { // DB 반환 순서는 뒤섞어 둠
+            pins.add(pin(place.getId() * 100, place, member(90), CrowdLevel.WAGLE));
+            pins.add(pin(place.getId() * 100 + 1, place, member(90), CrowdLevel.WAGLE));
+        }
+        given(placeRepository.findWithinBounds(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .willReturn(List.of(mid, far, near));
+        given(pinRepository.findValidPins(anyCollection(), any(), any())).willReturn(pins);
+
+        List<Long> ids = call("wagle").places().stream().map(PlaceListItem::placeId).toList();
+
+        assertThat(ids).containsExactly(1L, 2L, 3L);
     }
 
     // ===== 평균 혼잡도 / 라벨 =====
