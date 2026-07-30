@@ -30,6 +30,13 @@ export function useCurrentLocation(): CurrentLocation {
     setStatus('loading');
 
     try {
+      // 권한이 있어도 기기에서 위치 서비스를 껐으면 좌표를 읽을 수 없다.
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        setStatus('failed');
+        return null;
+      }
+
       const { granted } = await Location.requestForegroundPermissionsAsync();
       if (!granted) {
         setStatus('denied');

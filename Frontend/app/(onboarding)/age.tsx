@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -10,6 +11,8 @@ import {
   TextStyle,
   View,
 } from 'react-native';
+import { Camera } from 'expo-camera';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,13 +54,59 @@ export default function Onboarding() {
 
   const onboarding = useOnboardingSubmit(returnToNickname);
 
+  /** 권한 대화상자를 띄우는 동안 버튼을 잠근다. 연속으로 누르면 대화상자가 겹친다. */
+  const [requestingPermissions, setRequestingPermissions] = useState(false);
+
+  /**
+   * 영상핀에 필요한 권한을 미리 받는다.
+   *
+   * 위치·카메라·마이크가 없으면 제보를 아예 할 수 없어 가입 직후 막힌다. 촬영 화면에서
+   * 처음 물으면 거절했을 때 되돌릴 곳이 없으므로 가입을 끝내기 전에 받는다.
+   */
+  const ensurePermissions = useCallback(async (): Promise<boolean> => {
+    // 웹은 촬영 자체를 지원하지 않아 물을 것이 없다. 물으면 거절돼 가입이 막힌다.
+    if (Platform.OS === 'web') return true;
+
+    try {
+      const location = await Location.requestForegroundPermissionsAsync();
+      const camera = await Camera.requestCameraPermissionsAsync();
+      const microphone = await Camera.requestMicrophonePermissionsAsync();
+
+      if (!location.granted || !camera.granted || !microphone.granted) {
+        Alert.alert(
+          '필수 권한이 필요해요',
+          '위치, 카메라, 마이크 권한을 모두 허용해야 가입을 완료할 수 있어요.',
+        );
+        return false;
+      }
+
+      // 권한만으로는 부족하다. 기기의 위치 서비스가 꺼져 있으면 여기서 실패한다.
+      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return true;
+    } catch {
+      Alert.alert('권한을 확인하지 못했어요', '기기의 위치 서비스를 켜고 다시 시도해 주세요.');
+      return false;
+    }
+  }, []);
+
   const next = () => {
     if (step < 3) {
       setStep(step + 1);
       return;
     }
 
-    onboarding.submit({ ageGroup, gender, nickname: nickname.trim(), preferredCategories: selected });
+    // 권한을 받은 뒤에 가입을 요청한다. 거절하면 요청하지 않고 화면에 남는다.
+    void (async () => {
+      if (requestingPermissions) return;
+      setRequestingPermissions(true);
+      try {
+        if (!(await ensurePermissions())) return;
+      } finally {
+        setRequestingPermissions(false);
+      }
+
+      onboarding.submit({ ageGroup, gender, nickname: nickname.trim(), preferredCategories: selected });
+    })();
   };
 
   /** 이미 고른 것은 항상 해제할 수 있고, 상한에 닿았을 때만 추가를 막는다. */
@@ -248,7 +297,10 @@ export default function Onboarding() {
           <Button
             label={step === 3 ? (onboarding.busy ? '가입 중이에요…' : '와글와글 시작하기') : '다음'}
             disabled={
-              onboarding.busy || (step === 2 && !checked) || (step === 3 && selected.length < MIN_PREFERENCES)
+              onboarding.busy ||
+              requestingPermissions ||
+              (step === 2 && !checked) ||
+              (step === 3 && selected.length < MIN_PREFERENCES)
             }
             onPress={next}
           />

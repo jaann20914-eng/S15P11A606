@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
+import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 
 export interface IllustrationVideoProps {
   source: VideoSource;
@@ -25,16 +25,7 @@ export interface IllustrationVideoProps {
  * 조작할 것이 없어 컨트롤은 모두 끈다. 크기는 호출부가 `style`로 정한다.
  */
 export function IllustrationVideo({ source, style, contentFit = 'cover' }: IllustrationVideoProps) {
-  const player = useVideoPlayer(source, (instance) => {
-    instance.loop = false;
-    instance.muted = true;
-    instance.play();
-  });
-
-  // 웹에서는 setup의 play()가 소스 준비 전에 실행돼 무시된다. 마운트 후 한 번 더 건다.
-  useEffect(() => {
-    player.play();
-  }, [player]);
+  const player = useAutoplayVideo(source, { loop: false, muted: true });
 
   return (
     <VideoView
