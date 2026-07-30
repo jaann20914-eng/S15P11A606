@@ -27,7 +27,6 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/**",
-            "/api/v1/places/**",
             // 온보딩 토큰(purpose=ONBOARDING)은 공용 JwtAuthenticationFilter가 인증하지 않으므로,
             // 경로를 permitAll로 열고 온보딩 서비스에서 토큰을 직접 검증한다.
             "/api/v1/onboarding",
