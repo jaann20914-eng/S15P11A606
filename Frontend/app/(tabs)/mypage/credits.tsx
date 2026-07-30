@@ -15,7 +15,7 @@ import { mypageStyles as s } from '@/features/mypage/styles';
  * 이 화면은 `(tabs)` 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
 export default function CreditsScreen() {
-  const { summary } = useMypageSummary();
+  const { profile } = useMypageSummary();
   const history = useCreditHistory();
 
   return (
@@ -24,7 +24,7 @@ export default function CreditsScreen() {
         <MypageHeader title="크레딧 내역" />
 
         <View style={s.content}>
-          <CreditBalanceCard balance={summary?.creditBalance ?? 0} />
+          <CreditBalanceCard balance={profile?.creditBalance ?? 0} />
 
           <CreditFilterBar
             filter={history.filter}

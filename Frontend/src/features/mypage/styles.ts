@@ -62,34 +62,6 @@ export const mypageStyles = StyleSheet.create({
     gap: spacing.x4,
     paddingHorizontal: spacing.x2,
   },
-  trustRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 8,
-    borderColor: '#E1E1E1',
-  },
-  /** 신뢰도만큼 채워진 호. 각도에 따라 `rotate`를 화면에서 계산해 얹는다. */
-  trustArc: {
-    position: 'absolute',
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 8,
-    borderColor: 'transparent',
-    borderTopColor: '#F1B47E',
-  },
-  trustCore: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-  },
-  ringValue: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: colors.gray600 },
   trustCopy: { flex: 1 },
   eyebrow: { fontSize: 12, lineHeight: 18, color: colors.gray400 },
   trustValue: {
@@ -136,6 +108,8 @@ export const mypageStyles = StyleSheet.create({
     borderColor: '#E2ECC0',
     backgroundColor: '#F5FBDD',
   },
+  /** 다른 달을 불러오는 중. 눌린 것이 반영되고 있다는 표시. */
+  activityCardLoading: { opacity: 0.55 },
   calendar: {
     width: '68%',
     paddingHorizontal: spacing.x3,
@@ -159,8 +133,15 @@ export const mypageStyles = StyleSheet.create({
     lineHeight: 15,
     color: colors.gray600,
   },
-  heatmap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.x2 },
-  cell: { width: `${100 / 7}%`, aspectRatio: 1 },
+  heatmap: { marginTop: spacing.x2 },
+  heatmapRow: { flexDirection: 'row' },
+  /**
+   * 칸 한 개.
+   *
+   * 퍼센트 폭은 Yoga에서 높이가 0으로 접혀 앱에서 칸이 보이지 않는다. 주 단위 행 안에서
+   * `flex`로 폭을 나눠 받고 `aspectRatio`로 정사각형을 만들면 웹과 앱이 같게 계산된다.
+   */
+  cell: { flex: 1, aspectRatio: 1 },
   cellBlank: { backgroundColor: 'transparent' },
   cellEmpty: { backgroundColor: '#F3F3F3' },
   cellLow: { backgroundColor: '#EFF8B5' },

@@ -39,33 +39,6 @@ export type CreditFilter = 'ALL' | 'SPENT' | 'EARNED';
 /** 내역 목록의 기간 필터. */
 export type CreditPeriod = 'TODAY' | 'WEEK' | 'MONTH';
 
-/** 마이페이지 요약. 뷰 신뢰도와 오늘 활동을 담는다. */
-export interface MyProfileSummary {
-  /** 뷰 신뢰도. 0~360 사이이며 도(°)로 표시한다. */
-  trustAngle: number;
-  creditBalance: number;
-  /** 오늘 등록한 영상핀 수. */
-  todayPinCount: number;
-}
-
-/** 달력 히트맵 한 칸. `null`은 그 달에 속하지 않는 빈칸이다. */
-export type ActivityLevel = 0 | 1 | 2 | 3;
-
-/** 이번 달 활동 요약과 날짜별 활동량. */
-export interface MonthlyActivity {
-  /** 1~12. */
-  month: number;
-  /**
-   * 달력 칸 배열. 월요일 시작이며 앞뒤로 다른 달에 속한 칸은 `null`이다.
-   * 값은 그날 등록한 영상핀 수를 0~3 구간으로 묶은 것이다.
-   */
-  cells: Array<ActivityLevel | null>;
-  pinCount: number;
-  earnedCredit: number;
-  /** 다른 사용자가 내 핀을 열람한 횟수. */
-  viewCount: number;
-}
-
 /** 닉네임 최소·최대 길이. */
 export const MIN_NICKNAME_LENGTH = 2;
 export const MAX_NICKNAME_LENGTH = 12;
