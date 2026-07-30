@@ -72,6 +72,9 @@ public class Pin extends BaseEntity {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     private Pin(Member member, Place place, CrowdLevel crowdLevel, Point captureLocation,
                 String detailLocation, String memo, String originalVideoKey, Instant expiresAt) {
         this.member = member;
