@@ -44,6 +44,7 @@ def test_start_output_encoder_uses_raw_frames_and_original_audio(
     assert command.count("-c:v") == 1
     assert command[command.index("-c:v") + 1] == "libx264"
     assert command[command.index("-c:a") + 1] == "aac"
+    assert command.index("-apad") < command.index("-shortest")
 
 
 def test_write_output_frame_sends_all_frame_bytes() -> None:

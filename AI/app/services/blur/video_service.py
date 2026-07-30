@@ -626,6 +626,7 @@ class VideoService:
             "aac",
             "-b:a",
             "192k",
+            "-apad",
             "-shortest",
             "-movflags",
             "+faststart",
