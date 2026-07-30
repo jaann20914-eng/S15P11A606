@@ -1,12 +1,15 @@
-import {
-  FileSystemUploadType,
-  createUploadTask,
-  getInfoAsync,
-  type UploadTask,
-} from 'expo-file-system/legacy';
+import type { UploadTask } from 'expo-file-system/legacy';
 import { usesMockApi } from '../config';
 import { VIDEO_CONTENT_TYPE } from '@/types/pinCreate';
 import type { VideoUploadTicket } from '@/types/pinCreate';
+
+/**
+ * `expo-file-system`은 네이티브 모듈이다. 최상위에서 import하면 웹에서 앱 전체가 뜨지 않는다.
+ * 목업 모드에서는 쓰지도 않으므로 실제로 올릴 때만 불러온다.
+ */
+function loadFileSystem() {
+  return require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
+}
 
 /** 업로드 진행률(0~1)을 알린다. */
 export type UploadProgressListener = (ratio: number) => void;
@@ -22,7 +25,7 @@ export interface StartedUpload {
 export async function readVideoSize(fileUri: string): Promise<number> {
   if (usesMockApi) return 0;
 
-  const info = await getInfoAsync(fileUri);
+  const info = await loadFileSystem().getInfoAsync(fileUri);
   return info.exists ? info.size : 0;
 }
 
@@ -45,6 +48,8 @@ export function startVideoUpload(
 ): StartedUpload {
   // 목업에서는 실제로 올릴 곳이 없어 진행률만 흉내낸다.
   if (usesMockApi) return startFakeUpload(onProgress);
+
+  const { createUploadTask, FileSystemUploadType } = loadFileSystem();
 
   const task: UploadTask = createUploadTask(
     ticket.uploadUrl,

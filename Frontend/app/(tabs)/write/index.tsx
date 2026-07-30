@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
@@ -14,8 +14,8 @@ import { PublishingOverlay } from '@/features/pin-create/components/PublishingOv
 import { TagField } from '@/features/pin-create/components/TagField';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
-import { usePinPublish } from '@/features/pin-create/hooks/usePinPublish';
 import { pinCreateStyles as s } from '@/features/pin-create/styles';
+import { usePinPublishStore } from '@/store/usePinPublishStore';
 
 /**
  * 게시글 작성 · 수정 화면.
@@ -23,14 +23,23 @@ import { pinCreateStyles as s } from '@/features/pin-create/styles';
  * `pinId` 파라미터가 붙어 들어오면 수정, 없으면 생성이다. 두 흐름이 같은 화면을 쓰고
  * 문구와 제출 대상만 갈린다.
  *
- * 등록을 누르면 진행 화면으로 덮고 그 상태에 머문다. MVP에서는 실패 복구를 다루지 않는다.
+ * 등록 진행 상태는 스토어에 있어 다른 탭으로 이동해도 업로드가 끊기지 않는다.
+ * 접수가 끝날 때까지 이 화면에 있었다면 등록된 핀으로 이동한다.
  */
 export default function PinCreateScreen() {
   const { mode, copy } = usePinCreateMode();
   const form = usePinCreateForm();
-  const publish = usePinPublish();
   const tabBarHeight = useAppTabBarHeight();
   const [focused, setFocused] = useState(false);
+
+  const phase = usePinPublishStore((state) => state.phase);
+  const progress = usePinPublishStore((state) => state.progress);
+  const publishedPinId = usePinPublishStore((state) => state.pinId);
+  const error = usePinPublishStore((state) => state.error);
+  const publish = usePinPublishStore((state) => state.publish);
+  const cancelPublish = usePinPublishStore((state) => state.cancel);
+  const dismissError = usePinPublishStore((state) => state.dismissError);
+  const resetPublish = usePinPublishStore((state) => state.reset);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,8 +48,11 @@ export default function PinCreateScreen() {
       return () => {
         setFocused(false);
         form.reset();
+
+        // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
+        if (usePinPublishStore.getState().phase === 'done') resetPublish();
       };
-    }, [form.reset]),
+    }, [form.reset, resetPublish]),
   );
 
   const submit = () => {
@@ -60,25 +72,39 @@ export default function PinCreateScreen() {
       return;
     }
 
-    publish.publish(form.draft);
+    publish(form.draft);
   };
 
   // 등록 실패는 진행 화면을 닫고 작성 화면에서 알린다. 입력값은 그대로 남는다.
   useEffect(() => {
-    if (!publish.error) return;
+    if (!error) return;
 
-    Alert.alert('영상핀을 등록하지 못했어요', publish.error, [
-      { text: '확인', onPress: publish.dismissError },
-    ]);
-  }, [publish.error, publish.dismissError]);
+    Alert.alert('영상핀을 등록하지 못했어요', error, [{ text: '확인', onPress: dismissError }]);
+  }, [error, dismissError]);
+
+  /**
+   * AI 처리까지 끝나면 등록한 핀으로 보낸다.
+   *
+   * 접수 직후(`PENDING`)에는 상세 조회가 되지 않아 이동하지 않는다. 처리가 끝나 `COMPLETED`가
+   * 되면 스토어가 `done`으로 바꾸고, 그때 상세로 넘어간다.
+   *
+   * 화면을 떠난 뒤에 끝난 경우에는 이동하지 않는다. 사용자가 이미 다른 일을 하고 있으므로
+   * 갑자기 화면을 바꾸지 않고, 그 결과는 화면을 벗어날 때 정리한다.
+   */
+  useEffect(() => {
+    if (!focused || phase !== 'done' || publishedPinId === null) return;
+
+    resetPublish();
+    router.replace(`/pin/${publishedPinId}`);
+  }, [focused, phase, publishedPinId, resetPublish]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
         <PinCreateHeader title={copy.title} />
 
-        {!focused ? null : publish.publishing ? (
-          <PublishingOverlay phase={publish.phase} progress={publish.progress} onCancel={publish.cancel} />
+        {!focused ? null : phase !== 'idle' ? (
+          <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}

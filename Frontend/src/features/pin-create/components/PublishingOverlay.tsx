@@ -14,13 +14,18 @@ export interface PublishingOverlayProps {
   onCancel: () => void;
 }
 
-/** 단계별 안내. 지금 무엇을 기다리는지 알 수 있어야 한다. */
+/**
+ * 단계별 안내. 지금 무엇을 기다리는지 알 수 있어야 한다.
+ *
+ * 다른 화면으로 이동해도 업로드는 계속된다. 앱을 종료할 때만 중단되므로 그렇게 안내한다.
+ */
 const messageByPhase: Record<VideoUploadPhase, string> = {
   idle: '',
   issuing: '업로드를 준비하고 있어요',
-  uploading: '영상을 올리고 있어요',
-  registering: 'AI를 이용하여\n블러 처리중입니다\n앱을 종료하는 경우\n업로드가 중단될 수 있습니다',
-  done: 'AI를 이용하여\n블러 처리중입니다\n앱을 종료하는 경우\n업로드가 중단될 수 있습니다',
+  uploading: '영상을 올리고 있어요\n다른 화면으로 이동해도 계속돼요',
+  registering: '등록을 접수하고 있어요',
+  processing: 'AI를 이용하여\n블러 처리중입니다\n앱을 종료하는 경우에만\n업로드가 중단됩니다',
+  done: '처리가 끝났어요',
 };
 
 /**

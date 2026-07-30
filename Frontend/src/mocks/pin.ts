@@ -6,7 +6,12 @@ import type {
   PinRating,
   PinUnlockResult,
 } from '@/types/pin';
-import type { PinCreateRequest, PinCreateResult, VideoUploadTicket } from '@/types/pinCreate';
+import type {
+  PinCreateRequest,
+  PinCreateResult,
+  PinStatusResult,
+  VideoUploadTicket,
+} from '@/types/pinCreate';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -291,7 +296,7 @@ export async function issueMockVideoUpload(
 export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (!body.originalVideoKey || !body.kakaoPlaceId) {
+  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName || !body.placeAddress) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
 
@@ -320,6 +325,30 @@ export async function createMockPin(body: PinCreateRequest): Promise<PinCreateRe
 
   usedVideoKeys.add(body.originalVideoKey);
   return { pinId: nextMockPinId++, videoStatus: 'PENDING' };
+}
+
+/** 핀별 상태 조회 횟수. 몇 번 물어본 뒤 완료로 바꿔 처리 대기 화면을 확인할 수 있게 한다. */
+const statusPollCountByPinId = new Map<number, number>();
+
+/** 처리 완료로 바뀌기까지 필요한 조회 횟수. */
+const POLLS_UNTIL_COMPLETED = 3;
+
+/**
+ * 영상 처리 상태 조회 목업.
+ *
+ * 실제 AI 처리가 없으므로 몇 번 물어보면 완료로 바꾼다.
+ * 등록하지 않은 핀을 물어보면 실제 서버와 같이 404를 던진다.
+ */
+export async function fetchMockPinVideoStatus(pinId: number): Promise<PinStatusResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  const polls = (statusPollCountByPinId.get(pinId) ?? 0) + 1;
+  statusPollCountByPinId.set(pinId, polls);
+
+  return {
+    pinId,
+    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'COMPLETED' : 'PENDING',
+  };
 }
 
 /** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */

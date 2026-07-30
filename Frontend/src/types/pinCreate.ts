@@ -74,8 +74,25 @@ export interface VideoUploadTicket {
   fields: Record<string, string>;
 }
 
-/** 업로드 진행 상태. 진행 화면이 이 값으로 문구와 퍼센트를 고른다. */
-export type VideoUploadPhase = 'idle' | 'issuing' | 'uploading' | 'registering' | 'done';
+/**
+ * 등록 진행 상태. 진행 화면이 이 값으로 문구와 퍼센트를 고른다.
+ *
+ * `registering`까지는 프론트가 요청을 보내는 단계다. `processing`은 서버가 접수한 뒤
+ * AI 블러 처리를 기다리는 단계이고, `done`은 처리까지 끝나 공개 가능한 상태다.
+ */
+export type VideoUploadPhase = 'idle' | 'issuing' | 'uploading' | 'registering' | 'processing' | 'done';
+
+/** 상태 조회 주기. 명세에 미정이라 우선 정한 값이다. */
+export const STATUS_POLL_INTERVAL_MS = 2_000;
+
+/** 상태 조회를 포기하는 시점. 이 시간을 넘기면 접수됐다는 안내만 남긴다. */
+export const STATUS_POLL_TIMEOUT_MS = 60_000;
+
+/** `GET /api/v1/pins/{pinId}/status` 응답의 `data`. */
+export interface PinStatusResult {
+  pinId: number;
+  videoStatus: PinVideoStatus;
+}
 
 /**
  * `POST /api/v1/pins` 요청 본문.
@@ -96,9 +113,17 @@ export interface PinCreateRequest {
    * 선택한 장소의 카카오 식별자.
    *
    * 장소 검색은 카카오 결과를 중계만 하고 `Place`를 저장하지 않아 내부 `placeId`가 없다.
-   * 그래서 등록 시점에 이 값을 보내고 서버가 내부 장소로 연결한다.
+   * 백엔드 확인 결과 둘은 같은 값이며 등록 요청은 이 이름을 쓴다.
    */
   kakaoPlaceId: string;
+  /**
+   * 선택한 장소의 이름과 주소.
+   *
+   * 서버가 등록 시점에 `Place`를 새로 저장한다. 카카오는 식별자로 단건 조회하는 API가 없어
+   * 검색 결과에서 받은 값을 프론트가 그대로 되돌려준다. 필드 이름은 백엔드 확정 전 가정값이다.
+   */
+  placeName: string;
+  placeAddress: string;
   latitude: number;
   longitude: number;
   crowdLevel: PinCrowdLevel;
