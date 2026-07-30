@@ -25,6 +25,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 class TagSearchIntegrationTest {
 
+    @Container
+    static PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
+
+    @DynamicPropertySource
+    static void esProps(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.elasticsearch.uris", ES::getHttpHostAddress);
+    }
+
     // 테스트 실행 동안만 살아있는 일회용 ES 컨테이너(도커 필요). 클라이언트와 버전을 맞춘 9.2.8.
     @Container
     static ElasticsearchContainer ES = new ElasticsearchContainer(

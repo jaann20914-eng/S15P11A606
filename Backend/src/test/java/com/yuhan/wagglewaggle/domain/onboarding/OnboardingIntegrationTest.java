@@ -52,7 +52,8 @@ class OnboardingIntegrationTest {
 
     // 실제 Flyway 마이그레이션과 유니크 제약을 검증하기 위한 일회용 Postgres 컨테이너.
     @Container
-    static PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
+    tatic PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
 
     // @SpringBootTest 전체 컨텍스트가 기동 시 ES 인덱스를 초기화하므로 ES 컨테이너도 함께 띄운다.
     @Container
