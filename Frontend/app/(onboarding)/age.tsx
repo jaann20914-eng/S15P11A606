@@ -52,17 +52,12 @@ export default function Onboarding() {
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      console.info('[onboarding] 가입 시 확인한 기기 좌표', {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
+      // 권한을 받고 좌표까지 실제로 읽히는지 확인한 뒤에 가입을 끝낸다.
+      // 위치 서비스가 꺼져 있으면 여기서 실패한다.
+      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
       router.replace('/(tabs)/home');
-    } catch (cause) {
-      console.error('[onboarding] 필수 권한 또는 위치 확인 실패', cause);
+    } catch {
       Alert.alert('권한을 확인하지 못했어요', '기기의 위치 서비스를 켜고 다시 시도해 주세요.');
     } finally {
       setRequestingPermissions(false);
@@ -239,9 +234,7 @@ export default function Onboarding() {
           <Button
             label={step === 3 ? '와글와글 시작하기' : '다음'}
             disabled={
-              requestingPermissions ||
-              (step === 2 && !checked) ||
-              (step === 3 && selected.length === 0)
+              requestingPermissions || (step === 2 && !checked) || (step === 3 && selected.length === 0)
             }
             onPress={next}
           />
