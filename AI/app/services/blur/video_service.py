@@ -1,13 +1,13 @@
 import json
 import math
 import subprocess
-import tempfile
 import time
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 from app.common.exceptions import (
     VideoDecodeError,
@@ -85,10 +85,6 @@ class VideoService:
                 f"Cannot open video: {input_path}"
             )
 
-        silent_output_path = self._create_silent_output_path(
-            output_path
-        )
-
         fps = capture.get(
             cv2.CAP_PROP_FPS
         )
@@ -105,24 +101,14 @@ class VideoService:
             )
         )
 
-        writer = cv2.VideoWriter(
-            silent_output_path,
-            # opencv 타입 스텁에 이 함수가 빠져 있다. 런타임에는 존재한다.
-            cv2.VideoWriter_fourcc(  # type: ignore[attr-defined]
-                *"mp4v"
-            ),
-            fps,
-            (width, height),
+        encoder = self._start_output_encoder(
+            original_video_path=input_path,
+            output_path=output_path,
+            fps=fps,
+            width=width,
+            height=height,
         )
 
-        if not writer.isOpened():
-            capture.release()
-            Path(silent_output_path).unlink(
-                missing_ok=True
-            )
-            raise VideoEncodeError(
-                f"Cannot create output video: {output_path}"
-            )
 
         detected = 0
         validated = 0
@@ -198,22 +184,23 @@ class VideoService:
                                         result.reason_code
                                     )
 
-                writer.write(
+                self._write_output_frame(
+                    encoder,
                     blurred
                 )
                 processed_frame_count += 1
 
         except Exception:
-            capture.release()
-            writer.release()
-            Path(silent_output_path).unlink(
+            self._abort_output_encoder(
+                encoder
+            )
+            Path(output_path).unlink(
                 missing_ok=True
             )
             raise
 
         finally:
             capture.release()
-            writer.release()
 
         try:
             self._validate_processed_video(
@@ -224,21 +211,23 @@ class VideoService:
                 height=height,
             )
         except Exception:
-            Path(silent_output_path).unlink(
+            self._abort_output_encoder(
+                encoder
+            )
+            Path(output_path).unlink(
                 missing_ok=True
             )
             raise
 
         try:
-            self._merge_original_audio(
-                silent_output_path,
-                input_path,
-                output_path,
+            self._finish_output_encoder(
+                encoder
             )
-        finally:
-            Path(silent_output_path).unlink(
+        except Exception:
+            Path(output_path).unlink(
                 missing_ok=True
             )
+            raise
 
         try:
             output_metadata = self._probe_video(
@@ -590,39 +579,35 @@ class VideoService:
             )
 
     @staticmethod
-    def _create_silent_output_path(
+    def _start_output_encoder(
+        original_video_path: str,
         output_path: str,
-    ) -> str:
+        fps: float,
+        width: int,
+        height: int,
+    ) -> subprocess.Popen[bytes]:
         output = Path(output_path)
         output.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        with tempfile.NamedTemporaryFile(
-            prefix=f".{output.stem}-silent-",
-            suffix=".mp4",
-            dir=output.parent,
-            delete=False,
-        ) as temporary_file:
-            temporary_path = temporary_file.name
-
-        Path(temporary_path).unlink(
-            missing_ok=True
-        )
-        return temporary_path
-
-    @staticmethod
-    def _merge_original_audio(
-        silent_video_path: str,
-        original_video_path: str,
-        output_path: str,
-    ) -> None:
         command = [
             "ffmpeg",
             "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "bgr24",
+            "-video_size",
+            f"{width}x{height}",
+            "-framerate",
+            f"{fps:.12g}",
             "-i",
-            silent_video_path,
+            "pipe:0",
             "-i",
             original_video_path,
             "-map",
@@ -635,10 +620,13 @@ class VideoService:
             "medium",
             "-crf",
             "23",
+            "-pix_fmt",
+            "yuv420p",
             "-c:a",
             "aac",
             "-b:a",
             "192k",
+            "-apad",
             "-shortest",
             "-movflags",
             "+faststart",
@@ -646,23 +634,72 @@ class VideoService:
         ]
 
         try:
-            completed = subprocess.run(
+            return subprocess.Popen(
                 command,
-                capture_output=True,
-                text=True,
-                check=False,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             )
         except OSError as error:
             raise VideoEncodeError(
                 f"Cannot run FFmpeg: {error}"
             ) from error
 
-        if completed.returncode != 0:
-            Path(output_path).unlink(
-                missing_ok=True
-            )
-            error_message = completed.stderr.strip()
+    @staticmethod
+    def _write_output_frame(
+        encoder: subprocess.Popen[bytes],
+        frame: np.ndarray,
+    ) -> None:
+        if encoder.stdin is None:
             raise VideoEncodeError(
+                "FFmpeg encoder stdin is unavailable"
+            )
+
+        payload = frame.tobytes()
+
+        try:
+            written = encoder.stdin.write(
+                payload
+            )
+        except (BrokenPipeError, OSError) as error:
+            raise VideoEncodeError(
+                "FFmpeg stopped accepting video frames"
+            ) from error
+
+        if written != len(payload):
+            raise VideoEncodeError(
+                "FFmpeg accepted an incomplete video frame"
+            )
+
+    @staticmethod
+    def _finish_output_encoder(
+        encoder: subprocess.Popen[bytes],
+    ) -> None:
+        if encoder.stdin is None:
+            VideoService._abort_output_encoder(
+                encoder
+            )
+            raise VideoEncodeError(
+                "FFmpeg encoder stdin is unavailable"
+            )
+
+        close_error: OSError | None = None
+
+        try:
+            encoder.stdin.close()
+        except OSError as error:
+            close_error = error
+
+        encoder.stdin = None
+        _, stderr = encoder.communicate()
+        error_message = (
+            (stderr or b"")
+            .decode("utf-8", errors="replace")
+            .strip()
+        )
+
+        if encoder.returncode != 0 or close_error is not None:
+            message = (
                 "FFmpeg failed to create output video"
                 + (
                     f": {error_message}"
@@ -670,3 +707,37 @@ class VideoService:
                     else ""
                 )
             )
+            if close_error is not None:
+                raise VideoEncodeError(
+                    message
+                ) from close_error
+            raise VideoEncodeError(message)
+
+    @staticmethod
+    def _abort_output_encoder(
+        encoder: subprocess.Popen[bytes],
+    ) -> None:
+        if encoder.poll() is None:
+            try:
+                encoder.terminate()
+            except OSError:
+                pass
+
+        if encoder.stdin is not None:
+            try:
+                encoder.stdin.close()
+            except OSError:
+                pass
+            encoder.stdin = None
+
+        if encoder.poll() is None:
+            try:
+                encoder.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                encoder.kill()
+                encoder.wait()
+            except OSError:
+                pass
+
+        if encoder.stderr is not None:
+            encoder.stderr.close()
