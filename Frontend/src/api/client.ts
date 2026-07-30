@@ -10,6 +10,7 @@ type TokenProvider = () => string | null;
 type TokenRefresher = () => Promise<string>;
 
 let provideAccessToken: TokenProvider = () => null;
+let provideOnboardingToken: TokenProvider = () => null;
 let refreshAccessToken: TokenRefresher | null = null;
 
 /**
@@ -18,6 +19,14 @@ let refreshAccessToken: TokenRefresher | null = null;
  */
 export function setAccessTokenProvider(provider: TokenProvider): void {
   provideAccessToken = provider;
+}
+
+/**
+ * 온보딩 토큰 공급자를 등록한다. 온보딩 완료 API만 이 토큰을 쓴다.
+ * 온보딩이 끝나면 스토어가 값을 비우므로 이후에는 자연히 붙지 않는다.
+ */
+export function setOnboardingTokenProvider(provider: TokenProvider): void {
+  provideOnboardingToken = provider;
 }
 
 /**
@@ -39,6 +48,34 @@ export function setTokenRefresher(refresher: TokenRefresher): void {
  */
 function isAuthEndpoint(url: string | undefined): boolean {
   return url?.startsWith('/api/v1/auth/') ?? false;
+}
+
+/**
+ * 온보딩 완료 API는 `purpose: "ONBOARDING"` 토큰만 받는다.
+ *
+ * 일반 accessToken을 붙이면 서버가 `purpose` 불일치로 거부하므로 경로로 구분한다.
+ * 401도 재발급 대상이 아니다 — 온보딩 토큰은 재발급 수단이 없고 일회성이라
+ * 무효면 소셜 로그인부터 다시 해야 한다.
+ */
+function isOnboardingEndpoint(url: string | undefined): boolean {
+  return url?.startsWith('/api/v1/onboarding') ?? false;
+}
+
+/**
+ * 이 요청에 붙일 토큰을 고른다.
+ *
+ * 토큰과 엔드포인트의 대응은 보안 규칙이라 호출부에 흩지 않고 여기 한 곳에서 정한다.
+ * 덕분에 도메인 모듈은 `apiRequest`만 쓰면 되고 토큰 종류를 알 필요가 없다.
+ */
+function resolveToken(url: string | undefined): string | null {
+  if (isAuthEndpoint(url)) return null;
+  if (isOnboardingEndpoint(url)) return provideOnboardingToken();
+  return provideAccessToken();
+}
+
+/** 401을 재발급으로 회복할 수 있는 요청인지. 인증·온보딩 경로는 대상이 아니다. */
+function allowsTokenRefresh(url: string | undefined): boolean {
+  return !isAuthEndpoint(url) && !isOnboardingEndpoint(url);
 }
 
 /** 재발급 후 한 번만 재시도하도록 표시한 요청 설정. */
@@ -91,8 +128,8 @@ function toApiError(error: AxiosError<ErrorResponse>): ApiError {
  * 공용 axios 인스턴스.
  *
  * 인터셉터가 세 가지를 맡는다.
- * - 요청: 액세스 토큰이 있으면 `Authorization` 헤더를 붙인다
- * - 응답: 401이면 토큰을 재발급해 한 번 재시도한다
+ * - 요청: 경로에 맞는 토큰을 골라 `Authorization` 헤더를 붙인다(`resolveToken`)
+ * - 응답: 401이면 토큰을 재발급해 한 번 재시도한다(인증·온보딩 경로는 제외)
  * - 응답: 남은 오류를 전부 `ApiError`로 바꿔 화면이 axios를 몰라도 되게 한다
  */
 export const httpClient: AxiosInstance = axios.create({
@@ -102,9 +139,9 @@ export const httpClient: AxiosInstance = axios.create({
 });
 
 httpClient.interceptors.request.use((config) => {
-  const accessToken = provideAccessToken();
-  if (accessToken && !isAuthEndpoint(config.url)) {
-    config.headers.set('Authorization', `Bearer ${accessToken}`);
+  const token = resolveToken(config.url);
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
   }
   return config;
 });
@@ -121,7 +158,7 @@ httpClient.interceptors.response.use(
       refresh === null ||
       config === undefined ||
       config.retriedAfterRefresh ||
-      isAuthEndpoint(config.url)
+      !allowsTokenRefresh(config.url)
     ) {
       throw apiError;
     }

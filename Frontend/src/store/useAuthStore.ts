@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createStore } from './createStore';
 import { ApiError } from '@/api/client';
@@ -51,14 +52,37 @@ const TERMINAL_REFRESH_CODES = new Set([
   'REFRESH_TOKEN_REUSED',
 ]);
 
+/**
+ * 이 환경에 보안 저장소가 있는지.
+ *
+ * `expo-secure-store`의 웹 모듈은 빈 객체라 호출하면 예외가 난다. 안드로이드 우선
+ * 프로젝트에서 웹은 화면 확인용이므로 저장을 건너뛰고 메모리만 쓴다 —
+ * **localStorage로 대체하지 않는다.** 토큰을 안전하지 않은 곳에 두는 절충은 하지 않는다.
+ * 그래서 웹에서는 새로고침하면 로그인이 풀린다.
+ */
+const canPersistTokens = Platform.OS !== 'web';
+
 async function persistTokens({ accessToken, refreshToken }: TokenPair): Promise<void> {
+  if (!canPersistTokens) return;
+
   await Promise.all([
     SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken),
     SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken),
   ]);
 }
 
+async function readPersistedTokens(): Promise<[string | null, string | null]> {
+  if (!canPersistTokens) return [null, null];
+
+  return Promise.all([
+    SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+    SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
+  ]);
+}
+
 async function clearPersistedTokens(): Promise<void> {
+  if (!canPersistTokens) return;
+
   await Promise.all([
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
     SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
@@ -88,10 +112,7 @@ export const useAuthStore = createStore<AuthState>((set) => ({
    */
   hydrate: async () => {
     try {
-      const [accessToken, refreshToken] = await Promise.all([
-        SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
-        SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
-      ]);
+      const [accessToken, refreshToken] = await readPersistedTokens();
 
       set({
         hydrated: true,
@@ -163,7 +184,8 @@ export const useAuthStore = createStore<AuthState>((set) => ({
 }));
 
 async function runRefresh(): Promise<string> {
-  const refreshToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  // 보안 저장소가 없는 환경(웹)에서는 항상 null이라 곧바로 로그아웃 경로를 탄다.
+  const [, refreshToken] = await readPersistedTokens();
 
   if (!refreshToken) {
     await useAuthStore.getState().signOut();

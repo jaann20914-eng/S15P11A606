@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import { router, useSegments } from 'expo-router';
-import { setAccessTokenProvider, setTokenRefresher } from '@/api/client';
+import { setAccessTokenProvider, setOnboardingTokenProvider, setTokenRefresher } from '@/api/client';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/useAuthStore';
  * 반대 방향 import를 만들면 순환이 된다 — 그래서 양쪽을 아는 이 파일이 주입을 맡는다.
  */
 setAccessTokenProvider(() => useAuthStore.getState().accessToken);
+setOnboardingTokenProvider(() => useAuthStore.getState().onboardingToken);
 setTokenRefresher(() => useAuthStore.getState().refreshAccessToken());
 
 /**
