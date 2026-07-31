@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -293,7 +294,7 @@ class PlacePinServiceTest {
         PlaceListItem item = call("wagle").places().get(0);
 
         assertThat(item.activePins()).hasSize(1);
-        assertThat(item.activePins().get(0).pinId()).isEqualTo(11L);
+        assertThat(item.activePins().get(0).pinId()).isEqualTo(new UUID(0, 11L));
         assertThat(item.activePins().get(0).latitude()).isEqualTo(37.5002);
         assertThat(item.activePins().get(0).longitude()).isEqualTo(127.0301);
         assertThat(item.activePins().get(0).viewAngle()).isEqualTo(270);
@@ -330,7 +331,7 @@ class PlacePinServiceTest {
         call("wagle");
 
         verify(kakaoLocalClient).searchNearby(eq("와글카페"), eq(127.030), eq(37.500),
-                eq(10), eq(1), eq(5), eq("distance"));
+                eq(10), eq(1), eq(5), eq("accuracy"));
     }
 
     @Test
@@ -444,7 +445,8 @@ class PlacePinServiceTest {
 
     private static Pin pin(Long id, Place place, Member member, CrowdLevel crowdLevel, double lng, double lat) {
         Pin pin = Pin.create(member, place, crowdLevel, point(lng, lat), null, null, "dummy/video.mp4", null);
-        ReflectionTestUtils.setField(pin, "id", id);
+        // 핀 PK가 UUID이므로 숫자 seed를 결정적 UUID로 변환해 부여한다(테스트 내 고유성 유지).
+        ReflectionTestUtils.setField(pin, "id", new UUID(0, id));
         return pin;
     }
 
