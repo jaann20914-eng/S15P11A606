@@ -1,7 +1,10 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PinController {
 
     private final PinVideoUploadService pinVideoUploadService;
+    private final PinCreateService pinCreateService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -32,5 +37,20 @@ public class PinController {
                 pinVideoUploadService.issueOriginalVideoUploadUrl(memberId, request);
 
         return ApiResponse.success(HttpStatus.OK.value(), "영상 업로드 정보가 발급되었습니다.", data);
+    }
+
+    /**
+     * 인증 사용자의 핀 등록 요청을 처리한다.
+     * 검증 후 Pin·PinTag·AiBlurJob을 한 트랜잭션으로 저장하고, 접수 결과를 202로 반환한다.
+     */
+    @PostMapping
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<PinCreateResponse> create(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody(required = false) PinCreateRequest request
+    ) {
+        PinCreateResponse data = pinCreateService.create(memberId, request);
+
+        return ApiResponse.success(HttpStatus.ACCEPTED.value(), "영상 핀 등록 요청이 접수되었습니다.", data);
     }
 }

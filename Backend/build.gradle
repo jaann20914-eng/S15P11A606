@@ -44,6 +44,12 @@ dependencies {
 	implementation 'org.hibernate.orm:hibernate-spatial'
 
 
+	// rabbitmq (ai.blur.request 발행)
+	// Spring Boot 4는 오토컨피그가 모듈별로 분리되어, Rabbit 자동설정을 위해 spring-boot-amqp 모듈이 필요하다.
+	implementation 'org.springframework.boot:spring-boot-starter-amqp'
+	implementation 'org.springframework.boot:spring-boot-amqp'
+	testImplementation 'org.testcontainers:rabbitmq'
+
 	// elasticsearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 
