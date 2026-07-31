@@ -1,9 +1,15 @@
 package com.yuhan.wagglewaggle.domain.pin.service;
 
+import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
+import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
+import com.yuhan.wagglewaggle.domain.blur.publisher.AiBlurJobPublisher;
 import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinCreation;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
+import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.place.client.KakaoLocalClient;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse;
@@ -25,14 +31,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -43,6 +54,8 @@ class PinCreateServiceTest {
     @Mock private AiBlurJobRepository aiBlurJobRepository;
     @Mock private PlaceRepository placeRepository;
     @Mock private KakaoLocalClient kakaoLocalClient;
+    @Mock private PinPersistenceService pinPersistenceService;
+    @Mock private AiBlurJobPublisher aiBlurJobPublisher;
 
     private PinCreateService service;
 
@@ -74,6 +87,7 @@ class PinCreateServiceTest {
         return new PinCreateService(
                 s3ObjectInspector, pinRepository, aiBlurJobRepository, placeRepository,
                 kakaoLocalClient, new PinTagNormalizer(),
+                pinPersistenceService, aiBlurJobPublisher,
                 new PinUploadProperties(MAX_SIZE), registrationProperties);
     }
 
@@ -216,6 +230,37 @@ class PinCreateServiceTest {
     @Test
     void 요청_바디가_없으면_INVALID_REQUEST() {
         assertError(null, ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    void create는_검증_통과시_저장하고_발행한_뒤_pinId와_PENDING을_반환한다() {
+        UUID pinId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        Pin savedPin = Pin.create(null, null, CrowdLevel.WAGLE,
+                GF.createPoint(new Coordinate(PLACE_LNG, PLACE_LAT)), null, null, VALID_KEY, null);
+        ReflectionTestUtils.setField(savedPin, "id", pinId);
+        AiBlurJob savedJob = AiBlurJob.create(pinId, VALID_KEY, AiBlurJobType.INITIAL_UPLOAD);
+        given(pinPersistenceService.save(any(ValidatedPinCreation.class)))
+                .willReturn(new PinPersistenceService.Result(savedPin, savedJob));
+
+        PinCreateResponse response = service.create(MEMBER_ID, request(PLACE_LAT, PLACE_LNG));
+
+        assertThat(response.pinId()).isEqualTo(pinId);
+        assertThat(response.videoStatus()).isEqualTo(VideoStatus.PENDING);
+        // 커밋 이후 발행 경계로 저장된 AiBlurJob이 전달된다.
+        verify(aiBlurJobPublisher).publishInitialUpload(savedJob);
+    }
+
+    @Test
+    void create는_검증_실패시_저장도_발행도_하지_않는다() {
+        PinCreateRequest invalid = request(VALID_KEY, "CROWDED", PLACE_LAT, PLACE_LNG, null);
+
+        assertThatThrownBy(() -> service.create(MEMBER_ID, invalid))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_CROWD_LEVEL);
+
+        verify(pinPersistenceService, never()).save(any());
+        verify(aiBlurJobPublisher, never()).publishInitialUpload(any());
     }
 
     private void assertError(PinCreateRequest request, ErrorCode expected) {

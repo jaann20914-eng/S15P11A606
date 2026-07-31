@@ -1,9 +1,13 @@
 package com.yuhan.wagglewaggle.domain.pin.service;
 
+import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
+import com.yuhan.wagglewaggle.domain.blur.publisher.AiBlurJobPublisher;
 import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinCreation;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.place.client.KakaoLocalClient;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse;
@@ -65,8 +69,27 @@ public class PinCreateService {
     private final PlaceRepository placeRepository;
     private final KakaoLocalClient kakaoLocalClient;
     private final PinTagNormalizer pinTagNormalizer;
+    private final PinPersistenceService pinPersistenceService;
+    private final AiBlurJobPublisher aiBlurJobPublisher;
     private final PinUploadProperties pinUploadProperties;
     private final PinRegistrationProperties pinRegistrationProperties;
+
+    /**
+     * 핀 등록 요청을 처리한다.
+     * 외부 I/O 검증(S3·Kakao)을 트랜잭션 밖에서 끝낸 뒤, Pin·PinTag·AiBlurJob 저장을 한 트랜잭션으로 수행하고,
+     * 커밋 이후 AI 블러 작업 발행을 위임한다(이번 단계는 로깅 발행).
+     */
+    public PinCreateResponse create(Long memberId, PinCreateRequest request) {
+        ValidatedPinCreation validated = validate(memberId, request);
+
+        PinPersistenceService.Result result = pinPersistenceService.save(validated);
+
+        // 트랜잭션 커밋 이후 발행 경계 호출(다음 단계에서 RabbitMQ 발행으로 교체).
+        aiBlurJobPublisher.publishInitialUpload(result.aiBlurJob());
+
+        Pin pin = result.pin();
+        return new PinCreateResponse(pin.getId(), pin.getVideoStatus());
+    }
 
     public ValidatedPinCreation validate(Long memberId, PinCreateRequest request) {
         if (request == null) {

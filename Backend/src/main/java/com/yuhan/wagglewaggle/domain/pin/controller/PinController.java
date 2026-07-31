@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
@@ -12,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,16 +40,17 @@ public class PinController {
     }
 
     /**
-     * 인증 사용자의 핀 등록 요청을 검증한다.
-     * 이번 단계에서는 저장·발행 없이 검증만 수행하며, 위반 시 서비스가 구체적 오류 코드를 반환한다.
+     * 인증 사용자의 핀 등록 요청을 처리한다.
+     * 검증 후 Pin·PinTag·AiBlurJob을 한 트랜잭션으로 저장하고, 접수 결과를 202로 반환한다.
      */
     @PostMapping
-    public ApiResponse<Void> create(
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ApiResponse<PinCreateResponse> create(
             @AuthenticationPrincipal Long memberId,
             @RequestBody(required = false) PinCreateRequest request
     ) {
-        pinCreateService.validate(memberId, request);
+        PinCreateResponse data = pinCreateService.create(memberId, request);
 
-        return ApiResponse.success(HttpStatus.OK.value(), "핀 등록 요청이 검증되었습니다.");
+        return ApiResponse.success(HttpStatus.ACCEPTED.value(), "영상 핀 등록 요청이 접수되었습니다.", data);
     }
 }
