@@ -1,5 +1,5 @@
 import type { UploadTask } from 'expo-file-system/legacy';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { VIDEO_CONTENT_TYPE } from '@/types/pinCreate';
 import type { VideoUploadTicket } from '@/types/pinCreate';
 
@@ -23,7 +23,7 @@ export interface StartedUpload {
 
 /** 촬영 파일의 크기(바이트). 발급 요청에 실어 서버가 크기 정책을 서명에 넣을 수 있게 한다. */
 export async function readVideoSize(fileUri: string): Promise<number> {
-  if (usesMockApi) return 0;
+  if (usesMock('pin/videoUploadTask')) return 0;
 
   const info = await loadFileSystem().getInfoAsync(fileUri);
   return info.exists ? info.size : 0;
@@ -47,7 +47,7 @@ export function startVideoUpload(
   onProgress: UploadProgressListener,
 ): StartedUpload {
   // 목업에서는 실제로 올릴 곳이 없어 진행률만 흉내낸다.
-  if (usesMockApi) return startFakeUpload(onProgress);
+  if (usesMock('pin/videoUploadTask')) return startFakeUpload(onProgress);
 
   const { createUploadTask, FileSystemUploadType } = loadFileSystem();
 

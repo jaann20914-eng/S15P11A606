@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { issueMockVideoUpload } from '@/mocks/pin';
 import type { VideoUploadTicket } from '@/types/pinCreate';
 
@@ -28,6 +28,6 @@ export async function issueVideoUploadTicket(
   contentType: string,
   contentLength: number,
 ): Promise<VideoUploadTicket> {
-  if (usesMockApi) return issueMockVideoUpload(contentType, contentLength);
+  if (usesMock('pin/videoUpload')) return issueMockVideoUpload(contentType, contentLength);
   return requestVideoUploadTicket(contentType, contentLength);
 }

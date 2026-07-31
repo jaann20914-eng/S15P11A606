@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { fetchMockPinDetail } from '@/mocks/pin';
 import { toCrowdLevelKey } from '@/types/pin';
 import type { PinDetail, PinDetailResponse } from '@/types/pin';
@@ -20,6 +20,6 @@ function toPinDetail(response: PinDetailResponse): PinDetail {
 }
 
 export async function getPinDetail(pinId: number): Promise<PinDetail> {
-  const response = usesMockApi ? await fetchMockPinDetail(pinId) : await requestPinDetail(pinId);
+  const response = usesMock('pin/detail') ? await fetchMockPinDetail(pinId) : await requestPinDetail(pinId);
   return toPinDetail(response);
 }

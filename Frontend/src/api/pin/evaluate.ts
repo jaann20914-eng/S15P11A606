@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { evaluateMockPin } from '@/mocks/pin';
 import type { PinEvaluationResult, PinRating } from '@/types/pin';
 
@@ -21,5 +21,5 @@ function requestEvaluatePin(pinId: number, rating: PinRating): Promise<PinEvalua
 }
 
 export function evaluatePin(pinId: number, rating: PinRating): Promise<PinEvaluationResult> {
-  return usesMockApi ? evaluateMockPin(pinId, rating) : requestEvaluatePin(pinId, rating);
+  return usesMock('pin/evaluate') ? evaluateMockPin(pinId, rating) : requestEvaluatePin(pinId, rating);
 }

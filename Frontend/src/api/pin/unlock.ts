@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { unlockMockPin } from '@/mocks/pin';
 import type { PinUnlockResult } from '@/types/pin';
 
@@ -21,5 +21,5 @@ function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnl
 }
 
 export function unlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
-  return usesMockApi ? unlockMockPin(pinId, idempotencyKey) : requestUnlockPin(pinId, idempotencyKey);
+  return usesMock('pin/unlock') ? unlockMockPin(pinId, idempotencyKey) : requestUnlockPin(pinId, idempotencyKey);
 }

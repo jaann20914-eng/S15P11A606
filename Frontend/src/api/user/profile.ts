@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { fetchMockMyProfile } from '@/mocks/mypage';
 import type { ActivityMonth, MyProfileResponse } from '@/types/user';
 
@@ -25,6 +25,6 @@ function requestMyProfile(month?: ActivityMonth): Promise<MyProfileResponse> {
 }
 
 export async function getMyProfile(month?: ActivityMonth): Promise<MyProfileResponse> {
-  if (usesMockApi) return fetchMockMyProfile(month);
+  if (usesMock('user/me')) return fetchMockMyProfile(month);
   return requestMyProfile(month);
 }

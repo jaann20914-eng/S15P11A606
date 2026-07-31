@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { createMockPin } from '@/mocks/pin';
 import type { PinCreateRequest, PinCreateResult } from '@/types/pinCreate';
 
@@ -22,6 +22,6 @@ function requestPinCreate(body: PinCreateRequest): Promise<PinCreateResult> {
 }
 
 export async function createPin(body: PinCreateRequest): Promise<PinCreateResult> {
-  if (usesMockApi) return createMockPin(body);
+  if (usesMock('pin/create')) return createMockPin(body);
   return requestPinCreate(body);
 }
