@@ -146,7 +146,7 @@ pipeline {
                         fi
 
                         docker logs "$WORKER_CONTAINER_NAME" 2>&1 \
-                            | grep -q "RabbitMQ connected."
+                            | grep -q "AI blur worker started."
                     }
 
                     # 네트워크는 Backend 배포가 먼저 만들어 두지만, 없을 때 원인이 불분명해지므로 확인한다.
@@ -189,11 +189,62 @@ pipeline {
                         echo "기존 AI Worker 컨테이너가 없습니다."
                     fi
 
-                    echo "새 컨테이너를 실행합니다."
-                    run_ai "$NEW_IMAGE"
+                    echo "새 API 컨테이너를 실행합니다."
+
+                    if ! run_ai "$NEW_IMAGE"; then
+                        echo "새 API 컨테이너 실행 자체에 실패했습니다."
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
+
 
                     echo "새 Worker 컨테이너를 실행합니다."
-                    run_worker "$NEW_IMAGE"
+
+                    if ! run_worker "$NEW_IMAGE"; then
+                        echo "새 Worker 컨테이너 실행 자체에 실패했습니다."
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
 
                     echo "/health 응답을 확인합니다."
 

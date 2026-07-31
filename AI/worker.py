@@ -30,6 +30,8 @@ async def main() -> None:
 
         await blur_worker.start()
 
+        logging.info("AI blur worker started.")
+
         # Worker 프로세스 유지
         await asyncio.Future()
 
