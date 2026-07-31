@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { readCurrentCoordinate } from '@/utils/location';
 import type { LocationFailure } from '@/utils/location';
 import type { Coordinate } from '@/store/useMapStore';
@@ -25,13 +25,24 @@ const MESSAGE: Record<LocationFailure, string> = {
   failed: '현재 위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요',
 };
 
+export interface CurrentLocationOptions {
+  /**
+   * 화면에 들어올 때 좌표를 미리 읽을지.
+   *
+   * **권한은 묻지 않는다.** 화면을 열자마자 대화상자가 뜨는 것은 사용자가 시작하지 않은
+   * 일이라 맥락이 없다. 회원가입에서 이미 받아 둔 권한이 있으면 조용히 읽고, 없으면
+   * 아무 일도 하지 않는다 — 실패해도 문구를 띄우지 않는다.
+   */
+  auto?: boolean;
+}
+
 /**
  * 기기의 현재 위치를 가져온다.
  *
- * 권한 요청은 사용자가 "현재 위치" 버튼을 눌렀을 때만 일어난다(화면 진입 시 묻지 않는다).
+ * 버튼을 눌러 요청하면 권한이 없을 때 묻는다. `auto`로 미리 읽을 때는 묻지 않는다.
  * 좌표를 읽는 규칙 자체는 `utils/location`이 갖고 있다.
  */
-export function useCurrentLocation(): CurrentLocation {
+export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}): CurrentLocation {
   const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
   /** 버튼 연타로 요청이 겹치는 것을 막는다. */
@@ -58,6 +69,28 @@ export function useCurrentLocation(): CurrentLocation {
       inFlight.current = false;
     }
   }, [coordinate]);
+
+  /*
+    미리 읽기. 실패는 조용히 넘긴다 — 사용자가 요청한 일이 아니라서 알릴 이유가 없고,
+    버튼을 누르면 그때 권한을 묻고 이유도 보여준다.
+
+    버튼 요청이 진행 중이면 건너뛴다. 그쪽이 더 최신이고 권한까지 묻는 경로다.
+  */
+  useEffect(() => {
+    if (!auto) return;
+
+    let applies = true;
+
+    void readCurrentCoordinate().then((result) => {
+      if (!applies || 'failure' in result || inFlight.current) return;
+      setCoordinate(result.coordinate);
+      setStatus('granted');
+    });
+
+    return () => {
+      applies = false;
+    };
+  }, [auto]);
 
   const message = status in MESSAGE ? MESSAGE[status as LocationFailure] : null;
 

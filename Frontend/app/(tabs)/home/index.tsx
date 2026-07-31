@@ -19,6 +19,7 @@ import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { CrowdFilterToggle } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
+import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
@@ -26,6 +27,14 @@ import { places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 type SheetLevel = 0 | 1 | 2;
+
+/**
+ * 내 위치를 기다리는 한계 시간(ms).
+ *
+ * 캐시된 위치가 있으면 즉시 오므로 대부분 이 시간을 쓰지 않는다. 새로 측위해야 하는
+ * 경우에만 걸리고, 넘기면 기본 중심으로 먼저 띄운다 — 지도가 안 보이는 것보다는 낫다.
+ */
+const MY_LOCATION_WAIT_MS = 1500;
 
 export default function Home() {
   const { height } = useWindowDimensions();
@@ -39,9 +48,21 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const [mapReady, setMapReady] = useState(false);
+
+  /**
+   * 지도를 시작할 지점. 정해지기 전에는 지도를 띄우지 않는다.
+   *
+   * `KakaoMap`은 최초 중심을 첫 렌더에 HTML로 심으므로, 나중에 옮기면 엉뚱한 동네 타일을
+   * 받아 놓고 버리게 된다. 그래서 좌표를 먼저 기다린다.
+   *
+   * 내 위치를 얻었으면 그 자리에서 시작하고 핀 맞춤은 하지 않는다 — 핀에 맞추면 방금 잡은
+   * 중심을 곧바로 덮어써 버린다. 못 얻었으면 기존 동작(기본 중심 + 핀 맞춤)으로 돌아간다.
+   */
+  const [start, setStart] = useState<{ center: Coordinate; fromMyLocation: boolean } | null>(null);
   const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
-  const myLocation = useCurrentLocation();
+  // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
+  const myLocation = useCurrentLocation({ auto: true });
   const navBarHeight = useAppTabBarHeight();
 
   const snapPoints = useMemo(
@@ -138,6 +159,25 @@ export default function Home() {
   }, [myLocation]);
 
   /*
+    좌표를 기다리되 오래 붙잡지 않는다. 캐시된 위치가 있으면 즉시 오고, 없으면 새 측위가
+    몇 초 걸릴 수 있다. 그동안 지도를 안 띄우면 로딩이 느려진 것으로 보이므로 한계를 둔다.
+  */
+  useEffect(() => {
+    if (start) return;
+
+    if (myLocation.coordinate) {
+      setStart({ center: myLocation.coordinate, fromMyLocation: true });
+      return;
+    }
+
+    const timer = setTimeout(
+      () => setStart({ center: DEFAULT_CENTER, fromMyLocation: false }),
+      MY_LOCATION_WAIT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [myLocation.coordinate, start]);
+
+  /*
     검색 화면에서 고른 장소로 이동한다.
 
     지도가 준비되기 전에 명령을 보내면 조용히 버려지므로 `mapReady`를 함께 본다.
@@ -154,23 +194,29 @@ export default function Home() {
 
   return (
     <View style={s.screen}>
-      <KakaoMap
-        ref={mapRef}
-        fullScreen
-        center={DEFAULT_CENTER}
-        myLocation={myLocation.coordinate}
-        bottomInset={coveredHeight}
-        places={markers}
-        filter={crowdFilter}
-        selectedPlaceId={selectedPlaceId}
-        // 핀 중심에서 지도를 시작한다. onReady에서 fitPlaces를 부르면 기본 중심(서울숲)
-        // 타일을 한 번 받고 버리게 되어 첫 화면이 그만큼 늦어진다.
-        fitPlacesOnReady
-        onReady={() => setMapReady(true)}
-        onPinPress={focusPlace}
-        onMapPress={clearSelection}
-        onViewChange={handleViewChange}
-      />
+      {start ? (
+        <KakaoMap
+          ref={mapRef}
+          fullScreen
+          center={start.center}
+          myLocation={myLocation.coordinate}
+          bottomInset={coveredHeight}
+          places={markers}
+          filter={crowdFilter}
+          selectedPlaceId={selectedPlaceId}
+          // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
+          fitPlacesOnReady={!start.fromMyLocation}
+          onReady={() => setMapReady(true)}
+          onPinPress={focusPlace}
+          onMapPress={clearSelection}
+          onViewChange={handleViewChange}
+        />
+      ) : (
+        // 좌표를 기다리는 짧은 구간. 지도 배경색 위에 표시만 둬 깜빡임을 줄인다.
+        <View pointerEvents="none" style={s.mapPlaceholder}>
+          <ActivityIndicator color={colors.gray600} />
+        </View>
+      )}
 
       {/* 검색바와 그 바로 아래 오른쪽에 붙는 현재 위치 버튼 (와이어프레임 기준).
           box-none이 없으면 두 요소 사이 빈 공간이 지도 드래그를 가로챈다. */}
@@ -292,6 +338,7 @@ const glassShadow = {
 
 const s = StyleSheet.create({
   screen: { flex: 1, overflow: 'hidden', backgroundColor: '#E9EEE8' },
+  mapPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   mapTop: { position: 'absolute' },
   search: {
     height: layout.searchHeight,
