@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -42,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -233,21 +235,18 @@ class PinCreateServiceTest {
     }
 
     @Test
-    void create는_검증_통과시_저장하고_발행한_뒤_pinId와_PENDING을_반환한다() {
-        UUID pinId = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-        Pin savedPin = Pin.create(null, null, CrowdLevel.WAGLE,
-                GF.createPoint(new Coordinate(PLACE_LNG, PLACE_LAT)), null, null, VALID_KEY, null);
-        ReflectionTestUtils.setField(savedPin, "id", pinId);
-        AiBlurJob savedJob = AiBlurJob.create(pinId, VALID_KEY, AiBlurJobType.INITIAL_UPLOAD);
-        given(pinPersistenceService.save(any(ValidatedPinCreation.class)))
-                .willReturn(new PinPersistenceService.Result(savedPin, savedJob));
+    void create는_저장_커밋_이후에_발행하고_pinId와_PENDING을_반환한다() {
+        AiBlurJob savedJob = givenSavedResult();
 
         PinCreateResponse response = service.create(MEMBER_ID, request(PLACE_LAT, PLACE_LNG));
 
-        assertThat(response.pinId()).isEqualTo(pinId);
+        assertThat(response.pinId()).isEqualTo(SAVED_PIN_ID);
         assertThat(response.videoStatus()).isEqualTo(VideoStatus.PENDING);
-        // 커밋 이후 발행 경계로 저장된 AiBlurJob이 전달된다.
-        verify(aiBlurJobPublisher).publishInitialUpload(savedJob);
+
+        // 저장(save)이 발행(publish)보다 먼저 일어난다 — DB 커밋 후 발행.
+        InOrder inOrder = inOrder(pinPersistenceService, aiBlurJobPublisher);
+        inOrder.verify(pinPersistenceService).save(any(ValidatedPinCreation.class));
+        inOrder.verify(aiBlurJobPublisher).publish(savedJob);
     }
 
     @Test
@@ -260,7 +259,45 @@ class PinCreateServiceTest {
                 .isEqualTo(ErrorCode.INVALID_CROWD_LEVEL);
 
         verify(pinPersistenceService, never()).save(any());
-        verify(aiBlurJobPublisher, never()).publishInitialUpload(any());
+        verify(aiBlurJobPublisher, never()).publish(any());
+    }
+
+    @Test
+    void create는_저장이_실패하면_발행하지_않고_예외를_전파한다() {
+        given(pinPersistenceService.save(any(ValidatedPinCreation.class)))
+                .willThrow(new RuntimeException("DB 오류"));
+
+        assertThatThrownBy(() -> service.create(MEMBER_ID, request(PLACE_LAT, PLACE_LNG)))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(aiBlurJobPublisher, never()).publish(any());
+    }
+
+    @Test
+    void create는_발행에_실패해도_저장을_유지하고_pinId와_PENDING을_반환한다() {
+        givenSavedResult();
+        // 발행 실패(브로커 장애 등)를 시뮬레이션한다.
+        org.mockito.BDDMockito.willThrow(new org.springframework.amqp.AmqpException("broker down"))
+                .given(aiBlurJobPublisher).publish(any());
+
+        PinCreateResponse response = service.create(MEMBER_ID, request(PLACE_LAT, PLACE_LNG));
+
+        // 발행이 실패해도 저장은 롤백되지 않고, 응답은 pinId/PENDING으로 정상 반환된다.
+        assertThat(response.pinId()).isEqualTo(SAVED_PIN_ID);
+        assertThat(response.videoStatus()).isEqualTo(VideoStatus.PENDING);
+        verify(pinPersistenceService).save(any(ValidatedPinCreation.class));
+    }
+
+    private static final UUID SAVED_PIN_ID = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+    private AiBlurJob givenSavedResult() {
+        Pin savedPin = Pin.create(null, null, CrowdLevel.WAGLE,
+                GF.createPoint(new Coordinate(PLACE_LNG, PLACE_LAT)), null, null, VALID_KEY, null);
+        ReflectionTestUtils.setField(savedPin, "id", SAVED_PIN_ID);
+        AiBlurJob savedJob = AiBlurJob.create(SAVED_PIN_ID, VALID_KEY, AiBlurJobType.INITIAL_UPLOAD);
+        given(pinPersistenceService.save(any(ValidatedPinCreation.class)))
+                .willReturn(new PinPersistenceService.Result(savedPin, savedJob));
+        return savedJob;
     }
 
     private void assertError(PinCreateRequest request, ErrorCode expected) {

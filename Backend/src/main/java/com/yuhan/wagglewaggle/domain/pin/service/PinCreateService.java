@@ -84,8 +84,14 @@ public class PinCreateService {
 
         PinPersistenceService.Result result = pinPersistenceService.save(validated);
 
-        // 트랜잭션 커밋 이후 발행 경계 호출(다음 단계에서 RabbitMQ 발행으로 교체).
-        aiBlurJobPublisher.publishInitialUpload(result.aiBlurJob());
+        // 트랜잭션 커밋 이후에만 발행한다. 발행 실패는 저장을 롤백하지 않으며 API 응답에도 영향을 주지 않는다.
+        // (실패/장기 PENDING 작업은 재발행 스케줄러가 동일 requestId로 재시도한다.)
+        try {
+            aiBlurJobPublisher.publish(result.aiBlurJob());
+        } catch (Exception e) {
+            log.error("ai.blur.request 최초 발행 실패 (requestId={}). 재발행 스케줄러가 재시도한다.",
+                    result.aiBlurJob().getRequestId(), e);
+        }
 
         Pin pin = result.pin();
         return new PinCreateResponse(pin.getId(), pin.getVideoStatus());
