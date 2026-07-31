@@ -74,7 +74,8 @@ public enum ErrorCode {
     PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다."),
 
     // AI Blur Result
-    INVALID_AI_BLUR_RESULT(HttpStatus.BAD_REQUEST, "AI 블러 결과 메시지 형식이 올바르지 않습니다.");
+    INVALID_AI_BLUR_RESULT(HttpStatus.BAD_REQUEST, "AI 블러 결과 메시지 형식이 올바르지 않습니다."),
+    AI_BLUR_PIN_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "AI 블러 대상 핀을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
