@@ -54,7 +54,7 @@ public class PlaceSearchConfirmService {
                 ? placeDetailService.getPlaceDetail(place, memberId)
                 : loadUnregisteredPlace(validKakaoPlaceId, validPlaceName);
 
-        saveSearchHistory(memberId, place, validPlaceName);
+        saveSearchHistory(memberId, place, validKakaoPlaceId, validPlaceName);
         return response;
     }
 
@@ -100,14 +100,15 @@ public class PlaceSearchConfirmService {
     }
 
     /**
-     * 장소 검색 기록을 저장한다. search_type=PLACE, keyword=장소명.
-     * 우리 DB에 있는 장소면 place 참조를 함께 저장하고, 없으면 place=null 이다.
+     * 장소 검색 기록을 저장한다. search_type=PLACE, keyword=장소명, kakao_place_id=카카오 장소 ID.
+     * 우리 DB에 있는 장소면 place 참조를 함께 저장하고, 없으면 place=null 이며 kakao_place_id 만 남는다.
      * 매 검색마다 새 기록을 남기며, 저장 실패가 응답을 막지 않도록 best-effort 로 처리한다.
      */
-    private void saveSearchHistory(Long memberId, Place place, String keyword) {
+    private void saveSearchHistory(Long memberId, Place place, String kakaoPlaceId, String keyword) {
         try {
             Member member = memberRepository.getReferenceById(memberId);
-            searchHistoryRepository.save(SearchHistory.create(member, place, SearchType.PLACE, keyword));
+            searchHistoryRepository.save(
+                    SearchHistory.create(member, place, kakaoPlaceId, SearchType.PLACE, keyword));
         } catch (Exception e) {
             log.warn("장소 검색 기록 저장 실패 (memberId={}, keyword={})", memberId, keyword, e);
         }

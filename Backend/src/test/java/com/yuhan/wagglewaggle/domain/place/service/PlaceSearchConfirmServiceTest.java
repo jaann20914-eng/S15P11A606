@@ -97,6 +97,7 @@ class PlaceSearchConfirmServiceTest {
         assertThat(saved.getSearchType()).isEqualTo(SearchType.PLACE);
         assertThat(saved.getKeyword()).isEqualTo(PLACE_NAME);
         assertThat(saved.getPlace()).isSameAs(place);
+        assertThat(saved.getKakaoPlaceId()).isEqualTo(KAKAO_PLACE_ID);
     }
 
     // ===== case 2: DB 미존재 + 카카오 매칭 =====
@@ -128,6 +129,8 @@ class PlaceSearchConfirmServiceTest {
         verify(searchHistoryRepository).save(captor.capture());
         assertThat(captor.getValue().getSearchType()).isEqualTo(SearchType.PLACE);
         assertThat(captor.getValue().getPlace()).isNull();
+        // place_id는 null이어도 kakao_place_id는 저장된다.
+        assertThat(captor.getValue().getKakaoPlaceId()).isEqualTo(KAKAO_PLACE_ID);
     }
 
     // ===== case 2: DB 미존재 + 카카오 미매칭/빈 결과 =====

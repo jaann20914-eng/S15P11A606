@@ -93,13 +93,13 @@ public class TaggedPinService {
     }
 
     /**
-     * 태그 검색 기록을 저장한다. search_type=TAG, place=null, keyword=정규화된 태그.
+     * 태그 검색 기록을 저장한다. search_type=TAG, place=null, kakao_place_id=null, keyword=정규화된 태그.
      * 매 검색마다 새 기록을 남기며(중복 제거 없음), 저장 실패가 핀 목록 응답을 막지 않도록 best-effort로 처리한다.
      */
     private void saveSearchHistory(Long memberId, String keyword) {
         try {
             Member member = memberRepository.getReferenceById(memberId);
-            searchHistoryRepository.save(SearchHistory.create(member, null, SearchType.TAG, keyword));
+            searchHistoryRepository.save(SearchHistory.create(member, null, null, SearchType.TAG, keyword));
         } catch (Exception e) {
             log.warn("태그 검색 기록 저장 실패 (memberId={}, keyword={})", memberId, keyword, e);
         }
