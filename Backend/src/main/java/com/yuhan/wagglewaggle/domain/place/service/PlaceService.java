@@ -21,6 +21,9 @@ import java.util.List;
 public class PlaceService {
 
     private static final int DEFAULT_SEARCH_RADIUS_METERS = 50;
+    // 카카오 키워드 검색이 허용하는 radius 범위(미터). 이 범위를 벗어나면 카카오가 400을 반환한다.
+    private static final int MIN_SEARCH_RADIUS_METERS = 0;
+    private static final int MAX_SEARCH_RADIUS_METERS = 20000;
 
     private final KakaoLocalClient kakaoLocalClient;
 
@@ -29,7 +32,7 @@ public class PlaceService {
     }
 
     public PlaceSearchResponse searchPlaces(String q, double latitude, double longitude, Integer radius) {
-        String keyword = validateSearchQuery(q, latitude, longitude);
+        String keyword = validateSearchQuery(q, latitude, longitude, radius);
         int searchRadius = (radius != null) ? radius : DEFAULT_SEARCH_RADIUS_METERS;
 
         KakaoKeywordResponse response = callKakaoForSearch(keyword, latitude, longitude, searchRadius);
@@ -46,13 +49,16 @@ public class PlaceService {
         return new PlaceSearchResponse(results);
     }
 
-    private String validateSearchQuery(String q, double latitude, double longitude) {
+    private String validateSearchQuery(String q, double latitude, double longitude, Integer radius) {
         if (q == null) {
             throw new CustomException(ErrorCode.INVALID_PLACE_SEARCH_QUERY);
         }
         String keyword = q.trim();
         boolean invalidCoordinates = latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180;
-        if (keyword.isEmpty() || invalidCoordinates) {
+        // radius는 선택값이라 null이면 기본값을 쓰고, 값이 오면 카카오 허용 범위(0~20000m)만 통과시킨다.
+        boolean invalidRadius = radius != null
+                && (radius < MIN_SEARCH_RADIUS_METERS || radius > MAX_SEARCH_RADIUS_METERS);
+        if (keyword.isEmpty() || invalidCoordinates || invalidRadius) {
             throw new CustomException(ErrorCode.INVALID_PLACE_SEARCH_QUERY);
         }
         return keyword;
