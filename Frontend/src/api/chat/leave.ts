@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { leaveMockPinChats } from '@/mocks/chat';
 import type { PinChatLeaveResult } from '@/types/chat';
 
@@ -24,5 +24,5 @@ function requestLeavePinChats(pinId: number): Promise<PinChatLeaveResult> {
 }
 
 export function leavePinChats(pinId: number): Promise<PinChatLeaveResult> {
-  return usesMockApi ? leaveMockPinChats(pinId) : requestLeavePinChats(pinId);
+  return usesMock('chat/leave') ? leaveMockPinChats(pinId) : requestLeavePinChats(pinId);
 }
