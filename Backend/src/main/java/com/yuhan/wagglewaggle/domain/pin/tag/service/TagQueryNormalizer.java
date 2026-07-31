@@ -10,8 +10,11 @@ public class TagQueryNormalizer {
     private static final int MAX_QUERY_LENGTH = 50;
 
     // 검색어를 색인 정규화 규칙과 동일하게 다듬고(공백 제거 → 선행 # 제거 → 소문자)
-    // 빈값/길이/좌표 범위를 검증한다. 위반 시 INVALID_TAG_SEARCH_QUERY.
-    public String normalizeAndValidate(String q, double latitude, double longitude) {
+    // 빈값/길이/지도 경계 좌표를 검증한다. 위반 시 INVALID_TAG_SEARCH_QUERY.
+    public String normalizeAndValidate(
+            String q,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
         if (q == null) {
             throw new CustomException(ErrorCode.INVALID_TAG_SEARCH_QUERY);
         }
@@ -21,8 +24,12 @@ public class TagQueryNormalizer {
         }
         keyword = keyword.toLowerCase();
 
-        boolean invalidCoordinates = latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180;
-        if (keyword.isEmpty() || keyword.length() > MAX_QUERY_LENGTH || invalidCoordinates) {
+        boolean outOfRange = southWestLatitude < -90 || southWestLatitude > 90
+                || northEastLatitude < -90 || northEastLatitude > 90
+                || southWestLongitude < -180 || southWestLongitude > 180
+                || northEastLongitude < -180 || northEastLongitude > 180;
+        boolean invalidOrder = southWestLatitude >= northEastLatitude || southWestLongitude >= northEastLongitude;
+        if (keyword.isEmpty() || keyword.length() > MAX_QUERY_LENGTH || outOfRange || invalidOrder) {
             throw new CustomException(ErrorCode.INVALID_TAG_SEARCH_QUERY);
         }
         return keyword;

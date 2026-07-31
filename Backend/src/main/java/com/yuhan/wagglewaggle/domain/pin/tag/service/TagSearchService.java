@@ -23,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TagSearchService {
 
-    private static final int SEARCH_RADIUS_METERS = 3000;
     private static final int MAX_RESULTS = 10;
 
     // constant_score로 각 관점의 점수를 고정해 완전일치 > 접두어 > 부분일치 순서를 보장한다.
@@ -35,11 +34,16 @@ public class TagSearchService {
     private final TagQueryNormalizer normalizer;
     private final ElasticsearchOperations operations;
 
-    public TagSearchResponse search(String q, double latitude, double longitude) {
-        String keyword = normalizer.normalizeAndValidate(q, latitude, longitude);
+    public TagSearchResponse search(
+            String q,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
+        String keyword = normalizer.normalizeAndValidate(
+                q, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
         try {
-            NativeQuery query = buildQuery(keyword, latitude, longitude);
+            NativeQuery query = buildQuery(
+                    keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
             SearchHits<PinTagDocument> hits = operations.search(query, PinTagDocument.class);
 
             List<TagSearchResult> tags = hits.getSearchHits().stream()
@@ -55,15 +59,19 @@ public class TagSearchService {
         }
     }
 
-    private NativeQuery buildQuery(String keyword, double latitude, double longitude) {
+    private NativeQuery buildQuery(
+            String keyword,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
         String now = Instant.now().toString();
         return NativeQuery.builder()
                 .withQuery(q -> q.bool(b -> b
-                        // 반경 + 활성 + 미만료만 후보로 통과
-                        .filter(f -> f.geoDistance(g -> g
+                        // 지도 경계(bounds) + 활성 + 미만료만 후보로 통과
+                        .filter(f -> f.geoBoundingBox(g -> g
                                 .field("location")
-                                .distance(SEARCH_RADIUS_METERS + "m")
-                                .location(l -> l.latlon(ll -> ll.lat(latitude).lon(longitude)))))
+                                .boundingBox(bb -> bb.tlbr(t -> t
+                                        .topLeft(tl -> tl.latlon(ll -> ll.lat(northEastLatitude).lon(southWestLongitude)))
+                                        .bottomRight(br -> br.latlon(ll -> ll.lat(southWestLatitude).lon(northEastLongitude)))))))
                         .filter(f -> f.term(t -> t.field("active").value(true)))
                         .filter(f -> f.range(r -> r.untyped(u -> u.field("expiresAt").gt(JsonData.of(now)))))
                         // 티어별 고정 점수: 완전일치(100) > 접두어(10) > 부분일치(1)
