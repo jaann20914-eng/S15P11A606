@@ -18,9 +18,9 @@ CROWD_LEVEL_BUSY_THRESHOLD = 2.5
 _MAX_UINT32 = 0xFFFFFFFF
 
 
-def _mock_score(place_id: str) -> float:
+def _mock_score(place_id: int) -> float:
     """placeId로부터 0.0~1.0 사이의 고정된 값을 만든다. 개인화 로직은 아직 없다."""
-    digest = hashlib.sha256(place_id.encode()).digest()
+    digest = hashlib.sha256(str(place_id).encode()).digest()
     return round(int.from_bytes(digest[:4], "big") / _MAX_UINT32, 2)
 
 
