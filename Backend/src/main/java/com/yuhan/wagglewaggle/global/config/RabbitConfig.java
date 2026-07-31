@@ -35,6 +35,10 @@ public class RabbitConfig {
     public static final String DLQ = "ai.blur.dead-letter";
     public static final String DLQ_ROUTING_KEY = "ai.blur.dead-letter";
 
+    // ai.blur.result 수신 계약. 큐/바인딩/리스너 선언은 결과 소비 단계에서 추가한다.
+    public static final String RESULT_QUEUE = "ai.blur.result";
+    public static final String RESULT_ROUTING_KEY = "ai.blur.result";
+
     @Bean
     public DirectExchange aiBlurExchange() {
         return new DirectExchange(EXCHANGE, true, false);
