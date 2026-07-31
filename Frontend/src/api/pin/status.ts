@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { fetchMockPinVideoStatus } from '@/mocks/pin';
 import type { PinStatusResult } from '@/types/pinCreate';
 
@@ -23,6 +23,6 @@ function requestPinVideoStatus(pinId: number): Promise<PinStatusResult> {
 }
 
 export async function getPinVideoStatus(pinId: number): Promise<PinStatusResult> {
-  if (usesMockApi) return fetchMockPinVideoStatus(pinId);
+  if (usesMock('pin/status')) return fetchMockPinVideoStatus(pinId);
   return requestPinVideoStatus(pinId);
 }

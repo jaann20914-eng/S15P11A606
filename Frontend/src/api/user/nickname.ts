@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { checkMockNickname, updateMockNickname } from '@/mocks/mypage';
 import type { NicknameAvailabilityResponse, NicknameUpdateResponse } from '@/types/user';
 
@@ -26,7 +26,7 @@ function requestNicknameAvailability(nickname: string): Promise<NicknameAvailabi
 export async function getNicknameAvailability(
   nickname: string,
 ): Promise<NicknameAvailabilityResponse> {
-  if (usesMockApi) return checkMockNickname(nickname);
+  if (usesMock('user/nickname-availability')) return checkMockNickname(nickname);
   return requestNicknameAvailability(nickname);
 }
 
@@ -51,6 +51,6 @@ function requestNicknameUpdate(nickname: string): Promise<NicknameUpdateResponse
 }
 
 export async function updateMyNickname(nickname: string): Promise<NicknameUpdateResponse> {
-  if (usesMockApi) return updateMockNickname(nickname);
+  if (usesMock('user/me')) return updateMockNickname(nickname);
   return requestNicknameUpdate(nickname);
 }

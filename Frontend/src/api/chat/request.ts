@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { createMockChatRequest } from '@/mocks/chat';
 import type { ChatRequestResult } from '@/types/chat';
 
@@ -24,5 +24,5 @@ function requestCreateChatRequest(pinId: number): Promise<ChatRequestResult> {
 }
 
 export function createChatRequest(pinId: number): Promise<ChatRequestResult> {
-  return usesMockApi ? createMockChatRequest(pinId) : requestCreateChatRequest(pinId);
+  return usesMock('chat/request') ? createMockChatRequest(pinId) : requestCreateChatRequest(pinId);
 }

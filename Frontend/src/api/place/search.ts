@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { searchMockPlaces } from '@/mocks/place';
 import type { PlaceSearchItem, PlaceSearchResponse } from '@/types/place';
 
@@ -35,7 +35,7 @@ export async function searchPlaces(
 ): Promise<PlaceSearchItem[]> {
   const trimmed = query.trim();
 
-  if (usesMockApi) return searchMockPlaces(trimmed);
+  if (usesMock('place/search')) return searchMockPlaces(trimmed);
 
   const response = await requestPlaceSearch(trimmed, latitude, longitude);
   return response.places;
