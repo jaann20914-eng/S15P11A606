@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockPinVideoStatus } from '@/mocks/pin';
 import type { PinStatusResult } from '@/types/pinCreate';
+import type { PinId } from '@/types/pin';
 
 /**
  * 핀 영상 처리 상태 조회.
@@ -18,11 +19,11 @@ import type { PinStatusResult } from '@/types/pinCreate';
  *
  * 오류 코드: `UNAUTHORIZED` `PIN_NOT_FOUND`(추정).
  */
-function requestPinVideoStatus(pinId: number): Promise<PinStatusResult> {
+function requestPinVideoStatus(pinId: PinId): Promise<PinStatusResult> {
   return apiRequest<PinStatusResult>({ method: 'GET', url: `/api/v1/pins/${pinId}/status` });
 }
 
-export async function getPinVideoStatus(pinId: number): Promise<PinStatusResult> {
+export async function getPinVideoStatus(pinId: PinId): Promise<PinStatusResult> {
   if (usesMock('pin/status')) return fetchMockPinVideoStatus(pinId);
   return requestPinVideoStatus(pinId);
 }

@@ -19,6 +19,7 @@ import type {
   VideoUploadTicket,
 } from '@/types/pinCreate';
 import { createStore } from './createStore';
+import type { PinId } from '@/types/pin';
 
 /**
  * 핀 등록 진행 상태.
@@ -31,7 +32,7 @@ export interface PinPublishState {
   /** 업로드 진행률 0~1. `uploading` 단계에서만 의미가 있다. */
   progress: number;
   /** 접수된 핀. 202를 받으면 채워진다. */
-  pinId: number | null;
+  pinId: PinId | null;
   videoStatus: PinVideoStatus | null;
   error: string | null;
   /** 다시 시도할 값이 있는 실패인지. */
@@ -99,7 +100,7 @@ function sleep(ms: number): Promise<void> {
  * 최대 대기 시간을 넘기면 포기한다. 실패가 아니라 접수는 됐으므로 그 사실만 알린다.
  */
 async function waitForCompletion(
-  pinId: number,
+  pinId: PinId,
   alive: () => boolean,
   set: (partial: Partial<PinPublishState>) => void,
 ): Promise<void> {
@@ -148,7 +149,7 @@ let attempt = 0;
 const initialState = {
   phase: 'idle' as VideoUploadPhase,
   progress: 0,
-  pinId: null as number | null,
+  pinId: null as PinId | null,
   videoStatus: null as PinVideoStatus | null,
   error: null as string | null,
   retryable: false,

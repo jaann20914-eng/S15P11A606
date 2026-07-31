@@ -1,5 +1,17 @@
-// 백엔드 영상핀 응답에 맞춘 도메인 타입. 연동 전이라 아직 참조하는 화면이 없다.
+// 백엔드 영상핀 응답에 맞춘 도메인 타입.
 import type { CrowdLevelKey } from '@/constants/crowdLevels';
+
+/**
+ * 핀 식별자.
+ *
+ * 백엔드가 UUID를 쓴다(`Pin.id`는 `@GeneratedValue(strategy = UUID)`). 숫자로 다루면
+ * `Number('0f8c…')`가 `NaN`이 되어 경로 파라미터를 읽는 순간 조용히 깨진다.
+ *
+ * 값을 계산하거나 비교해서 순서를 매기지 않는다. 서버가 준 문자열을 그대로 들고 다니다가
+ * 그대로 돌려보내기만 한다. 별칭으로 두는 이유는 나중에 형식이 또 바뀌어도 한 곳만 고치면
+ * 되게 하려는 것이다.
+ */
+export type PinId = string;
 
 /**
  * 핀 처리 상태.
@@ -35,7 +47,7 @@ export type PinRating = 'HELPFUL' | 'NOT_HELPFUL';
  * 같은 작성자가 이미 삭제된 핀을 다시 요청하면 같은 결과를 돌려준다(멱등).
  */
 export type PinDeleteResult = {
-  pinId: number;
+  pinId: PinId;
   status: 'DELETED';
   /** 삭제와 함께 CLOSED로 바뀐 채팅방. 없으면 빈 배열이다. */
   closedChatRoomIds: number[];
@@ -45,7 +57,7 @@ export type PinDeleteResult = {
 /** 평가 등록 응답 `data`. */
 export type PinEvaluationResult = {
   evaluationId: number;
-  pinId: number;
+  pinId: PinId;
   rating: PinRating;
   /** 평가자에게 지급된 크레딧. 정상 최초 평가는 1이다. */
   rewardCredit: number;
@@ -97,7 +109,7 @@ export type PinDetailResponse = Omit<PinDetail, 'crowdLevel'> & {
  * 화면 편의를 위한 파생값은 넣지 않고 아래 헬퍼(`isOwnPin` 등)로 판정한다.
  */
 export type PinDetail = {
-  pinId: number;
+  pinId: PinId;
   place: PinPlaceSummary;
   /**
    * 작성자의 공개 뷰 각도. 프로필 링 안에 `90°`처럼 표시한다.
@@ -156,7 +168,7 @@ export function toServerCrowdLevel(key: CrowdLevelKey): PinCrowdLevel {
 
 /** 영상 잠금 해제(결제) 응답 `data`. */
 export type PinUnlockResult = {
-  pinId: number;
+  pinId: PinId;
   /** 이번 요청에서 실제로 차감된 크레딧. 재구매·작성자는 0이다. */
   creditCharged: number;
   /** 처리 후 잔액. */
@@ -199,7 +211,7 @@ export type TodayPinStatus = 'PROCESSING' | 'ACTIVE';
 
 /** 오늘 등록한 영상핀 한 건. */
 export interface TodayPin {
-  pinId: number;
+  pinId: PinId;
   placeId: number;
   placeName: string;
   placeAddress: string;
