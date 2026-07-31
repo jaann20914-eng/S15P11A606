@@ -41,7 +41,6 @@ public class PlaceService {
 
         List<PlaceSearchResult> results = documents.stream()
                 .map(document -> toSearchResult(document, latitude, longitude))
-                .sorted(Comparator.comparingInt(PlaceSearchResult::distanceMeters))
                 .toList();
 
         return new PlaceSearchResponse(results);
