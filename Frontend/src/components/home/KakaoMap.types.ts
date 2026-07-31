@@ -13,6 +13,22 @@ export interface KakaoMapProps {
   selectedPlaceId?: string | null;
   /** 최초 중심 좌표. 이후 변경은 `ref.panTo`로 처리해 지도를 다시 로드하지 않는다. */
   center: Coordinate;
+  /**
+   * 준비되는 즉시 핀이 모두 보이도록 영역을 맞출지.
+   *
+   * 이 값을 켜면 최초 중심으로 `center` 대신 **핀들의 중심**을 쓴다. 그러지 않으면 지도가
+   * `center` 주변 타일을 한 번 받고, 곧바로 핀 영역으로 옮겨 가며 그 타일을 전부 버린다.
+   * 두 지점이 멀수록 낭비가 커진다.
+   *
+   * 화면에서 `onReady`로 `fitPlaces()`를 부르는 것과 결과는 같지만, 낭비되는 왕복이 없다.
+   */
+  fitPlacesOnReady?: boolean;
+  /**
+   * 이 화면에서 `searchPlace`를 쓰는지.
+   *
+   * 검색에 필요한 `libraries=services`는 별도 번들이라 첫 렌더를 늦춘다. 쓰는 화면만 켠다.
+   */
+  usePlaceSearch?: boolean;
   myLocation?: Coordinate | null;
   fullScreen?: boolean;
   style?: StyleProp<ViewStyle>;

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   PanResponder,
   Pressable,
@@ -147,7 +148,9 @@ export default function Home() {
         places={markers}
         filter={crowdFilter}
         selectedPlaceId={selectedPlaceId}
-        onReady={() => mapRef.current?.fitPlaces()}
+        // 핀 중심에서 지도를 시작한다. onReady에서 fitPlaces를 부르면 기본 중심(서울숲)
+        // 타일을 한 번 받고 버리게 되어 첫 화면이 그만큼 늦어진다.
+        fitPlacesOnReady
         onPinPress={focusPlace}
         onMapPress={clearSelection}
         onViewChange={handleViewChange}
@@ -164,17 +167,34 @@ export default function Home() {
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="현재 위치로 돌아가기"
           accessibilityState={{ busy: myLocation.status === 'loading' }}
+          disabled={myLocation.status === 'loading'}
           onPress={goToMyLocation}
           style={s.location}
         >
-          <Ionicons
-            name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
-            size={23}
-            color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
-          />
+          {/*
+            누른 뒤 아무 표시가 없으면 버튼이 고장난 것으로 보인다. 실제로 좌표를 받는 데
+            몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
+          */}
+          {myLocation.status === 'loading' ? (
+            <ActivityIndicator size="small" color={colors.dark} />
+          ) : (
+            <Ionicons
+              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+              size={23}
+              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+            />
+          )}
         </Pressable>
+
+        {/* 실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다. */}
+        {myLocation.message && (
+          <Text accessibilityRole="alert" style={s.locationMessage}>
+            {myLocation.message}
+          </Text>
+        )}
       </View>
 
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
@@ -280,6 +300,17 @@ const s = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: 'rgba(255,255,255,0.92)',
     ...glassShadow,
+  },
+  locationMessage: {
+    ...type.caption,
+    alignSelf: 'flex-end',
+    marginTop: spacing.x2,
+    paddingVertical: spacing.x1,
+    paddingHorizontal: spacing.x3,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    color: colors.white,
+    backgroundColor: 'rgba(40,38,38,0.82)',
   },
   sheet: {
     ...StyleSheet.absoluteFillObject,

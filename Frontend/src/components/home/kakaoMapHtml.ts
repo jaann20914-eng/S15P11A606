@@ -65,12 +65,20 @@ export interface KakaoMapHtmlOptions {
   appKey: string;
   center: { latitude: number; longitude: number };
   level?: number;
+  /**
+   * 장소 키워드 검색(`searchPlace`)을 쓸 화면인지.
+   *
+   * `libraries=services`는 SDK 본체와 **별도로 내려받는 추가 번들**이라 첫 렌더를 그만큼
+   * 늦춘다. 홈 지도는 `panTo`·`fitPlaces`만 쓰고 검색은 하지 않으므로 기본은 끈 상태다.
+   */
+  usePlaceSearch?: boolean;
 }
 
 export function buildKakaoMapHtml({
   appKey,
   center,
   level = DEFAULT_MAP_LEVEL,
+  usePlaceSearch = false,
 }: KakaoMapHtmlOptions): string {
   const initial = JSON.stringify({
     lat: center.latitude,
@@ -89,6 +97,15 @@ export function buildKakaoMapHtml({
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<!--
+  첫 렌더까지의 시간은 대부분 네트워크 대기다. SDK는 dapi.kakao.com에서, 지도 타일은
+  daumcdn.net에서 내려오는데 둘 다 이 문서를 파싱하기 전에는 연결이 시작되지 않는다.
+  미리 연결해 두면 DNS 조회와 TLS 핸드셰이크가 스크립트 요청과 겹쳐 진행된다.
+  crossorigin이 없으면 타일 요청과 다른 커넥션이 잡혀 preconnect가 헛돈다.
+-->
+<link rel="preconnect" href="https://dapi.kakao.com" crossorigin />
+<link rel="preconnect" href="https://t1.daumcdn.net" crossorigin />
+<link rel="dns-prefetch" href="https://map.daumcdn.net" />
 <!--
   문서 전체에 no-referrer를 걸면 안 된다.
   SDK 파일(sdk.js)만 Referer 없이 받고(도메인 등록 없이도 지도가 뜨도록), 그 위에서 도는
@@ -441,8 +458,8 @@ export function buildKakaoMapHtml({
   // 이 요청에만 Referer를 빼서, 도메인 등록 없이도 SDK를 받을 수 있게 한다.
   // 문서 정책은 건드리지 않으므로 services 검색 호출은 Referer를 정상적으로 보낸다.
   sdk.referrerPolicy = 'no-referrer';
-  // services: 장소 키워드 검색. 백엔드가 좌표를 주기 전까지 장소명으로 위치를 찾는다.
-  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services';
+  // services: 장소 키워드 검색. 쓰는 화면에서만 붙인다 — 안 쓰는 화면에서는 첫 렌더만 늦춘다.
+  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false${usePlaceSearch ? '&libraries=services' : ''}';
   sdk.onload = bootstrap;
   sdk.onerror = function () { postToHost({ type: 'error', reason: 'sdk-load-failed' }); };
   document.head.appendChild(sdk);

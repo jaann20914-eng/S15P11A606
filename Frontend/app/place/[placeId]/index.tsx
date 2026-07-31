@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   PanResponder,
   Pressable,
@@ -233,6 +234,8 @@ export default function Place() {
         places={marker}
         filter={crowdFilter}
         selectedPlaceId={mockPlace.id}
+        // 이 화면만 장소명 검색을 쓴다. 홈은 쓰지 않아 SDK 번들을 그만큼 덜 받는다.
+        usePlaceSearch
         onReady={handleMapReady}
         onPlaceResolved={handleResolved}
         onPlaceNotFound={handleNotFound}
@@ -249,12 +252,24 @@ export default function Place() {
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
         {level !== 2 && (
-          <Pressable accessibilityLabel="현재 위치로 이동" onPress={goToMyLocation} style={s.location}>
-            <Ionicons
-              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
-              size={22}
-              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
-            />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="현재 위치로 이동"
+            accessibilityState={{ busy: myLocation.status === 'loading' }}
+            disabled={myLocation.status === 'loading'}
+            onPress={goToMyLocation}
+            style={s.location}
+          >
+            {/* 홈과 같은 이유로 기다리는 중임을 드러낸다. 표시가 없으면 먹통으로 보인다. */}
+            {myLocation.status === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.dark} />
+            ) : (
+              <Ionicons
+                name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+                size={22}
+                color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+              />
+            )}
           </Pressable>
         )}
       </View>
