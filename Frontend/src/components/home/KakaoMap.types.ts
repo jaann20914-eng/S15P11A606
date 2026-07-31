@@ -50,9 +50,23 @@ export interface KakaoMapProps {
   bottomInset?: number;
 }
 
+/** 지도 이동 방식. */
+export interface PanOptions {
+  /**
+   * 손으로 밀듯 이어서 움직일지. 기본은 `true`.
+   *
+   * 사용자가 목록이나 핀을 눌러 옮기는 경우에는 켜 둔다 — 화면이 갑자기 바뀌면 어디서
+   * 어디로 갔는지 알 수 없다. 첫 화면을 잡는 단계처럼 "원래 그 자리였던" 것으로 보여야
+   * 할 때만 끈다.
+   *
+   * 이동 거리가 화면보다 크면 SDK가 스스로 애니메이션을 건너뛴다.
+   */
+  animate?: boolean;
+}
+
 export interface KakaoMapHandle {
-  /** 좌표를 보이는 영역의 중앙으로 옮긴다. */
-  panTo: (coordinate: Coordinate) => void;
+  /** 좌표를 보이는 영역의 중앙으로 옮긴다. 기본은 부드럽게 이어서 움직인다. */
+  panTo: (coordinate: Coordinate, options?: PanOptions) => void;
   /** 장소명으로 검색해 그 위치로 이동한다. 결과는 `onPlaceResolved`로 온다. */
   searchPlace: (keyword: string) => void;
   setLevel: (level: number) => void;

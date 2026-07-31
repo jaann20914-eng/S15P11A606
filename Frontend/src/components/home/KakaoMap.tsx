@@ -138,8 +138,13 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   useImperativeHandle(
     ref,
     () => ({
-      panTo: ({ latitude, longitude }) =>
-        send('panTo', [latitude, longitude, Math.round(insetRef.current / 2)]),
+      panTo: ({ latitude, longitude }, options) =>
+        send('panTo', [
+          latitude,
+          longitude,
+          Math.round(insetRef.current / 2),
+          options?.animate ?? true,
+        ]),
       searchPlace: (keyword: string) => send('searchPlace', [keyword, Math.round(insetRef.current / 2)]),
       setLevel: (level: number) => send('setLevel', [level]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),

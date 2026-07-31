@@ -121,12 +121,19 @@ export default function Home() {
     [visiblePlaces],
   );
 
+  /**
+   * 상세 화면으로 넘어간다. 카드의 `>` 만 이 역할을 한다.
+   *
+   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답하고, 상세는
+   * 명시적으로 눌러 들어가게 나눠 둔다. 카드 본문까지 화면을 전환하면 지도에서 위치를
+   * 확인할 방법이 없어진다.
+   */
   const openPlace = (placeId: string) => {
     selectPlace(placeId);
     router.push(`/place/${placeId}`);
   };
 
-  /** 핀 탭은 상세로 바로 넘어가지 않고 해당 장소를 지도 중앙에 두고 목록을 함께 보여준다. */
+  /** 핀·카드 탭은 상세로 넘어가지 않고 해당 장소를 지도 중앙으로 부드럽게 옮긴다. */
   const focusPlace = useCallback(
     (placeId: string) => {
       const place = places.find((item) => item.id === placeId);
@@ -291,7 +298,14 @@ export default function Home() {
           ]}
         >
           {visiblePlaces.map((place) => (
-            <Pressable key={place.id} onPress={() => openPlace(place.id)} style={s.placeCard}>
+            <Pressable
+              key={place.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${place.name} 지도에서 보기`}
+              accessibilityState={{ selected: place.id === selectedPlaceId }}
+              onPress={() => focusPlace(place.id)}
+              style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
+            >
               <View style={s.cardTop}>
                 <View style={s.placeCopy}>
                   <Text numberOfLines={1} style={s.placeName}>
@@ -302,7 +316,22 @@ export default function Home() {
                     {place.address}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
+                {/*
+                  카드 안의 버튼이라 부모의 onPress가 함께 불린다. 막지 않으면 상세로
+                  가면서 지도까지 움직인다.
+                */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${place.name} 상세 보기`}
+                  hitSlop={10}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    openPlace(place.id);
+                  }}
+                  style={s.detailButton}
+                >
+                  <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
+                </Pressable>
               </View>
               <View style={s.cardRule} />
               <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
@@ -417,7 +446,10 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...glassShadow,
   },
+  // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
+  placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
+  detailButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   placeCopy: { flex: 1, minWidth: 0 },
   placeName: { ...type.title, flex: 1, color: colors.dark },
   hours: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
