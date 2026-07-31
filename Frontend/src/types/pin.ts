@@ -179,3 +179,46 @@ export function isVideoUnlocked(detail: PinDetail): boolean {
 export function canEvaluate(detail: PinDetail): boolean {
   return detail.videoAccess === 'UNLOCKED';
 }
+
+/**
+ * 오늘 등록한 영상핀의 처리 상태.
+ *
+ * `GET /api/v1/users/me/pins/today`가 주는 값이다. 백엔드 엔티티의 `VideoStatus`
+ * (`PENDING`·`PROCESSING`·`COMPLETED`·`FAILED`)나 `PublisherStatus`와는 다르다 —
+ * 이쪽은 응답용으로 합쳐 만든 상태로 보인다. 컨트롤러가 생기면 실제 값을 확인해야 한다.
+ *
+ * - `PROCESSING`: AI 블러 처리 중. 아직 공개되지 않아 상세를 열 수 없다
+ * - `ACTIVE`: 공개됨
+ *
+ * 명세에는 `RESHOOT`(다시 촬영해야 함)도 있지만 화면에서 아직 다루지 않기로 했다. 살릴 때는
+ * 아래 주석을 풀고 `MyPinList`의 `statusLabel`에 문구를 추가하면 된다 — 그 표가
+ * `Record<TodayPinStatus, string>`이라 빠뜨리면 컴파일에서 걸린다.
+ */
+export type TodayPinStatus = 'PROCESSING' | 'ACTIVE';
+// | 'RESHOOT'
+
+/** 오늘 등록한 영상핀 한 건. */
+export interface TodayPin {
+  pinId: number;
+  placeId: number;
+  placeName: string;
+  placeAddress: string;
+  status: TodayPinStatus;
+  /** ISO 8601. */
+  createdAt: string;
+}
+
+/** `GET /api/v1/users/me/pins/today` 응답의 `data`. */
+export interface TodayPinsResponse {
+  items: TodayPin[];
+  /** 다음 페이지가 없으면 `null`. */
+  nextCursor: string | null;
+}
+
+/** 조회 조건. 오늘 범위는 서버가 정한다(Asia/Seoul 오전 4시 경계). */
+export interface TodayPinsQuery {
+  /** 이전 응답의 `nextCursor`만 넣는다. */
+  cursor?: string;
+  /** 기본값 20, 최댓값 50. */
+  limit?: number;
+}

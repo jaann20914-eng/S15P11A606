@@ -49,6 +49,22 @@ function formatShortDate(date: Date): string {
 }
 
 /**
+ * `14:05`. 24시간제로 시각만 남긴다.
+ *
+ * 모두 오늘 건인 목록에서 쓴다. 날짜가 같으니 시각만으로 순서를 읽을 수 있고, 좁은 자리에
+ * 넣기에도 `오후 2:05`보다 짧다.
+ *
+ * 파싱할 수 없으면 빈 문자열을 반환한다.
+ */
+export function formatTimeOfDay(isoDate: string): string {
+  const target = Date.parse(isoDate);
+  if (Number.isNaN(target)) return '';
+
+  const date = new Date(target);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
  * 거래 시각을 목록 표기로 바꾼다. 오늘은 `오늘 오후 2:14`, 그 밖은 `26.07.23 오후 7:03`.
  *
  * 상대 표현(`2시간 전`)을 쓰지 않는다. 크레딧 내역은 언제 얼마가 오갔는지 확인하는 화면이라

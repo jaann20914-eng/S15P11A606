@@ -29,6 +29,7 @@ export type ApiModule =
   | 'place/search'
   | 'user/credits'
   | 'user/me'
+  | 'user/today-pins'
   | 'user/nickname-availability';
 
 /**
@@ -70,6 +71,8 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   'user/me': true,
   // GET /api/v1/users/me/credits/transactions 도 아직 없다. credit 컨트롤러가 없다.
   'user/credits': true,
+  // GET /api/v1/users/me/pins/today 도 아직 없다.
+  'user/today-pins': true,
 };
 
 /**

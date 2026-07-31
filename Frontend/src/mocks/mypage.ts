@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/client';
-import type { MyPin } from '@/types/mypage';
+import type { TodayPin, TodayPinStatus, TodayPinsQuery, TodayPinsResponse } from '@/types/pin';
 import type {
   CreditTransaction,
   CreditTransactionsQuery,
@@ -103,41 +103,67 @@ export async function fetchMockMyProfile(month?: ActivityMonth): Promise<MyProfi
   };
 }
 
-/** 오늘 등록한 영상핀. 첫 건은 아직 블러 처리 중이라 상세를 열 수 없다. */
-const myPins: MyPin[] = [
+/** 오늘 등록한 영상핀에 쓰는 장소. 목록에 같은 이름만 늘어놓으면 순서를 확인할 수 없다. */
+const todayPinPlaces = [
   {
-    pinId: 101,
-    createdAt: '14:05',
+    placeId: 11,
     placeName: '바나프레소 역삼점',
     placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PENDING',
   },
-  {
-    pinId: 1,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
-  {
-    pinId: 2,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
-  {
-    pinId: 3,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
+  { placeId: 12, placeName: '성수 연무장길', placeAddress: '서울 성동구 연무장길 45' },
+  { placeId: 13, placeName: '서울숲', placeAddress: '서울 성동구 뚝섬로 273' },
+  { placeId: 14, placeName: '더현대 서울', placeAddress: '서울 영등포구 여의대로 108' },
+  { placeId: 15, placeName: '망원한강공원', placeAddress: '서울 마포구 마포나루길 467' },
 ];
 
-export async function fetchMockMyPins(): Promise<MyPin[]> {
+/**
+ * 상태를 돌려 쓰는 순서.
+ *
+ * 최근 등록한 것이 아직 처리 중이고 오래된 것이 공개된 상태가 자연스럽다.
+ * 명세의 `RESHOOT`은 화면에서 다루지 않기로 해 넣지 않는다.
+ */
+const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'ACTIVE', 'ACTIVE'];
+
+/** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
+const TODAY_PIN_COUNT = 26;
+
+/** 목업 기본 페이지 크기. 명세의 서버 기본값과 같다. */
+const MOCK_TODAY_PIN_PAGE_SIZE = 20;
+
+/**
+ * 오늘 등록한 영상핀 목업.
+ *
+ * 등록 시각을 지금부터 거슬러 만든다. 고정 문자열로 두면 "오늘"이 아니게 되어 화면 문구와
+ * 어긋난다. 서버가 최신순으로 주므로 여기서도 최근 것이 앞에 온다.
+ */
+const todayPins: TodayPin[] = Array.from({ length: TODAY_PIN_COUNT }, (_, index) => {
+  const createdAt = new Date();
+  // 12분 간격으로 거슬러 올라간다. 26건이면 5시간 남짓이라 모두 오늘 안에 들어온다.
+  createdAt.setMinutes(createdAt.getMinutes() - index * 12);
+
+  return {
+    pinId: TODAY_PIN_COUNT - index,
+    ...todayPinPlaces[index % todayPinPlaces.length],
+    status: todayPinStatuses[index % todayPinStatuses.length],
+    createdAt: createdAt.toISOString(),
+  };
+});
+
+export async function fetchMockTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
   await delay(MOCK_LATENCY_MS);
-  return myPins;
+
+  // 커서는 "이 핀 다음부터"를 뜻한다. 값이 목록에 없으면 처음부터 준다.
+  const start = query.cursor
+    ? todayPins.findIndex((pin) => String(pin.pinId) === query.cursor) + 1
+    : 0;
+  const size = query.limit ?? MOCK_TODAY_PIN_PAGE_SIZE;
+  const items = todayPins.slice(start, start + size);
+  const last = items[items.length - 1];
+
+  return {
+    items,
+    nextCursor: last && start + size < todayPins.length ? String(last.pinId) : null,
+  };
 }
 
 /**
