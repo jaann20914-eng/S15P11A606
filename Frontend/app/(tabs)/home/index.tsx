@@ -134,11 +134,11 @@ export default function Home() {
   );
 
   /**
-   * 상세 화면으로 넘어간다. 카드의 `>` 만 이 역할을 한다.
+   * 상세 화면으로 넘어간다. **고른 카드에 나타나는 `상세 보기` 버튼만** 이 역할을 한다.
    *
-   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답하고, 상세는
-   * 명시적으로 눌러 들어가게 나눠 둔다. 카드 본문까지 화면을 전환하면 지도에서 위치를
-   * 확인할 방법이 없어진다.
+   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
+   * 전환하려면 한 번 고른 뒤 글자로 적힌 버튼을 눌러야 하므로, 지도를 보려던 탭이 화면
+   * 전환으로 이어지는 일이 없다.
    */
   const openPlace = (placeId: string) => {
     selectPlace(placeId);
@@ -347,21 +347,26 @@ export default function Home() {
                   </Text>
                 </View>
                 {/*
-                  카드 안의 버튼이라 부모의 onPress가 함께 불린다. 막지 않으면 상세로
-                  가면서 지도까지 움직인다.
+                  고른 카드에만 상세로 가는 버튼을 글자로 띄운다.
+
+                  예전에는 이 자리에 `>` 아이콘이 있었는데, 목록의 오른쪽 화살표는 "이 항목
+                  열기"로 읽혀서 카드를 누르려는 손이 그쪽을 겨냥했다. 결국 지도만 옮기려는
+                  탭이 화면 전환이 됐다. 글자로 적고 고른 뒤에만 보이면 헷갈릴 여지가 없다.
                 */}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${place.name} 상세 보기`}
-                  hitSlop={10}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    openPlace(place.id);
-                  }}
-                  style={s.detailButton}
-                >
-                  <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
-                </Pressable>
+                {place.id === selectedPlaceId ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${place.name} 상세 보기`}
+                    hitSlop={8}
+                    onPress={() => openPlace(place.id)}
+                    style={s.detailButton}
+                  >
+                    <Text style={s.detailButtonText}>상세 보기</Text>
+                  </Pressable>
+                ) : (
+                  // 누르면 무엇이 일어나는지 알리는 표시. 화살표와 달리 이동을 약속하지 않는다.
+                  <Ionicons name="location-outline" size={20} color={colors.gray400} />
+                )}
               </View>
               <View style={s.cardRule} />
               <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
@@ -479,7 +484,15 @@ const s = StyleSheet.create({
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
   placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
-  detailButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  detailButton: {
+    minHeight: 34,
+    paddingHorizontal: spacing.x3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.gray100,
+  },
+  detailButtonText: { ...type.caption, color: colors.dark, fontWeight: '600' },
   placeCopy: { flex: 1, minWidth: 0 },
   placeName: { ...type.title, flex: 1, color: colors.dark },
   hours: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
