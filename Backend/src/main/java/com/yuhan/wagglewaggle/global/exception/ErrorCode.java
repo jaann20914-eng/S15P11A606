@@ -54,7 +54,11 @@ public enum ErrorCode {
     ONBOARDING_TOKEN_ALREADY_USED(HttpStatus.UNAUTHORIZED, "이미 사용된 온보딩 토큰입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 온보딩을 완료한 사용자입니다."),
-    ONBOARDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "온보딩 처리 중 오류가 발생했습니다.");
+    ONBOARDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "온보딩 처리 중 오류가 발생했습니다."),
+
+    // Pin Upload
+    INVALID_UPLOAD_REQUEST(HttpStatus.BAD_REQUEST, "영상 업로드 정보 발급 요청이 올바르지 않습니다."),
+    UPLOAD_URL_ISSUE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 업로드 정보 발급 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

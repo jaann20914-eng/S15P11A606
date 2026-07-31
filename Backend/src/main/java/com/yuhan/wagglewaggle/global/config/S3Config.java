@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.global.config;
 
+import com.yuhan.wagglewaggle.global.properties.PinUploadProperties;
 import com.yuhan.wagglewaggle.global.properties.S3Properties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -9,7 +10,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
-@EnableConfigurationProperties(S3Properties.class)
+@EnableConfigurationProperties({S3Properties.class, PinUploadProperties.class})
 public class S3Config {
 
     @Bean
