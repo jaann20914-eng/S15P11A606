@@ -1,7 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { unlockMockPin } from '@/mocks/pin';
-import type { PinUnlockResult } from '@/types/pin';
+import type { PinId, PinUnlockResult } from '@/types/pin';
 
 /**
  * 영상 잠금 해제(크레딧 결제) — `POST /api/v1/pins/{pinId}/unlock`
@@ -12,7 +12,7 @@ import type { PinUnlockResult } from '@/types/pin';
  * 오류 코드: `INVALID_PIN_ID` `IDEMPOTENCY_KEY_REQUIRED` `UNAUTHORIZED` `PIN_NOT_FOUND`
  * `IDEMPOTENCY_KEY_CONFLICT` `INSUFFICIENT_CREDIT` `PIN_UNLOCK_FAILED` `VIDEO_URL_ISSUE_FAILED`.
  */
-function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+function requestUnlockPin(pinId: PinId, idempotencyKey: string): Promise<PinUnlockResult> {
   return apiRequest<PinUnlockResult>({
     method: 'POST',
     url: `/api/v1/pins/${pinId}/unlock`,
@@ -20,6 +20,6 @@ function requestUnlockPin(pinId: number, idempotencyKey: string): Promise<PinUnl
   });
 }
 
-export function unlockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+export function unlockPin(pinId: PinId, idempotencyKey: string): Promise<PinUnlockResult> {
   return usesMock('pin/unlock') ? unlockMockPin(pinId, idempotencyKey) : requestUnlockPin(pinId, idempotencyKey);
 }

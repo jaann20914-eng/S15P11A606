@@ -5,17 +5,18 @@ import { CreditBalanceCard } from '@/features/mypage/components/CreditBalanceCar
 import { CreditFilterBar } from '@/features/mypage/components/CreditFilterBar';
 import { CreditHistoryList } from '@/features/mypage/components/CreditHistoryList';
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
-import { useCreditHistory } from '@/features/mypage/hooks/useCreditHistory';
-import { useMypageSummary } from '@/features/mypage/hooks/useMypageSummary';
+import { CREDIT_PAGE_SIZE, useCreditHistory } from '@/features/mypage/hooks/useCreditHistory';
 import { mypageStyles as s } from '@/features/mypage/styles';
 
 /**
  * 크레딧 내역.
  *
  * 이 화면은 `(tabs)` 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
+ *
+ * 잔액은 내역 응답에서 온다. 목록과 같은 원장에서 나오는 값이라 `/users/me`를 따로 부르면
+ * 두 요청 사이에 거래가 생겼을 때 화면 안에서 숫자가 어긋난다.
  */
 export default function CreditsScreen() {
-  const { profile } = useMypageSummary();
   const history = useCreditHistory();
 
   return (
@@ -24,7 +25,7 @@ export default function CreditsScreen() {
         <MypageHeader title="크레딧 내역" />
 
         <View style={s.content}>
-          <CreditBalanceCard balance={profile?.creditBalance ?? 0} />
+          <CreditBalanceCard balance={history.balance} />
 
           <CreditFilterBar
             filter={history.filter}
@@ -35,7 +36,14 @@ export default function CreditsScreen() {
             onTogglePeriod={history.togglePeriod}
           />
 
-          <CreditHistoryList entries={history.entries} loading={history.loading} />
+          <CreditHistoryList
+            entries={history.entries}
+            loading={history.loading}
+            loadingMore={history.loadingMore}
+            error={history.error}
+            onEndReached={history.loadMore}
+            pageSize={CREDIT_PAGE_SIZE}
+          />
         </View>
       </View>
     </SafeAreaView>

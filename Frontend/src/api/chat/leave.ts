@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { leaveMockPinChats } from '@/mocks/chat';
 import type { PinChatLeaveResult } from '@/types/chat';
+import type { PinId } from '@/types/pin';
 
 /**
  * 핀 떠났어요 — `POST /api/v1/chat/pins/{pinId}/rooms/leave`
@@ -16,13 +17,13 @@ import type { PinChatLeaveResult } from '@/types/chat';
  * 오류 코드: `INVALID_PIN_ID` `UNAUTHORIZED` `CHAT_PIN_LEAVE_FORBIDDEN`
  * `PIN_NOT_FOUND` `CHAT_PIN_LEAVE_FAILED`.
  */
-function requestLeavePinChats(pinId: number): Promise<PinChatLeaveResult> {
+function requestLeavePinChats(pinId: PinId): Promise<PinChatLeaveResult> {
   return apiRequest<PinChatLeaveResult>({
     method: 'POST',
     url: `/api/v1/chat/pins/${pinId}/rooms/leave`,
   });
 }
 
-export function leavePinChats(pinId: number): Promise<PinChatLeaveResult> {
+export function leavePinChats(pinId: PinId): Promise<PinChatLeaveResult> {
   return usesMock('chat/leave') ? leaveMockPinChats(pinId) : requestLeavePinChats(pinId);
 }

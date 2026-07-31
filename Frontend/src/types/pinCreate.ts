@@ -1,5 +1,5 @@
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
-import type { PinCrowdLevel } from '@/types/pin';
+import type { PinId, PinCrowdLevel } from '@/types/pin';
 import type { PlaceSearchItem } from '@/types/place';
 
 /**
@@ -8,7 +8,7 @@ import type { PlaceSearchItem } from '@/types/place';
  * 새로 쓰는 것과 기존 핀을 고치는 것이 같은 화면을 쓴다. 제목·버튼 문구·초기값·제출 API가
  * 갈리므로 화면은 이 값 하나만 보고 분기한다.
  */
-export type PinCreateMode = { type: 'create' } | { type: 'edit'; pinId: number };
+export type PinCreateMode = { type: 'create' } | { type: 'edit'; pinId: PinId };
 
 /** 촬영한 영상. 아직 촬영 전이면 null이다. */
 export interface PinDraftVideo {
@@ -90,7 +90,7 @@ export const STATUS_POLL_TIMEOUT_MS = 60_000;
 
 /** `GET /api/v1/pins/{pinId}/status` 응답의 `data`. */
 export interface PinStatusResult {
-  pinId: number;
+  pinId: PinId;
   videoStatus: PinVideoStatus;
 }
 
@@ -146,6 +146,6 @@ export type PinVideoStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
  * 202로 접수만 된다. 블러 영상 URL은 여기서 주지 않고 이후 상세·상태 조회에서 받는다.
  */
 export interface PinCreateResult {
-  pinId: number;
+  pinId: PinId;
   videoStatus: PinVideoStatus;
 }

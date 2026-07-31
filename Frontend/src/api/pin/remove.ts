@@ -1,7 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { deleteMockPin } from '@/mocks/pin';
-import type { PinDeleteResult } from '@/types/pin';
+import type { PinId, PinDeleteResult } from '@/types/pin';
 
 /**
  * 핀 삭제 — `DELETE /api/v1/pins/{pinId}`
@@ -13,10 +13,10 @@ import type { PinDeleteResult } from '@/types/pin';
  * 오류 코드: `INVALID_PIN_ID` `UNAUTHORIZED` `PIN_DELETE_FORBIDDEN`
  * `PIN_NOT_FOUND` `PIN_DELETE_NOT_ALLOWED` `PIN_DELETE_FAILED`.
  */
-function requestDeletePin(pinId: number): Promise<PinDeleteResult> {
+function requestDeletePin(pinId: PinId): Promise<PinDeleteResult> {
   return apiRequest<PinDeleteResult>({ method: 'DELETE', url: `/api/v1/pins/${pinId}` });
 }
 
-export function deletePin(pinId: number): Promise<PinDeleteResult> {
+export function deletePin(pinId: PinId): Promise<PinDeleteResult> {
   return usesMock('pin/remove') ? deleteMockPin(pinId) : requestDeletePin(pinId);
 }

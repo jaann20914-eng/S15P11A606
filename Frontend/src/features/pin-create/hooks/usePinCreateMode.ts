@@ -21,11 +21,10 @@ const copyByType: Record<PinCreateMode['type'], PinCreateCopy> = {
 export function usePinCreateMode(): { mode: PinCreateMode; copy: PinCreateCopy } {
   const { pinId } = useLocalSearchParams<{ pinId?: string }>();
 
-  const parsed = Number(pinId);
+  // 핀 식별자는 UUID다. 숫자로 파싱하지 않고 값이 있는지만 본다.
+  const target = pinId?.trim();
   const mode: PinCreateMode =
-    pinId !== undefined && Number.isInteger(parsed) && parsed > 0
-      ? { type: 'edit', pinId: parsed }
-      : { type: 'create' };
+    target ? { type: 'edit', pinId: target } : { type: 'create' };
 
   return { mode, copy: copyByType[mode.type] };
 }

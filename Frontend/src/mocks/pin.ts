@@ -3,6 +3,7 @@ import type {
   PinDeleteResult,
   PinDetailResponse,
   PinEvaluationResult,
+  PinId,
   PinRating,
   PinUnlockResult,
 } from '@/types/pin';
@@ -19,7 +20,8 @@ import type {
  * 백엔드에 pin 도메인이 아직 없어(2026-07-28 dev 기준 places만 구현) 목업으로 화면을 돌린다.
  * 필드와 오류 코드는 상세 조회 명세를 그대로 따르므로 서버가 생기면 값만 바뀐다.
  *
- * 화면에서 확인하는 법: `/pin/1` ~ `/pin/4`로 이동한다. 그 밖의 id는 조회 실패 화면이 뜬다.
+ * 화면에서 확인하는 법: `/pin/1` ~ `/pin/6`으로 이동한다. 식별자는 UUID지만 목업이 짧은
+ * 번호도 같은 핀으로 받아준다(`resolvePinDetailScenario`). 표에 없는 id는 조회 실패 화면이 뜬다.
  */
 
 /** 실제 네트워크처럼 로딩 상태를 볼 수 있도록 주는 지연. */
@@ -27,24 +29,59 @@ export const MOCK_LATENCY_MS = 400;
 
 export type PinDetailScenario = 'preview' | 'unlocked' | 'evaluated' | 'owner' | 'notFound';
 
+/**
+ * 목업 핀 식별자.
+ *
+ * 실제와 같은 UUID 모양으로 만든다. `1`, `2` 같은 숫자 문자열을 쓰면 어딘가에서
+ * `Number(pinId)`로 파싱해도 통과해 버려, 실서버에 붙는 순간에야 깨진다.
+ */
+export function mockPinId(seed: number): PinId {
+  return `00000000-0000-4000-8000-${String(seed).padStart(12, '0')}`;
+}
+
 /** `pinId` → 시나리오. 표에 없는 id는 실제 서버와 같이 조회 실패로 처리한다. */
-const scenarioByPinId: Record<number, PinDetailScenario> = {
-  1: 'preview',
-  2: 'unlocked',
-  3: 'evaluated',
-  4: 'owner',
-  5: 'preview',
-  6: 'owner',
+const scenarioByPinId: Record<PinId, PinDetailScenario> = {
+  [mockPinId(1)]: 'preview',
+  [mockPinId(2)]: 'unlocked',
+  [mockPinId(3)]: 'evaluated',
+  [mockPinId(4)]: 'owner',
+  [mockPinId(5)]: 'preview',
+  [mockPinId(6)]: 'owner',
 };
 
 /** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
-const INSUFFICIENT_CREDIT_PIN_IDS = new Set([5]);
+const INSUFFICIENT_CREDIT_PIN_IDS = new Set([mockPinId(5)]);
 
 /** 삭제 실패 화면을 확인하기 위한 내 핀. 삭제 요청에서 409가 난다. */
-const DELETE_NOT_ALLOWED_PIN_IDS = new Set([6]);
+const DELETE_NOT_ALLOWED_PIN_IDS = new Set([mockPinId(6)]);
 
-export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
-  return scenarioByPinId[pinId] ?? 'notFound';
+/**
+ * 짧은 번호를 목업 식별자로 맞춘다.
+ *
+ * 주소창에 `/pin/1`처럼 넣어도 같은 핀으로 보게 하려는 편의다. 목업 식별자가 UUID가 되면서
+ * 손으로 화면을 확인하기 어려워졌기 때문이다.
+ *
+ * 모든 진입점에서 한 번씩 거쳐야 한다. 시나리오만 맞추고 넘어가면 잔액 부족·중복 평가처럼
+ * 집합으로 기억하는 판정이 짧은 번호를 못 알아본다.
+ *
+ * 이 편의는 목업 안에만 있다. 타입과 화면은 그대로 문자열을 다룬다.
+ */
+export function canonicalMockPinId(pinId: PinId): PinId {
+  return /^\d{1,6}$/.test(pinId) ? mockPinId(Number(pinId)) : pinId;
+}
+
+export function resolvePinDetailScenario(pinId: PinId): PinDetailScenario {
+  return scenarioByPinId[canonicalMockPinId(pinId)] ?? 'notFound';
+}
+
+/**
+ * 목업 핀을 시나리오 표에 추가한다.
+ *
+ * 다른 목업이 만든 핀도 상세를 열 수 있게 한다. 마이페이지의 "오늘 등록한 영상핀"이 그런
+ * 경우다 — 목록에는 있는데 표에 없으면 눌렀을 때 조회 실패 화면이 뜬다.
+ */
+export function registerMockPinScenario(pinId: PinId, scenario: PinDetailScenario): void {
+  scenarioByPinId[canonicalMockPinId(pinId)] = scenario;
 }
 
 /**
@@ -55,7 +92,7 @@ export function resolvePinDetailScenario(pinId: number): PinDetailScenario {
  */
 function createBaseDetail(): PinDetailResponse {
   return {
-    pinId: 1,
+    pinId: mockPinId(1),
     place: {
       placeId: 11,
       name: '바나프레소 역삼점',
@@ -128,7 +165,10 @@ export function delay(ms: number): Promise<void> {
 }
 
 /** 실제 API와 같은 시그니처. 실패 시에도 `ApiError`를 던져 화면 분기가 동일하게 동작한다. */
-export async function fetchMockPinDetail(pinId: number): Promise<PinDetailResponse> {
+export async function fetchMockPinDetail(pinId: PinId): Promise<PinDetailResponse> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);
@@ -144,13 +184,16 @@ export async function fetchMockPinDetail(pinId: number): Promise<PinDetailRespon
 let mockCreditBalance = 12;
 
 /** 이번 세션에서 평가한 핀. 중복 평가 409를 재현한다. */
-const evaluatedPinIds = new Set<number>();
+const evaluatedPinIds = new Set<PinId>();
 
 /**
  * 평가 등록 목업.
  * 권한 없음·본인 핀·중복 평가를 실제 서버와 같은 코드로 실패하게 만든다.
  */
-export async function evaluateMockPin(pinId: number, rating: PinRating): Promise<PinEvaluationResult> {
+export async function evaluateMockPin(pinId: PinId, rating: PinRating): Promise<PinEvaluationResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);
@@ -189,10 +232,13 @@ const unlockResultsByKey = new Map<string, PinUnlockResult>();
  * 시나리오 표는 고정이라 결제 후에도 `preview`로 남는다. 그 상태로는 평가와 채팅 요청이
  * 403으로 막혀 결제 다음 흐름을 확인할 수 없다. 실제 서버는 결제를 기억하므로 목업도 기억한다.
  */
-const unlockedPinIds = new Set<number>();
+const unlockedPinIds = new Set<PinId>();
 
 /** 결제로 열람한 핀인지. 평가·채팅 요청 목업이 권한을 판정할 때 쓴다. */
-export function isMockPinUnlocked(pinId: number): boolean {
+export function isMockPinUnlocked(pinId: PinId): boolean {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   return unlockedPinIds.has(pinId);
 }
 
@@ -200,7 +246,10 @@ export function isMockPinUnlocked(pinId: number): boolean {
  * 잠금 해제 목업.
  * 멱등성 키 재사용·잔액 부족·중복 구매까지 실제 서버와 같은 코드로 실패하게 만든다.
  */
-export async function unlockMockPin(pinId: number, idempotencyKey: string): Promise<PinUnlockResult> {
+export async function unlockMockPin(pinId: PinId, idempotencyKey: string): Promise<PinUnlockResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   if (!idempotencyKey) {
@@ -244,7 +293,7 @@ export async function unlockMockPin(pinId: number, idempotencyKey: string): Prom
 }
 
 /** 등록 목업이 발급할 다음 핀 id. */
-let nextMockPinId = 100;
+let nextMockPinSeed = 100;
 
 /** 등록에 이미 쓴 영상 키. 같은 키로 다시 등록하면 409가 난다. */
 const usedVideoKeys = new Set<string>();
@@ -324,11 +373,11 @@ export async function createMockPin(body: PinCreateRequest): Promise<PinCreateRe
   }
 
   usedVideoKeys.add(body.originalVideoKey);
-  return { pinId: nextMockPinId++, videoStatus: 'PENDING' };
+  return { pinId: mockPinId(nextMockPinSeed++), videoStatus: 'PENDING' };
 }
 
 /** 핀별 상태 조회 횟수. 몇 번 물어본 뒤 완료로 바꿔 처리 대기 화면을 확인할 수 있게 한다. */
-const statusPollCountByPinId = new Map<number, number>();
+const statusPollCountByPinId = new Map<PinId, number>();
 
 /** 처리 완료로 바뀌기까지 필요한 조회 횟수. */
 const POLLS_UNTIL_COMPLETED = 3;
@@ -339,7 +388,10 @@ const POLLS_UNTIL_COMPLETED = 3;
  * 실제 AI 처리가 없으므로 몇 번 물어보면 완료로 바꾼다.
  * 등록하지 않은 핀을 물어보면 실제 서버와 같이 404를 던진다.
  */
-export async function fetchMockPinVideoStatus(pinId: number): Promise<PinStatusResult> {
+export async function fetchMockPinVideoStatus(pinId: PinId): Promise<PinStatusResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const polls = (statusPollCountByPinId.get(pinId) ?? 0) + 1;
@@ -352,13 +404,16 @@ export async function fetchMockPinVideoStatus(pinId: number): Promise<PinStatusR
 }
 
 /** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */
-const deleteResultsByPinId = new Map<number, PinDeleteResult>();
+const deleteResultsByPinId = new Map<PinId, PinDeleteResult>();
 
 /**
  * 삭제 목업.
  * 권한 없음·삭제 불가 상태·재요청 멱등성을 실제 서버와 같은 코드로 재현한다.
  */
-export async function deleteMockPin(pinId: number): Promise<PinDeleteResult> {
+export async function deleteMockPin(pinId: PinId): Promise<PinDeleteResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const cached = deleteResultsByPinId.get(pinId);

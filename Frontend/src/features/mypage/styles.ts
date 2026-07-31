@@ -300,6 +300,8 @@ export const mypageStyles = StyleSheet.create({
   periodOptionText: { ...type.label, color: colors.gray600 },
 
   /* 크레딧 내역 줄 */
+  /** 다음 페이지를 받는 중임을 알리는 목록 아래 스피너. */
+  listFooter: { paddingVertical: spacing.x4 },
   creditListCard: { marginTop: spacing.x2 },
   creditRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
   signBox: {

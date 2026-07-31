@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPinDetail } from '@/api/pin/detail';
 import { ApiError } from '@/api/client';
 import type { AsyncStatus } from '@/types/common';
-import type { PinDetail } from '@/types/pin';
+import type { PinId, PinDetail } from '@/types/pin';
 
 export interface PinDetailState {
   status: AsyncStatus;
@@ -38,7 +38,7 @@ function toErrorState(error: unknown): PinDetailState {
  *
  * `pinId`가 null이면(경로 파라미터가 아직 없거나 숫자가 아니면) 요청하지 않고 대기한다.
  */
-export function usePinDetail(pinId: number | null): UsePinDetailResult {
+export function usePinDetail(pinId: PinId | null): UsePinDetailResult {
   const [state, setState] = useState<PinDetailState>(idleState);
 
   // 응답이 늦게 도착한 이전 요청이 최신 상태를 덮어쓰지 않도록 순번을 매긴다.
@@ -76,11 +76,13 @@ export function usePinDetail(pinId: number | null): UsePinDetailResult {
   return { ...state, reload: load, patchDetail };
 }
 
-/** 경로 파라미터(`string | string[]`)를 핀 식별자로 바꾼다. 숫자가 아니면 null. */
-export function parsePinId(param: string | string[] | undefined): number | null {
+/**
+ * 경로 파라미터(`string | string[]`)를 핀 식별자로 바꾼다. 비어 있으면 null.
+ *
+ * 식별자가 UUID라 형식을 여기서 따지지 않는다. 모양이 맞는지는 서버가 판단하고, 없는 핀이면
+ * 404가 온다. 프론트가 정규식으로 미리 거르면 서버가 형식을 바꿀 때 화면만 먼저 막힌다.
+ */
+export function parsePinId(param: string | string[] | undefined): PinId | null {
   const raw = Array.isArray(param) ? param[0] : param;
-  if (!raw) return null;
-
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  return raw?.trim() || null;
 }

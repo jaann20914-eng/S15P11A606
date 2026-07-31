@@ -1,5 +1,17 @@
-// 백엔드 영상핀 응답에 맞춘 도메인 타입. 연동 전이라 아직 참조하는 화면이 없다.
+// 백엔드 영상핀 응답에 맞춘 도메인 타입.
 import type { CrowdLevelKey } from '@/constants/crowdLevels';
+
+/**
+ * 핀 식별자.
+ *
+ * 백엔드가 UUID를 쓴다(`Pin.id`는 `@GeneratedValue(strategy = UUID)`). 숫자로 다루면
+ * `Number('0f8c…')`가 `NaN`이 되어 경로 파라미터를 읽는 순간 조용히 깨진다.
+ *
+ * 값을 계산하거나 비교해서 순서를 매기지 않는다. 서버가 준 문자열을 그대로 들고 다니다가
+ * 그대로 돌려보내기만 한다. 별칭으로 두는 이유는 나중에 형식이 또 바뀌어도 한 곳만 고치면
+ * 되게 하려는 것이다.
+ */
+export type PinId = string;
 
 /**
  * 핀 처리 상태.
@@ -35,7 +47,7 @@ export type PinRating = 'HELPFUL' | 'NOT_HELPFUL';
  * 같은 작성자가 이미 삭제된 핀을 다시 요청하면 같은 결과를 돌려준다(멱등).
  */
 export type PinDeleteResult = {
-  pinId: number;
+  pinId: PinId;
   status: 'DELETED';
   /** 삭제와 함께 CLOSED로 바뀐 채팅방. 없으면 빈 배열이다. */
   closedChatRoomIds: number[];
@@ -45,7 +57,7 @@ export type PinDeleteResult = {
 /** 평가 등록 응답 `data`. */
 export type PinEvaluationResult = {
   evaluationId: number;
-  pinId: number;
+  pinId: PinId;
   rating: PinRating;
   /** 평가자에게 지급된 크레딧. 정상 최초 평가는 1이다. */
   rewardCredit: number;
@@ -97,7 +109,7 @@ export type PinDetailResponse = Omit<PinDetail, 'crowdLevel'> & {
  * 화면 편의를 위한 파생값은 넣지 않고 아래 헬퍼(`isOwnPin` 등)로 판정한다.
  */
 export type PinDetail = {
-  pinId: number;
+  pinId: PinId;
   place: PinPlaceSummary;
   /**
    * 작성자의 공개 뷰 각도. 프로필 링 안에 `90°`처럼 표시한다.
@@ -156,7 +168,7 @@ export function toServerCrowdLevel(key: CrowdLevelKey): PinCrowdLevel {
 
 /** 영상 잠금 해제(결제) 응답 `data`. */
 export type PinUnlockResult = {
-  pinId: number;
+  pinId: PinId;
   /** 이번 요청에서 실제로 차감된 크레딧. 재구매·작성자는 0이다. */
   creditCharged: number;
   /** 처리 후 잔액. */
@@ -178,4 +190,47 @@ export function isVideoUnlocked(detail: PinDetail): boolean {
 /** 평가 영역을 보여줄 상황인지. 작성자 본인과 미구매자는 평가 대상이 아니다. */
 export function canEvaluate(detail: PinDetail): boolean {
   return detail.videoAccess === 'UNLOCKED';
+}
+
+/**
+ * 오늘 등록한 영상핀의 처리 상태.
+ *
+ * `GET /api/v1/users/me/pins/today`가 주는 값이다. 백엔드 엔티티의 `VideoStatus`
+ * (`PENDING`·`PROCESSING`·`COMPLETED`·`FAILED`)나 `PublisherStatus`와는 다르다 —
+ * 이쪽은 응답용으로 합쳐 만든 상태로 보인다. 컨트롤러가 생기면 실제 값을 확인해야 한다.
+ *
+ * - `PROCESSING`: AI 블러 처리 중. 아직 공개되지 않아 상세를 열 수 없다
+ * - `ACTIVE`: 공개됨
+ *
+ * 명세에는 `RESHOOT`(다시 촬영해야 함)도 있지만 화면에서 아직 다루지 않기로 했다. 살릴 때는
+ * 아래 주석을 풀고 `MyPinList`의 `statusLabel`에 문구를 추가하면 된다 — 그 표가
+ * `Record<TodayPinStatus, string>`이라 빠뜨리면 컴파일에서 걸린다.
+ */
+export type TodayPinStatus = 'PROCESSING' | 'ACTIVE';
+// | 'RESHOOT'
+
+/** 오늘 등록한 영상핀 한 건. */
+export interface TodayPin {
+  pinId: PinId;
+  placeId: number;
+  placeName: string;
+  placeAddress: string;
+  status: TodayPinStatus;
+  /** ISO 8601. */
+  createdAt: string;
+}
+
+/** `GET /api/v1/users/me/pins/today` 응답의 `data`. */
+export interface TodayPinsResponse {
+  items: TodayPin[];
+  /** 다음 페이지가 없으면 `null`. */
+  nextCursor: string | null;
+}
+
+/** 조회 조건. 오늘 범위는 서버가 정한다(Asia/Seoul 오전 4시 경계). */
+export interface TodayPinsQuery {
+  /** 이전 응답의 `nextCursor`만 넣는다. */
+  cursor?: string;
+  /** 기본값 20, 최댓값 50. */
+  limit?: number;
 }

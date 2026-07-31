@@ -1,5 +1,10 @@
 import { ApiError } from '@/api/client';
-import type { CreditEntry, CreditPeriod, MyPin } from '@/types/mypage';
+import type { TodayPin, TodayPinStatus, TodayPinsQuery, TodayPinsResponse } from '@/types/pin';
+import type {
+  CreditTransaction,
+  CreditTransactionsQuery,
+  CreditTransactionsResponse,
+} from '@/types/credit';
 import type {
   ActivityDay,
   ActivityMonth,
@@ -8,7 +13,7 @@ import type {
   NicknameUpdateResponse,
 } from '@/types/user';
 import { isValidNickname, normalizeNickname } from '@/utils/nickname';
-import { MOCK_LATENCY_MS, delay } from './pin';
+import { MOCK_LATENCY_MS, delay, mockPinId, registerMockPinScenario } from './pin';
 
 /**
  * 마이페이지 고정 데이터.
@@ -98,107 +103,253 @@ export async function fetchMockMyProfile(month?: ActivityMonth): Promise<MyProfi
   };
 }
 
-/** 오늘 등록한 영상핀. 첫 건은 아직 블러 처리 중이라 상세를 열 수 없다. */
-const myPins: MyPin[] = [
+/** 오늘 등록한 영상핀에 쓰는 장소. 목록에 같은 이름만 늘어놓으면 순서를 확인할 수 없다. */
+const todayPinPlaces = [
   {
-    pinId: 101,
-    createdAt: '14:05',
+    placeId: 11,
     placeName: '바나프레소 역삼점',
     placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PENDING',
   },
-  {
-    pinId: 1,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
-  {
-    pinId: 2,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
-  {
-    pinId: 3,
-    createdAt: '14:00',
-    placeName: '바나프레소 역삼점',
-    placeAddress: '서울 광진구 동일로 60길 47 1층 (군자동)',
-    state: 'PUBLISHED',
-  },
+  { placeId: 12, placeName: '성수 연무장길', placeAddress: '서울 성동구 연무장길 45' },
+  { placeId: 13, placeName: '서울숲', placeAddress: '서울 성동구 뚝섬로 273' },
+  { placeId: 14, placeName: '더현대 서울', placeAddress: '서울 영등포구 여의대로 108' },
+  { placeId: 15, placeName: '망원한강공원', placeAddress: '서울 마포구 마포나루길 467' },
 ];
 
-export async function fetchMockMyPins(): Promise<MyPin[]> {
+/**
+ * 상태를 돌려 쓰는 순서.
+ *
+ * 최근 등록한 것이 아직 처리 중이고 오래된 것이 공개된 상태가 자연스럽다.
+ * 명세의 `RESHOOT`은 화면에서 다루지 않기로 해 넣지 않는다.
+ */
+const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'ACTIVE', 'ACTIVE'];
+
+/** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
+const TODAY_PIN_COUNT = 26;
+
+/**
+ * 오늘 등록한 핀이 쓸 식별자 대역.
+ *
+ * 상세 목업의 시나리오 표가 1~6번을 미구매·열람완료·평가완료·내 핀으로 쓰고 있다. 여기서 그
+ * 번호를 겹쳐 쓰면 아래 등록이 표를 덮어써서, 어느 핀을 열어도 내 핀 화면만 나온다.
+ */
+const TODAY_PIN_ID_OFFSET = 200;
+
+/** 목업 기본 페이지 크기. 명세의 서버 기본값과 같다. */
+const MOCK_TODAY_PIN_PAGE_SIZE = 20;
+
+/**
+ * 오늘 등록한 영상핀 목업.
+ *
+ * 등록 시각을 지금부터 거슬러 만든다. 고정 문자열로 두면 "오늘"이 아니게 되어 화면 문구와
+ * 어긋난다. 서버가 최신순으로 주므로 여기서도 최근 것이 앞에 온다.
+ */
+const todayPins: TodayPin[] = Array.from({ length: TODAY_PIN_COUNT }, (_, index) => {
+  const createdAt = new Date();
+  // 12분 간격으로 거슬러 올라간다. 26건이면 5시간 남짓이라 모두 오늘 안에 들어온다.
+  createdAt.setMinutes(createdAt.getMinutes() - index * 12);
+
+  return {
+    pinId: mockPinId(TODAY_PIN_ID_OFFSET + TODAY_PIN_COUNT - index),
+    ...todayPinPlaces[index % todayPinPlaces.length],
+    status: todayPinStatuses[index % todayPinStatuses.length],
+    createdAt: createdAt.toISOString(),
+  };
+});
+
+/**
+ * 목록에서 누르면 상세가 열리도록 시나리오를 등록한다.
+ *
+ * 오늘 등록한 핀은 내가 쓴 핀이라 상세도 작성자 화면이어야 한다. 등록하지 않으면 상세 목업의
+ * 표에 없어서 조회 실패 화면이 뜬다.
+ */
+todayPins.forEach((pin) => registerMockPinScenario(pin.pinId, 'owner'));
+
+export async function fetchMockTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
   await delay(MOCK_LATENCY_MS);
-  return myPins;
+
+  // 커서는 "이 핀 다음부터"를 뜻한다. 값이 목록에 없으면 처음부터 준다.
+  const start = query.cursor
+    ? todayPins.findIndex((pin) => String(pin.pinId) === query.cursor) + 1
+    : 0;
+  const size = query.limit ?? MOCK_TODAY_PIN_PAGE_SIZE;
+  const items = todayPins.slice(start, start + size);
+  const last = items[items.length - 1];
+
+  return {
+    items,
+    nextCursor: last && start + size < todayPins.length ? String(last.pinId) : null,
+  };
 }
 
-/** 크레딧 내역. 기간 필터를 확인할 수 있게 오늘·이번 주·이번 달 건을 섞어 둔다. */
-const creditEntries: Array<CreditEntry & { period: CreditPeriod }> = [
-  {
-    entryId: 1,
-    title: '영상핀 평가 참여',
-    occurredAt: '오늘 오후 2:14',
-    amount: 1,
-    flow: 'EARNED',
-    period: 'TODAY',
-  },
-  {
-    entryId: 2,
-    title: '성수 연무장길 영상 열람',
-    occurredAt: '오늘 오후 1:52',
-    amount: -3,
-    flow: 'SPENT',
-    period: 'TODAY',
-  },
-  {
-    entryId: 3,
-    title: '채팅 요청 수락',
-    occurredAt: '오늘 오후 7:03',
-    amount: 5,
-    flow: 'EARNED',
-    period: 'TODAY',
-  },
-  {
-    entryId: 4,
-    title: '채팅 요청 수락',
-    occurredAt: '26.07.23 오후 7:03',
-    amount: 5,
-    flow: 'EARNED',
-    period: 'WEEK',
-  },
-  {
-    entryId: 5,
-    title: '서울숲 영상 열람',
-    occurredAt: '26.07.12 오후 4:20',
-    amount: -3,
-    flow: 'SPENT',
-    period: 'MONTH',
-  },
+/**
+ * 거래 종류별 금액과 문구. 목업 원장을 만들 때 순서대로 돌려 쓴다.
+ *
+ * 백엔드 `CreditTransactionType`의 일곱 가지를 모두 한 번씩 넣었다. 합이 양수여야 잔액이
+ * 음수로 내려가지 않는다 — 지금 한 바퀴가 `+4`다.
+ */
+const creditKinds: Array<Pick<CreditTransaction, 'type' | 'amount' | 'description'>> = [
+  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '영상핀 평가 참여' },
+  { type: 'VIDEO_VIEWED', amount: -3, description: '성수 연무장길 영상 열람' },
+  { type: 'RECEIVED_CHAT_REQUEST_ACCEPTED', amount: 5, description: '채팅 요청 수락' },
+  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 영상핀이 유익하다는 평가를 받음' },
+  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '영상핀 평가 참여' },
+  { type: 'VIDEO_VIEWED', amount: -3, description: '서울숲 영상 열람' },
+  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 영상핀이 유익하다는 평가를 받음' },
+  { type: 'RECEIVED_DISAPPOINTING_PIN_EVALUATION', amount: -1, description: '내 영상핀이 아쉽다는 평가를 받음' },
+  { type: 'SENT_CHAT_REQUEST_ACCEPTED', amount: -5, description: '채팅 요청이 수락됨' },
+  { type: 'RECEIVED_CHAT_REQUEST_ACCEPTED', amount: 5, description: '채팅 요청 수락' },
 ];
 
-/** 기간별로 포함되는 범위. 좁은 기간은 넓은 기간에 포함된다. */
-const periodsWithin: Record<CreditPeriod, CreditPeriod[]> = {
-  TODAY: ['TODAY'],
-  WEEK: ['TODAY', 'WEEK'],
-  MONTH: ['TODAY', 'WEEK', 'MONTH'],
+/**
+ * 기간별로 만들어 둘 거래 수.
+ *
+ * 어느 필터를 골라도 한 페이지(20건)를 넘겨야 커서로 이어 받는 것을 확인할 수 있다.
+ * `오늘`만 봐도 두 페이지가 나오도록 잡았다.
+ */
+const creditVolume = [
+  { count: 28, from: 0, to: 0 }, // 오늘
+  { count: 30, from: 1, to: 6 }, // 1주일
+  { count: 40, from: 7, to: 29 }, // 1달
+  { count: 20, from: 30, to: 90 }, // 그 밖 — 전체 기간에만 걸린다
+];
+
+/**
+ * 크레딧 거래 원장.
+ *
+ * `daysAgo`로 시각을 만든다. 날짜를 문자열로 박아 두면 시간이 지나면서 "오늘" 건이 사라져
+ * 기간 필터를 확인할 수 없게 된다.
+ *
+ * 무작위를 쓰지 않는다. 다시 그릴 때마다 목록이 바뀌면 스크롤로 이어 받은 것이 새 데이터인지
+ * 같은 데이터인지 구분할 수 없다.
+ *
+ * 서버는 거래 시각 내림차순으로 주므로 여기서도 최근 것이 앞에 온다.
+ */
+const creditLedger: Array<
+  Omit<CreditTransaction, 'createdAt' | 'balanceAfter'> & {
+    daysAgo: number;
+    hour: number;
+    minute: number;
+  }
+> = buildCreditLedger();
+
+function buildCreditLedger() {
+  const generated = creditVolume.reduce((sum, group) => sum + group.count, 0);
+  const ledger = [];
+
+  // 1번은 가장 오래된 가입 축하 크레딧이 쓴다. 생성분은 2번부터 위로 올라간다.
+  let id = generated + 2;
+  /** 거래 종류를 고르는 순번. 그룹이 바뀌어도 이어져야 종류가 골고루 섞인다. */
+  let sequence = 0;
+
+  for (const group of creditVolume) {
+    const span = group.to - group.from + 1;
+
+    for (let index = 0; index < group.count; index += 1) {
+      // 그룹 안에서 날짜를 고르게 퍼뜨린다.
+      const daysAgo = group.from + Math.floor((index * span) / group.count);
+      // 같은 날 안에서는 뒤로 갈수록 이른 시각이어야 목록 순서와 맞는다.
+      const minutesBefore = index * 17;
+
+      ledger.push({
+        ...creditKinds[sequence % creditKinds.length],
+        transactionId: (id -= 1),
+        daysAgo,
+        hour: 23 - Math.floor(minutesBefore / 60),
+        minute: 59 - (minutesBefore % 60),
+      });
+
+      sequence += 1;
+    }
+  }
+
+  ledger.push({
+    transactionId: 1,
+    type: 'WELCOME_BONUS' as const,
+    amount: 20,
+    description: '가입 축하 크레딧',
+    daysAgo: 120,
+    hour: 10,
+    minute: 0,
+  });
+
+  return ledger;
+}
+
+/** 기간 필터가 포함하는 최대 경과 일수. 생략하면 전체 기간이다. */
+const daysWithinPeriod: Record<NonNullable<CreditTransactionsQuery['period']>, number> = {
+  today: 0,
+  week: 7,
+  month: 30,
 };
+
+/** 한 페이지에 담는 개수. 커서 이어받기를 확인할 수 있도록 작게 둔다. */
+const MOCK_CREDIT_PAGE_SIZE = 4;
+
+/** `daysAgo`·시·분을 실제 시각으로 만든다. */
+function toCreatedAt(daysAgo: number, hour: number, minute: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  date.setHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
 
 /**
  * 크레딧 내역 조회 목업.
  *
- * 실제 API도 기간을 쿼리로 받을 것으로 보여 시그니처를 맞춰 뒀다.
- * 종류 필터는 목록이 작아 화면에서 걸러도 되지만 서버와 같게 여기서 처리한다.
+ * 서버처럼 종류·기간을 걸러 내고 커서로 잘라 준다. 잔액은 원장을 합해 만들고 각 거래의
+ * `balanceAfter`도 그 원장에서 계산한다 — 명세가 "잔액과 내역은 같은 원장을 기준으로 한다"고
+ * 정하고 있어 두 값이 어긋나면 확인이 무의미해진다.
  */
-export async function fetchMockCreditEntries(period: CreditPeriod): Promise<CreditEntry[]> {
+export async function fetchMockCreditTransactions(
+  query: CreditTransactionsQuery,
+): Promise<CreditTransactionsResponse> {
   await delay(MOCK_LATENCY_MS);
 
-  const included = periodsWithin[period];
-  return creditEntries
-    .filter((entry) => included.includes(entry.period))
-    .map(({ period: _period, ...entry }) => entry);
+  // 오래된 것부터 더해야 각 시점의 잔액이 나온다. 원장은 최신순이라 뒤에서부터 본다.
+  let running = 0;
+  const withBalance: CreditTransaction[] = [...creditLedger]
+    .reverse()
+    .map(({ daysAgo, hour, minute, ...entry }) => {
+      running += entry.amount;
+      return { ...entry, balanceAfter: running, createdAt: toCreatedAt(daysAgo, hour, minute) };
+    })
+    .reverse();
+
+  const balance = running;
+
+  const maxDays = query.period ? daysWithinPeriod[query.period] : Number.POSITIVE_INFINITY;
+  const oldest = Date.now() - (maxDays + 1) * 24 * 60 * 60 * 1000;
+
+  const matched = withBalance.filter((entry) => {
+    if (query.type === 'spent' && entry.amount >= 0) return false;
+    if (query.type === 'earned' && entry.amount <= 0) return false;
+    // `today`는 경과 일수가 아니라 날짜가 같은지로 봐야 한다.
+    if (query.period === 'today') {
+      const created = new Date(entry.createdAt);
+      const now = new Date();
+      return (
+        created.getFullYear() === now.getFullYear() &&
+        created.getMonth() === now.getMonth() &&
+        created.getDate() === now.getDate()
+      );
+    }
+    return Date.parse(entry.createdAt) >= oldest;
+  });
+
+  // 커서는 "이 거래 다음부터"를 뜻한다. 값이 목록에 없으면 처음부터 준다.
+  const start = query.cursor
+    ? matched.findIndex((entry) => String(entry.transactionId) === query.cursor) + 1
+    : 0;
+  const size = query.limit ?? MOCK_CREDIT_PAGE_SIZE;
+  const items = matched.slice(start, start + size);
+  const last = items[items.length - 1];
+
+  return {
+    balance,
+    items,
+    nextCursor: last && start + size < matched.length ? String(last.transactionId) : null,
+  };
 }
 
 /**
