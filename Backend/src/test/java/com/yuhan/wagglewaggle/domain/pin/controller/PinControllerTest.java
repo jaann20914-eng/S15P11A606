@@ -1,7 +1,11 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
+import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
@@ -31,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PinControllerTest {
 
     private PinVideoUploadService pinVideoUploadService;
+    private PinCreateService pinCreateService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -41,7 +46,8 @@ class PinControllerTest {
     @BeforeEach
     void setUp() {
         pinVideoUploadService = Mockito.mock(PinVideoUploadService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PinController(pinVideoUploadService))
+        pinCreateService = Mockito.mock(PinCreateService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new PinController(pinVideoUploadService, pinCreateService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -105,5 +111,50 @@ class PinControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.statusCode").value(500))
                 .andExpect(jsonPath("$.error.code").value("UPLOAD_URL_ISSUE_FAILED"));
+    }
+
+    @Test
+    void 핀_등록_접수시_202와_pinId_videoStatus를_반환한다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        given(pinCreateService.create(eq(MEMBER_ID), any(PinCreateRequest.class)))
+                .willReturn(new PinCreateResponse(pinId, VideoStatus.PENDING));
+
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\",\"kakaoPlaceId\":\"p\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.statusCode").value(202))
+                .andExpect(jsonPath("$.message").value("영상 핀 등록 요청이 접수되었습니다."))
+                .andExpect(jsonPath("$.data.pinId").value(pinId.toString()))
+                .andExpect(jsonPath("$.data.videoStatus").value("PENDING"));
+
+        // 인증된 memberId가 서비스로 전달된다.
+        verify(pinCreateService).create(eq(MEMBER_ID), any(PinCreateRequest.class));
+    }
+
+    @Test
+    void 핀_등록_검증_실패시_해당_오류코드를_반환한다() throws Exception {
+        given(pinCreateService.create(any(), any()))
+                .willThrow(new CustomException(ErrorCode.VIDEO_NOT_ACCESSIBLE));
+
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("VIDEO_NOT_ACCESSIBLE"));
+    }
+
+    @Test
+    void 핀_저장_실패시_500과_PIN_CREATE_FAILED를_반환한다() throws Exception {
+        given(pinCreateService.create(any(), any()))
+                .willThrow(new CustomException(ErrorCode.PIN_CREATE_FAILED));
+
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\"}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.statusCode").value(500))
+                .andExpect(jsonPath("$.error.code").value("PIN_CREATE_FAILED"));
     }
 }
