@@ -37,6 +37,10 @@ public enum ErrorCode {
     INVALID_RADIUS(HttpStatus.BAD_REQUEST, "반경이 올바르지 않습니다."),
     NEARBY_PLACES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "주변 장소 조회 중 오류가 발생했습니다."),
 
+    // Search History
+    INVALID_LIMIT(HttpStatus.BAD_REQUEST, "조회 개수가 올바르지 않습니다."),
+    RECENT_SEARCHES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "최근 검색기록 조회 중 오류가 발생했습니다."),
+
     // Auth
     AUTH_PROVIDER_INVALID(HttpStatus.BAD_REQUEST, "지원하지 않는 OAuth 제공자입니다."),
     INVALID_OAUTH_REQUEST(HttpStatus.BAD_REQUEST, "OAuth 요청 정보가 올바르지 않습니다."),
