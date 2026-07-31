@@ -82,7 +82,17 @@ public class PinCreateService {
     public PinCreateResponse create(Long memberId, PinCreateRequest request) {
         ValidatedPinCreation validated = validate(memberId, request);
 
-        PinPersistenceService.Result result = pinPersistenceService.save(validated);
+        // 저장(트랜잭션) 실패는 롤백 이후 PIN_CREATE_FAILED로 매핑한다. 검증 예외(CustomException)는 그대로 전파된다.
+        PinPersistenceService.Result result;
+        try {
+            result = pinPersistenceService.save(validated);
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("핀 저장 실패 (memberId={}, originalVideoKey={})",
+                    memberId, validated.originalVideoKey(), e);
+            throw new CustomException(ErrorCode.PIN_CREATE_FAILED);
+        }
 
         // 트랜잭션 커밋 이후에만 발행한다. 발행 실패는 저장을 롤백하지 않으며 API 응답에도 영향을 주지 않는다.
         // (실패/장기 PENDING 작업은 재발행 스케줄러가 동일 requestId로 재시도한다.)

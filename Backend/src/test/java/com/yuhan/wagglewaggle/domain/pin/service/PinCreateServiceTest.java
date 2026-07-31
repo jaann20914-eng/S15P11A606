@@ -263,12 +263,14 @@ class PinCreateServiceTest {
     }
 
     @Test
-    void create는_저장이_실패하면_발행하지_않고_예외를_전파한다() {
+    void create는_저장이_실패하면_발행하지_않고_PIN_CREATE_FAILED를_던진다() {
         given(pinPersistenceService.save(any(ValidatedPinCreation.class)))
                 .willThrow(new RuntimeException("DB 오류"));
 
         assertThatThrownBy(() -> service.create(MEMBER_ID, request(PLACE_LAT, PLACE_LNG)))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.PIN_CREATE_FAILED);
 
         verify(aiBlurJobPublisher, never()).publish(any());
     }

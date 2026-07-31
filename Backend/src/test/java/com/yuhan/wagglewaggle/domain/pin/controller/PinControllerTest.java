@@ -144,4 +144,17 @@ class PinControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(400))
                 .andExpect(jsonPath("$.error.code").value("VIDEO_NOT_ACCESSIBLE"));
     }
+
+    @Test
+    void 핀_저장_실패시_500과_PIN_CREATE_FAILED를_반환한다() throws Exception {
+        given(pinCreateService.create(any(), any()))
+                .willThrow(new CustomException(ErrorCode.PIN_CREATE_FAILED));
+
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\"}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.statusCode").value(500))
+                .andExpect(jsonPath("$.error.code").value("PIN_CREATE_FAILED"));
+    }
 }

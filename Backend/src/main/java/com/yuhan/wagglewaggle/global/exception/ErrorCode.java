@@ -68,7 +68,8 @@ public enum ErrorCode {
     VIDEO_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 사용된 영상입니다."),
     LOCATION_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "장소와 촬영 위치가 너무 멉니다."),
     VIDEO_NOT_ACCESSIBLE(HttpStatus.BAD_REQUEST, "영상을 확인할 수 없습니다."),
-    DAILY_PIN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 등록할 수 있는 핀 개수를 초과했습니다.");
+    DAILY_PIN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 등록할 수 있는 핀 개수를 초과했습니다."),
+    PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;
