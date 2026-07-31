@@ -286,6 +286,8 @@ export const colors = {
   success: palette.success,
   sky: palette.sky,
   limeSoft: palette.limeSoft,
+  /** 중앙 영상핀 버튼 등 라임 계열 컨트롤 배경 (DESIGN_GUIDE 10.6). */
+  limeControl: palette.limeControl,
   kakao: palette.kakao,
   naver: palette.naver,
 } as const;
