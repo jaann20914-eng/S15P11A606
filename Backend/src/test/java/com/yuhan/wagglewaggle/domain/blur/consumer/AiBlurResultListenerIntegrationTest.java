@@ -107,4 +107,21 @@ class AiBlurResultListenerIntegrationTest {
         // requeue되지 않으므로 원본 결과 큐는 비어 있어야 한다.
         assertThat(rabbitTemplate.receive(RabbitConfig.RESULT_QUEUE, 500)).isNull();
     }
+
+    @Test
+    void 역직렬화_실패_메시지는_서비스를_호출하지_않고_DLQ로_이동한다() {
+        // JSON으로 파싱할 수 없는 본문. 컨테이너 변환 단계에서 실패한다.
+        MessageProperties props = new MessageProperties();
+        props.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        props.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+        Message malformed = new Message("{ this is not valid json".getBytes(StandardCharsets.UTF_8), props);
+
+        rabbitTemplate.send(RabbitConfig.EXCHANGE, RabbitConfig.RESULT_ROUTING_KEY, malformed);
+
+        // 변환 실패이므로 결과 반영 서비스는 호출되지 않고, requeue 없이 DLQ로 이동해야 한다.
+        Message dead = rabbitTemplate.receive(RabbitConfig.DLQ, 5000);
+        assertThat(dead).isNotNull();
+        verify(aiBlurResultService, org.mockito.Mockito.never()).apply(any());
+        assertThat(rabbitTemplate.receive(RabbitConfig.RESULT_QUEUE, 500)).isNull();
+    }
 }
