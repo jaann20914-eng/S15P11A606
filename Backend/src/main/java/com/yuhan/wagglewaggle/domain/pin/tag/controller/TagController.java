@@ -20,10 +20,13 @@ public class TagController {
     @GetMapping("/search")
     public ApiResponse<TagSearchResponse> searchTags(
             @RequestParam String q,
-            @RequestParam double latitude,
-            @RequestParam double longitude
+            @RequestParam double southWestLatitude,
+            @RequestParam double southWestLongitude,
+            @RequestParam double northEastLatitude,
+            @RequestParam double northEastLongitude
     ) {
-        TagSearchResponse result = tagSearchService.search(q, latitude, longitude);
+        TagSearchResponse result = tagSearchService.search(
+                q, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
         return ApiResponse.success(HttpStatus.OK.value(), "태그 검색이 완료되었습니다.", result);
     }
