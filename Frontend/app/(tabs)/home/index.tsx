@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { KakaoMap } from '@/components/home/KakaoMap';
@@ -59,6 +59,18 @@ export default function Home() {
    * 중심을 곧바로 덮어써 버린다. 못 얻었으면 기존 동작(기본 중심 + 핀 맞춤)으로 돌아간다.
    */
   const [start, setStart] = useState<{ center: Coordinate; fromMyLocation: boolean } | null>(null);
+
+  /**
+   * 옮겨 갈 좌표를 한 렌더 동안 들고 있는다.
+   *
+   * 지도 중심 보정은 **바텀시트가 가리는 높이**를 기준으로 계산한다. 카드를 누르면 시트
+   * 높이도 함께 바뀔 수 있는데, 같은 tick에 바로 옮기면 아직 바뀌기 전 높이로 계산해
+   * 장소가 화면 중앙에서 벗어난 자리에 놓인다.
+   *
+   * 한 번 더 렌더된 뒤에 옮기면 새 높이가 반영돼 있다. 검색 복귀도 같은 길을 쓰게 해서
+   * 이동 경로를 하나로 둔다.
+   */
+  const [pendingPan, setPendingPan] = useState<Coordinate | null>(null);
   const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
   // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
@@ -140,8 +152,9 @@ export default function Home() {
       if (!place) return;
 
       selectPlace(placeId);
-      mapRef.current?.panTo({ latitude: place.latitude, longitude: place.longitude });
+      // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
       if (level === 2) moveTo(1);
+      setPendingPan({ latitude: place.latitude, longitude: place.longitude });
     },
     [level, moveTo, selectPlace],
   );
@@ -192,9 +205,26 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !focus) return;
-    mapRef.current?.panTo(focus.coordinate);
+    setPendingPan(focus.coordinate);
     clearFocus();
   }, [clearFocus, focus, mapReady]);
+
+  // 밀린 이동을 실행한다. 이 시점의 coveredHeight는 시트의 최종 높이를 반영하고 있다.
+  useEffect(() => {
+    if (!mapReady || !pendingPan) return;
+    mapRef.current?.panTo(pendingPan);
+    setPendingPan(null);
+  }, [mapReady, pendingPan]);
+
+  /*
+    화면이 다시 앞으로 나올 때 지도에 크기를 다시 알린다. 가려져 있는 동안 레이아웃이 바뀌면
+    SDK가 모르고 있어 타일과 중심이 어긋난 채로 남는다.
+  */
+  useFocusEffect(
+    useCallback(() => {
+      mapRef.current?.relayout();
+    }, []),
+  );
 
   // 바텀시트가 가리는 높이. 지도 중심 이동 시 이만큼 보정해 보이는 영역의 중앙에 놓는다.
   const coveredHeight = Math.max(0, height - snapPoints[level]);

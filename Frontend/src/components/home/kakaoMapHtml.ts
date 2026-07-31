@@ -187,6 +187,10 @@ export function buildKakaoMapHtml({
   var pendingFitInset = null;
   /** 진행 중인 중심 이동 애니메이션의 프레임 id. 없으면 null. */
   var panFrame = null;
+  /** requestAnimationFrame이 멈춰도 이동을 끝내기 위한 예비 타이머. */
+  var panTimeout = null;
+  /** 진행 중인 이동의 도착 좌표. 중간에 끊길 때 이 자리로 마무리한다. */
+  var panTarget = null;
 
   function toneOf(filter) {
     return INITIAL.tone[filter] || INITIAL.tone.relaxed;
@@ -279,10 +283,35 @@ export function buildKakaoMapHtml({
   /** 화면 이 배수를 넘게 멀면 손으로 미는 동작으로 볼 수 없어 즉시 옮긴다. */
   var PAN_MAX_SCREENS = 20;
 
+  /** 진행 중인 이동을 버린다. 지금 있는 자리에 그대로 멈춘다. */
   function cancelPan() {
-    if (panFrame === null) return;
-    cancelAnimationFrame(panFrame);
-    panFrame = null;
+    if (panFrame !== null) {
+      cancelAnimationFrame(panFrame);
+      panFrame = null;
+    }
+    if (panTimeout !== null) {
+      clearTimeout(panTimeout);
+      panTimeout = null;
+    }
+    panTarget = null;
+  }
+
+  /**
+   * 진행 중인 이동을 도착 지점으로 즉시 마무리한다.
+   *
+   * requestAnimationFrame은 화면이 가려지면 **호출이 멈춘다.** 게시글로 넘어가는 순간
+   * 이동이 중간에서 얼어붙고, 돌아왔을 때 중심이 어중간한 자리에 남는다. 게다가 그동안
+   * panFrame이 비워지지 않아 idle 알림까지 계속 막힌다.
+   *
+   * 그래서 화면이 가려질 때와 예비 타이머에서 이 함수로 확실히 끝낸다.
+   */
+  function finishPan() {
+    if (panTarget === null) return;
+
+    var target = panTarget;
+    cancelPan();
+    map.setCenter(target);
+    sendIdle();
   }
 
   /** 시작과 끝이 느리고 가운데가 빠른 곡선. 손으로 밀어 놓는 느낌에 가깝다. */
@@ -347,11 +376,14 @@ export function buildKakaoMapHtml({
         return;
       }
 
-      panFrame = null;
+      cancelPan();
       // 움직이는 동안은 idle을 막아 두었으므로(initMap 참고) 끝난 자리를 한 번 알린다.
       sendIdle();
     }
 
+    panTarget = target;
+    // rAF가 멈춰도 이 타이머가 이동을 마무리한다. 여유를 조금 둬 정상 완료를 방해하지 않는다.
+    panTimeout = setTimeout(finishPan, duration + 400);
     panFrame = requestAnimationFrame(step);
   }
 
@@ -534,6 +566,14 @@ export function buildKakaoMapHtml({
       if (map) map.relayout();
     }
   };
+
+  /*
+    화면이 가려지면 requestAnimationFrame이 멈춘다. 게시글로 넘어가는 순간이 그렇다.
+    이동을 도착 지점으로 끝내 두어야 돌아왔을 때 중심이 어긋나 있지 않다.
+  */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) finishPan();
+  });
 
   // 웹(iframe)에서는 부모 창이 postMessage로 패치를 전달한다.
   window.addEventListener('message', function (event) {
