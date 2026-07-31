@@ -39,8 +39,9 @@ public class PinTagDocument {
     )
     private String tag;
 
-    @Field(type = FieldType.Long)
-    private Long pinId;
+    // 핀 PK가 UUID이므로 문자열 keyword로 색인한다.
+    @Field(type = FieldType.Keyword)
+    private String pinId;
 
     // 반경 필터(geo_distance)의 기준 좌표
     @GeoPointField
@@ -57,7 +58,7 @@ public class PinTagDocument {
     protected PinTagDocument() {
     }
 
-    public PinTagDocument(String id, String tag, Long pinId, GeoPoint location, boolean active, Instant expiresAt) {
+    public PinTagDocument(String id, String tag, String pinId, GeoPoint location, boolean active, Instant expiresAt) {
         this.id = id;
         this.tag = tag;
         this.pinId = pinId;
