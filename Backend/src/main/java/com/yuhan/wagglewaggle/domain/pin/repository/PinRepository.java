@@ -14,6 +14,16 @@ import java.util.UUID;
 public interface PinRepository extends JpaRepository<Pin, UUID> {
 
     /**
+     * 동일한 원본 영상 키가 이미 핀에 사용되었는지 검사한다(영상 중복 등록 방지).
+     */
+    boolean existsByOriginalVideoKey(String originalVideoKey);
+
+    /**
+     * 특정 회원이 기준 시각 이후 등록한 핀 개수를 센다(일일 등록 제한 확인용).
+     */
+    long countByMember_IdAndCreatedAtGreaterThanEqual(Long memberId, Instant from);
+
+    /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.
      * 유효 = createdAt이 from 이후(최근 1시간 이내) AND (expiresAt이 없거나 아직 만료되지 않음).
      * 작성자 뷰 각도(member.viewAngle) 사용을 위해 member를 fetch join 하여 N+1을 방지한다.

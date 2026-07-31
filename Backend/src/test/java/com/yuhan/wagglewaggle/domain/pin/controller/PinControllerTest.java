@@ -1,7 +1,9 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PinControllerTest {
 
     private PinVideoUploadService pinVideoUploadService;
+    private PinCreateService pinCreateService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -41,7 +44,8 @@ class PinControllerTest {
     @BeforeEach
     void setUp() {
         pinVideoUploadService = Mockito.mock(PinVideoUploadService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PinController(pinVideoUploadService))
+        pinCreateService = Mockito.mock(PinCreateService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new PinController(pinVideoUploadService, pinCreateService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -105,5 +109,31 @@ class PinControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.statusCode").value(500))
                 .andExpect(jsonPath("$.error.code").value("UPLOAD_URL_ISSUE_FAILED"));
+    }
+
+    @Test
+    void 핀_등록_검증_성공시_200과_메시지를_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\",\"kakaoPlaceId\":\"p\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("핀 등록 요청이 검증되었습니다."));
+
+        // 인증된 memberId가 검증 서비스로 전달된다.
+        verify(pinCreateService).validate(eq(MEMBER_ID), any(PinCreateRequest.class));
+    }
+
+    @Test
+    void 핀_등록_검증_실패시_해당_오류코드를_반환한다() throws Exception {
+        given(pinCreateService.validate(any(), any()))
+                .willThrow(new CustomException(ErrorCode.VIDEO_NOT_ACCESSIBLE));
+
+        mockMvc.perform(post("/api/v1/pins")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"k\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("VIDEO_NOT_ACCESSIBLE"));
     }
 }

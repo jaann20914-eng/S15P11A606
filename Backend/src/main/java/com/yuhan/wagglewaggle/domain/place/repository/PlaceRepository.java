@@ -6,8 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PlaceRepository extends JpaRepository<Place, Long> {
+
+    /**
+     * kakaoPlaceId로 기존 장소를 조회한다(핀 등록 시 장소 재사용·좌표 확인용).
+     * 유니크 제약이 없어 동일 kakaoPlaceId가 중복 저장돼 있어도 첫 건을 반환한다.
+     */
+    Optional<Place> findFirstByKakaoPlaceId(String kakaoPlaceId);
 
     /**
      * 지도 경계(bounding box) 안에 위치한 장소를 조회한다.

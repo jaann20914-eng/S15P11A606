@@ -1,7 +1,9 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PinController {
 
     private final PinVideoUploadService pinVideoUploadService;
+    private final PinCreateService pinCreateService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -32,5 +35,19 @@ public class PinController {
                 pinVideoUploadService.issueOriginalVideoUploadUrl(memberId, request);
 
         return ApiResponse.success(HttpStatus.OK.value(), "영상 업로드 정보가 발급되었습니다.", data);
+    }
+
+    /**
+     * 인증 사용자의 핀 등록 요청을 검증한다.
+     * 이번 단계에서는 저장·발행 없이 검증만 수행하며, 위반 시 서비스가 구체적 오류 코드를 반환한다.
+     */
+    @PostMapping
+    public ApiResponse<Void> create(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody(required = false) PinCreateRequest request
+    ) {
+        pinCreateService.validate(memberId, request);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "핀 등록 요청이 검증되었습니다.");
     }
 }

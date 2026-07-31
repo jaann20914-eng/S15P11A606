@@ -60,3 +60,7 @@ pin:
   upload:
     # 원본 영상 최대 크기 (기본 100MB)
     max-video-size-bytes: ${MAX_VIDEO_SIZE_BYTES:104857600}
+  registration:
+    # 회원 1인의 하루 핀 등록 허용 개수. 정책값 미확정이라 기본 0(=미적용).
+    # 값이 합의되면 DAILY_PIN_LIMIT 환경변수 또는 이 설정으로 양수를 지정한다.
+    daily-limit: ${DAILY_PIN_LIMIT:0}
