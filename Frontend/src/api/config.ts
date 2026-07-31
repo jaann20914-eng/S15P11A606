@@ -27,6 +27,7 @@ export type ApiModule =
   | 'pin/videoUpload'
   | 'pin/videoUploadTask'
   | 'place/search'
+  | 'user/credits'
   | 'user/me'
   | 'user/nickname-availability';
 
@@ -67,6 +68,8 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
 
   // GET·PATCH /api/v1/users/me 가 아직 없다.
   'user/me': true,
+  // GET /api/v1/users/me/credits/transactions 도 아직 없다. credit 컨트롤러가 없다.
+  'user/credits': true,
 };
 
 /**
