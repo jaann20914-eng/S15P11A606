@@ -1,11 +1,9 @@
 package com.yuhan.wagglewaggle.domain.place.service;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
-import com.yuhan.wagglewaggle.domain.pin.entity.PinTag;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
-import com.yuhan.wagglewaggle.domain.pin.repository.PinTagRepository;
-import com.yuhan.wagglewaggle.domain.pin.repository.PinUnlockRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.WeeklyCrowdStatRow;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCardAssembler;
 import com.yuhan.wagglewaggle.domain.place.client.KakaoLocalClient;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse.Document;
@@ -27,12 +25,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -56,8 +50,7 @@ public class PlaceDetailService {
 
     private final PlaceRepository placeRepository;
     private final PinRepository pinRepository;
-    private final PinTagRepository pinTagRepository;
-    private final PinUnlockRepository pinUnlockRepository;
+    private final PinCardAssembler pinCardAssembler;
     private final KakaoLocalClient kakaoLocalClient;
 
     /**
@@ -97,37 +90,12 @@ public class PlaceDetailService {
 
     /**
      * 단일 장소의 활성 핀 카드 목록을 만든다.
-     * 활성 핀(+member)·태그·열람 여부를 각각 한 번씩 배치 조회해 핀별 N+1을 방지한다.
+     * 핀 조회 시 member를 fetch join 하므로 작성자는 핀에서 바로 얻어 공통 조립기에 전달한다.
      */
     private List<PinCard> loadPinCards(Long placeId, Long memberId, Instant now) {
         List<Pin> pins = pinRepository.findActivePinsByPlaceId(
                 placeId, now.minus(ACTIVE_WINDOW), now);
-        if (pins.isEmpty()) {
-            return List.of();
-        }
-
-        List<UUID> pinIds = pins.stream().map(Pin::getId).toList();
-
-        Map<UUID, List<String>> tagsByPinId = pinTagRepository.findByPin_IdIn(pinIds).stream()
-                .collect(Collectors.groupingBy(
-                        pinTag -> pinTag.getPin().getId(),
-                        Collectors.mapping(PinTag::getTag, Collectors.toList())));
-
-        Set<UUID> unlockedPinIds = memberId == null
-                ? Set.of()
-                : new HashSet<>(pinUnlockRepository.findUnlockedPinIds(memberId, pinIds));
-
-        return pins.stream()
-                .map(pin -> new PinCard(
-                        pin.getId(),
-                        pin.getMember().getNickname(),
-                        pin.getMember().getViewAngle(),
-                        pin.getCreatedAt(),
-                        pin.getMemo(),
-                        pin.getThumbnailKey(),
-                        unlockedPinIds.contains(pin.getId()),
-                        tagsByPinId.getOrDefault(pin.getId(), List.of())))
-                .toList();
+        return pinCardAssembler.assemble(pins, memberId, Pin::getMember);
     }
 
     /**
