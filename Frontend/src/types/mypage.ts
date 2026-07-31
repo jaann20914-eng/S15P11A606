@@ -1,4 +1,4 @@
-import type { TodayPinStatus } from './pin';
+import type { PinId, TodayPinStatus } from './pin';
 
 /**
  * 마이페이지에서 화면이 쓰는 모양.
@@ -9,7 +9,7 @@ import type { TodayPinStatus } from './pin';
 
 /** 마이페이지에서 보여주는 내 영상핀 한 건. */
 export interface MyPin {
-  pinId: number;
+  pinId: PinId;
   /** 등록 시각. 모두 오늘 건이라 `14:05`처럼 시각만 보여준다. */
   time: string;
   placeName: string;

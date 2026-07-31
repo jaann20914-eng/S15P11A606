@@ -13,7 +13,7 @@ import type {
   NicknameUpdateResponse,
 } from '@/types/user';
 import { isValidNickname, normalizeNickname } from '@/utils/nickname';
-import { MOCK_LATENCY_MS, delay } from './pin';
+import { MOCK_LATENCY_MS, delay, mockPinId, registerMockPinScenario } from './pin';
 
 /**
  * 마이페이지 고정 데이터.
@@ -127,6 +127,14 @@ const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'ACTIVE', 'A
 /** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
 const TODAY_PIN_COUNT = 26;
 
+/**
+ * 오늘 등록한 핀이 쓸 식별자 대역.
+ *
+ * 상세 목업의 시나리오 표가 1~6번을 미구매·열람완료·평가완료·내 핀으로 쓰고 있다. 여기서 그
+ * 번호를 겹쳐 쓰면 아래 등록이 표를 덮어써서, 어느 핀을 열어도 내 핀 화면만 나온다.
+ */
+const TODAY_PIN_ID_OFFSET = 200;
+
 /** 목업 기본 페이지 크기. 명세의 서버 기본값과 같다. */
 const MOCK_TODAY_PIN_PAGE_SIZE = 20;
 
@@ -142,12 +150,20 @@ const todayPins: TodayPin[] = Array.from({ length: TODAY_PIN_COUNT }, (_, index)
   createdAt.setMinutes(createdAt.getMinutes() - index * 12);
 
   return {
-    pinId: TODAY_PIN_COUNT - index,
+    pinId: mockPinId(TODAY_PIN_ID_OFFSET + TODAY_PIN_COUNT - index),
     ...todayPinPlaces[index % todayPinPlaces.length],
     status: todayPinStatuses[index % todayPinStatuses.length],
     createdAt: createdAt.toISOString(),
   };
 });
+
+/**
+ * 목록에서 누르면 상세가 열리도록 시나리오를 등록한다.
+ *
+ * 오늘 등록한 핀은 내가 쓴 핀이라 상세도 작성자 화면이어야 한다. 등록하지 않으면 상세 목업의
+ * 표에 없어서 조회 실패 화면이 뜬다.
+ */
+todayPins.forEach((pin) => registerMockPinScenario(pin.pinId, 'owner'));
 
 export async function fetchMockTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
   await delay(MOCK_LATENCY_MS);

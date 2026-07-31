@@ -1,3 +1,4 @@
+import type { PinId } from './pin';
 /**
  * 채팅 도메인 타입.
  *
@@ -15,7 +16,7 @@ export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'CLOSED' | 'LEFT';
  */
 export type ChatRequestResult = {
   roomId: number;
-  pinId: number;
+  pinId: PinId;
   status: 'PENDING';
   createdAt: string;
 };
@@ -27,7 +28,7 @@ export type ChatRequestResult = {
  * 핀 자체의 상태와 크레딧 거래는 바뀌지 않는다.
  */
 export type PinChatLeaveResult = {
-  pinId: number;
+  pinId: PinId;
   status: 'LEFT';
   /** 이번 요청으로 `LEFT`가 된 채팅방. 이미 전부 `LEFT`였으면 빈 배열이다. */
   leftChatRoomIds: number[];

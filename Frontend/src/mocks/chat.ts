@@ -1,6 +1,13 @@
 import { ApiError } from '@/api/client';
 import type { ChatRequestResult, PinChatLeaveResult } from '@/types/chat';
-import { MOCK_LATENCY_MS, delay, isMockPinUnlocked, resolvePinDetailScenario } from './pin';
+import {
+  MOCK_LATENCY_MS,
+  canonicalMockPinId,
+  delay,
+  isMockPinUnlocked,
+  resolvePinDetailScenario,
+} from './pin';
+import type { PinId } from '@/types/pin';
 
 /**
  * 채팅 도메인 고정 데이터.
@@ -10,7 +17,7 @@ import { MOCK_LATENCY_MS, delay, isMockPinUnlocked, resolvePinDetailScenario } f
  */
 
 /** 이번 세션에서 채팅을 요청한 핀 → 만들어진 방 id. 중복 요청 409를 재현한다. */
-const chatRoomIdByPinId = new Map<number, number>();
+const chatRoomIdByPinId = new Map<PinId, number>();
 
 let nextMockRoomId = 7;
 
@@ -18,7 +25,10 @@ let nextMockRoomId = 7;
  * 익명 채팅 요청 목업.
  * 미구매·본인 핀(403)과 이미 대기 중인 요청(409)을 실제 서버와 같은 코드로 재현한다.
  */
-export async function createMockChatRequest(pinId: number): Promise<ChatRequestResult> {
+export async function createMockChatRequest(pinId: PinId): Promise<ChatRequestResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);
@@ -44,13 +54,16 @@ export async function createMockChatRequest(pinId: number): Promise<ChatRequestR
 }
 
 /** 이번 세션에서 이미 나간 핀. 두 번째 요청은 빈 배열을 준다. */
-const leftPinIds = new Set<number>();
+const leftPinIds = new Set<PinId>();
 
 /**
  * "이미 떠났어요" 목업.
  * 권한 없음과 "이미 전부 LEFT" 두 경우를 실제 서버와 같게 재현한다.
  */
-export async function leaveMockPinChats(pinId: number): Promise<PinChatLeaveResult> {
+export async function leaveMockPinChats(pinId: PinId): Promise<PinChatLeaveResult> {
+  // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
+  pinId = canonicalMockPinId(pinId);
+
   await delay(MOCK_LATENCY_MS);
 
   const scenario = resolvePinDetailScenario(pinId);

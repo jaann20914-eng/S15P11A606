@@ -2,7 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockPinDetail } from '@/mocks/pin';
 import { toCrowdLevelKey } from '@/types/pin';
-import type { PinDetail, PinDetailResponse } from '@/types/pin';
+import type { PinId, PinDetail, PinDetailResponse } from '@/types/pin';
 
 /**
  * 게시글 상세 조회 — `GET /api/v1/pins/{pinId}`
@@ -10,7 +10,7 @@ import type { PinDetail, PinDetailResponse } from '@/types/pin';
  * 오류 코드: `INVALID_PIN_ID` `UNAUTHORIZED` `PIN_NOT_FOUND`
  * `PIN_DETAIL_FETCH_FAILED` `VIDEO_URL_ISSUE_FAILED`.
  */
-function requestPinDetail(pinId: number): Promise<PinDetailResponse> {
+function requestPinDetail(pinId: PinId): Promise<PinDetailResponse> {
   return apiRequest<PinDetailResponse>({ method: 'GET', url: `/api/v1/pins/${pinId}` });
 }
 
@@ -19,7 +19,7 @@ function toPinDetail(response: PinDetailResponse): PinDetail {
   return { ...response, crowdLevel: toCrowdLevelKey(response.crowdLevel) };
 }
 
-export async function getPinDetail(pinId: number): Promise<PinDetail> {
+export async function getPinDetail(pinId: PinId): Promise<PinDetail> {
   const response = usesMock('pin/detail') ? await fetchMockPinDetail(pinId) : await requestPinDetail(pinId);
   return toPinDetail(response);
 }
