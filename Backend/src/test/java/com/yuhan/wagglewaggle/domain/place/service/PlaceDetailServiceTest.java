@@ -7,6 +7,7 @@ import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinTagRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinUnlockRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.WeeklyCrowdStatRow;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCardAssembler;
 import com.yuhan.wagglewaggle.domain.place.client.KakaoLocalClient;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse.Document;
@@ -28,7 +29,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -67,7 +67,7 @@ class PlaceDetailServiceTest {
     @Mock private PinUnlockRepository pinUnlockRepository;
     @Mock private KakaoLocalClient kakaoLocalClient;
 
-    @InjectMocks private PlaceDetailService placeDetailService;
+    private PlaceDetailService placeDetailService;
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
     private static final Long MEMBER_ID = 1000L;
@@ -76,6 +76,12 @@ class PlaceDetailServiceTest {
 
     @BeforeEach
     void setUp() {
+        // 태그·열람 배치 조회는 공통 조립기(PinCardAssembler)로 이동했으므로,
+        // 실제 조립기를 목 리포지토리와 함께 조립해 기존 검증(태그/열람 하이드레이션)을 유지한다.
+        PinCardAssembler pinCardAssembler = new PinCardAssembler(pinTagRepository, pinUnlockRepository);
+        placeDetailService = new PlaceDetailService(
+                placeRepository, pinRepository, pinCardAssembler, kakaoLocalClient);
+
         // 기본 스텁: 각 조회는 비어 있고 카카오는 매칭 결과 없음(주소/전화 "").
         // 개별 테스트에서 필요한 부분만 재정의한다.
         given(pinRepository.findActivePinsByPlaceId(anyLong(), any(), any())).willReturn(List.of());
