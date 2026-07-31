@@ -20,6 +20,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,7 +55,7 @@ class TagSearchIntegrationTest {
 
     private void save(String id, String tag, double lat, double lon) {
         operations.save(new PinTagDocument(
-                id, tag, Long.parseLong(id), new GeoPoint(lat, lon), true,
+                id, tag, new UUID(0, Long.parseLong(id)).toString(), new GeoPoint(lat, lon), true,
                 Instant.now().plus(1, ChronoUnit.DAYS)));
     }
 
@@ -71,7 +72,7 @@ class TagSearchIntegrationTest {
     @Test
     void 색인된_문서를_조회할_수_있다() {
         Instant future = Instant.now().plus(1, ChronoUnit.DAYS);
-        operations.save(new PinTagDocument("1", "데이트", 1L, new GeoPoint(37.5, 127.0), true, future));
+        operations.save(new PinTagDocument("1", "데이트", new UUID(0, 1L).toString(), new GeoPoint(37.5, 127.0), true, future));
         operations.indexOps(PinTagDocument.class).refresh();
 
         long count = operations.count(Query.findAll(), PinTagDocument.class);

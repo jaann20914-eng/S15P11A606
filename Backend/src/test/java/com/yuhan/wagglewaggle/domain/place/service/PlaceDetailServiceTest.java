@@ -40,6 +40,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -70,6 +71,8 @@ class PlaceDetailServiceTest {
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
     private static final Long MEMBER_ID = 1000L;
+    private static final UUID PIN_1 = UUID.fromString("00000000-0000-0000-0000-000000000011");
+    private static final UUID PIN_2 = UUID.fromString("00000000-0000-0000-0000-000000000012");
 
     @BeforeEach
     void setUp() {
@@ -111,9 +114,9 @@ class PlaceDetailServiceTest {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
 
-        Pin newer = pin(11L, place, member("준호", 92), CrowdLevel.WAGLE_WAGLE,
+        Pin newer = pin(PIN_1, place, member("준호", 92), CrowdLevel.WAGLE_WAGLE,
                 "창가 자리 있어요", "pins/11/thumb.jpg", Instant.parse("2026-07-31T05:00:00Z"));
-        Pin older = pin(12L, place, member("지민", 150), CrowdLevel.WAGLE,
+        Pin older = pin(PIN_2, place, member("지민", 150), CrowdLevel.WAGLE,
                 "디저트 맛집", "pins/12/thumb.jpg", Instant.parse("2026-07-31T04:50:00Z"));
         given(pinRepository.findActivePinsByPlaceId(eq(1L), any(), any()))
                 .willReturn(List.of(newer, older)); // 쿼리가 createdAt DESC로 정렬한 결과를 가정
@@ -121,7 +124,7 @@ class PlaceDetailServiceTest {
         given(pinTagRepository.findByPin_IdIn(anyCollection()))
                 .willReturn(List.of(tag(newer, "카페"), tag(newer, "감성"))); // older는 태그 없음
         given(pinUnlockRepository.findUnlockedPinIds(eq(MEMBER_ID), anyCollection()))
-                .willReturn(List.of(11L)); // newer만 열람
+                .willReturn(List.of(PIN_1)); // newer만 열람
 
         given(pinRepository.findWeeklyCrowdStats(eq(1L), any(), any(), anyBoolean()))
                 .willReturn(List.of(row(1, 3.0), row(3, 2.0))); // MON, WED
@@ -139,7 +142,7 @@ class PlaceDetailServiceTest {
         assertThat(response.place().phone()).isEqualTo("02-123-4567");
 
         // 핀 카드 (반환 순서 유지)
-        assertThat(response.pins()).extracting(PinCard::pinId).containsExactly(11L, 12L);
+        assertThat(response.pins()).extracting(PinCard::pinId).containsExactly(PIN_1, PIN_2);
         PinCard first = response.pins().get(0);
         assertThat(first.nickname()).isEqualTo("준호");
         assertThat(first.viewAngle()).isEqualTo(92);
@@ -164,7 +167,7 @@ class PlaceDetailServiceTest {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
         given(pinRepository.findActivePinsByPlaceId(eq(1L), any(), any()))
-                .willReturn(List.of(pin(11L, place, member("준호", 92), CrowdLevel.WAGLE,
+                .willReturn(List.of(pin(PIN_1, place, member("준호", 92), CrowdLevel.WAGLE,
                         "메모", "pins/11/thumb.jpg", Instant.parse("2026-07-31T05:00:00Z"))));
 
         placeDetailService.getPlaceDetail("1", MEMBER_ID);
@@ -269,7 +272,7 @@ class PlaceDetailServiceTest {
         return member;
     }
 
-    private static Pin pin(Long id, Place place, Member member, CrowdLevel crowdLevel,
+    private static Pin pin(UUID id, Place place, Member member, CrowdLevel crowdLevel,
                            String memo, String thumbnailKey, Instant createdAt) {
         Pin pin = Pin.create(member, place, crowdLevel,
                 point(place.getLocation().getX(), place.getLocation().getY()),
