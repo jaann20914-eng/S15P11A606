@@ -13,9 +13,11 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 /**
  * 크레딧 적립·차감 이력. member_id는 raw FK 값으로 보관한다(양방향 연관관계 미사용).
- * reference_id는 거래 유형별 참조 대상 식별자로 무결성 제약은 두지 않는다.
+ * pin_id는 핀 참조용 raw FK 값으로 보관하며(pins FK 존재), 핀과 무관한 거래는 null이다.
  */
 @Getter
 @Entity
@@ -34,8 +36,8 @@ public class CreditTransaction extends BaseEntity {
     @Column(name = "type", nullable = false)
     private CreditTransactionType type;
 
-    @Column(name = "reference_id")
-    private Long referenceId;
+    @Column(name = "pin_id")
+    private UUID pinId;
 
     @Column(name = "change_amount", nullable = false)
     private int changeAmount;
@@ -43,17 +45,17 @@ public class CreditTransaction extends BaseEntity {
     @Column(name = "balance_after", nullable = false)
     private int balanceAfter;
 
-    private CreditTransaction(Long memberId, CreditTransactionType type, Long referenceId,
+    private CreditTransaction(Long memberId, CreditTransactionType type, UUID pinId,
                              int changeAmount, int balanceAfter) {
         this.memberId = memberId;
         this.type = type;
-        this.referenceId = referenceId;
+        this.pinId = pinId;
         this.changeAmount = changeAmount;
         this.balanceAfter = balanceAfter;
     }
 
-    public static CreditTransaction create(Long memberId, CreditTransactionType type, Long referenceId,
+    public static CreditTransaction create(Long memberId, CreditTransactionType type, UUID pinId,
                                            int changeAmount, int balanceAfter) {
-        return new CreditTransaction(memberId, type, referenceId, changeAmount, balanceAfter);
+        return new CreditTransaction(memberId, type, pinId, changeAmount, balanceAfter);
     }
 }

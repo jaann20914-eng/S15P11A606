@@ -43,7 +43,7 @@ public class PlacePinService {
     private static final int KAKAO_RADIUS = 10;
     private static final int KAKAO_PAGE = 1;
     private static final int KAKAO_SIZE = 5;
-    private static final String KAKAO_SORT = "distance";
+    private static final String KAKAO_SORT = "accuracy";
 
     private final PlaceRepository placeRepository;
     private final PinRepository pinRepository;

@@ -27,7 +27,6 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/**",
-            "/api/v1/places/**",
             // 닉네임 중복 확인은 온보딩·닉네임 수정 전에 신원 없이 호출하므로 공개한다.
             // (/api/v1/users/** 전체가 아니라 이 엔드포인트만 연다.)
             "/api/v1/users/nickname-availability",
