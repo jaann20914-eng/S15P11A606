@@ -9,8 +9,9 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
-public interface PinRepository extends JpaRepository<Pin, Long> {
+public interface PinRepository extends JpaRepository<Pin, UUID> {
 
     /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.

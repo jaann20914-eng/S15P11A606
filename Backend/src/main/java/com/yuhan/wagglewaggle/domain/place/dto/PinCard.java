@@ -2,12 +2,13 @@ package com.yuhan.wagglewaggle.domain.place.dto;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 장소 홈의 활성 영상 핀 카드.
  */
 public record PinCard(
-        Long pinId,
+        UUID pinId,
         String nickname,
         int viewAngle,
         Instant createdAt,

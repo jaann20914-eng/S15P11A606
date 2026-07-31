@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 public interface PinUnlockRepository extends JpaRepository<PinUnlock, Long> {
 
@@ -19,8 +20,8 @@ public interface PinUnlockRepository extends JpaRepository<PinUnlock, Long> {
             WHERE pu.member.id = :memberId
               AND pu.pin.id IN :pinIds
             """)
-    List<Long> findUnlockedPinIds(
+    List<UUID> findUnlockedPinIds(
             @Param("memberId") Long memberId,
-            @Param("pinIds") Collection<Long> pinIds
+            @Param("pinIds") Collection<UUID> pinIds
     );
 }

@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -105,14 +106,14 @@ public class PlaceDetailService {
             return List.of();
         }
 
-        List<Long> pinIds = pins.stream().map(Pin::getId).toList();
+        List<UUID> pinIds = pins.stream().map(Pin::getId).toList();
 
-        Map<Long, List<String>> tagsByPinId = pinTagRepository.findByPin_IdIn(pinIds).stream()
+        Map<UUID, List<String>> tagsByPinId = pinTagRepository.findByPin_IdIn(pinIds).stream()
                 .collect(Collectors.groupingBy(
                         pinTag -> pinTag.getPin().getId(),
                         Collectors.mapping(PinTag::getTag, Collectors.toList())));
 
-        Set<Long> unlockedPinIds = memberId == null
+        Set<UUID> unlockedPinIds = memberId == null
                 ? Set.of()
                 : new HashSet<>(pinUnlockRepository.findUnlockedPinIds(memberId, pinIds));
 
