@@ -286,14 +286,14 @@ pipeline {
 
                         if [ -n "$OLD_API_IMAGE_ID" ]; then
                             echo "이전 API 이미지로 복구합니다."
-                            run_ai "$OLD_API_IMAGE_ID"
+                            run_ai "$OLD_API_IMAGE_ID" || true
                         else
                             echo "복구할 이전 API 이미지가 없습니다."
                         fi
 
                         if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
                             echo "이전 Worker 이미지로 복구합니다."
-                            run_worker "$OLD_WORKER_IMAGE_ID"
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
                         else
                             echo "복구할 이전 Worker 이미지가 없습니다."
                         fi
@@ -331,14 +331,14 @@ pipeline {
 
                         if [ -n "$OLD_API_IMAGE_ID" ]; then
                             echo "이전 API 이미지로 복구합니다."
-                            run_ai "$OLD_API_IMAGE_ID"
+                            run_ai "$OLD_API_IMAGE_ID" || true
                         else
                             echo "복구할 이전 API 이미지가 없습니다."
                         fi
 
                         if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
                             echo "이전 Worker 이미지로 복구합니다."
-                            run_worker "$OLD_WORKER_IMAGE_ID"
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
                         else
                             echo "복구할 이전 Worker 이미지가 없습니다."
                         fi
