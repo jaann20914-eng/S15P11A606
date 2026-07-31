@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -36,6 +36,9 @@ export default function Home() {
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
   const setCenter = useMapStore((state) => state.setCenter);
   const setBounds = useMapStore((state) => state.setBounds);
+  const focus = useMapStore((state) => state.focus);
+  const clearFocus = useMapStore((state) => state.clearFocus);
+  const [mapReady, setMapReady] = useState(false);
   const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
   const myLocation = useCurrentLocation();
@@ -134,6 +137,18 @@ export default function Home() {
     if (coordinate) mapRef.current?.panTo(coordinate);
   }, [myLocation]);
 
+  /*
+    검색 화면에서 고른 장소로 이동한다.
+
+    지도가 준비되기 전에 명령을 보내면 조용히 버려지므로 `mapReady`를 함께 본다.
+    한 번 처리하면 비워서, 홈으로 돌아올 때마다 같은 곳으로 다시 끌려가지 않게 한다.
+  */
+  useEffect(() => {
+    if (!mapReady || !focus) return;
+    mapRef.current?.panTo(focus.coordinate);
+    clearFocus();
+  }, [clearFocus, focus, mapReady]);
+
   // 바텀시트가 가리는 높이. 지도 중심 이동 시 이만큼 보정해 보이는 영역의 중앙에 놓는다.
   const coveredHeight = Math.max(0, height - snapPoints[level]);
 
@@ -151,6 +166,7 @@ export default function Home() {
         // 핀 중심에서 지도를 시작한다. onReady에서 fitPlaces를 부르면 기본 중심(서울숲)
         // 타일을 한 번 받고 버리게 되어 첫 화면이 그만큼 늦어진다.
         fitPlacesOnReady
+        onReady={() => setMapReady(true)}
         onPinPress={focusPlace}
         onMapPress={clearSelection}
         onViewChange={handleViewChange}

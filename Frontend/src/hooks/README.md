@@ -6,3 +6,6 @@
 `usePinDetail`은 `/pin/[pinId]`만 쓰므로 `src/features/pin-detail/hooks/`에 있다.
 
 `useNicknameCheck`은 마이페이지 닉네임 수정과 온보딩 2단계가 같은 중복 확인 규칙을 쓰므로 여기 있다.
+
+`usePlaceSearch`는 핀 등록과 홈 검색바가 같이 쓴다. 찾는 범위만 달라서(`radius`) 훅은 하나로 두고
+값만 화면이 정한다.
