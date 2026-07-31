@@ -6,8 +6,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PlaceRepository extends JpaRepository<Place, Long> {
+
+    /**
+     * 카카오 장소 ID로 저장된 장소를 조회한다.
+     * kakao_place_id는 카카오 고유 ID라 사실상 유일하며, 장소 검색 확정 시 우리 DB 존재 여부 판별에 사용한다.
+     */
+    Optional<Place> findByKakaoPlaceId(String kakaoPlaceId);
 
     /**
      * 지도 경계(bounding box) 안에 위치한 장소를 조회한다.
