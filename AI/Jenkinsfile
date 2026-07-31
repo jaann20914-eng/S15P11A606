@@ -12,7 +12,10 @@ pipeline {
     environment {
         IMAGE_NAME     = 'wagglewaggle-ai'
         CONTAINER_NAME = 'waggle-ai'
+        WORKER_CONTAINER_NAME = 'waggle-ai-worker'
         NETWORK_NAME   = 'waggle-network'
+
+        MODEL_VOLUME = 'waggle-insightface-models'
 
         // 컨테이너가 listen하는 포트. Back은 이 포트로 waggle-ai를 호출한다.
         APP_PORT = '8000'
@@ -24,6 +27,9 @@ pipeline {
 
         // Jenkins Credentials에 저장한 Secret Text의 ID
         INTERNAL_API_KEY = credentials('waggle-ai-internal-api-key')
+
+        //Jenkins Credentials에 RabbitMQ URL을 Secret Text로 등록
+        RABBITMQ_URL = credentials('waggle-ai-rabbitmq-url')
     }
 
     stages {
@@ -86,12 +92,13 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo '=== AI 컨테이너 교체 ==='
+                echo '=== AI API / Worker 컨테이너 교체 ==='
 
                 sh '''
                     set -eu
 
-                    OLD_IMAGE_ID=""
+                    OLD_API_IMAGE_ID=""
+                    OLD_WORKER_IMAGE_ID=""
 
                     run_ai() {
                         IMAGE_TO_RUN="$1"
@@ -105,11 +112,41 @@ pipeline {
                           -p "127.0.0.1:${HOST_PORT}:${APP_PORT}" \
                           "$IMAGE_TO_RUN"
                     }
+                    run_worker() {
+                        IMAGE_TO_RUN="$1"
+
+                        docker run -d \
+                        --name "$WORKER_CONTAINER_NAME" \
+                        --restart unless-stopped \
+                        --network "$NETWORK_NAME" \
+                        -e INTERNAL_API_KEY="$INTERNAL_API_KEY" \
+                        -e LOG_LEVEL="$LOG_LEVEL" \
+                        -e RABBITMQ_URL="$RABBITMQ_URL" \
+                        -v "$MODEL_VOLUME:/home/waggle/.insightface/models" \
+                        "$IMAGE_TO_RUN" \
+                        python /app/worker.py
+                    }
 
                     check_health() {
                         docker exec "$CONTAINER_NAME" python -c \
                           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${APP_PORT}/health', timeout=2)" \
                           >/dev/null 2>&1
+                    }
+
+                    check_worker() {
+                        WORKER_RUNNING="$(
+                            docker inspect \
+                              --format '{{.State.Running}}' \
+                              "$WORKER_CONTAINER_NAME" 2>/dev/null \
+                            || echo "false"
+                        )"
+
+                        if [ "$WORKER_RUNNING" != "true" ]; then
+                            return 1
+                        fi
+
+                        docker logs "$WORKER_CONTAINER_NAME" 2>&1 \
+                            | grep -q "AI blur worker started."
                     }
 
                     # 네트워크는 Backend 배포가 먼저 만들어 두지만, 없을 때 원인이 불분명해지므로 확인한다.
@@ -120,24 +157,94 @@ pipeline {
                         docker network create "$NETWORK_NAME"
                     fi
 
-                    # 기존 AI 서버가 있다면 현재 이미지 ID를 저장한다.
+                    # 기존 AI API가 있다면 현재 이미지 ID를 저장한다.
                     if docker container inspect "$CONTAINER_NAME" \
                         >/dev/null 2>&1
                     then
-                        OLD_IMAGE_ID="$(
+                        OLD_API_IMAGE_ID="$(
                             docker inspect \
                               --format '{{.Image}}' \
                               "$CONTAINER_NAME"
                         )"
 
-                        echo "기존 컨테이너를 제거합니다."
+                        echo "기존 AI API 컨테이너를 제거합니다."
                         docker rm -f "$CONTAINER_NAME"
                     else
-                        echo "기존 AI 컨테이너가 없습니다."
+                        echo "기존 AI API 컨테이너가 없습니다."
                     fi
 
-                    echo "새 컨테이너를 실행합니다."
-                    run_ai "$NEW_IMAGE"
+                    # 기존 AI Worker가 있다면 현재 이미지 ID를 저장한다.
+                    if docker container inspect "$WORKER_CONTAINER_NAME" \
+                        >/dev/null 2>&1
+                    then
+                        OLD_WORKER_IMAGE_ID="$(
+                            docker inspect \
+                              --format '{{.Image}}' \
+                              "$WORKER_CONTAINER_NAME"
+                        )"
+
+                        echo "기존 AI Worker 컨테이너를 제거합니다."
+                        docker rm -f "$WORKER_CONTAINER_NAME"
+                    else
+                        echo "기존 AI Worker 컨테이너가 없습니다."
+                    fi
+
+                    echo "새 API 컨테이너를 실행합니다."
+
+                    if ! run_ai "$NEW_IMAGE"; then
+                        echo "새 API 컨테이너 실행 자체에 실패했습니다."
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
+
+
+                    echo "새 Worker 컨테이너를 실행합니다."
+
+                    if ! run_worker "$NEW_IMAGE"; then
+                        echo "새 Worker 컨테이너 실행 자체에 실패했습니다."
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
 
                     echo "/health 응답을 확인합니다."
 
@@ -174,20 +281,76 @@ pipeline {
                         docker rm -f "$CONTAINER_NAME" \
                             >/dev/null 2>&1 || true
 
-                        if [ -n "$OLD_IMAGE_ID" ]; then
-                            echo "이전 이미지로 복구합니다."
-                            run_ai "$OLD_IMAGE_ID"
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
                         else
-                            echo "복구할 이전 이미지가 없습니다."
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
                         fi
 
                         exit 1
                     fi
 
-                    echo "새 버전 실행에 성공했습니다."
+                    echo "AI API 실행에 성공했습니다."
+                    echo "Worker 상태와 RabbitMQ 연결을 확인합니다."
+
+                    WORKER_HEALTHY="false"
+                    COUNT=0
+
+                    while [ "$COUNT" -lt 30 ]; do
+                        if check_worker; then
+                            WORKER_HEALTHY="true"
+                            break
+                        fi
+
+                        sleep 1
+                        COUNT=$((COUNT + 1))
+                    done
+
+                    if [ "$WORKER_HEALTHY" != "true" ]; then
+                        echo "AI Worker 실행에 실패했습니다."
+
+                        docker logs --tail 100 "$WORKER_CONTAINER_NAME" \
+                            || true
+
+                        docker rm -f "$CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        docker rm -f "$WORKER_CONTAINER_NAME" \
+                            >/dev/null 2>&1 || true
+
+                        if [ -n "$OLD_API_IMAGE_ID" ]; then
+                            echo "이전 API 이미지로 복구합니다."
+                            run_ai "$OLD_API_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 API 이미지가 없습니다."
+                        fi
+
+                        if [ -n "$OLD_WORKER_IMAGE_ID" ]; then
+                            echo "이전 Worker 이미지로 복구합니다."
+                            run_worker "$OLD_WORKER_IMAGE_ID" || true
+                        else
+                            echo "복구할 이전 Worker 이미지가 없습니다."
+                        fi
+
+                        exit 1
+                    fi
+
+                    echo "AI Worker 실행에 성공했습니다."
 
                     docker ps \
                       --filter "name=${CONTAINER_NAME}" \
+                      --filter "name=${WORKER_CONTAINER_NAME}" \
                       --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
                 '''
             }
@@ -205,7 +368,7 @@ pipeline {
 **Docker 이미지:** `${env.NEW_IMAGE ?: '-'}`
 **빌드:** [${env.JOB_NAME} #${env.BUILD_NUMBER}](${env.BUILD_URL})
 
-`/health` 응답을 확인하고 새 컨테이너로 교체했습니다.
+API `/health` 및 Worker RabbitMQ 연결을 확인하고 새 컨테이너로 교체했습니다.
 """
             )
         }

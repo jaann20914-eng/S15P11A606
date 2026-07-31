@@ -57,7 +57,7 @@ function LoginButton({
 }
 
 export default function Login() {
-  const { pendingProvider, error, isMocked, platformUnsupported, signIn } = useOAuthLogin();
+  const { pendingProvider, error, notice, isMocked, platformUnsupported, signIn } = useOAuthLogin();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -88,6 +88,11 @@ export default function Login() {
               {error}
             </Text>
           )}
+          {/*
+            카카오톡을 다녀오면 브라우저보다 앱이 먼저 앞으로 나온다. 그때 스피너만 돌면
+            멈춘 것처럼 보여 앱을 껐다 켜게 되고, 그러면 진행 중이던 로그인이 정말 사라진다.
+          */}
+          {notice && <Text style={styles.notice}>{notice}</Text>}
           <LoginButton
             brand="kakao"
             label="카카오로 로그인"
@@ -164,6 +169,7 @@ const styles = StyleSheet.create({
   loginButtonPressed: { opacity: 0.76 },
   loginButtonDisabled: { opacity: 0.5 },
   error: { ...type.caption, color: colors.danger, textAlign: 'center' },
+  notice: { ...type.caption, color: colors.gray600, textAlign: 'center' },
   mockNotice: { ...type.caption, color: colors.gray600, textAlign: 'center' },
   brandIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   kakaoBubble: {

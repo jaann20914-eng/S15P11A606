@@ -4,9 +4,14 @@ import logging
 from app.messaging.blur.topology import declare_blur_topology
 from app.messaging.rabbitmq import rabbitmq
 from app.workers.blur_worker import blur_worker
+from app.core.config import settings
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(
+        logging,
+        settings.log_level.upper(),
+        logging.INFO,
+    ),
     format=(
         "%(asctime)s "
         "%(levelname)s "
@@ -24,6 +29,8 @@ async def main() -> None:
         logging.info("RabbitMQ connected.")
 
         await blur_worker.start()
+
+        logging.info("AI blur worker started.")
 
         # Worker 프로세스 유지
         await asyncio.Future()

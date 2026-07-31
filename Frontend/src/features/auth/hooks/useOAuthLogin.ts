@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -71,6 +71,13 @@ export interface OAuthLoginState {
   /** 실패 문구. 같은 화면에 그대로 노출하고 사용자가 다시 누르면 사라진다. */
   error: string | null;
   /**
+   * 아직 기다리는 중이라는 안내. 기다릴 일이 없으면 null.
+   *
+   * 카카오톡을 다녀오면 브라우저보다 앱이 먼저 앞으로 나온다. 그때 화면이 스피너만 돌면
+   * 멈춘 것처럼 보여 사용자가 앱을 껐다 켠다 — 그러면 정말로 실패한다. 뭘 하면 되는지 알린다.
+   */
+  notice: string | null;
+  /**
    * 목업 모드 여부. 이때는 브라우저를 열지 않고 가짜로 성공하므로
    * 화면에 그 사실을 드러내야 한다 — 실제 연동이 안 되는 걸 성공으로 착각하기 쉽다.
    */
@@ -133,6 +140,7 @@ export function useOAuthLogin(): OAuthLoginState {
   // 브라우저에 다녀오는 사이 화면이 다시 마운트되면 모듈 쪽 값이 진실이다.
   const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(() => pendingProviderRef);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const completeOAuthLogin = useAuthStore((state) => state.completeOAuthLogin);
 
   const signIn = useCallback(
@@ -150,16 +158,19 @@ export function useOAuthLogin(): OAuthLoginState {
       pendingProviderRef = provider;
       setPendingProvider(provider);
       setError(null);
+      setNotice(null);
 
       const finish = (message: string | null) => {
         pendingProviderRef = null;
         setPendingProvider(null);
+        setNotice(null);
         setError(message);
       };
 
       const goNext = (authStatus: 'AUTHENTICATED' | 'ONBOARDING_REQUIRED') => {
         pendingProviderRef = null;
         setPendingProvider(null);
+        setNotice(null);
         logOAuth('완료 — 화면 이동', { authStatus });
         // replace로 이동해 뒤로 가기가 로그인 화면으로 돌아오지 않게 한다.
         router.replace(authStatus === 'AUTHENTICATED' ? '/(tabs)/home' : '/(onboarding)/age');
@@ -167,8 +178,13 @@ export function useOAuthLogin(): OAuthLoginState {
 
       logOAuth('시작', { provider, mock: usesMockApi, redirectUri: oauthRedirectUri(provider) });
 
-      authorize(provider)
+      const notifyStillWaiting = () =>
+        setNotice('브라우저에서 로그인을 마치면 자동으로 이어져요. 앱을 끄지 말아 주세요');
+
+      authorize(provider, notifyStillWaiting)
         .then((authorization) => {
+          setNotice(null);
+
           if (authorization === null) {
             // 사용자가 브라우저를 닫았다. 실패가 아니므로 문구를 남기지 않는다.
             logOAuth('사용자가 중단 — 문구 없이 종료');
@@ -200,6 +216,7 @@ export function useOAuthLogin(): OAuthLoginState {
   return {
     pendingProvider,
     error,
+    notice,
     isMocked: usesMockApi,
     platformUnsupported: PLATFORM_UNSUPPORTED,
     signIn,
@@ -233,8 +250,61 @@ const REDIRECT_GRACE_MS = 1000;
  */
 const SILENT_CANCEL_LIMIT_MS = 5000;
 
+/**
+ * `dismiss`를 받은 뒤에도 복귀를 더 기다리는 시간(ms).
+ *
+ * 폴리필의 `dismiss`는 **브라우저가 닫혔다는 뜻이 아니다.** 안드로이드 네이티브 모듈에는
+ * `dismissBrowser`가 없어(`WebBrowserModule.kt`) 라이브러리가 Custom Tab을 닫을 수단 자체가
+ * 없다. 이 값은 그저 **우리 앱이 다시 foreground가 됐다**는 신호다.
+ *
+ * 그런데 카카오 간편로그인은 카카오톡 앱을 다녀와야 끝난다. 그 왕복에서 안드로이드가
+ * 우리 앱을 앞으로 올리면, Custom Tab은 별도 태스크(`FLAG_ACTIVITY_NEW_TASK`)에 살아 있는데
+ * 우리만 먼저 포기해 버린다. 1초 grace로는 그 뒤에 오는 복귀를 놓친다.
+ *
+ * 이 대기는 **`showInRecents: true`와 짝**이다. 그 옵션이 없으면 `FLAG_ACTIVITY_NO_HISTORY`가
+ * 붙어 탭이 파괴되므로, 아무리 오래 기다려도 올 복귀가 없다. 둘 중 하나만 있으면 소용없다.
+ *
+ * 그래서 오래 머문 뒤 돌아온 경우에는 리스너를 유지한 채 이만큼 더 기다린다.
+ * 곧바로 돌아온 것은 취소이므로(`SILENT_CANCEL_LIMIT_MS`) 이 대기에 들어가지 않는다.
+ */
+const LATE_REDIRECT_LIMIT_MS = 90_000;
+
 /** 복귀 URL을 받았는지, 못 받았다면 얼마나 머물렀는지. */
 type RedirectOutcome = { url: string } | { url: null; dwellMs: number };
+
+/** Chrome의 Android 패키지명. */
+const CHROME_PACKAGE = 'com.android.chrome';
+
+/**
+ * Custom Tab을 열 브라우저를 고른다. 고르지 못하면 `undefined`(기본 브라우저).
+ *
+ * 기기 기본 브라우저가 무엇이냐에 따라 복귀 처리가 달라진다 — 갤럭시는 삼성 인터넷이
+ * 기본인 경우가 많고, 그쪽 Custom Tab은 App Link나 커스텀 스킴 인텐트를 Chrome과 다르게
+ * 다룰 수 있다. 그래서 Chrome이 있으면 Chrome으로 고정해 기기별 편차를 줄인다.
+ *
+ * 판단 기준은 `servicePackages`다. Custom Tab을 띄우는 데 필요한 것은 Custom Tabs **서비스**
+ * 지원이고, `browserPackages`는 일반 VIEW 인텐트를 처리하는 브라우저 목록이라 성격이 다르다.
+ * 실제로 노트20에서는 Chrome이 `servicePackages`에만 있었는데, 그 이유로 Chrome을 건너뛰고
+ * 삼성 인터넷으로 열려 복귀가 앱에 전달되지 않았다.
+ */
+async function resolveBrowserPackage(): Promise<string | undefined> {
+  try {
+    const result = await WebBrowser.getCustomTabsSupportingBrowsersAsync();
+
+    logOAuth('Custom Tab 브라우저', {
+      기본: result.defaultBrowserPackage ?? 'none',
+      선호: result.preferredBrowserPackage ?? 'none',
+      브라우저: result.browserPackages,
+      서비스: result.servicePackages,
+    });
+
+    return result.servicePackages.includes(CHROME_PACKAGE) ? CHROME_PACKAGE : undefined;
+  } catch (cause) {
+    // 조회에 실패하면 기본 브라우저로 진행한다. 진단용이라 흐름을 막지 않는다.
+    logOAuth('브라우저 조회 실패 — 기본 브라우저 사용', { cause: String(cause) });
+    return undefined;
+  }
+}
 
 /**
  * 브라우저를 열고 복귀 URL을 받아온다.
@@ -249,6 +319,7 @@ async function openBrowserAndAwaitRedirect(
   authorizeUrl: string,
   redirectUri: string,
   accepted: string[],
+  onStillWaiting: () => void,
 ): Promise<RedirectOutcome> {
   // 클로저에서 채우는 값이라 객체에 담는다. 지역 변수로 두면 좁혀진 타입이 풀리지 않는다.
   const captured: { url: string | null } = { url: null };
@@ -265,32 +336,89 @@ async function openBrowserAndAwaitRedirect(
 
   const openedAt = Date.now();
 
+  /**
+   * 브라우저에 머무는 동안의 앱 상태 전환. 진단 전용이라 흐름에는 관여하지 않는다.
+   *
+   * 폴리필의 `dismiss`는 우리 앱이 `active`가 됐다는 뜻일 뿐이라, 그것만 봐서는 사용자가
+   * 뒤로 나온 것인지 다른 앱을 다녀온 것인지 알 수 없다. `active`가 찍힌 시각과 머문 시간을
+   * 나란히 남겨 둬야 둘을 구분할 수 있다.
+   *
+   * 이 값은 눈으로 보는 용도다. 실제 판단은 `LATE_REDIRECT_LIMIT_MS` 쪽에서 머문 시간으로 한다.
+   */
+  const appStates: string[] = [];
+  const appStateSubscription = AppState.addEventListener('change', (state) => {
+    appStates.push(`${state}@${Date.now() - openedAt}ms`);
+  });
+
   try {
-    logOAuth('브라우저 열기', { authorizeUrl });
+    const browserPackage = await resolveBrowserPackage();
+    logOAuth('브라우저 열기', { authorizeUrl, browserPackage: browserPackage ?? '기본' });
 
-    const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, redirectUri);
+    const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, redirectUri, {
+      browserPackage,
+      /*
+        **이 옵션이 없으면 카카오 로그인이 완주할 수 없다.**
 
-    // 머문 시간으로 "곧바로 뒤로 나감"과 "로그인까지 마쳤는데 복귀가 없음"을 구분한다.
-    // 후자는 App Link 검증 문제이고, 전자는 그냥 사용자가 그만둔 것이다.
-    logOAuth('브라우저 종료', { type: result.type, 머문시간: `${Date.now() - openedAt}ms` });
+        `showInRecents`가 기본값 `false`면 네이티브가 Custom Tab 인텐트에
+        `FLAG_ACTIVITY_NO_HISTORY`와 `FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS`를 함께 붙인다
+        (`WebBrowserModule.kt`). `NO_HISTORY`는 **화면에서 벗어나는 순간 그 액티비티를 끝낸다**는
+        뜻이다.
+
+        카카오는 간편로그인이든 추가 인증이든 카카오톡 앱을 다녀와야 끝난다. 그 순간 탭이
+        파괴되므로 돌아올 곳이 없고, 리다이렉트도 영영 오지 않는다. `EXCLUDE_FROM_RECENTS`
+        때문에 최근 앱 목록으로 되돌아갈 수도 없다.
+
+        네이버가 멀쩡했던 건 앱을 다녀오지 않아 탭이 파괴될 일이 없었기 때문이지,
+        이 설정이 안전해서가 아니다.
+      */
+      showInRecents: true,
+    });
+
+    // "브라우저 종료"라고 적혀 있지만 안드로이드에서는 **닫혔다는 뜻이 아니다.** 우리 앱이
+    // 앞으로 나왔을 뿐이고 Custom Tab은 살아 있을 수 있다. 머문 시간이 둘을 가르는 단서다.
+    logOAuth('앱이 앞으로 나옴', {
+      type: result.type,
+      머문시간: `${Date.now() - openedAt}ms`,
+      // `background`가 있으면 다른 앱을 다녀온 것이다. 없으면 브라우저 안에서만 머물렀다.
+      앱상태: appStates.length > 0 ? appStates : '전환 없음',
+    });
 
     if (result.type === 'success') {
       return { url: result.url };
     }
 
-    // 이미 도착해 있었거나, 곧 도착할 수 있다.
-    const url =
-      captured.url ??
-      (await new Promise<string | null>((resolve) => {
-        const timer = setTimeout(() => resolve(null), REDIRECT_GRACE_MS);
+    /** 복귀 URL을 이 시간만큼 기다린다. 먼저 도착하면 그 값으로 즉시 끝난다. */
+    const awaitUrl = (limitMs: number) =>
+      new Promise<string | null>((resolve) => {
+        const timer = setTimeout(() => resolve(null), limitMs);
         notify = (value) => {
           clearTimeout(timer);
           resolve(value);
         };
-      }));
+      });
+
+    // 이미 도착해 있었거나, 곧 도착할 수 있다.
+    let url = captured.url ?? (await awaitUrl(REDIRECT_GRACE_MS));
+
+    /*
+      아직이라면, 브라우저가 닫힌 게 아니라 우리 앱이 앞으로 나온 것일 수 있다.
+      카카오톡을 다녀오는 왕복이 그렇다. 그 경우 Custom Tab은 별도 태스크에 그대로 살아 있어
+      곧 복귀가 온다. 곧바로 돌아온 것(취소)과 구분해 오래 머문 뒤에만 더 기다린다.
+    */
+    if (url === null && Date.now() - openedAt >= SILENT_CANCEL_LIMIT_MS) {
+      logOAuth('앱이 앞으로 나왔지만 브라우저는 살아 있을 수 있다 — 복귀를 더 기다린다', {
+        지금까지: `${Date.now() - openedAt}ms`,
+        최대: `${LATE_REDIRECT_LIMIT_MS}ms`,
+      });
+      onStillWaiting();
+      url = captured.url ?? (await awaitUrl(LATE_REDIRECT_LIMIT_MS));
+    }
 
     if (url !== null) {
-      logOAuth('AppState가 race를 이겼지만 복귀 URL은 직접 받았다', { type: result.type });
+      logOAuth('브라우저 결과 대신 복귀 URL을 직접 받았다', {
+        type: result.type,
+        경과: `${Date.now() - openedAt}ms`,
+      });
       return { url };
     }
 
@@ -298,6 +426,7 @@ async function openBrowserAndAwaitRedirect(
   } finally {
     notify = null;
     subscription.remove();
+    appStateSubscription.remove();
   }
 }
 
@@ -307,7 +436,10 @@ async function openBrowserAndAwaitRedirect(
  * `state`는 이 함수 안에서만 살아 있는 값이다. 어긋나면 **백엔드를 부르지 않고**
  * 여기서 끊는다. 우리가 시작하지 않은 인가 코드를 서버에 넘기는 순간 그게 곧 CSRF이기 때문이다.
  */
-async function authorize(provider: OAuthProvider): Promise<Authorization | null> {
+async function authorize(
+  provider: OAuthProvider,
+  onStillWaiting: () => void,
+): Promise<Authorization | null> {
   const state = createOAuthState();
 
   // 목업 모드에서는 콘솔 키도 App Link도 없으므로 브라우저 단계를 건너뛴다.
@@ -324,6 +456,7 @@ async function authorize(provider: OAuthProvider): Promise<Authorization | null>
     buildAuthorizeUrl(provider, state),
     redirectUri,
     acceptedRedirectPrefixes(provider),
+    onStillWaiting,
   );
 
   if (outcome.url === null) {
