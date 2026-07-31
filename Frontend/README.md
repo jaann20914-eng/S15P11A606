@@ -6,10 +6,18 @@
 
 ```bash
 npm install
-npm run start
+npx expo start -c --dev-client
 ```
 
-Expo Go 또는 Android 에뮬레이터에서 실행할 수 있습니다.
+**Expo Go로는 실행되지 않습니다.** 카메라·보안 저장소·소셜 로그인 복귀(App Link) 등
+네이티브 모듈을 쓰므로 EAS `development` 빌드 APK를 설치한 안드로이드 실기기가 필요합니다.
+
+```bash
+eas build --platform android --profile development
+```
+
+JS만 바뀌면 다시 빌드하지 않아도 됩니다. `app.json`이나 네이티브 모듈이 바뀔 때만 다시 빌드합니다.
+`EXPO_PUBLIC_*`는 번들 시점에 값이 박히므로 `.env`를 고친 뒤에는 반드시 `-c`로 캐시를 비웁니다.
 
 ## 네이티브 모듈 추가 규칙
 
