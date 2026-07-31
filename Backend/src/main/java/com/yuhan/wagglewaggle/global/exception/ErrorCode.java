@@ -31,6 +31,8 @@ public enum ErrorCode {
     // Tag
     INVALID_TAG_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "태그 검색 조건이 올바르지 않습니다."),
     TAG_SEARCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "태그 검색 중 오류가 발생했습니다."),
+    INVALID_TAG_NAME(HttpStatus.BAD_REQUEST, "태그명이 올바르지 않습니다."),
+    TAGGED_PINS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "태그가 포함된 핀 목록 조회 중 오류가 발생했습니다."),
     INVALID_COORDINATES(HttpStatus.BAD_REQUEST, "좌표가 올바르지 않습니다."),
     INVALID_RADIUS(HttpStatus.BAD_REQUEST, "반경이 올바르지 않습니다."),
     NEARBY_PLACES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "주변 장소 조회 중 오류가 발생했습니다."),

@@ -53,6 +53,33 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     );
 
     /**
+     * 지도 영역 내에서 특정 태그가 정확히 일치하는 활성 핀을 조회한다(태그 검색 확정용).
+     * 활성 = 삭제되지 않음(deleted_at IS NULL) AND (expires_at이 없거나 아직 만료되지 않음)
+     * PostGIS ST_Covers로 지도 경계(bounds) 영역 필터를 적용하고 최신순으로 정렬한다.
+     * ST_MakeEnvelope 인자 순서는 (minLng, minLat, maxLng, maxLat, srid)이다.
+     * 네이티브 쿼리이므로 member는 LAZY 상태이며, 서비스에서 memberId 배치 조회로 N+1을 방지한다.
+     */
+    @Query(value = """
+            SELECT p.* FROM pins p
+            JOIN pin_tags pt ON pt.pin_id = p.id
+            WHERE pt.tag = :tag
+              AND p.deleted_at IS NULL
+              AND (p.expires_at IS NULL OR p.expires_at > :now)
+              AND ST_Covers(
+                    ST_MakeEnvelope(:swLng, :swLat, :neLng, :neLat, 4326)::geography,
+                    p.capture_location)
+            ORDER BY p.created_at DESC
+            """, nativeQuery = true)
+    List<Pin> findActivePinsByTagWithinBounds(
+            @Param("tag") String tag,
+            @Param("now") Instant now,
+            @Param("swLng") double swLng,
+            @Param("swLat") double swLat,
+            @Param("neLng") double neLng,
+            @Param("neLat") double neLat
+    );
+
+    /**
      * 단일 장소의 요일별 혼잡 통계를 DB에서 한 번에 집계한다(장소 홈용).
      * - 삭제된 핀 제외(deleted_at IS NULL). 만료 핀은 포함하며 최신성 창은 적용하지 않는다(전체 기간).
      * - created_at을 KST(Asia/Seoul)로 변환한 time-of-day가 [startTime, endTime] 창에 드는 핀만 집계한다.
