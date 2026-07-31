@@ -12,3 +12,12 @@ export const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 export const kakaoMapAppKey = process.env.EXPO_PUBLIC_KAKAOMAP_APPKEY ?? '';
 
 export const hasKakaoMapAppKey = kakaoMapAppKey.length > 0;
+
+/**
+ * 카카오 로그인용 REST API 키. 지도 JavaScript 키와 다른 값이다.
+ * 브라우저 방식이라 이 키만 있으면 되고 Android 키 해시 등록은 필요 없다.
+ */
+export const kakaoRestApiKey = process.env.EXPO_PUBLIC_KAKAO_REST_API_KEY ?? '';
+
+/** 네이버 애플리케이션의 Client ID. Client Secret은 서버만 가진다. */
+export const naverClientId = process.env.EXPO_PUBLIC_NAVER_CLIENT_ID ?? '';

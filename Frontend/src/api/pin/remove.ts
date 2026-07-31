@@ -1,5 +1,5 @@
 import { apiRequest } from '../client';
-import { usesMockApi } from '../config';
+import { usesMock } from '../config';
 import { deleteMockPin } from '@/mocks/pin';
 import type { PinDeleteResult } from '@/types/pin';
 
@@ -18,5 +18,5 @@ function requestDeletePin(pinId: number): Promise<PinDeleteResult> {
 }
 
 export function deletePin(pinId: number): Promise<PinDeleteResult> {
-  return usesMockApi ? deleteMockPin(pinId) : requestDeletePin(pinId);
+  return usesMock('pin/remove') ? deleteMockPin(pinId) : requestDeletePin(pinId);
 }

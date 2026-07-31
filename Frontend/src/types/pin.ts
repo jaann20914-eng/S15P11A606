@@ -137,6 +137,23 @@ export function toCrowdLevelKey(value: PinCrowdLevel): CrowdLevelKey {
   return CROWD_LEVEL_BY_SERVER_VALUE[value] ?? 'QUIET';
 }
 
+const SERVER_VALUE_BY_CROWD_LEVEL: Record<CrowdLevelKey, PinCrowdLevel> = {
+  QUIET: 'LEISURELY',
+  NOT_CROWDED: 'RELAXED',
+  CROWDED: 'WAGLE',
+  VERY_CROWDED: 'WAGLE_WAGLE',
+};
+
+/**
+ * 프론트 토큰을 서버 enum으로 바꾼다. 핀을 등록·수정할 때 쓴다.
+ *
+ * 프론트는 `CrowdLevelKey`(`QUIET` 등)로 다루고 서버는 `WAGLE_WAGLE` 계열을 쓴다.
+ * 두 표기를 오가는 지점을 이 파일 한 곳으로 모아 둔다.
+ */
+export function toServerCrowdLevel(key: CrowdLevelKey): PinCrowdLevel {
+  return SERVER_VALUE_BY_CROWD_LEVEL[key];
+}
+
 /** 영상 잠금 해제(결제) 응답 `data`. */
 export type PinUnlockResult = {
   pinId: number;

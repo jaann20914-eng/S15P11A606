@@ -6,6 +6,12 @@ import type {
   PinRating,
   PinUnlockResult,
 } from '@/types/pin';
+import type {
+  PinCreateRequest,
+  PinCreateResult,
+  PinStatusResult,
+  VideoUploadTicket,
+} from '@/types/pinCreate';
 
 /**
  * 게시글 상세 고정 데이터.
@@ -153,8 +159,8 @@ export async function evaluateMockPin(pinId: number, rating: PinRating): Promise
     throw new ApiError(404, 'PIN_NOT_FOUND', '조회할 수 있는 핀이 없습니다.');
   }
 
-  // 작성자 본인과 미열람자는 평가 대상이 아니다.
-  if (scenario === 'owner' || scenario === 'preview') {
+  // 작성자 본인과 미열람자는 평가 대상이 아니다. 결제로 열람했으면 평가할 수 있다.
+  if (scenario === 'owner' || (scenario === 'preview' && !unlockedPinIds.has(pinId))) {
     throw new ApiError(403, 'PIN_EVALUATION_FORBIDDEN', '이 핀을 평가할 수 없습니다.');
   }
 
@@ -176,6 +182,19 @@ export async function evaluateMockPin(pinId: number, rating: PinRating): Promise
 
 /** 멱등성 키 → 이미 처리한 결과. 같은 키로 다시 부르면 차감 없이 그대로 돌려준다. */
 const unlockResultsByKey = new Map<string, PinUnlockResult>();
+
+/**
+ * 이번 세션에서 결제로 열람한 핀.
+ *
+ * 시나리오 표는 고정이라 결제 후에도 `preview`로 남는다. 그 상태로는 평가와 채팅 요청이
+ * 403으로 막혀 결제 다음 흐름을 확인할 수 없다. 실제 서버는 결제를 기억하므로 목업도 기억한다.
+ */
+const unlockedPinIds = new Set<number>();
+
+/** 결제로 열람한 핀인지. 평가·채팅 요청 목업이 권한을 판정할 때 쓴다. */
+export function isMockPinUnlocked(pinId: number): boolean {
+  return unlockedPinIds.has(pinId);
+}
 
 /**
  * 잠금 해제 목업.
@@ -220,7 +239,116 @@ export async function unlockMockPin(pinId: number, idempotencyKey: string): Prom
   };
 
   unlockResultsByKey.set(idempotencyKey, result);
+  unlockedPinIds.add(pinId);
   return result;
+}
+
+/** 등록 목업이 발급할 다음 핀 id. */
+let nextMockPinId = 100;
+
+/** 등록에 이미 쓴 영상 키. 같은 키로 다시 등록하면 409가 난다. */
+const usedVideoKeys = new Set<string>();
+
+/** 발급한 업로드 티켓 수. 키를 매번 다르게 만들기 위해서만 쓴다. */
+let issuedUploadCount = 0;
+
+/**
+ * Presigned POST 발급 목업.
+ *
+ * 실제 서명을 만들 수 없으므로 업로드는 `videoUploadTask`가 흉내낸다.
+ * 키 형식은 명세 예시를 따른다.
+ */
+export async function issueMockVideoUpload(
+  contentType: string,
+  contentLength: number,
+): Promise<VideoUploadTicket> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (!contentType) {
+    throw new ApiError(400, 'INVALID_REQUEST', '업로드 요청이 올바르지 않습니다.');
+  }
+
+  const serial = ++issuedUploadCount;
+  const originalVideoKey = `pins/original/1/mock-${serial}-${contentLength}.mp4`;
+
+  return {
+    // Presigned POST라 URL은 버킷 주소만이고 객체 경로는 fields.key가 갖는다.
+    uploadUrl: 'https://storage.example.com',
+    originalVideoKey,
+    fields: {
+      key: originalVideoKey,
+      policy: 'mock-policy',
+      'x-amz-algorithm': 'AWS4-HMAC-SHA256',
+      'x-amz-signature': 'mock-signature',
+    },
+  };
+}
+
+/**
+ * 핀 등록 목업.
+ *
+ * 서버는 202로 접수만 하고 AI 검수는 비동기로 돈다. 목업도 `PENDING`을 돌려준다.
+ *
+ * 화면에서 오류를 확인하는 법: 상세 위치에 아래 문구를 넣는다.
+ * `범위밖` → 422 위치 초과, `영상오류` → 422 영상 접근 불가,
+ * `한도초과` → 429 일일 한도, `실패` → 500.
+ */
+export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName || !body.placeAddress) {
+    throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
+  }
+
+  const hint = body.detailLocation ?? '';
+
+  if (hint.includes('범위밖')) {
+    throw new ApiError(422, 'LOCATION_OUT_OF_RANGE', '선택한 장소와 촬영 위치가 너무 멉니다.');
+  }
+
+  if (hint.includes('영상오류')) {
+    throw new ApiError(422, 'VIDEO_NOT_ACCESSIBLE', '영상에 접근할 수 없습니다.');
+  }
+
+  if (hint.includes('한도초과')) {
+    throw new ApiError(429, 'DAILY_PIN_LIMIT_EXCEEDED', '오늘 등록 가능한 핀 수를 초과했습니다.');
+  }
+
+  if (hint.includes('실패')) {
+    throw new ApiError(500, 'PIN_CREATE_FAILED', '핀 등록 중 오류가 발생했습니다.');
+  }
+
+  // 같은 영상으로 두 번 등록하는 것을 막는다.
+  if (usedVideoKeys.has(body.originalVideoKey)) {
+    throw new ApiError(409, 'VIDEO_ALREADY_REGISTERED', '이미 핀 등록에 사용된 영상입니다.');
+  }
+
+  usedVideoKeys.add(body.originalVideoKey);
+  return { pinId: nextMockPinId++, videoStatus: 'PENDING' };
+}
+
+/** 핀별 상태 조회 횟수. 몇 번 물어본 뒤 완료로 바꿔 처리 대기 화면을 확인할 수 있게 한다. */
+const statusPollCountByPinId = new Map<number, number>();
+
+/** 처리 완료로 바뀌기까지 필요한 조회 횟수. */
+const POLLS_UNTIL_COMPLETED = 3;
+
+/**
+ * 영상 처리 상태 조회 목업.
+ *
+ * 실제 AI 처리가 없으므로 몇 번 물어보면 완료로 바꾼다.
+ * 등록하지 않은 핀을 물어보면 실제 서버와 같이 404를 던진다.
+ */
+export async function fetchMockPinVideoStatus(pinId: number): Promise<PinStatusResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  const polls = (statusPollCountByPinId.get(pinId) ?? 0) + 1;
+  statusPollCountByPinId.set(pinId, polls);
+
+  return {
+    pinId,
+    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'COMPLETED' : 'PENDING',
+  };
 }
 
 /** 이미 삭제한 핀 → 그때 돌려준 결과. 재요청 시 같은 값을 준다(멱등). */

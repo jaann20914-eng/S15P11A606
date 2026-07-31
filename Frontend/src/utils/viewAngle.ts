@@ -70,3 +70,16 @@ export function toViewAngleStep(angle: number): number {
 export function getViewAngleImage(angle: number): ImageSourcePropType {
   return VIEW_ANGLE_IMAGES[toViewAngleStep(angle)] ?? VIEW_ANGLE_IMAGES[MIN_VIEW_ANGLE];
 }
+
+/**
+ * 각도를 화면에 쓸 문자열로 만든다.
+ *
+ * 소수점 첫째 자리까지 보여주되 `.0`은 붙이지 않는다. 뷰 신뢰도는 소수가 있고
+ * 게시글 작성자 각도는 정수라 한쪽만 맞추면 다른 쪽이 `92.0°`처럼 어색해진다.
+ */
+export function formatViewAngle(angle: number): string {
+  if (!Number.isFinite(angle)) return '0°';
+
+  const rounded = Math.round(angle * 10) / 10;
+  return `${rounded}°`;
+}

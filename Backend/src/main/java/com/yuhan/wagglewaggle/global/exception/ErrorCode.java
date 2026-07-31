@@ -47,6 +47,10 @@ public enum ErrorCode {
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "리프레시 토큰 재사용이 감지되었습니다. 다시 로그인해 주세요."),
     TOKEN_REFRESH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "토큰 재발급 중 오류가 발생했습니다."),
 
+    // User
+    INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임 형식이 올바르지 않습니다."),
+    NICKNAME_AVAILABILITY_CHECK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 중복 확인 중 오류가 발생했습니다."),
+
     // Onboarding
     INVALID_ONBOARDING_REQUEST(HttpStatus.BAD_REQUEST, "온보딩 입력값이 올바르지 않습니다."),
     INVALID_ONBOARDING_TOKEN(HttpStatus.UNAUTHORIZED, "온보딩 토큰이 유효하지 않습니다."),

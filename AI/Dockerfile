@@ -19,7 +19,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-# 2단계: 검증 전용. CLAUDE.md의 순서(mypy -> pytest -> ruff)대로 돌린다.
+# 2단계: 검증 전용. mypy -> pytest -> ruff
 FROM base AS test
 
 COPY requirements-dev.txt .

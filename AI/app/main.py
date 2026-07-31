@@ -1,6 +1,80 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from app.common.logging import get_logger
+from app.core.security import InternalAuthError
+from app.routers import recommendations
+from app.schemas.recommendation import ErrorResponse
+
+logger = get_logger(__name__)
 
 app = FastAPI(title="와글와글 AI 서버")
+
+app.include_router(recommendations.router)
+
+
+def _error_response(status_code: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=ErrorResponse(
+            statusCode=status_code,
+            code=code,
+            message=message,
+        ).model_dump(),
+    )
+
+
+def _first_validation_message(error: RequestValidationError) -> str:
+    errors = error.errors()
+
+    if not errors:
+        return "invalid request payload"
+
+    first = errors[0]
+    location = ".".join(str(part) for part in first["loc"] if part != "body")
+
+    return f"{location}: {first['msg']}"
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    return _error_response(
+        400,
+        "INVALID_REQUEST_PAYLOAD",
+        _first_validation_message(exc),
+    )
+
+
+@app.exception_handler(InternalAuthError)
+async def handle_internal_auth_error(
+    request: Request,
+    exc: InternalAuthError,
+) -> JSONResponse:
+    return _error_response(
+        401,
+        "UNAUTHORIZED",
+        "invalid x-internal-api-key",
+    )
+
+
+# 앱 최상단 안전망. 잡지 않으면 traceback이 응답에 실려 내부 경로가 노출된다.
+# 원인은 로그에만 남기고 응답에는 정해진 문구만 내보낸다.
+@app.exception_handler(Exception)
+async def handle_unexpected_error(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    logger.exception("unhandled error | path=%s", request.url.path)
+
+    return _error_response(
+        500,
+        "SCORING_FAILED",
+        "internal scoring error",
+    )
 
 
 @app.get("/health")

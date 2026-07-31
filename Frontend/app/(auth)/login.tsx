@@ -1,17 +1,24 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { useOAuthLogin } from '@/features/auth/hooks/useOAuthLogin';
+import type { OAuthProvider } from '@/types/auth';
 
 function LoginButton({
   brand,
   label,
+  busy,
+  disabled,
   onPress,
 }: {
-  brand: 'kakao' | 'naver';
+  brand: OAuthProvider;
   label: string;
+  /** 이 버튼으로 시작한 로그인이 진행 중인지. 스피너로 바꿔 보여준다. */
+  busy: boolean;
+  /** 다른 버튼으로 로그인이 진행 중인지. 흐리게 처리하고 입력을 막는다. */
+  disabled: boolean;
   onPress: () => void;
 }) {
   const isKakao = brand === 'kakao';
@@ -20,11 +27,14 @@ function LoginButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ busy, disabled }}
+      disabled={busy || disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.loginButton,
         { backgroundColor: isKakao ? colors.kakao : colors.naver },
         pressed && styles.loginButtonPressed,
+        disabled && styles.loginButtonDisabled,
       ]}
     >
       <View style={styles.brandIcon}>
@@ -36,14 +46,18 @@ function LoginButton({
           <Text style={styles.naverMark}>N</Text>
         )}
       </View>
-      <Text style={[styles.loginLabel, !isKakao && styles.naverLabel]}>{label}</Text>
+      {busy ? (
+        <ActivityIndicator color={isKakao ? colors.dark : colors.white} />
+      ) : (
+        <Text style={[styles.loginLabel, !isKakao && styles.naverLabel]}>{label}</Text>
+      )}
       <View style={styles.brandIcon} />
     </Pressable>
   );
 }
 
 export default function Login() {
-  const startOnboarding = () => router.push('/(onboarding)/age');
+  const { pendingProvider, error, notice, isMocked, platformUnsupported, signIn } = useOAuthLogin();
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -68,8 +82,52 @@ export default function Login() {
         </View>
 
         <View style={styles.actions}>
-          <LoginButton brand="kakao" label="카카오로 로그인" onPress={startOnboarding} />
-          <LoginButton brand="naver" label="네이버로 로그인" onPress={startOnboarding} />
+          {/* 실패 문구는 버튼 위에 남겨 둔다. 다시 누르면 사라진다. */}
+          {error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {error}
+            </Text>
+          )}
+          {/*
+            카카오톡을 다녀오면 브라우저보다 앱이 먼저 앞으로 나온다. 그때 스피너만 돌면
+            멈춘 것처럼 보여 앱을 껐다 켜게 되고, 그러면 진행 중이던 로그인이 정말 사라진다.
+          */}
+          {notice && <Text style={styles.notice}>{notice}</Text>}
+          <LoginButton
+            brand="kakao"
+            label="카카오로 로그인"
+            busy={pendingProvider === 'kakao'}
+            disabled={platformUnsupported || pendingProvider === 'naver'}
+            onPress={() => signIn('kakao')}
+          />
+          <LoginButton
+            brand="naver"
+            label="네이버로 로그인"
+            busy={pendingProvider === 'naver'}
+            disabled={platformUnsupported || pendingProvider === 'kakao'}
+            onPress={() => signIn('naver')}
+          />
+          {/*
+            복귀 경로가 Android App Link뿐이라 웹에서는 완주할 수 없다.
+            안내 없이 버튼만 두면 카카오는 서버 404, 네이버는 미등록 URL 오류로 끝나
+            원인을 앱에서 찾게 된다.
+          */}
+          {platformUnsupported && (
+            <Text style={styles.mockNotice}>
+              소셜 로그인은 안드로이드 개발 빌드에서만 동작합니다{`\n`}
+              (복귀 경로가 App Link이기 때문입니다)
+            </Text>
+          )}
+          {/*
+            목업 모드에서는 브라우저를 열지 않고 바로 온보딩으로 넘어간다.
+            표시가 없으면 실제 소셜 로그인이 된 것으로 착각하게 된다.
+          */}
+          {isMocked && (
+            <Text style={styles.mockNotice}>
+              목업 모드 — 실제 소셜 로그인을 건너뜁니다{`\n`}
+              (.env의 EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_USE_MOCK_API 확인)
+            </Text>
+          )}
         </View>
       </LinearGradient>
     </SafeAreaView>
@@ -109,6 +167,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   loginButtonPressed: { opacity: 0.76 },
+  loginButtonDisabled: { opacity: 0.5 },
+  error: { ...type.caption, color: colors.danger, textAlign: 'center' },
+  notice: { ...type.caption, color: colors.gray600, textAlign: 'center' },
+  mockNotice: { ...type.caption, color: colors.gray600, textAlign: 'center' },
   brandIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   kakaoBubble: {
     minWidth: 42,

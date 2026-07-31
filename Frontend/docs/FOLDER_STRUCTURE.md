@@ -27,7 +27,8 @@ app/
 ├── place/[placeId]/index.tsx
 ├── pin/[pinId]/index.tsx
 ├── pin-create/                camera, detail-form, ai-review, publishing
-└── chat-room/[roomId].tsx
+├── chat-room/[roomId].tsx
+└── oauth/callback/[provider].tsx   App Link 복귀 주소. 처리는 useOAuthLogin이 한다
 ```
 
 ## 소스
@@ -35,26 +36,29 @@ app/
 ```text
 src/
 ├── features/
+│   ├── auth/
+│   │   └── hooks/             useOAuthLogin(로그인 흐름), useAuthSession(복원·세션 만료)
 │   └── pin-detail/            /pin/[pinId] 전용
 │       ├── components/        PinDetailHeader, PinDetailBody, OwnerMenu,
 │       │                      PinPurchaseModal, PinChatRequestModal
 │       ├── hooks/             usePinDetail, usePinDetailScreen
 │       └── styles.ts
 ├── api/
-│   ├── client.ts              axios 인스턴스·인터셉터·ApiError
+│   ├── client.ts              axios 인스턴스·인터셉터·ApiError·401 재발급 재시도
 │   ├── config.ts              usesMockApi
+│   ├── auth/                  oauth, refresh
 │   ├── pin/                   detail, unlock, evaluate, remove
 │   └── chat/                  request, leave
-├── mocks/                     pin, chat
+├── mocks/                     pin, chat, auth
 ├── components/
 │   ├── common/                ui, AppTabBar, ConfirmModal, ErrorView,
 │   │                          ScreenContainer, ListGroup, CrowdFilterToggle,
 │   │                          CrowdLevelBadge, ViewAvatar, modalAnimation
 │   └── home/                  MapPlaceholder, MapMarker
 ├── hooks/                     useResponsivePadding
-├── store/                     createStore, useMapStore
-├── types/                     common, pin, chat, place, env.d.ts
+├── store/                     createStore, useMapStore, useAuthStore
+├── types/                     common, pin, chat, place, auth, env.d.ts
 ├── constants/                 theme, crowdLevels, categories
-├── utils/                     datetime, viewAngle, idempotency, navigation
+├── utils/                     datetime, viewAngle, idempotency, navigation, oauth
 └── data/                      mock.ts (목업 화면 하드코딩, API 연동 시 제거 예정)
 ```
