@@ -83,9 +83,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     엉뚱한 동네에서 받아 놓고 곧바로 버리게 된다 — 홈이 실제로 그랬다. 기본 중심은 서울숲인데
     핀은 영등포에 있어, 지도 한 화면을 통째로 받고 다시 받았다.
   */
-  const initialCenter = useRef(
-    fitPlacesOnReady && places.length > 0 ? centerOfPlaces(places) : center,
-  );
+  const initialCenter = useRef(fitPlacesOnReady && places.length > 0 ? centerOfPlaces(places) : center);
   const html = useMemo(
     () =>
       buildKakaoMapHtml({
@@ -112,17 +110,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     send('update', [patch]);
   }, [patch, ready, send]);
 
-  // 필터가 바뀌면 핀 묶음 자체가 달라지므로 새 핀이 모두 보이도록 영역을 다시 잡는다.
-  // 첫 실행(지도 준비 시점)은 건너뛴다. 화면이 지정한 최초 중심을 덮어써 버리기 때문이다.
-  const fittedOnce = useRef(false);
-  useEffect(() => {
-    if (!ready) return;
-    if (!fittedOnce.current) {
-      fittedOnce.current = true;
-      return;
-    }
-    send('fitPlaces', [insetRef.current]);
-  }, [filter, ready, send]);
+  /*
+    필터가 바뀌어도 지도를 움직이지 않는다.
+
+    예전에는 새 핀이 모두 보이도록 `fitPlaces`로 영역을 다시 잡았다. 그런데 혼잡도 토글은
+    "여유한 곳만 / 붐비는 곳만 보기"라서, 지금 보고 있는 자리를 떠날 이유가 없다. 실제로는
+    토글을 누를 때마다 내 위치에서 핀 묶음 전체로 화면이 끌려가 어디를 보고 있었는지 잃었다.
+
+    핀은 `update` 패치로 다시 그려지므로 필터 결과는 그 자리에서 바로 반영된다.
+  */
 
   // 화면 회전 등으로 WebView 크기가 바뀌면 SDK에 알려야 타일이 어긋나지 않는다.
   useEffect(() => {
@@ -139,12 +135,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     ref,
     () => ({
       panTo: ({ latitude, longitude }, options) =>
-        send('panTo', [
-          latitude,
-          longitude,
-          Math.round(insetRef.current / 2),
-          options?.animate ?? true,
-        ]),
+        send('panTo', [latitude, longitude, Math.round(insetRef.current / 2), options?.animate ?? true]),
       searchPlace: (keyword: string) => send('searchPlace', [keyword, Math.round(insetRef.current / 2)]),
       setLevel: (level: number) => send('setLevel', [level]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),
