@@ -49,3 +49,9 @@ jwt:
   access-token-expiration-seconds: 3600
   refresh-token-expiration-seconds: 1209600
   onboarding-token-expiration-seconds: 600
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION:ap-northeast-2}
+    upload-url-expiration-seconds: ${AWS_S3_UPLOAD_URL_EXPIRATION_SECONDS:600}
