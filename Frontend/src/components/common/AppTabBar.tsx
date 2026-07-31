@@ -140,7 +140,12 @@ export function AppTabBar({ active }: AppTabBarProps) {
             accessibilityRole="button"
             accessibilityLabel={label}
             accessibilityState={{ selected: focused }}
-            onPress={() => router.push(href as never)}
+            /*
+              push가 아니라 navigate다. push는 갈 때마다 화면을 쌓아서, 게시글에서 홈을 누르면
+              홈으로 "돌아가는" 대신 홈이 하나 더 얹힌다. 뒤로 가기를 여러 번 눌러야 빠져나오게 된다.
+              navigate는 이미 있는 화면으로 되돌아간다.
+            */
+            onPress={() => router.navigate(href as never)}
             style={s.item}
           >
             <TabBarIcon tab={key} focused={focused} color={tint} />

@@ -315,7 +315,11 @@ export default function Place() {
         </ScrollView>
       </Animated.View>
 
-      <AppTabBar active="home" />
+      {/*
+        어느 탭에도 강조를 주지 않는다. 이 화면은 탭 그룹 밖의 게시글이라, 홈을 켜 두면
+        사용자가 아직 홈에 있다고 읽는다 — 홈에서 게시글로 들어왔다는 사실이 사라진다.
+      */}
+      <AppTabBar />
     </View>
   );
 }
