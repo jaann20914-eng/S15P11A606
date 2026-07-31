@@ -20,6 +20,7 @@ import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapStore } from '@/store/useMapStore';
+import { usesMockApi } from '@/api/config';
 import { places } from '@/data/mock';
 import { colors, radius, spacing, type } from '@/constants/theme';
 
@@ -91,6 +92,21 @@ function CrowdChart() {
   );
 }
 
+/**
+ * 목업 핀 번호별 상황.
+ *
+ * 실기에서는 주소를 직접 칠 수 없어 목록에서 눌러 들어가야 한다. 어느 카드가 어떤 화면인지
+ * 알 수 있도록 목업 모드에서만 표시한다. 서버가 붙으면 사라진다.
+ */
+const MOCK_PIN_LABELS = [
+  '결제 전',
+  '열람 완료',
+  '평가 완료',
+  '내 핀',
+  '결제 시 크레딧 부족',
+  '내 핀 · 삭제 실패',
+];
+
 function VideoCard({ index = 0 }: { index?: number }) {
   return (
     <Pressable onPress={() => router.push(`/pin/${index + 1}`)} style={s.videoCard}>
@@ -111,6 +127,7 @@ function VideoCard({ index = 0 }: { index?: number }) {
           <Text numberOfLines={5} style={s.memo}>
             저희 곧 카페 나갈건데, 창가 자리 앉으실 분 있으실까요? 3시 30분까지 채팅주시면 자리 전달해드릴 수
             있을 것 같습니다.
+            {usesMockApi && MOCK_PIN_LABELS[index] ? ` (${index + 1}. ${MOCK_PIN_LABELS[index]})` : ''}
           </Text>
           <View style={s.tags}>
             {['#카페', '#감성', '#강남맛집'].map((tag) => (
@@ -293,8 +310,18 @@ export default function Place() {
                 <Text style={s.sectionTitle}>실시간 영상핀</Text>
                 <Text style={s.sectionMeta}>최근 등록순</Text>
               </View>
-              <VideoCard />
-              {level === 2 && <VideoCard index={1} />}
+              {/*
+                목업에서는 여섯 가지 상황을 모두 눌러볼 수 있게 카드를 다 그린다.
+                실기에서는 주소를 직접 칠 수 없어 목록이 유일한 진입 경로다.
+              */}
+              {usesMockApi ? (
+                MOCK_PIN_LABELS.map((label, index) => <VideoCard key={label} index={index} />)
+              ) : (
+                <>
+                  <VideoCard />
+                  {level === 2 && <VideoCard index={1} />}
+                </>
+              )}
             </View>
           )}
         </ScrollView>
