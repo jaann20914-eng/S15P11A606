@@ -36,6 +36,15 @@ type SheetLevel = 0 | 1 | 2;
  */
 const MY_LOCATION_WAIT_MS = 1500;
 
+/**
+ * 측정이 오기 전에 쓰는 어림값.
+ *
+ * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다. 0으로 두면 시트가 화면 전체를
+ * 덮은 채 시작해 눈에 띄게 튀므로, 실제와 가까운 값을 둔다.
+ */
+const ESTIMATED_HEADER_HEIGHT = 118;
+const ESTIMATED_CARD_HEIGHT = 208;
+
 export default function Home() {
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
@@ -77,11 +86,65 @@ export default function Home() {
   const myLocation = useCurrentLocation({ auto: true });
   const navBarHeight = useAppTabBarHeight();
 
-  const snapPoints = useMemo(
-    // 중간 단계는 장소 카드가 정확히 하나만 온전히 보이는 높이다.
-    () => [Math.max(0, height - 92), Math.max(insets.top + 160, height - 372), Math.max(insets.top + 84, 96)],
-    [height, insets.top],
-  );
+  /*
+    시트 헤더와 첫 카드의 실제 높이. 스냅 위치를 이 값으로 계산한다.
+
+    예전에는 92·372 같은 숫자를 박아 두었는데, 두 가지가 어긋났다. 하단 탭바가 시트 위에
+    떠 있다는 것을 계산에 넣지 않아 접었을 때 제목이 탭바 뒤로 잘렸고, 글꼴 크기 설정이나
+    화면 폭에 따라 내용 높이가 달라지면 카드가 어중간하게 걸렸다.
+
+    측정값을 쓰면 "헤더만", "헤더 + 카드 하나"가 기기와 무관하게 정확히 맞는다.
+  */
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [cardHeight, setCardHeight] = useState(0);
+
+  /**
+   * 시트가 놓이는 영역의 높이. `useWindowDimensions()`의 창 높이와 **다르다.**
+   *
+   * 탭 네비게이터는 탭바를 화면 컨테이너의 형제로 세로로 쌓는다(`BottomTabView`). 그래서
+   * 이 화면에 주어진 높이는 `창 높이 - 탭바`다. 창 높이로 스냅을 계산하면 시트 전체가
+   * 탭바 두께만큼 아래로 밀려, 접었을 때 헤더가 화면 밖으로 나가 버린다.
+   *
+   * 직접 재면 탭바가 자리를 차지하든 겹치든 항상 맞는다.
+   */
+  const [screenHeight, setScreenHeight] = useState(0);
+  // 재기 전 첫 프레임용 어림값. 탭바를 뺀 값이라 측정값과 거의 같다.
+  const sheetSpace = screenHeight > 0 ? screenHeight : Math.max(0, height - navBarHeight);
+
+  /**
+   * 3단계 시트 높이. 값은 시트 **위쪽 y좌표**이므로 작을수록 크게 열린 상태다.
+   *
+   * - `0` 축소 — 헤더만 보인다
+   * - `1` 기본 — 헤더 + 장소 카드 하나가 온전히 보인다
+   * - `2` 확장 — 화면 위쪽까지 열어 목록을 훑는다
+   *
+   * 측정 전에는 대략값으로 두고, `onLayout`이 오면 다시 계산된다.
+   */
+  const snapPoints = useMemo(() => {
+    const header = headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT;
+    const card = cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT;
+
+    // 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
+    const collapsed = header;
+    // 기본 — 헤더 + 카드 하나. 카드 아래로 약간의 여백을 둬 잘려 보이지 않게 한다.
+    const middle = header + card + spacing.x4;
+    /*
+      확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
+      `layout.searchHeight`만큼 차지하므로, 그 끝에서 한 칸 띄운 자리가 상한이다.
+      예전에는 `insets.top + spacing.x6`으로 올려 검색바와 겹쳤다.
+    */
+    const expandedTop = insets.top + spacing.x3 + layout.searchHeight + spacing.x4;
+
+    const collapsedTop = Math.max(0, sheetSpace - collapsed);
+    const middleTop = Math.max(0, sheetSpace - middle);
+
+    return [
+      collapsedTop,
+      middleTop,
+      // 확장이 기본보다 아래로 내려가면 단계 순서가 뒤집혀 드래그 범위가 깨진다.
+      Math.min(expandedTop, middleTop - 1),
+    ];
+  }, [cardHeight, headerHeight, insets.top, sheetSpace]);
   const sheetY = useRef(new Animated.Value(snapPoints[1])).current;
   const dragStart = useRef(snapPoints[1]);
 
@@ -98,6 +161,25 @@ export default function Home() {
     },
     [snapPoints, sheetY],
   );
+
+  /*
+    측정값이 도착해 스냅 위치가 바뀌면 지금 단계에 맞춰 다시 놓는다.
+
+    이게 없으면 시트가 첫 렌더의 어림값 자리에 그대로 머문다 — 단계는 "기본"인데 실제 높이는
+    어림값이라 카드가 어중간하게 걸린다. 사용자가 한 번 끌어야 제자리를 찾게 된다.
+
+    단계가 바뀐 것과 구분해야 한다. 단계 변경은 moveTo의 스프링이 맡으므로, 여기서 값을
+    덮으면 그 애니메이션이 끊긴다. 그래서 스냅 배열 자체가 바뀐 경우에만 적용한다.
+  */
+  const appliedSnapPoints = useRef(snapPoints);
+  useEffect(() => {
+    if (appliedSnapPoints.current === snapPoints) return;
+    appliedSnapPoints.current = snapPoints;
+
+    // 보정이므로 애니메이션 없이 곧바로 놓는다. 사용자가 시작한 이동이 아니다.
+    sheetY.setValue(snapPoints[level]);
+    dragStart.current = snapPoints[level];
+  }, [level, sheetY, snapPoints]);
 
   const panResponder = useMemo(
     () =>
@@ -227,10 +309,11 @@ export default function Home() {
   );
 
   // 바텀시트가 가리는 높이. 지도 중심 이동 시 이만큼 보정해 보이는 영역의 중앙에 놓는다.
-  const coveredHeight = Math.max(0, height - snapPoints[level]);
+  const coveredHeight = Math.max(0, sheetSpace - snapPoints[level]);
 
   return (
-    <View style={s.screen}>
+    // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
+    <View style={s.screen} onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
       {start ? (
         <KakaoMap
           ref={mapRef}
@@ -306,15 +389,27 @@ export default function Home() {
             accessibilityLabel="장소 목록 높이"
             accessibilityHint="탭하거나 위아래로 끌어 높이를 변경하세요"
             onPress={() => moveTo(((level + 1) % 3) as SheetLevel)}
-            style={[s.handleArea, level === 0 && s.handleAreaCollapsed]}
+            // 높이를 고정하지 않는다. 내용이 정하게 두어야 글자가 잘리지 않는다.
+            onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
+            style={[s.handleArea, { paddingHorizontal: gutter }]}
           >
             <View style={s.handle} />
             <View style={s.sheetHeading}>
+              {/*
+                제목은 왼쪽, 토글은 오른쪽이다(와이어프레임). 예전에는 가운데로 모아 놓아
+                좁은 화면에서 제목이 토글에 밀려 잘렸다. flex를 줘 남는 만큼 차지하게 한다.
+              */}
               <Text numberOfLines={1} style={s.sheetTitle}>
                 주위를 둘러볼까요?
               </Text>
               <CrowdFilterToggle value={crowdFilter} onChange={setCrowdFilter} />
             </View>
+            {/* 지역명을 얻지 못하면 줄을 비운다. 틀린 지역을 적는 것보다 낫다. */}
+            {myLocation.areaName && (
+              <Text numberOfLines={1} style={s.sheetSubtitle}>
+                현재 위치 : {myLocation.areaName}
+              </Text>
+            )}
           </Pressable>
         </View>
 
@@ -323,17 +418,29 @@ export default function Home() {
           scrollEnabled={level > 0}
           contentContainerStyle={[
             s.list,
-            // 바텀바(+ 기기 시스템 바)에 마지막 카드가 가리지 않도록 확보한다.
-            { paddingHorizontal: gutter, paddingBottom: navBarHeight + spacing.x6 },
+            // 탭바는 이 영역 밖에 있어 마지막 카드를 가리지 않는다. 숨 쉴 여백만 둔다.
+            { paddingHorizontal: gutter, paddingBottom: spacing.x6 },
           ]}
         >
-          {visiblePlaces.map((place) => (
+          {visiblePlaces.map((place, index) => (
             <Pressable
               key={place.id}
               accessibilityRole="button"
               accessibilityLabel={`${place.name} 지도에서 보기`}
               accessibilityState={{ selected: place.id === selectedPlaceId }}
               onPress={() => focusPlace(place.id)}
+              /*
+                첫 카드만 재서 "기본" 단계 높이를 정한다. 카드 구조가 같아 하나로 충분하고,
+                모두 재면 같은 값을 여러 번 쓰게 된다. 값이 실제로 바뀔 때만 반영해 되풀이를 막는다.
+              */
+              onLayout={
+                index === 0
+                  ? (event) => {
+                      const measured = Math.round(event.nativeEvent.layout.height);
+                      setCardHeight((current) => (current === measured ? current : measured));
+                    }
+                  : undefined
+              }
               style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
             >
               <View style={s.cardTop}>
@@ -451,13 +558,7 @@ const s = StyleSheet.create({
     ...glassShadow,
   },
   sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
-  handleArea: {
-    height: 76,
-    paddingTop: spacing.x2,
-    paddingBottom: spacing.x2,
-    paddingHorizontal: spacing.x5,
-  },
-  handleAreaCollapsed: { height: 92 },
+  handleArea: { paddingTop: spacing.x2, paddingBottom: spacing.x3 },
   handle: {
     width: 40,
     height: 4,
@@ -467,13 +568,15 @@ const s = StyleSheet.create({
     marginBottom: spacing.x1,
   },
   sheetHeading: {
-    height: 44,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap: spacing.x3,
   },
-  sheetTitle: { ...type.body, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
+  // flex로 남는 폭을 차지한다. 고정 폭이면 토글에 밀려 제목이 잘린다.
+  sheetTitle: { ...type.body, flex: 1, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
+  sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   list: { paddingTop: 0, gap: spacing.x3 },
   placeCard: {
     padding: spacing.x5,
@@ -494,7 +597,8 @@ const s = StyleSheet.create({
   },
   detailButtonText: { ...type.caption, color: colors.dark, fontWeight: '600' },
   placeCopy: { flex: 1, minWidth: 0 },
-  placeName: { ...type.title, flex: 1, color: colors.dark },
+  // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
+  placeName: { ...type.title, color: colors.dark },
   hours: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   address: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },

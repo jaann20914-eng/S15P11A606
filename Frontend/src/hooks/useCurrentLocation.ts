@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { readCurrentCoordinate } from '@/utils/location';
+import { readAreaName, readCurrentCoordinate } from '@/utils/location';
 import type { LocationFailure } from '@/utils/location';
 import type { Coordinate } from '@/store/useMapStore';
 
@@ -8,6 +8,12 @@ export type LocationStatus = 'idle' | 'loading' | 'granted' | LocationFailure;
 export interface CurrentLocation {
   /** 마지막으로 확인된 내 위치. 아직 못 받았으면 null. */
   coordinate: Coordinate | null;
+  /**
+   * 그 좌표의 지역 이름(`서울 성수1동`). 아직 못 얻었거나 조회에 실패하면 null.
+   *
+   * 좌표보다 늦게 도착하고 실패할 수도 있어 좌표와 따로 둔다. 화면은 값이 있을 때만 줄을 그린다.
+   */
+  areaName: string | null;
   status: LocationStatus;
   /**
    * 실패했을 때 사용자에게 보여줄 문구. 실패가 아니면 null.
@@ -44,6 +50,7 @@ export interface CurrentLocationOptions {
  */
 export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}): CurrentLocation {
   const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
+  const [areaName, setAreaName] = useState<string | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
   /** 버튼 연타로 요청이 겹치는 것을 막는다. */
   const inFlight = useRef(false);
@@ -92,7 +99,24 @@ export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}
     };
   }, [auto]);
 
+  /*
+    지역명은 좌표가 정해진 뒤에 따로 조회한다. 좌표를 쓰는 쪽(지도 이동)을 지오코딩 응답까지
+    기다리게 하지 않으려는 것이다. 실패하면 null로 두고 화면이 그 줄을 비운다.
+  */
+  useEffect(() => {
+    if (!coordinate) return;
+
+    let applies = true;
+    void readAreaName(coordinate).then((name) => {
+      if (applies) setAreaName(name);
+    });
+
+    return () => {
+      applies = false;
+    };
+  }, [coordinate]);
+
   const message = status in MESSAGE ? MESSAGE[status as LocationFailure] : null;
 
-  return { coordinate, status, message, request };
+  return { coordinate, areaName, status, message, request };
 }

@@ -41,10 +41,41 @@ function log(step: string, detail?: Record<string, unknown>): void {
 
 /** 주어진 시간 안에 끝나지 않으면 null. 원래 작업은 그대로 두고 기다리기만 그만둔다. */
 function withTimeout<T>(work: Promise<T>, limitMs: number): Promise<T | null> {
-  return Promise.race([
-    work,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), limitMs)),
-  ]);
+  return Promise.race([work, new Promise<null>((resolve) => setTimeout(() => resolve(null), limitMs))]);
+}
+
+/**
+ * 행정구역 이름에서 흔한 접미사를 떼어 짧게 만든다.
+ *
+ * 지오코더는 `서울특별시`처럼 정식 명칭을 준다. 한 줄로 보여 주는 자리에서는 길어서
+ * 다른 정보를 밀어내므로 통용되는 짧은 이름으로 줄인다.
+ */
+function shortenRegion(region: string): string {
+  return region.replace(/(특별자치시|특별자치도|특별시|광역시)$/, '');
+}
+
+/**
+ * 좌표를 사람이 읽는 지역 이름으로 바꾼다. 얻지 못하면 null.
+ *
+ * 플랫폼 지오코더가 채우는 필드는 기기·지역마다 다르다. 그래서 특정 필드를 믿지 않고
+ * **가장 좁은 행정구역부터** 있는 것을 고른 뒤 시·도를 앞에 붙인다. 아무것도 없으면 null을
+ * 주고, 화면은 그 줄을 비운다 — 틀린 지역명을 보여 주는 것보다 낫다.
+ */
+export async function readAreaName(coordinate: Coordinate): Promise<string | null> {
+  try {
+    const [address] = await Location.reverseGeocodeAsync(coordinate);
+    if (!address) return null;
+
+    const area = address.district ?? address.subregion ?? address.city ?? null;
+    const region = address.region ? shortenRegion(address.region) : null;
+
+    if (!area) return region;
+    // 이미 시·도가 앞에 붙어 있으면 두 번 적지 않는다.
+    return region && !area.startsWith(region) ? `${region} ${area}` : area;
+  } catch {
+    log('지역명 조회 실패');
+    return null;
+  }
 }
 
 export interface ReadCoordinateOptions {
