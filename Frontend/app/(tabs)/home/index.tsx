@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,11 +21,10 @@ import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
+import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
 import { places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
-
-type SheetLevel = 0 | 1 | 2;
 
 /**
  * 내 위치를 기다리는 한계 시간(ms).
@@ -80,7 +78,6 @@ export default function Home() {
    * 이동 경로를 하나로 둔다.
    */
   const [pendingPan, setPendingPan] = useState<Coordinate | null>(null);
-  const [level, setLevel] = useState<SheetLevel>(1);
   const mapRef = useRef<KakaoMapHandle>(null);
   // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
   const myLocation = useCurrentLocation({ auto: true });
@@ -111,99 +108,21 @@ export default function Home() {
   // 재기 전 첫 프레임용 어림값. 탭바를 뺀 값이라 측정값과 거의 같다.
   const sheetSpace = screenHeight > 0 ? screenHeight : Math.max(0, height - navBarHeight);
 
-  /**
-   * 3단계 시트 높이. 값은 시트 **위쪽 y좌표**이므로 작을수록 크게 열린 상태다.
-   *
-   * - `0` 축소 — 헤더만 보인다
-   * - `1` 기본 — 헤더 + 장소 카드 하나가 온전히 보인다
-   * - `2` 확장 — 화면 위쪽까지 열어 목록을 훑는다
-   *
-   * 측정 전에는 대략값으로 두고, `onLayout`이 오면 다시 계산된다.
-   */
-  const snapPoints = useMemo(() => {
-    const header = headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT;
-    const card = cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT;
-
-    // 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
-    const collapsed = header;
-    // 기본 — 헤더 + 카드 하나. 카드 아래로 약간의 여백을 둬 잘려 보이지 않게 한다.
-    const middle = header + card + spacing.x4;
-    /*
-      확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
-      `layout.searchHeight`만큼 차지하므로, 그 끝에서 한 칸 띄운 자리가 상한이다.
-      예전에는 `insets.top + spacing.x6`으로 올려 검색바와 겹쳤다.
-    */
-    const expandedTop = insets.top + spacing.x3 + layout.searchHeight + spacing.x4;
-
-    const collapsedTop = Math.max(0, sheetSpace - collapsed);
-    const middleTop = Math.max(0, sheetSpace - middle);
-
-    return [
-      collapsedTop,
-      middleTop,
-      // 확장이 기본보다 아래로 내려가면 단계 순서가 뒤집혀 드래그 범위가 깨진다.
-      Math.min(expandedTop, middleTop - 1),
-    ];
-  }, [cardHeight, headerHeight, insets.top, sheetSpace]);
-  const sheetY = useRef(new Animated.Value(snapPoints[1])).current;
-  const dragStart = useRef(snapPoints[1]);
-
-  const moveTo = useCallback(
-    (next: SheetLevel) => {
-      setLevel(next);
-      Animated.spring(sheetY, {
-        toValue: snapPoints[next],
-        useNativeDriver: true,
-        damping: 24,
-        stiffness: 220,
-        mass: 0.8,
-      }).start();
-    },
-    [snapPoints, sheetY],
-  );
-
   /*
-    측정값이 도착해 스냅 위치가 바뀌면 지금 단계에 맞춰 다시 놓는다.
+    3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
 
-    이게 없으면 시트가 첫 렌더의 어림값 자리에 그대로 머문다 — 단계는 "기본"인데 실제 높이는
-    어림값이라 카드가 어중간하게 걸린다. 사용자가 한 번 끌어야 제자리를 찾게 된다.
-
-    단계가 바뀐 것과 구분해야 한다. 단계 변경은 moveTo의 스프링이 맡으므로, 여기서 값을
-    덮으면 그 애니메이션이 끊긴다. 그래서 스냅 배열 자체가 바뀐 경우에만 적용한다.
+    - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
+    - 기본 — 헤더 + 카드 하나. 카드 아래로 약간 여백을 둬 잘려 보이지 않게 한다.
+    - 확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
+      `layout.searchHeight`만큼 차지하므로 그 끝에서 한 칸 띄운 자리가 상한이다.
   */
-  const appliedSnapPoints = useRef(snapPoints);
-  useEffect(() => {
-    if (appliedSnapPoints.current === snapPoints) return;
-    appliedSnapPoints.current = snapPoints;
-
-    // 보정이므로 애니메이션 없이 곧바로 놓는다. 사용자가 시작한 이동이 아니다.
-    sheetY.setValue(snapPoints[level]);
-    dragStart.current = snapPoints[level];
-  }, [level, sheetY, snapPoints]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 5,
-        onPanResponderGrant: () => {
-          dragStart.current = snapPoints[level];
-        },
-        onPanResponderMove: (_, gesture) => {
-          const nextY = Math.min(snapPoints[0], Math.max(snapPoints[2], dragStart.current + gesture.dy));
-          sheetY.setValue(nextY);
-        },
-        onPanResponderRelease: (_, gesture) => {
-          const projected = dragStart.current + gesture.dy + gesture.vy * 72;
-          const nearest = snapPoints.reduce(
-            (best, point, index) =>
-              Math.abs(point - projected) < Math.abs(snapPoints[best] - projected) ? index : best,
-            0,
-          ) as SheetLevel;
-          moveTo(nearest);
-        },
-      }),
-    [level, moveTo, snapPoints, sheetY],
-  );
+  const sheet = useBottomSheet({
+    space: sheetSpace,
+    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
+    middleExtra: (cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
+  });
+  const { level, moveTo, sheetY, coveredHeight } = sheet;
 
   const visiblePlaces = useMemo(
     () => places.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
@@ -298,18 +217,28 @@ export default function Home() {
     setPendingPan(null);
   }, [mapReady, pendingPan]);
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * 장소 상세는 반투명 모달로 **홈 위에 겹친다.** 그때 홈 시트를 그대로 두면 두 시트가
+   * 반투명하게 서로 비쳐 글자가 겹쳐 읽힌다. 위에 무언가 올라오면 홈 시트를 감춘다.
+   *
+   * 감추기만 하고 언마운트하지 않는다 — 스크롤 위치와 재측정을 잃지 않아야 상세를 닫았을 때
+   * 있던 자리로 정확히 돌아온다.
+   */
+  const [onTop, setOnTop] = useState(true);
+
   /*
-    화면이 다시 앞으로 나올 때 지도에 크기를 다시 알린다. 가려져 있는 동안 레이아웃이 바뀌면
+    다시 앞으로 나올 때 지도에 크기를 다시 알린다. 가려져 있는 동안 레이아웃이 바뀌면
     SDK가 모르고 있어 타일과 중심이 어긋난 채로 남는다.
   */
   useFocusEffect(
     useCallback(() => {
+      setOnTop(true);
       mapRef.current?.relayout();
+      return () => setOnTop(false);
     }, []),
   );
-
-  // 바텀시트가 가리는 높이. 지도 중심 이동 시 이만큼 보정해 보이는 영역의 중앙에 놓는다.
-  const coveredHeight = Math.max(0, sheetSpace - snapPoints[level]);
 
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
@@ -379,16 +308,17 @@ export default function Home() {
         )}
       </View>
 
-      <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
+      {/* 위에 상세가 겹쳐 있으면 감춘다. display로 빼야 레이아웃·그리기까지 건너뛴다. */}
+      <Animated.View style={[s.sheet, !onTop && s.sheetHidden, { transform: [{ translateY: sheetY }] }]}>
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
         <View style={s.sheetTint} />
 
-        <View {...panResponder.panHandlers}>
+        <View {...sheet.panHandlers}>
           <Pressable
             accessibilityRole="adjustable"
             accessibilityLabel="장소 목록 높이"
             accessibilityHint="탭하거나 위아래로 끌어 높이를 변경하세요"
-            onPress={() => moveTo(((level + 1) % 3) as SheetLevel)}
+            onPress={sheet.cycle}
             // 높이를 고정하지 않는다. 내용이 정하게 두어야 글자가 잘리지 않는다.
             onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
             style={[s.handleArea, { paddingHorizontal: gutter }]}
@@ -418,8 +348,12 @@ export default function Home() {
           scrollEnabled={level > 0}
           contentContainerStyle={[
             s.list,
-            // 탭바는 이 영역 밖에 있어 마지막 카드를 가리지 않는다. 숨 쉴 여백만 둔다.
-            { paddingHorizontal: gutter, paddingBottom: spacing.x6 },
+            /*
+              탭바는 이 영역 밖에 있어 마지막 카드를 가리지 않는다. 다만 시트가 화면 밖으로
+              내려간 만큼(`sheet.top`)은 더해야 한다 — 그러지 않으면 ScrollView가 화면 밖까지
+              자기 영역으로 알아 마지막 카드를 끝까지 끌어올리지 못한다.
+            */
+            { paddingHorizontal: gutter, paddingBottom: spacing.x6 + sheet.top },
           ]}
         >
           {visiblePlaces.map((place, index) => (
@@ -557,6 +491,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
     ...glassShadow,
   },
+  sheetHidden: { display: 'none' },
   sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
   handleArea: { paddingTop: spacing.x2, paddingBottom: spacing.x3 },
   handle: {
