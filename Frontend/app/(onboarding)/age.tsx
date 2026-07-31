@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Platform,
@@ -20,6 +21,7 @@ import { Button, ScreenHeader } from '@/components/common/ui';
 import { PreferenceCard } from '@/features/onboarding/components/PreferenceCard';
 import { preferenceCategoryImages } from '@/features/onboarding/preferenceAssets';
 import { useOnboardingSubmit } from '@/features/onboarding/hooks/useOnboardingSubmit';
+import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
 import {
   MAX_PREFERENCES,
@@ -28,7 +30,12 @@ import {
   preferenceCategoryLabel,
 } from '@/constants/categories';
 import type { PreferenceCategoryCode } from '@/constants/categories';
-import { NICKNAME_MIN_LENGTH, ageGroups, genders } from '@/constants/onboarding';
+import {
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  ageGroups,
+  genders,
+} from '@/constants/onboarding';
 import { colors, radius, spacing, type } from '@/constants/theme';
 import type { AgeGroup, Gender } from '@/types/onboarding';
 
@@ -40,17 +47,23 @@ export default function Onboarding() {
   // 화면 상태에 서버 enum을 그대로 담는다. 전송 직전에 한글 문구를 변환하지 않는다.
   const [ageGroup, setAgeGroup] = useState<AgeGroup>('TWENTIES');
   const [gender, setGender] = useState<Gender>('FEMALE');
-  const [nickname, setNickname] = useState('');
-  const [checked, setChecked] = useState(false);
   // 서버로 보내는 값은 code다(`preferredCategories`). 라벨은 표시에만 쓴다.
   const [selected, setSelected] = useState<PreferenceCategoryCode[]>(['PARK']);
 
-  // 서버가 닉네임 중복을 알려주면 입력 단계로 되돌린다. 중복확인 API는 아직 없어
-  // 이 경로가 유일한 검증 지점이다.
+  // 입력·형식 검증·중복 확인은 전부 이 훅이 맡는다. 마이페이지 닉네임 수정과 같은 훅이라
+  // 규칙이 한 곳에만 있다.
+  const nickname = useNicknameCheck();
+
+  /**
+   * 가입 요청에서 닉네임 중복이 났을 때 입력 단계로 되돌린다.
+   *
+   * 중복 확인을 통과했어도 확인과 가입 사이에 다른 사용자가 먼저 쓸 수 있다. 그때 "확인됨"은
+   * 사실과 다르므로 확인을 풀고 이유를 그 자리에 남긴다.
+   */
   const returnToNickname = useCallback(() => {
-    setChecked(false);
+    nickname.invalidate('방금 다른 분이 사용했어요. 다른 닉네임을 입력해 주세요.');
     setStep(2);
-  }, []);
+  }, [nickname.invalidate]);
 
   const onboarding = useOnboardingSubmit(returnToNickname);
 
@@ -105,7 +118,14 @@ export default function Onboarding() {
         setRequestingPermissions(false);
       }
 
-      onboarding.submit({ ageGroup, gender, nickname: nickname.trim(), preferredCategories: selected });
+      // 중복 확인을 통과한 값을 그대로 보낸다. 훅이 서버가 정규화한 값으로 되돌려 넣으므로
+      // 여기서 다시 다듬지 않는다.
+      onboarding.submit({
+        ageGroup,
+        gender,
+        nickname: nickname.nickname,
+        preferredCategories: selected,
+      });
     })();
   };
 
@@ -115,10 +135,6 @@ export default function Onboarding() {
       if (current.includes(code)) return current.filter((value) => value !== code);
       return current.length < MAX_PREFERENCES ? [...current, code] : current;
     });
-
-  const checkNickname = () => {
-    if (nickname.trim().length >= NICKNAME_MIN_LENGTH) setChecked(true);
-  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -200,40 +216,60 @@ export default function Onboarding() {
               </View>
 
               <Text style={s.sectionLabel}>닉네임</Text>
-              <View style={[s.nicknameField, checked && s.nicknameFieldChecked]}>
+              <View style={[s.nicknameField, nickname.checked && s.nicknameFieldChecked]}>
                 <TextInput
-                  value={nickname}
-                  onChangeText={(value) => {
-                    setNickname(value);
-                    setChecked(false);
-                  }}
-                  placeholder="2~12자로 입력해주세요"
+                  value={nickname.nickname}
+                  onChangeText={nickname.change}
+                  placeholder={`${NICKNAME_MIN_LENGTH}~${NICKNAME_MAX_LENGTH}자로 입력해주세요`}
                   placeholderTextColor={colors.gray400}
-                  maxLength={12}
+                  maxLength={NICKNAME_MAX_LENGTH}
                   autoCapitalize="none"
                   returnKeyType="done"
                   style={[s.nicknameInput, webNoOutline]}
                 />
                 <Pressable
                   accessibilityRole="button"
-                  disabled={nickname.trim().length < 2}
-                  onPress={checkNickname}
+                  disabled={!nickname.canCheck}
+                  onPress={nickname.check}
                   style={({ pressed }) => [
                     s.checkButton,
-                    checked && s.checkButtonChecked,
-                    nickname.trim().length < 2 && s.checkButtonDisabled,
+                    nickname.checked && s.checkButtonChecked,
+                    !nickname.canCheck && s.checkButtonDisabled,
                     pressed && s.pressed,
                   ]}
                 >
-                  {checked && <Ionicons name="checkmark" size={16} color={colors.dark} />}
-                  <Text style={s.checkButtonText}>{checked ? '확인됨' : '중복확인'}</Text>
+                  {/* 확인 중에는 글자를 바꾸지 않고 스피너만 얹는다. 버튼 폭이 흔들리지 않는다. */}
+                  {nickname.checking ? (
+                    <ActivityIndicator size="small" color={colors.dark} />
+                  ) : (
+                    <>
+                      {nickname.checked && <Ionicons name="checkmark" size={16} color={colors.dark} />}
+                      <Text style={s.checkButtonText}>{nickname.checked ? '확인됨' : '중복확인'}</Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
               <View style={s.fieldMeta}>
-                <Text style={[s.helper, checked && s.helperSuccess]}>
-                  {checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.'}
+                {/*
+                  안내 자리 하나를 형식 설명·실패 이유·성공 문구가 나눠 쓴다.
+                  실패 이유가 가장 급하므로 있으면 그것부터 보여준다.
+                */}
+                <Text
+                  accessibilityRole={nickname.error ? 'alert' : undefined}
+                  style={[
+                    s.helper,
+                    nickname.checked && s.helperSuccess,
+                    nickname.error !== null && s.helperError,
+                  ]}
+                >
+                  {nickname.error ??
+                    (nickname.checked
+                      ? '사용할 수 있는 닉네임이에요.'
+                      : '한글, 영문, 숫자를 사용할 수 있어요.')}
                 </Text>
-                <Text style={s.characterCount}>{nickname.length} / 12</Text>
+                <Text style={s.characterCount}>
+                  {nickname.length} / {NICKNAME_MAX_LENGTH}
+                </Text>
               </View>
             </>
           )}
@@ -299,7 +335,7 @@ export default function Onboarding() {
             disabled={
               onboarding.busy ||
               requestingPermissions ||
-              (step === 2 && !checked) ||
+              (step === 2 && !nickname.checked) ||
               (step === 3 && selected.length < MIN_PREFERENCES)
             }
             onPress={next}
@@ -419,8 +455,10 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: spacing.x2,
   },
-  helper: { ...type.small, color: colors.gray600 },
+  // 실패 이유는 형식 안내보다 길어 글자 수 표시를 밀어낼 수 있다. 줄바꿈으로 흡수한다.
+  helper: { ...type.small, color: colors.gray600, flexShrink: 1, marginRight: spacing.x2 },
   helperSuccess: { color: colors.success, fontWeight: '500' },
+  helperError: { color: colors.danger, fontWeight: '500' },
   characterCount: { ...type.caption, color: colors.gray400 },
   /**
    * 3열 2행 그리드.
