@@ -1,21 +1,20 @@
-/**
- * 마이페이지 도메인 타입.
- *
- * 아직 API가 없어 서버 응답 규격이 확정되지 않았다. 화면이 실제로 쓰는 값만 정의했고
- * 명세가 나오면 필드 이름을 맞춘다.
- */
+import type { TodayPinStatus } from './pin';
 
-/** 내가 쓴 영상핀의 공개 상태. AI 블러 처리가 끝나야 상세를 볼 수 있다. */
-export type MyPinState = 'PENDING' | 'PUBLISHED';
+/**
+ * 마이페이지에서 화면이 쓰는 모양.
+ *
+ * 서버 계약은 도메인별로 `types/pin.ts`·`types/credit.ts`·`types/user.ts`에 있고, 훅이
+ * 이 모양으로 바꿔 준다. 화면이 ISO 시각이나 서버 enum을 직접 다루지 않게 하려는 것이다.
+ */
 
 /** 마이페이지에서 보여주는 내 영상핀 한 건. */
 export interface MyPin {
   pinId: number;
-  /** 등록 시각. `14:05` 형태로 표시한다. */
-  createdAt: string;
+  /** 등록 시각. 모두 오늘 건이라 `14:05`처럼 시각만 보여준다. */
+  time: string;
   placeName: string;
   placeAddress: string;
-  state: MyPinState;
+  status: TodayPinStatus;
 }
 
 /** 크레딧이 늘었는지 줄었는지. */

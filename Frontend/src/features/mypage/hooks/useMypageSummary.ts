@@ -14,6 +14,7 @@ export interface MypageSummary {
 /** 오류 코드별 안내. */
 const messageByCode: Record<string, string> = {
   INVALID_YEAR_MONTH: '조회할 수 없는 기간이에요.',
+  UNAUTHORIZED: '로그인이 필요해요.',
   USER_NOT_FOUND: '사용자 정보를 찾을 수 없어요.',
   USER_PROFILE_FETCH_FAILED: '프로필을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
