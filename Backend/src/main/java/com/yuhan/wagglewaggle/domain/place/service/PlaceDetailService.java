@@ -64,14 +64,23 @@ public class PlaceDetailService {
         Place place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PLACE_NOT_FOUND));
 
+        return getPlaceDetail(place, memberId);
+    }
+
+    /**
+     * 이미 조회한 장소 엔티티로 장소 상세(기본 정보·활성 핀·요일별 혼잡 통계)를 조립한다.
+     * 장소 검색 확정 등 장소를 이미 확보한 흐름에서 재사용하며,
+     * 하나라도 조회에 실패하면 부분 응답을 내지 않고 PLACE_DETAIL_FETCH_FAILED 로 처리한다.
+     */
+    public PlaceDetailResponse getPlaceDetail(Place place, Long memberId) {
         try {
             Instant now = Instant.now();
             PlaceInfo placeInfo = loadPlaceInfo(place);
-            List<WeeklyCrowdStat> weeklyCrowdStats = loadWeeklyCrowdStats(placeId, now);
-            List<PinCard> pins = loadPinCards(placeId, memberId, now);
+            List<WeeklyCrowdStat> weeklyCrowdStats = loadWeeklyCrowdStats(place.getId(), now);
+            List<PinCard> pins = loadPinCards(place.getId(), memberId, now);
             return new PlaceDetailResponse(placeInfo, pins, weeklyCrowdStats);
         } catch (Exception e) {
-            log.error("장소 상세 조회 실패 (placeId={})", placeId, e);
+            log.error("장소 상세 조회 실패 (placeId={})", place.getId(), e);
             throw new CustomException(ErrorCode.PLACE_DETAIL_FETCH_FAILED);
         }
     }
@@ -155,7 +164,11 @@ public class PlaceDetailService {
         return new PlaceInfo(place.getId(), place.getName(), address, phone);
     }
 
-    private Document findMatchingDocument(KakaoKeywordResponse response, String kakaoPlaceId) {
+    /**
+     * 카카오 키워드 검색 응답에서 kakao_place_id가 정확히 일치하는 문서를 찾는다.
+     * 장소 상세·검색 확정에서 공통으로 사용하도록 패키지 내 공개로 둔다.
+     */
+    static Document findMatchingDocument(KakaoKeywordResponse response, String kakaoPlaceId) {
         if (response == null || response.documents() == null) {
             return null;
         }
@@ -165,7 +178,11 @@ public class PlaceDetailService {
                 .orElse(null);
     }
 
-    private String resolveAddress(Document document) {
+    /**
+     * 카카오 문서의 주소를 해석한다(도로명 우선, 없으면 지번, 둘 다 없으면 빈 문자열).
+     * 장소 상세·검색 확정에서 공통으로 사용하도록 패키지 내 공개로 둔다.
+     */
+    static String resolveAddress(Document document) {
         if (document.roadAddressName() != null && !document.roadAddressName().isBlank()) {
             return document.roadAddressName();
         }
