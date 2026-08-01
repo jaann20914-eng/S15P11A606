@@ -11,6 +11,8 @@ import type {
   PinCreateRequest,
   PinCreateResult,
   PinStatusResult,
+  PinUpdateRequest,
+  PinUpdateResult,
   VideoUploadTicket,
 } from '@/types/pinCreate';
 
@@ -95,8 +97,10 @@ function createBaseDetail(): PinDetailResponse {
     pinId: mockPinId(1),
     place: {
       placeId: 11,
+      kakaoPlaceId: '1234567891',
       name: '바나프레소 역삼점',
-      address: '서울 광진구 동일로 60길 47 1층 (군자동)',
+      latitude: 37.5556,
+      longitude: 127.0791,
     },
     authorViewAngle: 92,
     authorNickname: '역삼동 익명러',
@@ -405,13 +409,107 @@ export async function fetchMockPinVideoStatus(pinId: PinId): Promise<PinStatusRe
 
   const polls = (statusPollCountByPinId.get(pinId) ?? 0) + 1;
   statusPollCountByPinId.set(pinId, polls);
+  const settled = polls >= POLLS_UNTIL_COMPLETED;
+
+  /*
+    영상 교체가 걸려 있으면 그쪽을 답한다.
+
+    교체 중에도 공개 중인 영상은 그대로이므로 `videoStatus`는 계속 `ACTIVE`다. 새 영상의
+    진행은 `videoReplacementStatus`로만 드러난다 — 두 값을 헷갈리면 화면이 "처리 중"에서
+    영영 벗어나지 못한다.
+  */
+  if (replacingPinIds.has(pinId)) {
+    if (settled) replacingPinIds.delete(pinId);
+
+    return {
+      pinId,
+      videoStatus: 'ACTIVE',
+      videoUrl: null,
+      thumbnailUrl: null,
+      videoReplacementStatus: settled ? 'PASS' : 'PENDING',
+    };
+  }
 
   return {
     pinId,
-    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'ACTIVE' : 'PENDING',
+    videoStatus: settled ? 'ACTIVE' : 'PENDING',
     // 실제로는 ACTIVE일 때만 Presigned GET URL이 온다. 목업은 줄 것이 없어 비워 둔다.
     videoUrl: null,
     thumbnailUrl: null,
+    videoReplacementStatus: null,
+  };
+}
+
+/** 영상 교체가 진행 중인 핀. 상태 조회가 이 집합을 보고 교체 상태를 답한다. */
+const replacingPinIds = new Set<PinId>();
+
+/**
+ * 핀 수정 목업.
+ *
+ * 부분 수정이라 **보낸 필드만** 반영된 것으로 답한다. 영상 키가 실리면 교체 작업이 시작된
+ * 것으로 보고 202에 해당하는 결과를 준다.
+ *
+ * 화면에서 오류를 확인하는 법: 상세 위치에 아래 문구를 넣는다.
+ * `권한없음` → 403, `수정불가` → 409 상태 오류, `교체중` → 409 교체 진행 중,
+ * `범위밖` → 422 위치 초과.
+ */
+export async function updateMockPin(
+  pinId: PinId,
+  body: PinUpdateRequest,
+): Promise<PinUpdateResult> {
+  pinId = canonicalMockPinId(pinId);
+
+  await delay(MOCK_LATENCY_MS);
+
+  if (resolvePinDetailScenario(pinId) === 'notFound') {
+    throw new ApiError(404, 'PIN_NOT_FOUND', '수정할 핀을 찾을 수 없습니다.');
+  }
+
+  const fields = Object.keys(body);
+  if (fields.length === 0) {
+    throw new ApiError(400, 'INVALID_PIN_UPDATE_REQUEST', '핀 수정 요청이 올바르지 않습니다.');
+  }
+
+  const hint = body.detailLocation ?? '';
+
+  if (hint.includes('권한없음')) {
+    throw new ApiError(403, 'PIN_UPDATE_FORBIDDEN', '해당 핀을 수정할 권한이 없습니다.');
+  }
+
+  if (hint.includes('수정불가')) {
+    throw new ApiError(409, 'PIN_NOT_EDITABLE', '수정할 수 없는 상태의 핀입니다.');
+  }
+
+  if (hint.includes('교체중')) {
+    throw new ApiError(409, 'PIN_UPDATE_IN_PROGRESS', '이미 영상 교체 작업이 진행 중입니다.');
+  }
+
+  if (hint.includes('범위밖')) {
+    throw new ApiError(422, 'LOCATION_OUT_OF_RANGE', '선택한 장소와 촬영 위치가 너무 멉니다.');
+  }
+
+  const replacing = body.originalVideoKey !== undefined;
+  if (replacing) {
+    // 같은 영상을 두 번 쓰는 것은 등록과 같은 이유로 막는다.
+    if (usedVideoKeys.has(body.originalVideoKey!)) {
+      throw new ApiError(409, 'VIDEO_ALREADY_REGISTERED', '이미 사용된 영상입니다.');
+    }
+    usedVideoKeys.add(body.originalVideoKey!);
+
+    replacingPinIds.add(pinId);
+    statusPollCountByPinId.delete(pinId);
+  }
+
+  // 영상 키는 즉시 반영되는 값이 아니라 비동기 처리 대상이다.
+  const updatedFields = fields.filter((field) => field !== 'originalVideoKey');
+
+  return {
+    pinId,
+    videoStatus: 'ACTIVE',
+    updatedFields,
+    ...(replacing
+      ? { videoReplacementStatus: 'PENDING' as const, pendingFields: ['originalVideoKey'] }
+      : {}),
   };
 }
 

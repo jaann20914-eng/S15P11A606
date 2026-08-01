@@ -89,7 +89,8 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
                 <Pressable
                   key={found.kakaoPlaceId}
                   accessibilityRole="button"
-                  onPress={() => select(found)}
+                  // 카카오 검색 결과다. 수정에서 쓰는 내부 장소와 구분해 표시를 남긴다.
+                  onPress={() => select({ source: 'kakao', ...found })}
                   style={s.placeRow}
                 >
                   <View>

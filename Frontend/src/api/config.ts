@@ -23,6 +23,7 @@ export type ApiModule =
   | 'pin/evaluate'
   | 'pin/remove'
   | 'pin/status'
+  | 'pin/update'
   | 'pin/unlock'
   | 'pin/videoUpload'
   | 'pin/videoUploadTask'
@@ -73,8 +74,10 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     버킷 환경변수와 자격증명(또는 IAM 역할)이 채워지면 코드 변경 없이 다시 시도해 확인한다.
   */
 
-  // 핀 상세·열람·평가·삭제는 아직 없다. 등록 3종(발급·등록·상태)만 열려 있다.
+  // 핀 상세·수정·열람·평가·삭제는 아직 없다. 등록 3종(발급·등록·상태)만 열려 있다.
   'pin/detail': true,
+  // PATCH /api/v1/pins/{pinId} 는 명세만 나왔다. PinController에 아직 매핑이 없다.
+  'pin/update': true,
   'pin/unlock': true,
   'pin/evaluate': true,
   'pin/remove': true,
