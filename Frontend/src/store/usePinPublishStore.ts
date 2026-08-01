@@ -99,6 +99,17 @@ const messageByCode: Record<string, string> = {
 const retryableCodes = new Set(['PIN_CREATE_FAILED', 'UPLOAD_URL_ISSUE_FAILED', 'NETWORK_ERROR']);
 
 /**
+ * 등록이 어느 단계에서 막혔는지 터미널에서 따라갈 수 있게 한다.
+ *
+ * 이 흐름은 발급 → 업로드 → 등록 → 처리 대기의 네 단계이고 서로 다른 서버를 탄다(우리 서버,
+ * S3, 다시 우리 서버). 화면에는 문구 하나만 뜨므로 어디서 끊겼는지 로그가 없으면 알 수 없다.
+ */
+function logPublish(step: string, detail?: Record<string, unknown>): void {
+  if (!__DEV__) return;
+  console.log(`[pin-publish] ${step}`, detail ?? '');
+}
+
+/**
  * 촬영 좌표를 지금 읽는다.
  *
  * 실패해도 예외를 던지지 않는다. 호출부가 "위치를 못 얻었다"를 안내로 처리한다.
@@ -142,6 +153,7 @@ async function waitForCompletion(
     const { videoStatus } = await getPinVideoStatus(pinId);
     if (!alive()) return;
 
+    logPublish('상태 확인', { videoStatus });
     set({ videoStatus });
 
     if (videoStatus === 'ACTIVE') {
@@ -219,8 +231,14 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
       if (!ticket) {
         set({ phase: 'issuing' });
         const size = await readVideoSize(fileUri);
+        logPublish('발급 요청', { contentType: VIDEO_CONTENT_TYPE, fileSize: size });
+
         const issued = await issueVideoUploadTicket(VIDEO_CONTENT_TYPE, size);
         if (!alive()) return;
+        logPublish('발급 완료', {
+          originalVideoKey: issued.originalVideoKey,
+          expiresAt: issued.expiresAt,
+        });
         ticket = issued;
 
         // 2. 업로드 — 티켓을 새로 받았을 때만 올린다.
@@ -258,8 +276,18 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
       if (!body) return;
 
       set({ phase: 'registering' });
+      logPublish('등록 요청', {
+        kakaoPlaceId: body.kakaoPlaceId,
+        placeName: body.placeName,
+        촬영: `${body.latitude}, ${body.longitude}`,
+        장소: `${body.kakaoPlaceLatitude}, ${body.kakaoPlaceLongitude}`,
+        crowdLevel: body.crowdLevel,
+        태그: body.tags?.length ?? 0,
+      });
+
       const result = await createPin(body);
       if (!alive()) return;
+      logPublish('등록 접수', { pinId: result.pinId, videoStatus: result.videoStatus });
 
       // 4. 처리 대기 — 접수만 된 상태다. 완료될 때까지 상태를 물어본다.
       set({ phase: 'processing', pinId: result.pinId, videoStatus: result.videoStatus });
@@ -271,6 +299,11 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
       if (!alive()) return;
 
       const isApiError = cause instanceof ApiError;
+      logPublish('실패', {
+        code: isApiError ? cause.code : 'unknown',
+        statusCode: isApiError ? cause.statusCode : undefined,
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
       set({
         phase: 'idle',
         progress: 0,
