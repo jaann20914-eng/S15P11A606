@@ -216,8 +216,13 @@ export const pinDetailStyles = StyleSheet.create({
   /* 미열람 안내 */
   watchArea: {},
   watchTitle: { ...type.title, color: colors.dark },
-  /** 제목에 딸린 설명이라 붙여 두고 한 단계 작게 쓴다. */
-  watchHint: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
+  /**
+   * 제목에 딸린 설명이라 붙여 두고 한 단계 작게 쓴다.
+   *
+   * 여백을 0으로 둔다. 제목(18/26)과 이 줄(14/22)의 행간만으로 이미 6px쯤 떠 있어서,
+   * 값을 더 주면 두 줄이 갈라져 보인다.
+   */
+  watchHint: { ...type.small, color: colors.gray400 },
   watchButton: { marginTop: spacing.x4 },
   primaryDark: {
     height: 52,
