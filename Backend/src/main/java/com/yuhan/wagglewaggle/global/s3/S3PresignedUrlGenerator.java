@@ -3,8 +3,11 @@ package com.yuhan.wagglewaggle.global.s3;
 import com.yuhan.wagglewaggle.global.properties.S3Properties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -44,5 +47,27 @@ public class S3PresignedUrlGenerator {
         PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(presignRequest);
 
         return new PresignedUpload(presigned.url().toString(), Instant.now().plus(ttl));
+    }
+
+    /**
+     * 지정한 키로 다운로드용 Presigned GET URL을 발급한다.
+     * 만료 시간은 다운로드 전용 설정값(downloadUrlExpirationSeconds)을 사용한다(업로드 설정과 분리).
+     */
+    public String createDownloadUrl(String key) {
+        Duration ttl = Duration.ofSeconds(s3Properties.downloadUrlExpirationSeconds());
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(key)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presigned = s3Presigner.presignGetObject(presignRequest);
+
+        return presigned.url().toString();
     }
 }

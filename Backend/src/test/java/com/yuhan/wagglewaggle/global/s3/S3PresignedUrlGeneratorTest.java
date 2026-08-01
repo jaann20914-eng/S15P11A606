@@ -7,8 +7,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
@@ -32,14 +35,19 @@ class S3PresignedUrlGeneratorTest {
 
     private static final String BUCKET = "test-bucket";
     private static final long EXPIRATION_SECONDS = 600L;
+    private static final long DOWNLOAD_EXPIRATION_SECONDS = 300L;
     private static final String KEY = "pins/original/42/11111111-2222-3333-4444-555555555555.mp4";
+    private static final String DOWNLOAD_KEY = "pins/blurred/42/blurred.mp4";
     private static final String CONTENT_TYPE = "video/mp4";
     private static final String PRESIGNED_URL =
             "https://test-bucket.s3.ap-northeast-2.amazonaws.com/" + KEY + "?X-Amz-Signature=abc";
+    private static final String DOWNLOAD_PRESIGNED_URL =
+            "https://test-bucket.s3.ap-northeast-2.amazonaws.com/" + DOWNLOAD_KEY + "?X-Amz-Signature=get";
 
     @BeforeEach
     void setUp() {
-        S3Properties properties = new S3Properties(BUCKET, "ap-northeast-2", EXPIRATION_SECONDS);
+        S3Properties properties =
+                new S3Properties(BUCKET, "ap-northeast-2", EXPIRATION_SECONDS, DOWNLOAD_EXPIRATION_SECONDS);
         generator = new S3PresignedUrlGenerator(s3Presigner, properties);
     }
 
@@ -74,9 +82,38 @@ class S3PresignedUrlGeneratorTest {
         assertThat(result.expiresAt()).isNotNull();
     }
 
+    @Test
+    void 다운로드_presign_요청에_bucket_key_다운로드_만료시간이_전달된다() throws Exception {
+        PresignedGetObjectRequest presigned = presignedGetWithUrl(DOWNLOAD_PRESIGNED_URL);
+        given(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).willReturn(presigned);
+
+        String url = generator.createDownloadUrl(DOWNLOAD_KEY);
+
+        ArgumentCaptor<GetObjectPresignRequest> captor =
+                ArgumentCaptor.forClass(GetObjectPresignRequest.class);
+        verify(s3Presigner).presignGetObject(captor.capture());
+
+        GetObjectPresignRequest presignRequest = captor.getValue();
+        GetObjectRequest getObjectRequest = presignRequest.getObjectRequest();
+
+        assertThat(getObjectRequest.bucket()).isEqualTo(BUCKET);
+        assertThat(getObjectRequest.key()).isEqualTo(DOWNLOAD_KEY);
+        // 다운로드 만료는 업로드 만료와 분리된 설정값을 사용한다.
+        assertThat(presignRequest.signatureDuration())
+                .isEqualTo(Duration.ofSeconds(DOWNLOAD_EXPIRATION_SECONDS));
+        assertThat(url).isEqualTo(DOWNLOAD_PRESIGNED_URL);
+    }
+
     private static PresignedPutObjectRequest presignedWithUrl(String url) throws Exception {
         URL parsed = URI.create(url).toURL();
         PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+        given(presigned.url()).willReturn(parsed);
+        return presigned;
+    }
+
+    private static PresignedGetObjectRequest presignedGetWithUrl(String url) throws Exception {
+        URL parsed = URI.create(url).toURL();
+        PresignedGetObjectRequest presigned = mock(PresignedGetObjectRequest.class);
         given(presigned.url()).willReturn(parsed);
         return presigned;
     }
