@@ -99,6 +99,19 @@ export const STATUS_POLL_INTERVAL_MS = 2_000;
 export const STATUS_POLL_TIMEOUT_MS = 60_000;
 
 /**
+ * 영상 교체 작업의 상태. 수정에서 영상을 바꿨을 때만 값이 있다.
+ *
+ * 공개 중인 영상의 상태(`videoStatus`)와 **별개다.** 교체가 도는 동안에도 기존 영상은 계속
+ * 공개되므로 `videoStatus`는 `ACTIVE`로 남는다.
+ *
+ * - `PENDING` AI 처리 중
+ * - `PASS` 통과. 새 영상으로 교체됐다
+ * - `FAIL` 검수 탈락. **기존 영상이 그대로 남는다**
+ * - `FAILED` AI·시스템 오류. 이때도 기존 영상은 그대로다
+ */
+export type VideoReplacementStatus = 'PENDING' | 'PASS' | 'FAIL' | 'FAILED';
+
+/**
  * `GET /api/v1/pins/{pinId}/status` 응답의 `data`.
  *
  * 두 URL은 `ACTIVE`이고 영상이 만료되지 않았을 때만 온다. 그 외 상태에서는 null이다.
@@ -111,6 +124,56 @@ export interface PinStatusResult {
   videoUrl: string | null;
   /** 얼굴 블러 썸네일. */
   thumbnailUrl: string | null;
+  /** 진행 중이거나 마지막으로 끝난 교체 작업. 교체한 적이 없으면 null. */
+  videoReplacementStatus?: VideoReplacementStatus | null;
+}
+
+/**
+ * `PATCH /api/v1/pins/{pinId}` 요청 본문.
+ *
+ * **부분 수정이다.** 보낸 필드만 바뀌고 생략한 필드는 그대로 남는다. 그래서 값을 지우는 것과
+ * 건드리지 않는 것을 구분해야 한다 — `detailLocation`·`memo`는 `null`을 보내면 지워지고,
+ * `tags`는 빈 배열을 보내면 모두 지워진다. 하나도 보내지 않으면 서버가 400으로 막는다.
+ *
+ * 좌표는 둘을 함께 보낸다. 하나만 보내면 거절된다.
+ *
+ * `originalVideoKey`를 실으면 영상 교체가 시작된다. 그 요청의 응답은 202이고, 기존 영상은
+ * 검수가 끝날 때까지 그대로 공개된다.
+ *
+ * 장소 변경(`placeId`)은 **이 화면에서 보내지 않는다.** 서버가 내부 식별자만 받는데 우리 장소
+ * 검색은 카카오 식별자를 주기 때문이다. 자세한 이유는 `toPinUpdateRequest` 주석에 있다.
+ */
+export interface PinUpdateRequest {
+  originalVideoKey?: string;
+  /** 서비스에 이미 있는 내부 장소 식별자. 카카오 식별자가 아니다. */
+  placeId?: number;
+  /** 촬영 좌표. 둘을 함께 보낸다. 최종 장소와 50m 이내여야 한다. */
+  latitude?: number;
+  longitude?: number;
+  /** `null`이면 기존 값을 지운다. */
+  detailLocation?: string | null;
+  crowdLevel?: PinCrowdLevel;
+  /** `null`이면 기존 값을 지운다. */
+  memo?: string | null;
+  /** 빈 배열이면 태그를 모두 지운다. */
+  tags?: string[];
+}
+
+/**
+ * `PATCH /api/v1/pins/{pinId}` 응답의 `data`.
+ *
+ * 일반 정보만 고치면 200, 영상 교체가 끼면 202다. 둘 다 이 모양으로 온다.
+ */
+export interface PinUpdateResult {
+  pinId: PinId;
+  /** 공개 중인 영상의 상태. 교체 중에도 `ACTIVE`를 유지한다. */
+  videoStatus: PinVideoStatus;
+  /** 영상 교체를 요청했을 때만 온다. 접수 시 `PENDING`. */
+  videoReplacementStatus?: VideoReplacementStatus | null;
+  /** 곧바로 반영된 필드. 영상만 바꿨으면 빈 배열이다. */
+  updatedFields: string[];
+  /** 비동기로 처리 중인 필드. 영상 교체면 `originalVideoKey`가 들어온다. */
+  pendingFields?: string[];
 }
 
 /**
