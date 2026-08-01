@@ -141,8 +141,8 @@ export const pinDetailStyles = StyleSheet.create({
   detailSheet: {
     marginTop: -8,
     paddingHorizontal: layout.gutter,
-    paddingTop: spacing.x6,
-    paddingBottom: spacing.x8,
+    paddingTop: spacing.x5,
+    paddingBottom: spacing.x6,
     borderTopLeftRadius: radius.hero,
     borderTopRightRadius: radius.hero,
     backgroundColor: colors.white,
@@ -166,12 +166,12 @@ export const pinDetailStyles = StyleSheet.create({
   chatText: { ...type.label, color: colors.white, fontWeight: '600' },
 
   /* 장소 */
-  placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x6 },
+  placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x4 },
   /** 장소명 아래 줄. 주소가 있던 자리다. */
   detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
   /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */
-  crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x3 },
-  rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x6 },
+  crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x2 },
+  rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x5 },
   memo: { ...type.body, color: colors.gray400 },
   tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },
   tag: { ...type.small, color: colors.blue },
