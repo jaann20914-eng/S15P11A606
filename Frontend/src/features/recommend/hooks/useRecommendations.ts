@@ -5,6 +5,7 @@ import type { CrowdFilter } from '@/constants/crowdLevels';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import type { RecommendationsResponse, RecommendedPlace } from '@/types/recommend';
 import { withMinimumDuration } from '@/utils/promise';
+import { rememberRecommendedPlaces } from '../placeCache';
 
 export interface RecommendationsState {
   /** 지금 고른 계열. 여유·와글 토글이 이 값을 바꾼다. */
@@ -64,6 +65,8 @@ export function useRecommendations(): RecommendationsState {
 
     withMinimumDuration(load, MIN_LOADING_MS)
       .then((received) => {
+        // 상세 화면이 같은 값을 다시 받지 않도록 적어 둔다.
+        rememberRecommendedPlaces(received);
         setData(received);
         setLoading(false);
       })

@@ -32,7 +32,17 @@ export function RecommendCard({ place }: RecommendCardProps) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${place.name} 상세 보기`}
-        onPress={() => router.push(`/place/${place.placeId}`)}
+        /*
+          홈의 장소 상세(`/place/[placeId]`)로 보내지 않는다. 그쪽은 홈 지도 위에 겹치는
+          바텀시트라 추천 목록 위에서 열면 배경이 어긋나고, 돌아오는 길도 시트를 내리는
+          동작뿐이다. 추천 안에는 같은 내용을 제 화면으로 보여주는 상세가 따로 있다.
+        */
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/recommend/[placeId]',
+            params: { placeId: place.placeId },
+          })
+        }
         style={s.card}
       >
         <View style={s.cardTop}>

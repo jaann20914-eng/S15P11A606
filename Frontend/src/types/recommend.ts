@@ -39,6 +39,17 @@ export interface RecommendedPlace {
   placeId: number;
   name: string;
   address: string;
+  /**
+   * 장소 좌표. 상세 화면이 지도에 이 한 점만 찍는다.
+   *
+   * 추천 명세에는 없다. 좌표 없이는 상세의 지도를 그릴 수 없어 선택 필드로 두고, 값이 없으면
+   * 지도 자리에 안내를 대신 보여준다. 원래 출처는 `GET /api/v1/places`(`PlaceListItem`)이므로
+   * 추천 응답에 실리든 장소 조회로 따로 받든 여기 채워 넣으면 화면은 그대로 동작한다.
+   */
+  latitude?: number;
+  longitude?: number;
+  /** 연락처. 명세에 없어 선택 필드다. 없으면 기본정보에서 줄을 그리지 않는다. */
+  phone?: string | null;
   businessStatus: BusinessStatus;
   /** `영업중 · 오후 10:00까지`. 확인할 수 없으면 null이다. */
   businessHoursText: string | null;
