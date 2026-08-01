@@ -166,7 +166,7 @@ export const pinDetailStyles = StyleSheet.create({
   chatText: { ...type.label, color: colors.white, fontWeight: '600' },
 
   /* 장소 */
-  placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x8 },
+  placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x6 },
   /** 장소명 아래 줄. 주소가 있던 자리다. */
   detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
   /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */

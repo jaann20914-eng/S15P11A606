@@ -59,7 +59,11 @@ export function PinDetailBody({
             <Text style={s.detailLocation}>{detail.detailLocation} 기준</Text>
           )}
 
-          <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
+          {/*
+            혼잡 단계는 **열람한 뒤에만** 보여준다. 결제 전에 붙이면 영상을 사지 않고도
+            그 장소가 지금 붐비는지 알 수 있어, 열람할 이유가 사라진다.
+          */}
+          {unlocked && <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />}
 
           <View style={s.rule} />
 
