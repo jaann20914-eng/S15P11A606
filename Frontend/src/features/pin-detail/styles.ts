@@ -176,7 +176,18 @@ export const pinDetailStyles = StyleSheet.create({
   detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x1 },
   /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */
   crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x2 },
-  rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x5 },
+  /**
+   * 장소 정보와 본문을 가르는 선.
+   *
+   * 아래를 위보다 좁힌다. 선 아래 글은 선이 이끄는 내용이라 붙어 있어야 한 묶음으로 읽힌다.
+   * 위는 앞 블록과 떨어뜨리는 자리라 그대로 둔다.
+   */
+  rule: {
+    height: 1,
+    backgroundColor: colors.gray200,
+    marginTop: spacing.x5,
+    marginBottom: spacing.x4,
+  },
   memo: { ...type.body, color: colors.gray400 },
   tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },
   tag: { ...type.small, color: colors.blue },
