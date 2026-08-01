@@ -61,6 +61,7 @@ export function recallPlaceMapData(placeId: number): PlaceMapData | null {
   return mapDataByPlaceId.get(placeId) ?? null;
 }
 
+
 /**
  * 장소 좌표를 알 때 물어볼 범위(위경도 도 단위). 약 ±330m로, 그 장소와 바로 옆만 들어온다.
  *
@@ -71,10 +72,10 @@ export function recallPlaceMapData(placeId: number): PlaceMapData | null {
 const NEARBY_SPAN_DEGREES = 0.003;
 
 /**
- * 좌표를 모를 때 훑어 볼 범위(위경도 도 단위). 약 ±11km로, 서울 안에서 움직이는 범위를 덮는다.
+ * 좌표를 모를 때 훑어 볼 범위(위경도 도 단위). 약 ±11km.
  *
- * 어디인지 모르면 기준점(사용자 위치 또는 기본 중심) 주변을 넓게 훑는 수밖에 없다. 그 안에
- * 없는 장소는 못 찾고, 개수 상한에 밀려도 못 찾는다. 그래서 좌표를 아는 경로를 우선한다.
+ * 어디인지 모르면 기본 중심 주변을 훑는 수밖에 없다. 그 안에 없는 장소는 못 찾고, 개수
+ * 상한에 밀려도 못 찾는다. 그래서 좌표를 아는 경로를 우선한다.
  */
 const LOOKUP_SPAN_DEGREES = 0.1;
 
