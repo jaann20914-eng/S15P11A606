@@ -39,12 +39,52 @@ export interface PinDraft {
 }
 
 /**
- * 장소 검색 결과에서 선택한 항목.
+ * 등록에서 고른 장소. 카카오 검색 결과 그대로다.
  *
- * 카카오 장소이므로 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다.
- * 좌표까지 들고 있어야 등록 요청에 그대로 실을 수 있다.
+ * 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다. 그 장소가 우리 DB에 없을 수 있고,
+ * 등록 시점에 서버가 만들기 때문이다. 좌표까지 들고 있어야 등록 요청에 실을 수 있다.
  */
-export type PinDraftPlace = PlaceSearchItem;
+export interface KakaoDraftPlace extends PlaceSearchItem {
+  source: 'kakao';
+}
+
+/**
+ * 수정에서 고른 장소. 우리 DB에 이미 있는 것이다.
+ *
+ * 수정 API는 **내부 식별자만** 받는다(`placeId`). 그래서 카카오 검색이 아니라 장소 목록
+ * (`GET /api/v1/places`)에서 고른다. 자세한 사정은 `toPinUpdateRequest` 주석에 있다.
+ */
+export interface InternalDraftPlace {
+  source: 'internal';
+  placeId: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * 작성 화면이 들고 있는 장소.
+ *
+ * 등록과 수정이 서로 다른 식별자를 쓰기 때문에 갈라 둔다. 어느 쪽인지 모른 채 값을 꺼내
+ * 쓰면, 수정 요청에 카카오 식별자를 실어 보내는 것 같은 실수가 컴파일에서 걸리지 않는다.
+ */
+export type PinDraftPlace = KakaoDraftPlace | InternalDraftPlace;
+
+/**
+ * 아무것도 입력하지 않은 상태.
+ *
+ * 작성 폼의 초기값이자, 수정에서 "불러온 값"을 채울 바탕이다. 두 곳이 같은 것을 써야 비교가
+ * 어긋나지 않는다 — 수정은 시작값과 지금 값을 견줘 바뀐 것만 보낸다.
+ */
+export const EMPTY_PIN_DRAFT: PinDraft = {
+  crowdLevel: 1,
+  video: null,
+  memo: '',
+  tags: [],
+  place: null,
+  detailLocation: '',
+};
 
 /** 영상 최대 길이(초). 이 시간이 지나면 녹화가 자동으로 멈춘다. */
 export const MAX_VIDEO_SECONDS = 5;

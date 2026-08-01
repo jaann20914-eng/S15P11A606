@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
-import { MAX_PLACE_DISTANCE_METERS, MAX_TAG_COUNT, MAX_TAG_LENGTH } from '@/types/pinCreate';
+import { EMPTY_PIN_DRAFT, MAX_PLACE_DISTANCE_METERS, MAX_TAG_COUNT, MAX_TAG_LENGTH } from '@/types/pinCreate';
 import { countGraphemes } from '@/utils/graphemes';
 import { distanceBetween } from '@/utils/location';
 import type { PinDraft, PinDraftPlace, PinDraftVideo } from '@/types/pinCreate';
@@ -41,11 +41,11 @@ const emptyDraft: PinDraft = {
  * 수정 진입일 때는 서버에서 받은 기존 값을 `initial`로 넣어 시작한다.
  */
 export function usePinCreateForm(initial?: Partial<PinDraft>): PinCreateForm {
-  const [draft, setDraft] = useState<PinDraft>({ ...emptyDraft, ...initial });
+  const [draft, setDraft] = useState<PinDraft>({ ...EMPTY_PIN_DRAFT, ...initial });
   const [droppedPlaceName, setDroppedPlaceName] = useState<string | null>(null);
 
   const reset = useCallback(() => {
-    setDraft({ ...emptyDraft, ...initial });
+    setDraft({ ...EMPTY_PIN_DRAFT, ...initial });
     setDroppedPlaceName(null);
   }, [initial]);
 

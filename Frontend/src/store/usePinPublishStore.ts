@@ -1,6 +1,7 @@
 import { ApiError } from '@/api/client';
 import { createPin } from '@/api/pin/create';
 import { getPinVideoStatus } from '@/api/pin/status';
+import { updatePin } from '@/api/pin/update';
 import { issueVideoUploadTicket } from '@/api/pin/videoUpload';
 import { readVideoSize, startVideoUpload } from '@/api/pin/videoUploadTask';
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
@@ -19,6 +20,7 @@ import type {
   VideoUploadTicket,
 } from '@/types/pinCreate';
 import { readCurrentCoordinate } from '@/utils/location';
+import { hasPinUpdate, toPinUpdateRequest } from '@/features/pin-create/pinUpdateRequest';
 import { createStore } from './createStore';
 import type { PinId } from '@/types/pin';
 import type { Coordinate } from './useMapStore';
@@ -40,6 +42,13 @@ export interface PinPublishState {
   /** 다시 시도할 값이 있는 실패인지. */
   retryable: boolean;
   publish: (draft: PinDraft) => void;
+  /**
+   * 이미 올린 핀을 고친다.
+   *
+   * `initial`은 화면에 들어올 때 불러온 값이다. 지금 값과 비교해 **달라진 것만** 보낸다.
+   * 영상을 다시 찍었으면 등록과 같은 순서(발급 → 업로드)를 거친 뒤 그 키를 함께 보낸다.
+   */
+  edit: (pinId: PinId, initial: PinDraft, draft: PinDraft) => void;
   /** 진행 중인 업로드를 중단한다. */
   cancel: () => void;
   dismissError: () => void;
@@ -62,7 +71,11 @@ function toRequest(
   originalVideoKey: string,
   captured: Coordinate,
 ): PinCreateRequest | null {
-  if (!draft.place) return null;
+  /*
+    등록은 카카오에서 고른 장소만 받는다. 그 장소가 우리 DB에 없을 수 있고, 서버가 등록
+    시점에 만들기 때문이다. 내부 장소는 수정에서만 고를 수 있다.
+  */
+  if (draft.place?.source !== 'kakao') return null;
 
   const memo = draft.memo.trim();
   const detailLocation = draft.detailLocation.trim();
@@ -93,10 +106,24 @@ const messageByCode: Record<string, string> = {
   UPLOAD_URL_ISSUE_FAILED: '영상 업로드를 준비하지 못했어요. 잠시 후 다시 시도해 주세요.',
   DAILY_PIN_LIMIT_EXCEEDED: '오늘 등록할 수 있는 핀 수를 다 썼어요. 내일 다시 시도해 주세요.',
   PIN_CREATE_FAILED: '핀 등록에 실패했어요. 잠시 후 다시 시도해 주세요.',
+
+  // 수정에서만 나오는 것들
+  INVALID_PIN_UPDATE_REQUEST: '수정할 내용을 다시 확인해 주세요.',
+  PIN_UPDATE_FORBIDDEN: '내가 올린 영상핀만 수정할 수 있어요.',
+  PIN_NOT_FOUND: '영상핀을 찾을 수 없어요. 이미 삭제됐거나 만료됐을 수 있어요.',
+  PLACE_NOT_FOUND: '선택한 장소를 찾을 수 없어요.',
+  PIN_NOT_EDITABLE: '지금은 수정할 수 없는 상태예요. 영상이 공개된 뒤에 고칠 수 있어요.',
+  PIN_UPDATE_IN_PROGRESS: '앞서 요청한 영상 교체가 아직 처리 중이에요. 끝난 뒤에 다시 시도해 주세요.',
+  PIN_UPDATE_FAILED: '수정하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 /** 다시 시도해서 풀릴 수 있는 실패. 입력을 고쳐야 하는 실패와 구분한다. */
-const retryableCodes = new Set(['PIN_CREATE_FAILED', 'UPLOAD_URL_ISSUE_FAILED', 'NETWORK_ERROR']);
+const retryableCodes = new Set([
+  'PIN_CREATE_FAILED',
+  'PIN_UPDATE_FAILED',
+  'UPLOAD_URL_ISSUE_FAILED',
+  'NETWORK_ERROR',
+]);
 
 /**
  * 등록이 어느 단계에서 막혔는지 터미널에서 따라갈 수 있게 한다.
@@ -186,6 +213,64 @@ async function waitForCompletion(
   set({
     phase: 'idle',
     error: '처리가 오래 걸리고 있어요. 등록은 접수됐으니 잠시 후 확인해 주세요.',
+    retryable: false,
+  });
+}
+
+/**
+ * 영상 교체 결과를 기다린다.
+ *
+ * 등록과 다른 값을 본다. 교체가 도는 동안에도 기존 영상은 공개 중이라 `videoStatus`는 계속
+ * `ACTIVE`다. 새 영상의 진행은 `videoReplacementStatus`에만 나타난다.
+ *
+ * 실패해도 핀은 살아 있다. 기존 영상이 그대로 남으므로 "수정은 됐고 영상만 안 바뀌었다"로
+ * 알린다 — 등록 실패와 달리 처음부터 다시 할 일이 아니다.
+ */
+async function waitForReplacement(
+  pinId: PinId,
+  alive: () => boolean,
+  set: (partial: Partial<PinPublishState>) => void,
+): Promise<void> {
+  const deadline = Date.now() + STATUS_POLL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    await sleep(STATUS_POLL_INTERVAL_MS);
+    if (!alive()) return;
+
+    const { videoReplacementStatus } = await getPinVideoStatus(pinId);
+    if (!alive()) return;
+
+    logPublish('교체 상태', { videoReplacementStatus: videoReplacementStatus ?? '없음' });
+
+    if (videoReplacementStatus === 'PASS') {
+      set({ phase: 'done' });
+      return;
+    }
+
+    if (videoReplacementStatus === 'FAIL') {
+      set({
+        phase: 'idle',
+        error: '새 영상이 검수를 통과하지 못했어요. 기존 영상은 그대로 남아 있어요.',
+        retryable: false,
+      });
+      return;
+    }
+
+    if (videoReplacementStatus === 'FAILED') {
+      set({
+        phase: 'idle',
+        error: '영상을 교체하지 못했어요. 기존 영상은 그대로 남아 있어요.',
+        retryable: true,
+      });
+      return;
+    }
+  }
+
+  if (!alive()) return;
+
+  set({
+    phase: 'idle',
+    error: '교체 처리가 오래 걸리고 있어요. 요청은 접수됐으니 잠시 후 확인해 주세요.',
     retryable: false,
   });
 }
@@ -313,6 +398,98 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
             ? cause.message
             : '핀을 등록하지 못했어요',
         // 업로드 실패는 네트워크 문제가 대부분이라 다시 시도할 값이 있다.
+        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+      });
+    });
+  },
+
+  edit: (pinId, initial, draft) => {
+    attempt += 1;
+    const current = attempt;
+    const alive = () => attempt === current;
+
+    set({ error: null, retryable: false, progress: 0 });
+
+    /*
+      영상을 다시 찍었을 때만 교체다.
+
+      수정 화면은 기존 영상을 파일로 들고 있지 않다(서버에 있다). 그래서 `draft.video`에 값이
+      있다는 것은 곧 "이번에 새로 찍었다"는 뜻이다.
+    */
+    const replacement = draft.video;
+
+    const run = async () => {
+      // 1~2. 영상을 바꿀 때만 발급하고 올린다. 글자만 고쳤으면 이 단계가 통째로 없다.
+      if (replacement && !ticket) {
+        set({ phase: 'issuing' });
+        const size = await readVideoSize(replacement.uri);
+        logPublish('교체 발급 요청', { contentType: VIDEO_CONTENT_TYPE, fileSize: size });
+
+        const issued = await issueVideoUploadTicket(VIDEO_CONTENT_TYPE, size);
+        if (!alive()) return;
+        ticket = issued;
+
+        set({ phase: 'uploading' });
+        const upload = startVideoUpload(issued, replacement.uri, (ratio) => {
+          if (alive()) set({ progress: ratio });
+        });
+        cancelUpload = upload.cancel;
+
+        await upload.completed;
+        cancelUpload = null;
+        if (!alive()) return;
+      }
+
+      // 3. 수정 — 바뀐 것만 담는다. 보낼 것이 없으면 요청하지 않는다(서버가 400으로 막는다).
+      const body = toPinUpdateRequest(initial, draft, replacement ? ticket?.originalVideoKey : undefined);
+      if (!hasPinUpdate(body)) {
+        set({ phase: 'done', pinId });
+        return;
+      }
+
+      set({ phase: 'registering' });
+      logPublish('수정 요청', { pinId, 필드: Object.keys(body) });
+
+      const result = await updatePin(pinId, body);
+      if (!alive()) return;
+      logPublish('수정 완료', {
+        updatedFields: result.updatedFields,
+        videoReplacementStatus: result.videoReplacementStatus ?? '없음',
+      });
+
+      /*
+        4. 영상을 바꿨으면 검수가 끝날 때까지 기다린다.
+
+        글자만 고쳤으면 그 자리에서 끝이다. 서버가 곧바로 반영하고 200을 준다.
+      */
+      if (result.videoReplacementStatus == null) {
+        set({ phase: 'done', pinId, videoStatus: result.videoStatus });
+        return;
+      }
+
+      set({ phase: 'processing', pinId, videoStatus: result.videoStatus });
+      await waitForReplacement(pinId, alive, set);
+    };
+
+    run().catch((cause: unknown) => {
+      cancelUpload = null;
+      if (!alive()) return;
+
+      const isApiError = cause instanceof ApiError;
+      logPublish('수정 실패', {
+        code: isApiError ? cause.code : 'unknown',
+        statusCode: isApiError ? cause.statusCode : undefined,
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+
+      set({
+        phase: 'idle',
+        progress: 0,
+        error: isApiError
+          ? (messageByCode[cause.code] ?? cause.message)
+          : cause instanceof Error
+            ? cause.message
+            : '영상핀을 수정하지 못했어요',
         retryable: isApiError ? retryableCodes.has(cause.code) : true,
       });
     });
