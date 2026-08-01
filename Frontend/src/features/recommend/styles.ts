@@ -101,6 +101,8 @@ export const recommendStyles = StyleSheet.create({
   detailBody: { gap: spacing.x3, paddingHorizontal: spacing.x4, paddingTop: spacing.x4 },
   /** 지도는 좌우로 붙는다. 위치를 보여주는 자리라 이 높이면 충분하다. */
   map: { height: 260, borderRadius: 0 },
+  /** 지도 칸을 가득 채운다. 칸 크기는 바깥 `map`이 정하고, 지도는 그걸 따라간다. */
+  mapFill: { flex: 1, height: undefined, borderRadius: 0 },
   mapFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray200 },
 
   /* 기본정보 카드 */
