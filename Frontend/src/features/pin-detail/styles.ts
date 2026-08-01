@@ -34,6 +34,15 @@ export const pinDetailStyles = StyleSheet.create({
     paddingHorizontal: layout.gutter,
     paddingBottom: APP_TAB_BAR_HEIGHT + spacing.x10,
   },
+  /** 결제 시트가 열렸을 때 흐려질 묶음. 시트는 이 밖에 있어 또렷하게 남는다. */
+  screenContent: { flex: 1 },
+  /**
+   * 뒤 화면을 흐리게 한다.
+   *
+   * `BlurView`가 아니라 `filter`를 쓴다. 스냅샷을 뜨지 않고 렌더 노드에 직접 걸려서 영상까지
+   * 함께 흐려진다. 결제 전 미리보기 영상에 쓴 것과 같은 방식이다(`PinDetailMedia` 주석).
+   */
+  screenBlurred: { filter: [{ blur: 18 }] },
   body: { flex: 1 },
   /** 스크롤 내용. 아래 고정 영역이 자리를 차지하므로 탭바 높이를 더하지 않는다. */
   content: { paddingBottom: spacing.x6 },
@@ -274,7 +283,8 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 결제 · 채팅 요청 모달 */
   /* 아래에 붙는 시트 — 결제 확인 */
-  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  /** 화면 위에 통째로 덮는다. 모달이 아니라 이 화면 안의 겹이라 뒤 화면에 흐림을 걸 수 있다. */
+  sheetBackdrop: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end' },
   /**
    * 흐림 위에 한 겹 더 까는 어두운 막.
    *
@@ -282,7 +292,7 @@ export const pinDetailStyles = StyleSheet.create({
    * (`PinDetailMedia` 주석 참고), 모달 안에서는 뒤 화면을 아예 못 잡는 경우도 있다.
    * 그래서 이 막이 흐림 없이도 뒤가 거의 보이지 않을 만큼 진해야 한다.
    */
-  sheetScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20,18,18,.62)' },
+  sheetScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(40,38,38,.45)' },
   /** 시트 위 빈 자리. 여기를 누르면 닫힌다. */
   sheetDismissArea: { flex: 1 },
   sheet: {

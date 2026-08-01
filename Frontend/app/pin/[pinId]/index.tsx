@@ -94,28 +94,37 @@ function PinDetailScreen({
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
-      <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
+      {/*
+        결제 시트가 열리면 화면 전체를 흐리게 한다.
 
-      {menu.open && (
-        <OwnerMenu
-          onEdit={menu.edit}
-          onDelete={() => {
-            menu.hide();
-            remove.show();
-          }}
-          onDismiss={menu.hide}
+        `filter`는 스냅샷을 뜨지 않고 뷰의 렌더 노드에 직접 걸리므로 영상까지 함께 흐려진다.
+        `BlurView`는 안드로이드에서 영상 표면을 잡지 못해 이 화면에서는 쓸 수 없다
+        (`PinDetailMedia` 주석 참고). 시트는 이 묶음 밖에 있어 또렷하게 남는다.
+      */}
+      <View style={[s.screenContent, purchase.open && s.screenBlurred]}>
+        <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
+
+        {menu.open && (
+          <OwnerMenu
+            onEdit={menu.edit}
+            onDelete={() => {
+              menu.hide();
+              remove.show();
+            }}
+            onDismiss={menu.hide}
+          />
+        )}
+
+        <PinDetailBody
+          detail={detail}
+          evaluation={evaluation}
+          onRequestChat={chat.show}
+          onRequestPurchase={purchase.show}
+          onLeave={leave.show}
         />
-      )}
 
-      <PinDetailBody
-        detail={detail}
-        evaluation={evaluation}
-        onRequestChat={chat.show}
-        onRequestPurchase={purchase.show}
-        onLeave={leave.show}
-      />
-
-      <AppTabBar />
+        <AppTabBar />
+      </View>
 
       <PinPurchaseModal
         visible={purchase.open}

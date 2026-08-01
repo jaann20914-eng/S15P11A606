@@ -1,6 +1,5 @@
-import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { colors, spacing } from '@/constants/theme';
 import { pinDetailStyles as s } from '../styles';
 import { useDragToDismiss } from '../hooks/useDragToDismiss';
@@ -40,57 +39,48 @@ export function PinPurchaseModal({
   const { bottom } = useSafeAreaInsets();
   const { translateY, panHandlers } = useDragToDismiss(visible, busy, onCancel);
 
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={s.sheetBackdrop}>
-        {/*
-          뒤 화면을 흐리게 가린다. 결제는 되돌릴 수 없는 선택이라 시선이 시트에만 머물러야 한다.
+  // 화면 안에 그리는 오버레이라 스스로 닫힌 상태를 처리한다.
+  if (!visible) return null;
 
-          어두운 막만으로는 뒤 내용이 그대로 읽힌다. 흐림을 얹으면 형태가 뭉개져 시트가
-          또렷해진다. 두 겹을 함께 쓰는 이유는 안드로이드에서 흐림이 영상 위에는 걸리지
-          않기 때문이다 — 그 자리는 어두운 막이 대신 가린다.
-        */}
-        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
-        <View pointerEvents="none" style={s.sheetScrim} />
+  return (
+    <View style={s.sheetBackdrop}>
+      <Pressable
+        accessibilityLabel="닫기"
+        disabled={busy}
+        onPress={onCancel}
+        style={s.sheetDismissArea}
+      />
+
+      <Animated.View
+        style={[s.sheet, { paddingBottom: bottom + spacing.x6 }, { transform: [{ translateY }] }]}
+      >
+        {/* 손잡이. 여기를 아래로 끌면 닫힌다. */}
+        <View {...panHandlers} style={s.sheetHandleArea}>
+          <View style={s.sheetHandle} />
+        </View>
+
+        <Text style={s.sheetTitle}>뷰포인트 결제</Text>
+        <Text style={s.sheetCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
+
+        {/* 열릴 때 마운트되므로 매번 처음부터 재생된다. */}
+        <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />
+
+        <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
+        {error && <Text style={s.payError}>{error}</Text>}
 
         <Pressable
-          accessibilityLabel="닫기"
+          accessibilityRole="button"
           disabled={busy}
-          onPress={onCancel}
-          style={s.sheetDismissArea}
-        />
-
-        <Animated.View
-          style={[s.sheet, { paddingBottom: bottom + spacing.x6 }, { transform: [{ translateY }] }]}
+          onPress={onConfirm}
+          style={[s.primaryDark, s.payButton, busy && s.payButtonBusy]}
         >
-          {/* 손잡이. 여기를 아래로 끌면 닫힌다. */}
-          <View {...panHandlers} style={s.sheetHandleArea}>
-            <View style={s.sheetHandle} />
-          </View>
-
-          <Text style={s.sheetTitle}>뷰포인트 결제</Text>
-          <Text style={s.sheetCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
-
-          {/* 시트가 열릴 때만 마운트해 매번 처음부터 재생되게 한다. */}
-          {visible && <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />}
-
-          <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
-          {error && <Text style={s.payError}>{error}</Text>}
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={busy}
-            onPress={onConfirm}
-            style={[s.primaryDark, s.payButton, busy && s.payButtonBusy]}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.lime} />
-            ) : (
-              <Text style={s.primaryDarkText}>동의하고 결제하기</Text>
-            )}
-          </Pressable>
-        </Animated.View>
-      </View>
-    </Modal>
+          {busy ? (
+            <ActivityIndicator color={colors.lime} />
+          ) : (
+            <Text style={s.primaryDarkText}>동의하고 결제하기</Text>
+          )}
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
