@@ -44,6 +44,12 @@ export function PinPurchaseModal({
 
   return (
     <View style={s.sheetBackdrop}>
+      {/*
+        어두운 막. 흐림만으로는 뒤 화면이 밝게 남아 시트와 구분되지 않는다.
+        누르는 것은 아래 빈 자리가 받으므로 이 막은 터치를 통과시킨다.
+      */}
+      <View pointerEvents="none" style={s.sheetScrim} />
+
       <Pressable
         accessibilityLabel="닫기"
         disabled={busy}

@@ -42,7 +42,7 @@ export const pinDetailStyles = StyleSheet.create({
    * `BlurView`가 아니라 `filter`를 쓴다. 스냅샷을 뜨지 않고 렌더 노드에 직접 걸려서 영상까지
    * 함께 흐려진다. 결제 전 미리보기 영상에 쓴 것과 같은 방식이다(`PinDetailMedia` 주석).
    */
-  screenBlurred: { filter: [{ blur: 18 }] },
+  screenBlurred: { filter: [{ blur: 32 }] },
   body: { flex: 1 },
   /** 스크롤 내용. 아래 고정 영역이 자리를 차지하므로 탭바 높이를 더하지 않는다. */
   content: { paddingBottom: spacing.x6 },
@@ -292,7 +292,7 @@ export const pinDetailStyles = StyleSheet.create({
    * (`PinDetailMedia` 주석 참고), 모달 안에서는 뒤 화면을 아예 못 잡는 경우도 있다.
    * 그래서 이 막이 흐림 없이도 뒤가 거의 보이지 않을 만큼 진해야 한다.
    */
-  sheetScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(40,38,38,.45)' },
+  sheetScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(28,26,26,.5)' },
   /** 시트 위 빈 자리. 여기를 누르면 닫힌다. */
   sheetDismissArea: { flex: 1 },
   sheet: {
