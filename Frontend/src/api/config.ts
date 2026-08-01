@@ -27,6 +27,7 @@ export type ApiModule =
   | 'pin/videoUpload'
   | 'pin/videoUploadTask'
   | 'place/search'
+  | 'recommend/places'
   | 'user/credits'
   | 'user/me'
   | 'user/today-pins'
@@ -62,6 +63,9 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   // S3 직접 업로드라 우리 서버와 무관하지만, 업로드 주소를 pin/videoUpload에서 받는다.
   // 그쪽이 목업이면 가짜 주소로 실제 업로드를 시도하게 되므로 함께 목업으로 둔다.
   'pin/videoUploadTask': true,
+
+  // GET /api/v1/recommendations/places 도 아직 없다. recommendation 컨트롤러가 없다.
+  'recommend/places': true,
 
   // chat 도메인 컨트롤러가 아직 없다.
   'chat/request': true,

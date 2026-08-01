@@ -78,15 +78,15 @@ export const recommendStyles = StyleSheet.create({
   rule: { width: 56, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinMessage: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x2 },
-  angleRing: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    backgroundColor: colors.white,
+  /* 아직 핀이 없는 장소 — 작성으로 유도한다 */
+  emptyPins: {
+    marginTop: spacing.x3,
+    paddingVertical: spacing.x4,
+    paddingHorizontal: spacing.x4,
+    borderRadius: radius.md,
+    backgroundColor: colors.gray100,
   },
-  angleText: { fontSize: 8, lineHeight: 11, color: colors.gray600 },
+  emptyPinsText: { ...type.caption, color: colors.gray400 },
+  writeLink: { ...type.h3, color: colors.dark, marginTop: spacing.x2 },
   more: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
 });

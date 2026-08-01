@@ -16,7 +16,7 @@ import { useResponsivePadding } from '@/hooks/useResponsivePadding';
  */
 export default function RecommendScreen() {
   const padding = useResponsivePadding();
-  const { mode, recommendation, loading, error, setMode } = useRecommendations();
+  const { mode, places, generatedAt, isFallback, loading, error, setMode } = useRecommendations();
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -27,17 +27,13 @@ export default function RecommendScreen() {
       <View style={s.content}>
         <RecommendIntro
           mode={mode}
-          updatedAt={recommendation?.updatedAt ?? null}
+          generatedAt={generatedAt}
+          isFallback={isFallback}
           padding={padding}
           onModeChange={setMode}
         />
 
-        <RecommendList
-          places={recommendation?.places ?? []}
-          mode={mode}
-          loading={loading}
-          error={error}
-        />
+        <RecommendList places={places} mode={mode} loading={loading} error={error} />
       </View>
     </SafeAreaView>
   );
