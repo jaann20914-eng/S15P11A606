@@ -234,8 +234,9 @@ export const mockPlaceSeeds: MockPlaceSeed[] = [
   { placeId: 9, name: '성수 수제화거리', address: '서울 성동구 연무장7길', phone: '02-464-1114', latitude: 37.5405, longitude: 127.0575, businessHoursText: '영업중 · 오후 9:00까지', pinCount: 4, hiddenPinCount: 3, crowdShift: -0.1 },
   // 요일 집계가 군데군데 없는 장소. 그래프가 선을 끊는지 확인할 수 있게 둔다.
   { placeId: 10, name: '서울숲 북쪽 산책로', address: '서울 성동구 서울숲2길', phone: null, latitude: 37.5471, longitude: 127.0413, businessHoursText: null, pinCount: 5, hiddenPinCount: 5, crowdShift: 0, sparseStats: true },
-  // 감지카메라만 올린 장소. 추천 카드의 빈 상태를 확인할 수 있게 둔다.
-  { placeId: 11, name: '바나프레소 역삼점', address: '서울 광진구 동일로 60길 47 1층 (군자동)', phone: '010-1111-1111', latitude: 37.5556, longitude: 127.0791, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 1, hiddenPinCount: 0, crowdShift: 0.1 },
+  // 아직 아무도 올리지 않은 장소. 빈 상태(작성 유도)를 확인할 수 있게 둔다.
+  // 핀 수는 0이어야 한다 — 목록 카드는 "아직 없다"고 하는데 상세에는 핀이 있으면 어긋난다.
+  { placeId: 11, name: '바나프레소 역삼점', address: '서울 광진구 동일로 60길 47 1층 (군자동)', phone: '010-1111-1111', latitude: 37.5556, longitude: 127.0791, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 0, hiddenPinCount: 0, crowdShift: 0.1 },
 ].map(toSeed);
 
 /** `placeId`로 하나 찾는다. 없으면 null. */

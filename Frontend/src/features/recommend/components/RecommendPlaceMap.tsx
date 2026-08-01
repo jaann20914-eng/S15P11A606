@@ -38,21 +38,22 @@ export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
   const longitude = coordinate?.longitude ?? null;
 
   /*
-    핀이 하나도 없으면 장소 자리에 하나 찍는다. 빈 지도는 주소만 있는 것과 다를 바가 없다.
-  */
-  const markers = useMemo(() => {
-    if (mapData === null) return [];
-    if (mapData.activePins.length === 0) {
-      return [{ id: 'place', name, ...mapData.coordinate }];
-    }
+    핀은 실제 영상핀만 찍는다.
 
-    return mapData.activePins.map((pin) => ({
-      id: pin.pinId,
-      name: `${name} 영상핀`,
-      latitude: pin.latitude,
-      longitude: pin.longitude,
-    }));
-  }, [mapData, name]);
+    올라온 것이 없으면 지도도 비운다. 장소 자리에 하나 찍어 두면 "여기 영상핀이 있다"로
+    읽혀서, 바로 아래에서 아직 없다고 안내하는 것과 어긋난다. 그때 할 일은 작성뿐이라
+    그 안내(작성하러 가기)만 남긴다.
+  */
+  const markers = useMemo(
+    () =>
+      (mapData?.activePins ?? []).map((pin) => ({
+        id: pin.pinId,
+        name: `${name} 영상핀`,
+        latitude: pin.latitude,
+        longitude: pin.longitude,
+      })),
+    [mapData, name],
+  );
 
   /*
     지도 칸의 크기가 정해지거나 바뀌면 다시 맞춘다.
@@ -119,9 +120,7 @@ export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
         filter="relaxed"
         myLocation={null}
         onReady={() => setReady(true)}
-        onPinPress={(pinId) => {
-          if (pinId !== 'place') router.push(`/pin/${pinId}`);
-        }}
+        onPinPress={(pinId) => router.push(`/pin/${pinId}`)}
         style={s.mapFill}
       />
     </View>
