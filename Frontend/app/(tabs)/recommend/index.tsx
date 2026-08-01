@@ -1,6 +1,7 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenHeader } from '@/components/common';
 import { RecommendIntro } from '@/features/recommend/components/RecommendIntro';
 import { RecommendList } from '@/features/recommend/components/RecommendList';
 import { useRecommendations } from '@/features/recommend/hooks/useRecommendations';
@@ -20,9 +21,8 @@ export default function RecommendScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
-      <View style={s.header}>
-        <Text style={s.headerTitle}>추천 장소</Text>
-      </View>
+      {/* 탭 화면이라 뒤로 가기가 없다. 그 자리는 공용 헤더가 비워 둬서 제목이 가운데에 온다. */}
+      <ScreenHeader title="추천 장소" />
 
       <View style={s.content}>
         <RecommendIntro

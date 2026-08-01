@@ -186,10 +186,10 @@ const s = StyleSheet.create({
     borderBottomColor: colors.gray200,
     paddingHorizontal: spacing.x2,
   },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  back: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },
   headerCopy: { flex: 1 },
-  headerTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
-  headerMeta: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  headerTitle: { ...type.title, color: colors.dark },
+  headerMeta: { ...type.caption, color: colors.gray400 },
   messages: { flexGrow: 1, padding: layout.gutter, gap: spacing.x4 },
   requestCard: {
     padding: spacing.x4,

@@ -36,18 +36,8 @@ export const pinDetailStyles = StyleSheet.create({
   },
   content: { paddingBottom: APP_TAB_BAR_HEIGHT + spacing.x10 },
 
-  /* 헤더 */
-  header: {
-    height: layout.headerHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.x3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { ...type.title, color: colors.dark },
+  /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
+  headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },
   reportButton: {
     minWidth: 52,
     height: 44,
@@ -254,7 +244,7 @@ export const pinDetailStyles = StyleSheet.create({
   },
   modalHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   modalTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
-  modalCaption: { fontSize: 10, lineHeight: 15, color: colors.gray400, marginTop: spacing.x1 },
+  modalCaption: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   modalClose: {
     width: 24,
     height: 24,

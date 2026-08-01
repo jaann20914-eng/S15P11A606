@@ -11,18 +11,7 @@ export const pinCreateStyles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5 },
 
-  /* 헤더 */
-  header: {
-    height: layout.headerHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.x2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { ...type.title, color: colors.dark },
+  /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */
 
   /* 혼잡도 세그먼트 */
   segment: {
@@ -144,8 +133,9 @@ export const pinCreateStyles = StyleSheet.create({
 
   /* 태그 */
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.x2 },
+  /** 글자(14)와 삭제 아이콘(18)이 들어가려면 30으로는 좁다. */
   tag: {
-    height: 30,
+    height: 34,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x1,
@@ -153,7 +143,7 @@ export const pinCreateStyles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.limeSoft,
   },
-  tagText: { ...type.caption, color: '#81942E' },
+  tagText: { ...type.small, color: '#81942E' },
   tagInputRow: { height: 44, flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x2 },
   tagInput: {
     flex: 1,

@@ -32,7 +32,7 @@ export function TagField({ tags, onAdd, onRemove }: TagFieldProps) {
           <View key={tag} style={s.tag}>
             <Text style={s.tagText}>#{tag}</Text>
             <Pressable accessibilityLabel={`${tag} 태그 삭제`} onPress={() => onRemove(tag)}>
-              <Ionicons name="close" size={14} color="#8A9D37" />
+              <Ionicons name="close" size={18} color="#8A9D37" />
             </Pressable>
           </View>
         ))}

@@ -3,22 +3,38 @@ import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
+/**
+ * 화면 상단 바. **앱의 모든 헤더가 이것 하나를 쓴다.**
+ *
+ * 예전에는 화면마다 헤더를 따로 그려서 높이는 같아도 제목 크기·굵기·색과 좌우 여백, 아래
+ * 구분선이 제각각이었다. 화면을 옮겨 다니면 제목이 커졌다 작아졌다 했다.
+ *
+ * 기준은 게시글 작성 화면이다 — 높이 56, 제목 18/600 진한 회색, 뒤로 아이콘 24 연한 회색,
+ * 좌우 여백 8, 아래 구분선 1px. 뒤로 가기가 없어도 같은 자리를 비워 두어 제목이 정중앙에 온다.
+ */
 export function ScreenHeader({
   title,
   back,
   right,
   onBack,
+  divider = true,
 }: {
   title: string;
   back?: boolean;
   right?: ReactNode;
   onBack?: () => void;
+  /**
+   * 아래 구분선. 기본은 그린다.
+   *
+   * 배경이 흰색이 아니거나 헤더 바로 아래에 다른 경계가 있는 화면만 끈다.
+   */
+  divider?: boolean;
 }) {
   return (
-    <View style={s.header}>
+    <View style={[s.header, divider && s.headerDivider]}>
       {back ? (
         <Pressable accessibilityLabel="뒤로 가기" onPress={onBack} style={s.iconBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.dark} />
+          <Ionicons name="chevron-back" size={24} color={colors.gray400} />
         </Pressable>
       ) : (
         <View style={s.headerGap} />
@@ -155,10 +171,17 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.x2,
   },
+  headerDivider: { borderBottomWidth: 1, borderBottomColor: colors.gray200 },
   headerGap: { width: layout.minTouch },
-  headerRight: { minWidth: layout.minTouch, alignItems: 'flex-end' },
-  iconBtn: { width: layout.minTouch, height: layout.minTouch, justifyContent: 'center' },
+  headerRight: { minWidth: layout.minTouch, alignItems: 'flex-end', justifyContent: 'center' },
+  iconBtn: {
+    width: layout.minTouch,
+    height: layout.minTouch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: { ...type.title, color: colors.dark },
   button: {
     minHeight: layout.buttonHeight,

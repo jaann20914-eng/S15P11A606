@@ -63,7 +63,7 @@ export const mypageStyles = StyleSheet.create({
     paddingHorizontal: spacing.x2,
   },
   trustCopy: { flex: 1 },
-  eyebrow: { fontSize: 12, lineHeight: 18, color: colors.gray400 },
+  eyebrow: { ...type.small, color: colors.gray400 },
   trustValue: {
     fontSize: 28,
     lineHeight: 34,
@@ -72,9 +72,8 @@ export const mypageStyles = StyleSheet.create({
     color: colors.gray600,
   },
   trustHelp: {
-    maxWidth: 210,
-    fontSize: 10,
-    lineHeight: 15,
+    maxWidth: 240,
+    ...type.caption,
     color: colors.gray400,
     marginTop: spacing.x1,
   },
@@ -87,7 +86,7 @@ export const mypageStyles = StyleSheet.create({
     backgroundColor: '#F3F9D5',
   },
   metric: { flex: 1, alignItems: 'center' },
-  metricLabel: { fontSize: 12, lineHeight: 18, color: colors.gray600 },
+  metricLabel: { ...type.small, color: colors.gray600 },
   metricValue: {
     fontSize: 28,
     lineHeight: 36,
@@ -129,8 +128,7 @@ export const mypageStyles = StyleSheet.create({
   weekday: {
     width: `${100 / 7}%`,
     textAlign: 'center',
-    fontSize: 10,
-    lineHeight: 15,
+    ...type.caption,
     color: colors.gray600,
   },
   heatmap: { marginTop: spacing.x2 },
@@ -155,7 +153,7 @@ export const mypageStyles = StyleSheet.create({
     color: colors.gray600,
     marginBottom: spacing.x3,
   },
-  statLine: { fontSize: 9, lineHeight: 17, color: colors.gray600 },
+  statLine: { ...type.caption, color: colors.gray600 },
 
   /* 메뉴 목록과 로그아웃 */
   sectionTitle: { ...type.title, color: colors.dark, marginTop: spacing.x10, marginBottom: spacing.x2 },
