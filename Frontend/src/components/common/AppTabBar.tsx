@@ -25,17 +25,14 @@ export interface AppTabDefinition {
   href: string;
 }
 
-/** 표시 순서 그대로다. 홈 · 채팅 · 제보 · 추천 · 마이. */
+/**
+ * 표시 순서 그대로다. 홈 · 추천 · 영상핀 · 채팅 · 마이.
+ *
+ * 순서는 `DESIGN_GUIDE.md` 9.2("홈, 추천, 영상핀, 채팅, 마이 5개 탭")와 와이어프레임을 따른다.
+ * 예전에는 추천과 채팅이 뒤바뀌어 있었다.
+ */
 export const APP_TABS: readonly AppTabDefinition[] = [
   { key: 'home', label: '홈', icon: 'map-outline', iconActive: 'map', href: '/(tabs)/home' },
-  {
-    key: 'chat',
-    label: '채팅',
-    icon: 'chatbubbles-outline',
-    iconActive: 'chatbubbles',
-    href: '/(tabs)/chat/sent',
-  },
-  { key: 'write', label: '제보', icon: 'add', iconActive: 'add', href: '/(tabs)/write' },
   {
     key: 'recommend',
     label: '추천',
@@ -43,25 +40,20 @@ export const APP_TABS: readonly AppTabDefinition[] = [
     iconActive: 'sparkles',
     href: '/(tabs)/recommend',
   },
+  { key: 'write', label: '제보', icon: 'add', iconActive: 'add', href: '/(tabs)/write' },
+  {
+    key: 'chat',
+    label: '채팅',
+    // 말풍선 하나다. chatbubbles(복수)는 두 개가 겹쳐 그려져 와이어프레임과 다르다.
+    icon: 'chatbubble-outline',
+    iconActive: 'chatbubble',
+    href: '/(tabs)/chat/sent',
+  },
   { key: 'mypage', label: '마이', icon: 'person-outline', iconActive: 'person', href: '/(tabs)/mypage' },
 ];
 
 /** 시스템 내비게이션 바를 제외한 순수 탭 영역 높이. */
 export const APP_TAB_BAR_HEIGHT = 72;
-
-/**
- * 기기 하단 시스템 바(갤럭시 제스처 바·3버튼 바)만큼 바를 키우고 안쪽 여백을 준다.
- * 이 보정이 없으면 탭 아이콘이 시스템 바와 겹쳐 눌리지 않는다.
- */
-export function useAppTabBarStyle() {
-  const { bottom } = useSafeAreaInsets();
-
-  return {
-    ...appTabBarTheme.barStyle,
-    height: APP_TAB_BAR_HEIGHT + bottom,
-    paddingBottom: spacing.x2 + bottom,
-  } as const;
-}
 
 /** 바텀바에 가려지지 않도록 스크롤 콘텐츠가 확보해야 하는 하단 여백. */
 export function useAppTabBarHeight(): number {
@@ -88,13 +80,6 @@ export const appTabBarTheme = {
     // 같은 11px인데도 글자 폭이 달라져 두 바가 달라 보이므로 웹에서만 명시해 맞춘다.
     ...Platform.select({ web: { fontFamily: 'System' }, default: null }),
   },
-  captureLabelStyle: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '600' as const,
-    marginTop: spacing.x2,
-    ...Platform.select({ web: { fontFamily: 'System' }, default: null }),
-  },
 };
 
 /** 가운데 제보 버튼. 다른 탭과 달리 원형 CTA로 떠 있다. */
@@ -119,17 +104,42 @@ export function TabBarIcon({ tab, focused, color }: { tab: AppTab; focused: bool
 export interface AppTabBarProps {
   /** 강조할 탭. 상세 화면처럼 어느 탭에도 속하지 않으면 비운다. */
   active?: AppTab;
+  /**
+   * 화면 위에 떠 있는 배치인지. 기본은 `true`.
+   *
+   * 탭 네비게이터가 `tabBar`로 그릴 때는 바 슬롯이 이미 자리를 잡아 주므로 `false`를 준다.
+   * 그때도 절대 배치를 하면 화면 밖으로 밀려 잘린다.
+   */
+  floating?: boolean;
+  /**
+   * 탭 전환 방법. 주지 않으면 경로로 이동한다.
+   *
+   * 탭 네비게이터는 자기 `navigation`을 넘겨 준다 — 그래야 각 탭이 들고 있던 스택 위치가
+   * 유지된다. 경로로 이동하면 그 탭의 첫 화면으로 되돌아가 버린다.
+   */
+  onTabPress?: (tab: AppTab) => void;
 }
 
 /**
- * 탭 그룹 밖 화면용 하단 바.
- * 화면 하단에 절대 배치되므로 스크롤 콘텐츠에 `useAppTabBarHeight()`만큼 여백을 줘야 가려지지 않는다.
+ * 앱 전체가 쓰는 단 하나의 하단 바.
+ *
+ * 탭 네비게이터(`app/(tabs)/_layout.tsx`)와 탭 밖 화면(장소·핀 상세)이 **같은 이 컴포넌트를**
+ * 그린다. 예전에는 네비게이터가 React Navigation의 기본 렌더링을 쓰고 상세 화면만 이 바를
+ * 그려서, 토큰은 공유하는데도 항목 간격과 라벨 배치가 미묘하게 달라 페이지마다 모양이 달랐다.
+ *
+ * 떠 있는 배치로 쓸 때는 스크롤 콘텐츠에 `useAppTabBarHeight()`만큼 여백을 줘야 가려지지 않는다.
  */
-export function AppTabBar({ active }: AppTabBarProps) {
+export function AppTabBar({ active, floating = true, onTabPress }: AppTabBarProps) {
   const { bottom } = useSafeAreaInsets();
 
   return (
-    <View style={[s.bar, { height: APP_TAB_BAR_HEIGHT + bottom, paddingBottom: spacing.x2 + bottom }]}>
+    <View
+      style={[
+        s.bar,
+        floating && s.barFloating,
+        { height: APP_TAB_BAR_HEIGHT + bottom, paddingBottom: spacing.x2 + bottom },
+      ]}
+    >
       {APP_TABS.map(({ key, label, href }) => {
         const focused = key === active;
         const tint = focused ? appTabBarTheme.activeTintColor : appTabBarTheme.inactiveTintColor;
@@ -138,13 +148,19 @@ export function AppTabBar({ active }: AppTabBarProps) {
           <Pressable
             key={key}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            // 가운데 버튼은 글자를 두지 않으므로 읽어 줄 이름을 여기서만 준다.
+            accessibilityLabel={key === 'write' ? '영상핀 제보' : label}
             accessibilityState={{ selected: focused }}
-            onPress={() => router.push(href as never)}
+            /*
+              기본 이동은 push가 아니라 navigate다. push는 갈 때마다 화면을 쌓아서, 게시글에서
+              홈을 누르면 홈으로 "돌아가는" 대신 홈이 하나 더 얹힌다.
+            */
+            onPress={() => (onTabPress ? onTabPress(key) : router.navigate(href as never))}
             style={s.item}
           >
             <TabBarIcon tab={key} focused={focused} color={tint} />
-            <Text style={[s.label, { color: tint }, key === 'write' && s.captureLabel]}>{label}</Text>
+            {/* 가운데 버튼에는 라벨을 두지 않는다(와이어프레임). 아이콘이 곧 의미다. */}
+            {key !== 'write' && <Text style={[s.label, { color: tint }]}>{label}</Text>}
           </Pressable>
         );
       })}
@@ -153,28 +169,27 @@ export function AppTabBar({ active }: AppTabBarProps) {
 }
 
 const s = StyleSheet.create({
-  bar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    ...appTabBarTheme.barStyle,
-    flexDirection: 'row',
-  },
+  bar: { ...appTabBarTheme.barStyle, flexDirection: 'row' },
+  barFloating: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  // type.caption을 섞지 않는다. letterSpacing이 딸려와 탭 네비게이터 라벨과 자간이 달라진다.
+  // type.caption을 섞지 않는다. letterSpacing이 딸려와 라벨 자간이 달라진다.
   label: appTabBarTheme.labelStyle,
-  captureLabel: { marginTop: spacing.x2 },
+  /**
+   * 가운데 영상핀 버튼.
+   *
+   * 크기·테두리·그림자는 `DESIGN_GUIDE.md` 10.6을 따른다. 모서리는 원이 아니라 둥근
+   * 사각형이다 — pill을 쓰면 완전한 원이 되어 와이어프레임과 달라진다.
+   */
   captureButton: {
     width: 56,
     height: 56,
     marginTop: -20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
+    borderRadius: radius.card,
     borderWidth: 3,
     borderColor: colors.white,
-    backgroundColor: colors.limeSoft,
+    backgroundColor: colors.limeControl,
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 7 },
     shadowOpacity: 0.2,

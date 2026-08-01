@@ -65,12 +65,20 @@ export interface KakaoMapHtmlOptions {
   appKey: string;
   center: { latitude: number; longitude: number };
   level?: number;
+  /**
+   * 장소 키워드 검색(`searchPlace`)을 쓸 화면인지.
+   *
+   * `libraries=services`는 SDK 본체와 **별도로 내려받는 추가 번들**이라 첫 렌더를 그만큼
+   * 늦춘다. 홈 지도는 `panTo`·`fitPlaces`만 쓰고 검색은 하지 않으므로 기본은 끈 상태다.
+   */
+  usePlaceSearch?: boolean;
 }
 
 export function buildKakaoMapHtml({
   appKey,
   center,
   level = DEFAULT_MAP_LEVEL,
+  usePlaceSearch = false,
 }: KakaoMapHtmlOptions): string {
   const initial = JSON.stringify({
     lat: center.latitude,
@@ -89,6 +97,15 @@ export function buildKakaoMapHtml({
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<!--
+  첫 렌더까지의 시간은 대부분 네트워크 대기다. SDK는 dapi.kakao.com에서, 지도 타일은
+  daumcdn.net에서 내려오는데 둘 다 이 문서를 파싱하기 전에는 연결이 시작되지 않는다.
+  미리 연결해 두면 DNS 조회와 TLS 핸드셰이크가 스크립트 요청과 겹쳐 진행된다.
+  crossorigin이 없으면 타일 요청과 다른 커넥션이 잡혀 preconnect가 헛돈다.
+-->
+<link rel="preconnect" href="https://dapi.kakao.com" crossorigin />
+<link rel="preconnect" href="https://t1.daumcdn.net" crossorigin />
+<link rel="dns-prefetch" href="https://map.daumcdn.net" />
 <!--
   문서 전체에 no-referrer를 걸면 안 된다.
   SDK 파일(sdk.js)만 Referer 없이 받고(도메인 등록 없이도 지도가 뜨도록), 그 위에서 도는
@@ -121,10 +138,31 @@ export function buildKakaoMapHtml({
   }
   .pin-circle::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
   .pin-drop { filter: drop-shadow(0 4px 8px rgba(40, 38, 38, 0.3)); display: block; }
-  .me { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-  .me::after { content: ''; width: 12px; height: 12px; border-radius: 50%; box-sizing: content-box; }
-  .me-pulse { animation: mePulse 2s ease-out infinite; }
-  @keyframes mePulse { 0% { transform: scale(0.7); opacity: 0.9; } 70% { transform: scale(1.35); opacity: 0.15; } 100% { transform: scale(0.7); opacity: 0.9; } }
+  /*
+   * 내 위치 마커. 퍼지는 원과 가운데 점을 **형제로 분리**한다.
+   *
+   * 예전에는 하나의 flex 컨테이너 안에 가운데 점(자식 div)과 .me::after가 함께 있어서,
+   * 둘이 flex 아이템으로 나란히 놓이며 점이 왼쪽으로 밀렸다. 게다가 퍼지는 애니메이션의
+   * transform: scale이 점에도 걸려 점 자체가 커졌다 작아지며 중심이 흔들렸다.
+   *
+   * 중앙 정렬은 transform이 아니라 음수 마진으로 한다. transform은 애니메이션이 독점해야
+   * 하므로, 정렬에 같이 쓰면 keyframe마다 translate를 다시 적어야 하고 한 번 빠뜨리면 튄다.
+   */
+  .me { position: relative; width: 28px; height: 28px; pointer-events: none; }
+  .me-pulse {
+    position: absolute; left: 50%; top: 50%;
+    width: 28px; height: 28px; margin: -14px 0 0 -14px;
+    border-radius: 50%;
+    animation: mePulse 2s ease-out infinite;
+  }
+  /* 점은 애니메이션에서 제외해 항상 같은 자리·같은 크기로 남는다. */
+  .me-dot {
+    position: absolute; left: 50%; top: 50%;
+    width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    box-sizing: border-box;
+  }
+  @keyframes mePulse { 0% { transform: scale(0.6); opacity: 0.85; } 70% { transform: scale(1.5); opacity: 0.12; } 100% { transform: scale(0.6); opacity: 0.85; } }
 </style>
 </head>
 <body>
@@ -147,6 +185,12 @@ export function buildKakaoMapHtml({
   var state = { places: [], filter: 'relaxed', selectedPlaceId: null, myLocation: null };
   /** 핀이 도착하기 전에 들어온 fitPlaces 요청. 첫 렌더 직후 처리한다. */
   var pendingFitInset = null;
+  /** 진행 중인 중심 이동 애니메이션의 프레임 id. 없으면 null. */
+  var panFrame = null;
+  /** requestAnimationFrame이 멈춰도 이동을 끝내기 위한 예비 타이머. */
+  var panTimeout = null;
+  /** 진행 중인 이동의 도착 좌표. 중간에 끊길 때 이 자리로 마무리한다. */
+  var panTarget = null;
 
   function toneOf(filter) {
     return INITIAL.tone[filter] || INITIAL.tone.relaxed;
@@ -172,9 +216,10 @@ export function buildKakaoMapHtml({
 
   function meElement() {
     var el = document.createElement('div');
-    el.className = 'me me-pulse';
-    el.style.background = INITIAL.location.pulse;
-    el.innerHTML = '<div style="width:12px;height:12px;border-radius:50%;background:' + INITIAL.location.dot + ';border:2px solid ' + INITIAL.location.border + '"></div>';
+    el.className = 'me';
+    el.innerHTML =
+      '<div class="me-pulse" style="background:' + INITIAL.location.pulse + '"></div>' +
+      '<div class="me-dot" style="background:' + INITIAL.location.dot + ';border:2px solid ' + INITIAL.location.border + '"></div>';
     return el;
   }
 
@@ -214,15 +259,132 @@ export function buildKakaoMapHtml({
     }
   }
 
-  /** 중심 좌표를 화면 중앙(가려진 하단을 제외한 영역의 중앙)에 놓는다. */
-  function centerOn(latLng, liftPx) {
-    map.setCenter(latLng);
-    if (!liftPx) return;
+  /**
+   * 좌표를 liftPx만큼 아래로 밀어 놓은 좌표. 바텀시트에 가리지 않게 하는 보정이다.
+   *
+   * 이 좌표를 지도 중심으로 삼으면 원래 좌표가 "보이는 영역의 중앙"에 온다.
+   * panBy는 이 SDK 버전에서 동작하지 않아 좌표 자체를 옮긴다.
+   *
+   * 화면 픽셀과 좌표의 변환은 확대 레벨이 같으면 일정하므로, 지도를 옮기지 않고 미리 계산해도
+   * 결과가 같다. 예전에는 setCenter로 한 번 옮긴 뒤 다시 계산해 **이동이 두 번** 일어났고,
+   * 그래서 어디로 가든 화면이 두 번 튀었다.
+   */
+  function liftedLatLng(latLng, liftPx) {
+    if (!liftPx) return latLng;
 
-    // panBy는 이 버전에서 동작하지 않아, 중심을 liftPx만큼 아래 좌표로 옮겨 같은 효과를 낸다.
     var projection = map.getProjection();
     var point = projection.containerPointFromCoords(latLng);
-    map.setCenter(projection.coordsFromContainerPoint(new kakao.maps.Point(point.x, point.y + liftPx)));
+    return projection.coordsFromContainerPoint(new kakao.maps.Point(point.x, point.y + liftPx));
+  }
+
+  /** 이동에 쓰는 시간(ms). 거리가 멀수록 조금 길게 준다. */
+  var PAN_BASE_MS = 360;
+  var PAN_MAX_MS = 820;
+  /** 화면 이 배수를 넘게 멀면 손으로 미는 동작으로 볼 수 없어 즉시 옮긴다. */
+  var PAN_MAX_SCREENS = 20;
+
+  /** 진행 중인 이동을 버린다. 지금 있는 자리에 그대로 멈춘다. */
+  function cancelPan() {
+    if (panFrame !== null) {
+      cancelAnimationFrame(panFrame);
+      panFrame = null;
+    }
+    if (panTimeout !== null) {
+      clearTimeout(panTimeout);
+      panTimeout = null;
+    }
+    panTarget = null;
+  }
+
+  /**
+   * 진행 중인 이동을 도착 지점으로 즉시 마무리한다.
+   *
+   * requestAnimationFrame은 화면이 가려지면 **호출이 멈춘다.** 게시글로 넘어가는 순간
+   * 이동이 중간에서 얼어붙고, 돌아왔을 때 중심이 어중간한 자리에 남는다. 게다가 그동안
+   * panFrame이 비워지지 않아 idle 알림까지 계속 막힌다.
+   *
+   * 그래서 화면이 가려질 때와 예비 타이머에서 이 함수로 확실히 끝낸다.
+   */
+  function finishPan() {
+    if (panTarget === null) return;
+
+    var target = panTarget;
+    cancelPan();
+    map.setCenter(target);
+    sendIdle();
+  }
+
+  /** 시작과 끝이 느리고 가운데가 빠른 곡선. 손으로 밀어 놓는 느낌에 가깝다. */
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  /**
+   * 중심을 옮긴다. animate면 매 프레임 조금씩 옮겨 이어지는 움직임을 만든다.
+   *
+   * **SDK의 panTo를 쓰지 않는다.** panTo는 이동 거리가 화면보다 크면 애니메이션을 스스로
+   * 건너뛴다. 우리 장소들은 서로 몇 km씩 떨어져 있어 거의 항상 그 조건에 걸리고, 그러면
+   * 화면이 순간적으로 바뀌어 새 화면이 열린 것처럼 보인다. 그래서 직접 보간한다.
+   */
+  function centerOn(latLng, liftPx, animate) {
+    var target = liftedLatLng(latLng, liftPx);
+    cancelPan();
+
+    if (!animate) {
+      map.setCenter(target);
+      return;
+    }
+
+    var from = map.getCenter();
+    var fromLat = from.getLat();
+    var fromLng = from.getLng();
+    var toLat = target.getLat();
+    var toLng = target.getLng();
+
+    // 화면 몇 개 분량을 가로지르는지로 거리를 잰다. 확대 레벨이 달라도 체감이 일정해진다.
+    var projection = map.getProjection();
+    var fromPoint = projection.containerPointFromCoords(from);
+    var toPoint = projection.containerPointFromCoords(target);
+    var dx = toPoint.x - fromPoint.x;
+    var dy = toPoint.y - fromPoint.y;
+    var screens = Math.sqrt(dx * dx + dy * dy) / Math.max(1, window.innerWidth);
+
+    // 이미 그 자리면 아무것도 하지 않는다. 같은 카드를 두 번 눌러도 흔들리지 않는다.
+    if (screens < 0.002) return;
+
+    if (screens > PAN_MAX_SCREENS) {
+      map.setCenter(target);
+      sendIdle();
+      return;
+    }
+
+    var duration = Math.min(PAN_MAX_MS, PAN_BASE_MS + screens * 80);
+    var startedAt = null;
+
+    function step(now) {
+      if (startedAt === null) startedAt = now;
+      var progress = Math.min(1, (now - startedAt) / duration);
+      var eased = easeInOutCubic(progress);
+
+      map.setCenter(new kakao.maps.LatLng(
+        fromLat + (toLat - fromLat) * eased,
+        fromLng + (toLng - fromLng) * eased
+      ));
+
+      if (progress < 1) {
+        panFrame = requestAnimationFrame(step);
+        return;
+      }
+
+      cancelPan();
+      // 움직이는 동안은 idle을 막아 두었으므로(initMap 참고) 끝난 자리를 한 번 알린다.
+      sendIdle();
+    }
+
+    panTarget = target;
+    // rAF가 멈춰도 이 타이머가 이동을 마무리한다. 여유를 조금 둬 정상 완료를 방해하지 않는다.
+    panTimeout = setTimeout(finishPan, duration + 400);
+    panFrame = requestAnimationFrame(step);
   }
 
   function fitToPlaces(bottomInsetPx) {
@@ -233,7 +395,8 @@ export function buildKakaoMapHtml({
       var only = state.places[0];
       // 확대 레벨을 먼저 맞춘다. 중심 보정은 픽셀 기준이라 나중에 줌이 바뀌면 어긋난다.
       map.setLevel(${level});
-      centerOn(new kakao.maps.LatLng(only.latitude, only.longitude), Math.round(inset / 2));
+      // 첫 화면을 잡는 단계라 애니메이션 없이 곧바로 놓는다.
+      centerOn(new kakao.maps.LatLng(only.latitude, only.longitude), Math.round(inset / 2), false);
       return;
     }
 
@@ -331,9 +494,9 @@ export function buildKakaoMapHtml({
      * 좌표를 화면 중앙에 놓는다.
      * liftPx는 바텀시트에 가려지지 않도록 마커를 위로 끌어올릴 픽셀 수다(보이는 영역의 중앙에 맞추기 위함).
      */
-    panTo: function (lat, lng, liftPx) {
+    panTo: function (lat, lng, liftPx, animate) {
       if (!map) return;
-      centerOn(new kakao.maps.LatLng(lat, lng), liftPx);
+      centerOn(new kakao.maps.LatLng(lat, lng), liftPx, animate !== false);
     },
     /**
      * 장소명으로 검색해 지도를 그 위치로 옮긴다.
@@ -363,7 +526,8 @@ export function buildKakaoMapHtml({
         var found = results[0];
         var latitude = parseFloat(found.y);
         var longitude = parseFloat(found.x);
-        centerOn(new kakao.maps.LatLng(latitude, longitude), liftPx);
+        // 화면에 처음 자리를 잡는 용도라 즉시 이동한다.
+        centerOn(new kakao.maps.LatLng(latitude, longitude), liftPx, false);
 
         postToHost({
           type: 'placeResolved',
@@ -384,6 +548,8 @@ export function buildKakaoMapHtml({
      */
     fitPlaces: function (bottomInsetPx) {
       if (!map) return;
+      // 영역 맞춤은 목표를 새로 정하는 것이므로 진행 중인 이동을 끊는다.
+      cancelPan();
       if (state.places.length === 0) {
         pendingFitInset = bottomInsetPx || 0;
         return;
@@ -391,12 +557,23 @@ export function buildKakaoMapHtml({
       fitToPlaces(bottomInsetPx);
     },
     setLevel: function (level) {
-      if (map) map.setLevel(level, { animate: true });
+      if (!map) return;
+      // 확대와 이동이 겹치면 서로 목표를 덮어써 화면이 튄다. 이동을 먼저 끊는다.
+      cancelPan();
+      map.setLevel(level, { animate: true });
     },
     relayout: function () {
       if (map) map.relayout();
     }
   };
+
+  /*
+    화면이 가려지면 requestAnimationFrame이 멈춘다. 게시글로 넘어가는 순간이 그렇다.
+    이동을 도착 지점으로 끝내 두어야 돌아왔을 때 중심이 어긋나 있지 않다.
+  */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) finishPan();
+  });
 
   // 웹(iframe)에서는 부모 창이 postMessage로 패치를 전달한다.
   window.addEventListener('message', function (event) {
@@ -417,7 +594,17 @@ export function buildKakaoMapHtml({
     map.setZoomable(true);
     map.setDraggable(true);
 
-    kakao.maps.event.addListener(map, 'idle', sendIdle);
+    /*
+      이동 애니메이션 중에는 프레임마다 idle이 떠서 같은 알림이 RN으로 쏟아진다.
+      화면이 멈춘 뒤 한 번만 보내면 되므로, 움직이는 동안은 건너뛰고 centerOn이 끝낼 때 보낸다.
+    */
+    kakao.maps.event.addListener(map, 'idle', function () {
+      if (panFrame === null) sendIdle();
+    });
+
+    // 사용자가 직접 밀기 시작하면 진행 중인 이동을 멈춘다. 손보다 지도가 앞서 가면 안 된다.
+    kakao.maps.event.addListener(map, 'dragstart', cancelPan);
+
     kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
       var placeId = hitTestPlace(mouseEvent.latLng);
       postToHost(placeId ? { type: 'pinPress', placeId: placeId } : { type: 'mapPress' });
@@ -441,8 +628,8 @@ export function buildKakaoMapHtml({
   // 이 요청에만 Referer를 빼서, 도메인 등록 없이도 SDK를 받을 수 있게 한다.
   // 문서 정책은 건드리지 않으므로 services 검색 호출은 Referer를 정상적으로 보낸다.
   sdk.referrerPolicy = 'no-referrer';
-  // services: 장소 키워드 검색. 백엔드가 좌표를 주기 전까지 장소명으로 위치를 찾는다.
-  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services';
+  // services: 장소 키워드 검색. 쓰는 화면에서만 붙인다 — 안 쓰는 화면에서는 첫 렌더만 늦춘다.
+  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false${usePlaceSearch ? '&libraries=services' : ''}';
   sdk.onload = bootstrap;
   sdk.onerror = function () { postToHost({ type: 'error', reason: 'sdk-load-failed' }); };
   document.head.appendChild(sdk);

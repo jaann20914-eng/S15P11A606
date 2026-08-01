@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
   Platform,
   Pressable,
@@ -14,6 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { usePlaceSearch } from '@/hooks/usePlaceSearch';
+import { useMapStore } from '@/store/useMapStore';
+import { MIN_PLACE_QUERY_LENGTH, WIDE_PLACE_SEARCH_RADIUS_M } from '@/types/place';
+import type { PlaceSearchItem } from '@/types/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : undefined;
@@ -25,29 +30,24 @@ type RecentSearch = {
   kind: 'keyword' | 'place';
 };
 
-const initialRecent: RecentSearch[] = [
-  { id: 1, label: '카페', date: '07.22.', kind: 'keyword' },
-  { id: 2, label: '암사편한세상아파트', date: '07.20.', kind: 'place' },
-  { id: 3, label: '암사편한세상', date: '07.20.', kind: 'keyword' },
-  { id: 4, label: '역삼문화 휴가든', date: '07.19.', kind: 'place' },
-  { id: 5, label: '역삼', date: '07.19.', kind: 'keyword' },
-  { id: 6, label: '역삼역', date: '07.19.', kind: 'keyword' },
-];
+/**
+ * 최근 검색은 이 화면이 살아 있는 동안만 남는다.
+ *
+ * 저장소에 남기려면 별도 작업이 필요하고 서버 API도 없다. 실제로 고른 장소만 쌓이도록
+ * 비운 채 시작한다 — 꾸며 둔 기록을 두면 실제 검색 결과와 섞여 진짜처럼 보인다.
+ */
+const initialRecent: RecentSearch[] = [];
 
-const placeResults = [
-  {
-    id: '1',
-    name: '역삼문화 휴가든',
-    address: '서울 강남구 테헤란로7길 21',
-    meta: '777m · 자연공원 · 리뷰 7',
-  },
-  {
-    id: '2',
-    name: '역삼역 2호선',
-    address: '서울 강남구 테헤란로 156',
-    meta: '283m · 지하철,전철',
-  },
-];
+/** 최근 검색에 남길 날짜. 목록의 기존 표기(`07.22.`)를 따른다. */
+function today(): string {
+  const now = new Date();
+  return `${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}.`;
+}
+
+/** 거리 표기. 1km 미만은 m로, 그 이상은 소수 한 자리 km로 보여준다. */
+function formatDistance(meters: number): string {
+  return meters < 1000 ? `${meters}m` : `${(meters / 1000).toFixed(1)}km`;
+}
 
 function LeadingIcon({ kind }: { kind: RecentSearch['kind'] }) {
   return (
@@ -70,20 +70,47 @@ function HighlightedName({ name, query }: { name: string; query: string }) {
 }
 
 export default function Search() {
-  const inputRef = useRef<TextInput>(null);
-  const [query, setQuery] = useState('');
+  /*
+    검색바는 "가려는 곳"을 찾는다. 서버 기본 반경 50m는 핀 등록용이라 여기서는 거의
+    빈 결과가 되므로 넓은 반경을 직접 넘긴다.
+  */
+  const mapCenter = useMapStore((state) => state.center);
+  const search = usePlaceSearch({
+    radius: WIDE_PLACE_SEARCH_RADIUS_M,
+    // 위치 권한이 없어도 검색은 되어야 한다. 지금 보고 있던 지도 중심을 기준으로 쓴다.
+    fallbackCoordinate: mapCenter,
+  });
   const [recent, setRecent] = useState(initialRecent);
-  const normalizedQuery = query.trim();
-  const suggestions = useMemo(
-    () =>
-      normalizedQuery ? [`${normalizedQuery}역`, `${normalizedQuery}역 맛집`, `${normalizedQuery} 맛집`] : [],
-    [normalizedQuery],
-  );
+  const focusOn = useMapStore((state) => state.focusOn);
+
+  const normalizedQuery = search.keyword.trim();
 
   const submit = (value: string) => {
-    setQuery(value);
+    search.setKeyword(value);
     Keyboard.dismiss();
   };
+
+  /**
+   * 고른 장소로 홈 지도를 옮긴다.
+   *
+   * 상세 화면으로 보내지 않는 이유는 `/places/search`가 카카오 장소만 주기 때문이다.
+   * 상세가 필요로 하는 우리 `placeId`는 `GET /api/v1/places`(지도 범위 조회)에만 있어,
+   * 지금 검색 결과만으로는 어떤 장소인지 서버에 물어볼 수 없다.
+   */
+  const choose = useCallback(
+    (place: PlaceSearchItem) => {
+      focusOn({
+        coordinate: { latitude: place.latitude, longitude: place.longitude },
+        name: place.name,
+      });
+      setRecent((current) => [
+        { id: Date.now(), label: place.name, date: today(), kind: 'place' },
+        ...current.filter((item) => item.label !== place.name),
+      ]);
+      router.back();
+    },
+    [focusOn],
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -93,18 +120,19 @@ export default function Search() {
             <Ionicons name="chevron-back" size={24} color={colors.dark} />
           </Pressable>
           <TextInput
-            ref={inputRef}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={() => submit(query)}
+            value={search.keyword}
+            onChangeText={search.setKeyword}
+            onSubmitEditing={() => submit(search.keyword)}
             placeholder="장소명이나 태그를 입력하세요"
             placeholderTextColor={colors.gray600}
             returnKeyType="search"
             selectionColor={colors.blue}
+            autoFocus
             style={[s.input, webNoOutline]}
           />
-          {query.length > 0 && (
-            <Pressable accessibilityLabel="검색어 지우기" onPress={() => setQuery('')} style={s.clearButton}>
+          {search.loading && <ActivityIndicator size="small" color={colors.gray600} />}
+          {search.keyword.length > 0 && (
+            <Pressable accessibilityLabel="검색어 지우기" onPress={search.clear} style={s.clearButton}>
               <Ionicons name="close" size={15} color={colors.white} />
             </Pressable>
           )}
@@ -117,45 +145,45 @@ export default function Search() {
         contentContainerStyle={s.content}
       >
         {normalizedQuery ? (
-          <>
-            <View style={s.suggestionGroup}>
-              {suggestions.map((suggestion) => (
-                <Pressable key={suggestion} onPress={() => submit(suggestion)} style={s.suggestionRow}>
-                  <LeadingIcon kind="keyword" />
-                  <Text numberOfLines={1} style={s.suggestionText}>
-                    <Text style={s.highlight}>{normalizedQuery}</Text>
-                    {suggestion.slice(normalizedQuery.length)}
-                  </Text>
-                  <Ionicons name="arrow-up-outline" size={19} color={colors.dark} style={s.returnArrow} />
-                </Pressable>
-              ))}
-            </View>
+          <View style={s.placeGroup}>
+            {/* 두 글자부터 요청한다. 그 전에는 왜 결과가 없는지 알려 준다. */}
+            {normalizedQuery.length < MIN_PLACE_QUERY_LENGTH && (
+              <Text style={s.statusText}>{MIN_PLACE_QUERY_LENGTH}글자 이상 입력해 주세요.</Text>
+            )}
 
-            <View style={s.groupDivider} />
+            {search.error && (
+              <View style={s.statusBlock}>
+                <Text accessibilityRole="alert" style={s.statusText}>
+                  {search.error}
+                </Text>
+                {/* 외부 장소 API 장애처럼 다시 시도할 값이 있을 때만 버튼을 준다. */}
+                {search.retryable && (
+                  <Pressable onPress={search.retry} style={s.retryButton}>
+                    <Text style={s.retryText}>다시 시도</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
 
-            <View style={s.placeGroup}>
-              {placeResults.map((place) => (
-                <Pressable
-                  key={place.id}
-                  onPress={() => router.push(`/place/${place.id}`)}
-                  style={s.placeRow}
-                >
-                  <LeadingIcon kind="place" />
-                  <View style={s.placeCopy}>
-                    <HighlightedName name={place.name} query={normalizedQuery} />
-                    <Text style={s.placeAddress}>{place.address}</Text>
-                    <Text style={s.placeMeta}>{place.meta}</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </>
+            {search.empty && <Text style={s.statusText}>검색 결과가 없어요.</Text>}
+
+            {search.results.map((place) => (
+              <Pressable key={place.kakaoPlaceId} onPress={() => choose(place)} style={s.placeRow}>
+                <LeadingIcon kind="place" />
+                <View style={s.placeCopy}>
+                  <HighlightedName name={place.name} query={normalizedQuery} />
+                  <Text style={s.placeAddress}>{place.address}</Text>
+                  <Text style={s.placeMeta}>{formatDistance(place.distanceMeters)}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
         ) : recent.length > 0 ? (
           <>
             <Text style={s.sectionTitle}>최근 검색</Text>
             <View style={s.titleRule} />
             {recent.map((item) => (
-              <Pressable key={item.id} onPress={() => setQuery(item.label)} style={s.recentRow}>
+              <Pressable key={item.id} onPress={() => submit(item.label)} style={s.recentRow}>
                 <LeadingIcon kind={item.kind} />
                 <Text numberOfLines={1} style={s.recentLabel}>
                   {item.label}
@@ -250,20 +278,17 @@ const s = StyleSheet.create({
   },
   emptyMark: { fontSize: 22, lineHeight: 27, fontWeight: '700', color: colors.white },
   emptyText: { ...type.label, color: colors.dark, marginTop: spacing.x5 },
-  suggestionGroup: { marginTop: spacing.x1 },
-  suggestionRow: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.x3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  suggestionText: { ...type.label, flex: 1, color: colors.dark },
   highlight: { color: '#2F80ED', fontWeight: '600' },
-  returnArrow: { transform: [{ rotate: '-45deg' }] },
-  groupDivider: { height: 8, marginHorizontal: -layout.gutter, backgroundColor: colors.gray100 },
   placeGroup: { marginTop: 0 },
+  statusBlock: { alignItems: 'flex-start', gap: spacing.x2, paddingVertical: spacing.x4 },
+  statusText: { ...type.small, color: colors.gray600, paddingVertical: spacing.x4 },
+  retryButton: {
+    paddingVertical: spacing.x2,
+    paddingHorizontal: spacing.x4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gray100,
+  },
+  retryText: { ...type.small, color: colors.dark, fontWeight: '600' },
   placeRow: {
     minHeight: 92,
     flexDirection: 'row',

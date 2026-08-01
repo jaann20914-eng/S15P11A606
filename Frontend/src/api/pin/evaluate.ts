@@ -1,7 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { evaluateMockPin } from '@/mocks/pin';
-import type { PinEvaluationResult, PinRating } from '@/types/pin';
+import type { PinId, PinEvaluationResult, PinRating } from '@/types/pin';
 
 /**
  * 핀 평가 등록 — `POST /api/v1/pins/{pinId}/evaluations`
@@ -12,7 +12,7 @@ import type { PinEvaluationResult, PinRating } from '@/types/pin';
  * 오류 코드: `INVALID_PIN_ID` `INVALID_RATING` `UNAUTHORIZED`
  * `PIN_EVALUATION_FORBIDDEN` `PIN_NOT_FOUND` `PIN_ALREADY_EVALUATED` `PIN_EVALUATION_FAILED`.
  */
-function requestEvaluatePin(pinId: number, rating: PinRating): Promise<PinEvaluationResult> {
+function requestEvaluatePin(pinId: PinId, rating: PinRating): Promise<PinEvaluationResult> {
   return apiRequest<PinEvaluationResult>({
     method: 'POST',
     url: `/api/v1/pins/${pinId}/evaluations`,
@@ -20,6 +20,6 @@ function requestEvaluatePin(pinId: number, rating: PinRating): Promise<PinEvalua
   });
 }
 
-export function evaluatePin(pinId: number, rating: PinRating): Promise<PinEvaluationResult> {
+export function evaluatePin(pinId: PinId, rating: PinRating): Promise<PinEvaluationResult> {
   return usesMock('pin/evaluate') ? evaluateMockPin(pinId, rating) : requestEvaluatePin(pinId, rating);
 }

@@ -1,11 +1,9 @@
 package com.yuhan.wagglewaggle.domain.place.service;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
-import com.yuhan.wagglewaggle.domain.pin.entity.PinTag;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
-import com.yuhan.wagglewaggle.domain.pin.repository.PinTagRepository;
-import com.yuhan.wagglewaggle.domain.pin.repository.PinUnlockRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.WeeklyCrowdStatRow;
+import com.yuhan.wagglewaggle.domain.pin.service.PinCardAssembler;
 import com.yuhan.wagglewaggle.domain.place.client.KakaoLocalClient;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse;
 import com.yuhan.wagglewaggle.domain.place.client.dto.KakaoKeywordResponse.Document;
@@ -27,12 +25,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -56,8 +50,7 @@ public class PlaceDetailService {
 
     private final PlaceRepository placeRepository;
     private final PinRepository pinRepository;
-    private final PinTagRepository pinTagRepository;
-    private final PinUnlockRepository pinUnlockRepository;
+    private final PinCardAssembler pinCardAssembler;
     private final KakaoLocalClient kakaoLocalClient;
 
     /**
@@ -71,14 +64,23 @@ public class PlaceDetailService {
         Place place = placeRepository.findById(placeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PLACE_NOT_FOUND));
 
+        return getPlaceDetail(place, memberId);
+    }
+
+    /**
+     * 이미 조회한 장소 엔티티로 장소 상세(기본 정보·활성 핀·요일별 혼잡 통계)를 조립한다.
+     * 장소 검색 확정 등 장소를 이미 확보한 흐름에서 재사용하며,
+     * 하나라도 조회에 실패하면 부분 응답을 내지 않고 PLACE_DETAIL_FETCH_FAILED 로 처리한다.
+     */
+    public PlaceDetailResponse getPlaceDetail(Place place, Long memberId) {
         try {
             Instant now = Instant.now();
             PlaceInfo placeInfo = loadPlaceInfo(place);
-            List<WeeklyCrowdStat> weeklyCrowdStats = loadWeeklyCrowdStats(placeId, now);
-            List<PinCard> pins = loadPinCards(placeId, memberId, now);
+            List<WeeklyCrowdStat> weeklyCrowdStats = loadWeeklyCrowdStats(place.getId(), now);
+            List<PinCard> pins = loadPinCards(place.getId(), memberId, now);
             return new PlaceDetailResponse(placeInfo, pins, weeklyCrowdStats);
         } catch (Exception e) {
-            log.error("장소 상세 조회 실패 (placeId={})", placeId, e);
+            log.error("장소 상세 조회 실패 (placeId={})", place.getId(), e);
             throw new CustomException(ErrorCode.PLACE_DETAIL_FETCH_FAILED);
         }
     }
@@ -97,37 +99,12 @@ public class PlaceDetailService {
 
     /**
      * 단일 장소의 활성 핀 카드 목록을 만든다.
-     * 활성 핀(+member)·태그·열람 여부를 각각 한 번씩 배치 조회해 핀별 N+1을 방지한다.
+     * 핀 조회 시 member를 fetch join 하므로 작성자는 핀에서 바로 얻어 공통 조립기에 전달한다.
      */
     private List<PinCard> loadPinCards(Long placeId, Long memberId, Instant now) {
         List<Pin> pins = pinRepository.findActivePinsByPlaceId(
                 placeId, now.minus(ACTIVE_WINDOW), now);
-        if (pins.isEmpty()) {
-            return List.of();
-        }
-
-        List<UUID> pinIds = pins.stream().map(Pin::getId).toList();
-
-        Map<UUID, List<String>> tagsByPinId = pinTagRepository.findByPin_IdIn(pinIds).stream()
-                .collect(Collectors.groupingBy(
-                        pinTag -> pinTag.getPin().getId(),
-                        Collectors.mapping(PinTag::getTag, Collectors.toList())));
-
-        Set<UUID> unlockedPinIds = memberId == null
-                ? Set.of()
-                : new HashSet<>(pinUnlockRepository.findUnlockedPinIds(memberId, pinIds));
-
-        return pins.stream()
-                .map(pin -> new PinCard(
-                        pin.getId(),
-                        pin.getMember().getNickname(),
-                        pin.getMember().getViewAngle(),
-                        pin.getCreatedAt(),
-                        pin.getMemo(),
-                        pin.getThumbnailKey(),
-                        unlockedPinIds.contains(pin.getId()),
-                        tagsByPinId.getOrDefault(pin.getId(), List.of())))
-                .toList();
+        return pinCardAssembler.assemble(pins, memberId, Pin::getMember);
     }
 
     /**
@@ -187,7 +164,11 @@ public class PlaceDetailService {
         return new PlaceInfo(place.getId(), place.getName(), address, phone);
     }
 
-    private Document findMatchingDocument(KakaoKeywordResponse response, String kakaoPlaceId) {
+    /**
+     * 카카오 키워드 검색 응답에서 kakao_place_id가 정확히 일치하는 문서를 찾는다.
+     * 장소 상세·검색 확정에서 공통으로 사용하도록 패키지 내 공개로 둔다.
+     */
+    static Document findMatchingDocument(KakaoKeywordResponse response, String kakaoPlaceId) {
         if (response == null || response.documents() == null) {
             return null;
         }
@@ -197,7 +178,11 @@ public class PlaceDetailService {
                 .orElse(null);
     }
 
-    private String resolveAddress(Document document) {
+    /**
+     * 카카오 문서의 주소를 해석한다(도로명 우선, 없으면 지번, 둘 다 없으면 빈 문자열).
+     * 장소 상세·검색 확정에서 공통으로 사용하도록 패키지 내 공개로 둔다.
+     */
+    static String resolveAddress(Document document) {
         if (document.roadAddressName() != null && !document.roadAddressName().isBlank()) {
             return document.roadAddressName();
         }

@@ -19,6 +19,5 @@ export {
   TabBarIcon,
   appTabBarTheme,
   useAppTabBarHeight,
-  useAppTabBarStyle,
 } from './AppTabBar';
 export type { AppTab, AppTabBarProps, AppTabDefinition } from './AppTabBar';

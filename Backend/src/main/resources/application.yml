@@ -15,6 +15,14 @@ spring:
     baseline-on-migrate: true
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    # Publisher Confirm(correlated) + mandatory 반환 콜백 활성화
+    publisher-confirm-type: correlated
+    publisher-returns: true
 
 kakao:
   local:
@@ -49,3 +57,29 @@ jwt:
   access-token-expiration-seconds: 3600
   refresh-token-expiration-seconds: 1209600
   onboarding-token-expiration-seconds: 600
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION:ap-northeast-2}
+    upload-url-expiration-seconds: ${AWS_S3_UPLOAD_URL_EXPIRATION_SECONDS:600}
+    download-url-expiration-seconds: ${AWS_S3_DOWNLOAD_URL_EXPIRATION_SECONDS:600}
+
+pin:
+  upload:
+    # 원본 영상 최대 크기 (기본 100MB)
+    max-video-size-bytes: ${MAX_VIDEO_SIZE_BYTES:104857600}
+  registration:
+    # 회원 1인의 하루 핀 등록 허용 개수. 정책값 미확정이라 기본 0(=미적용).
+    # 값이 합의되면 DAILY_PIN_LIMIT 환경변수 또는 이 설정으로 양수를 지정한다.
+    daily-limit: ${DAILY_PIN_LIMIT:0}
+
+ai:
+  blur:
+    republish:
+      # 실패·장기 PENDING 작업 재발행 스케줄러 설정.
+      enabled: ${AI_BLUR_REPUBLISH_ENABLED:true}
+      # 재발행 조회 주기(ms). 기본 60초.
+      interval-ms: ${AI_BLUR_REPUBLISH_INTERVAL_MS:60000}
+      # 이 시간 이상 PENDING인 작업을 재발행 대상으로 본다. 기본 5분.
+      pending-threshold: ${AI_BLUR_REPUBLISH_PENDING_THRESHOLD:PT5M}

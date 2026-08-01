@@ -31,9 +31,15 @@ public enum ErrorCode {
     // Tag
     INVALID_TAG_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "태그 검색 조건이 올바르지 않습니다."),
     TAG_SEARCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "태그 검색 중 오류가 발생했습니다."),
+    INVALID_TAG_NAME(HttpStatus.BAD_REQUEST, "태그명이 올바르지 않습니다."),
+    TAGGED_PINS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "태그가 포함된 핀 목록 조회 중 오류가 발생했습니다."),
     INVALID_COORDINATES(HttpStatus.BAD_REQUEST, "좌표가 올바르지 않습니다."),
     INVALID_RADIUS(HttpStatus.BAD_REQUEST, "반경이 올바르지 않습니다."),
     NEARBY_PLACES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "주변 장소 조회 중 오류가 발생했습니다."),
+
+    // Search History
+    INVALID_LIMIT(HttpStatus.BAD_REQUEST, "조회 개수가 올바르지 않습니다."),
+    RECENT_SEARCHES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "최근 검색기록 조회 중 오류가 발생했습니다."),
 
     // Auth
     AUTH_PROVIDER_INVALID(HttpStatus.BAD_REQUEST, "지원하지 않는 OAuth 제공자입니다."),
@@ -57,7 +63,28 @@ public enum ErrorCode {
     ONBOARDING_TOKEN_ALREADY_USED(HttpStatus.UNAUTHORIZED, "이미 사용된 온보딩 토큰입니다."),
     NICKNAME_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 온보딩을 완료한 사용자입니다."),
-    ONBOARDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "온보딩 처리 중 오류가 발생했습니다.");
+    ONBOARDING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "온보딩 처리 중 오류가 발생했습니다."),
+
+    // Pin Upload
+    INVALID_UPLOAD_REQUEST(HttpStatus.BAD_REQUEST, "영상 업로드 정보 발급 요청이 올바르지 않습니다."),
+    UPLOAD_URL_ISSUE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 업로드 정보 발급 중 오류가 발생했습니다."),
+
+    // Pin Create
+    INVALID_CROWD_LEVEL(HttpStatus.BAD_REQUEST, "허용되지 않은 혼잡 단계입니다."),
+    VIDEO_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 사용된 영상입니다."),
+    LOCATION_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "장소와 촬영 위치가 너무 멉니다."),
+    VIDEO_NOT_ACCESSIBLE(HttpStatus.BAD_REQUEST, "영상을 확인할 수 없습니다."),
+    DAILY_PIN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 등록할 수 있는 핀 개수를 초과했습니다."),
+    PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다."),
+
+    // AI Blur Result
+    INVALID_AI_BLUR_RESULT(HttpStatus.BAD_REQUEST, "AI 블러 결과 메시지 형식이 올바르지 않습니다."),
+    AI_BLUR_PIN_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "AI 블러 대상 핀을 찾을 수 없습니다."),
+
+    // Pin Status
+    PIN_NOT_FOUND(HttpStatus.NOT_FOUND, "핀을 찾을 수 없습니다."),
+    PIN_STATUS_READ_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 핀의 처리 상태를 조회할 권한이 없습니다."),
+    PIN_STATUS_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 상태 조회 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

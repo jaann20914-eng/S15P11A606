@@ -22,6 +22,24 @@ function toScriptLiteral(value: unknown): string {
 }
 
 /**
+ * 핀들의 한가운데. 최초 중심을 정하는 데만 쓴다.
+ *
+ * 정확한 영역은 지도가 준비된 뒤 `fitPlaces`가 잡으므로 여기서는 평균으로 충분하다.
+ * 목적은 정확도가 아니라 **첫 타일을 올바른 동네에서 받는 것**이다.
+ */
+function centerOfPlaces(places: KakaoMapProps['places']): { latitude: number; longitude: number } {
+  const total = places.reduce(
+    (sum, place) => ({
+      latitude: sum.latitude + place.latitude,
+      longitude: sum.longitude + place.longitude,
+    }),
+    { latitude: 0, longitude: 0 },
+  );
+
+  return { latitude: total.latitude / places.length, longitude: total.longitude / places.length };
+}
+
+/**
  * 카카오맵 JavaScript SDK를 WebView 안에서 구동하는 지도.
  * SDK가 웹 전용이라 RN에서는 이 방식이 유일한 공식 경로다(네이티브 SDK는 Expo Go에서 못 쓴다).
  *
@@ -36,6 +54,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     filter,
     selectedPlaceId = null,
     center,
+    fitPlacesOnReady = false,
+    usePlaceSearch = false,
     myLocation = null,
     fullScreen = false,
     bottomInset = 0,
@@ -56,11 +76,22 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const [attempt, setAttempt] = useState(0);
   const { width, height } = useWindowDimensions();
 
-  // 최초 중심 좌표만 HTML에 심는다. 이후 이동은 명령으로 처리해 지도가 다시 로드되지 않게 한다.
-  const initialCenter = useRef(center);
+  /*
+    최초 중심 좌표만 HTML에 심는다. 이후 이동은 명령으로 처리해 지도가 다시 로드되지 않게 한다.
+
+    핀에 맞출 화면이라면 `center`가 아니라 핀들의 중심에서 시작한다. 그러지 않으면 첫 타일을
+    엉뚱한 동네에서 받아 놓고 곧바로 버리게 된다 — 홈이 실제로 그랬다. 기본 중심은 서울숲인데
+    핀은 영등포에 있어, 지도 한 화면을 통째로 받고 다시 받았다.
+  */
+  const initialCenter = useRef(fitPlacesOnReady && places.length > 0 ? centerOfPlaces(places) : center);
   const html = useMemo(
-    () => buildKakaoMapHtml({ appKey: kakaoMapAppKey, center: initialCenter.current }),
-    [],
+    () =>
+      buildKakaoMapHtml({
+        appKey: kakaoMapAppKey,
+        center: initialCenter.current,
+        usePlaceSearch,
+      }),
+    [usePlaceSearch],
   );
 
   const send = useCallback((method: MapCommand, args: unknown[] = []) => {
@@ -79,17 +110,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     send('update', [patch]);
   }, [patch, ready, send]);
 
-  // 필터가 바뀌면 핀 묶음 자체가 달라지므로 새 핀이 모두 보이도록 영역을 다시 잡는다.
-  // 첫 실행(지도 준비 시점)은 건너뛴다. 화면이 지정한 최초 중심을 덮어써 버리기 때문이다.
-  const fittedOnce = useRef(false);
-  useEffect(() => {
-    if (!ready) return;
-    if (!fittedOnce.current) {
-      fittedOnce.current = true;
-      return;
-    }
-    send('fitPlaces', [insetRef.current]);
-  }, [filter, ready, send]);
+  /*
+    필터가 바뀌어도 지도를 움직이지 않는다.
+
+    예전에는 새 핀이 모두 보이도록 `fitPlaces`로 영역을 다시 잡았다. 그런데 혼잡도 토글은
+    "여유한 곳만 / 붐비는 곳만 보기"라서, 지금 보고 있는 자리를 떠날 이유가 없다. 실제로는
+    토글을 누를 때마다 내 위치에서 핀 묶음 전체로 화면이 끌려가 어디를 보고 있었는지 잃었다.
+
+    핀은 `update` 패치로 다시 그려지므로 필터 결과는 그 자리에서 바로 반영된다.
+  */
 
   // 화면 회전 등으로 WebView 크기가 바뀌면 SDK에 알려야 타일이 어긋나지 않는다.
   useEffect(() => {
@@ -105,8 +134,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   useImperativeHandle(
     ref,
     () => ({
-      panTo: ({ latitude, longitude }) =>
-        send('panTo', [latitude, longitude, Math.round(insetRef.current / 2)]),
+      panTo: ({ latitude, longitude }, options) =>
+        send('panTo', [latitude, longitude, Math.round(insetRef.current / 2), options?.animate ?? true]),
       searchPlace: (keyword: string) => send('searchPlace', [keyword, Math.round(insetRef.current / 2)]),
       setLevel: (level: number) => send('setLevel', [level]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),
@@ -138,6 +167,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       switch (message.type) {
         case 'ready':
           setReady(true);
+          // 이미 핀 중심에서 시작했으므로 여기서의 맞춤은 확대만 손보는 짧은 보정이다.
+          if (fitPlacesOnReady) send('fitPlaces', [insetRef.current]);
           onReady?.();
           break;
         case 'error':
@@ -160,7 +191,17 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
           break;
       }
     },
-    [fail, onMapPress, onPinPress, onPlaceNotFound, onPlaceResolved, onReady, onViewChange],
+    [
+      fail,
+      fitPlacesOnReady,
+      onMapPress,
+      onPinPress,
+      onPlaceNotFound,
+      onPlaceResolved,
+      onReady,
+      onViewChange,
+      send,
+    ],
   );
 
   const reason = !hasKakaoMapAppKey ? 'missing-key' : failure;

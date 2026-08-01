@@ -14,6 +14,16 @@ import java.util.UUID;
 public interface PinRepository extends JpaRepository<Pin, UUID> {
 
     /**
+     * 동일한 원본 영상 키가 이미 핀에 사용되었는지 검사한다(영상 중복 등록 방지).
+     */
+    boolean existsByOriginalVideoKey(String originalVideoKey);
+
+    /**
+     * 특정 회원이 기준 시각 이후 등록한 핀 개수를 센다(일일 등록 제한 확인용).
+     */
+    long countByMember_IdAndCreatedAtGreaterThanEqual(Long memberId, Instant from);
+
+    /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.
      * 유효 = createdAt이 from 이후(최근 1시간 이내) AND (expiresAt이 없거나 아직 만료되지 않음).
      * 작성자 뷰 각도(member.viewAngle) 사용을 위해 member를 fetch join 하여 N+1을 방지한다.
@@ -50,6 +60,33 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             @Param("placeId") Long placeId,
             @Param("from") Instant from,
             @Param("now") Instant now
+    );
+
+    /**
+     * 지도 영역 내에서 특정 태그가 정확히 일치하는 활성 핀을 조회한다(태그 검색 확정용).
+     * 활성 = 삭제되지 않음(deleted_at IS NULL) AND (expires_at이 없거나 아직 만료되지 않음)
+     * PostGIS ST_Covers로 지도 경계(bounds) 영역 필터를 적용하고 최신순으로 정렬한다.
+     * ST_MakeEnvelope 인자 순서는 (minLng, minLat, maxLng, maxLat, srid)이다.
+     * 네이티브 쿼리이므로 member는 LAZY 상태이며, 서비스에서 memberId 배치 조회로 N+1을 방지한다.
+     */
+    @Query(value = """
+            SELECT p.* FROM pins p
+            JOIN pin_tags pt ON pt.pin_id = p.id
+            WHERE pt.tag = :tag
+              AND p.deleted_at IS NULL
+              AND (p.expires_at IS NULL OR p.expires_at > :now)
+              AND ST_Covers(
+                    ST_MakeEnvelope(:swLng, :swLat, :neLng, :neLat, 4326)::geography,
+                    p.capture_location)
+            ORDER BY p.created_at DESC
+            """, nativeQuery = true)
+    List<Pin> findActivePinsByTagWithinBounds(
+            @Param("tag") String tag,
+            @Param("now") Instant now,
+            @Param("swLng") double swLng,
+            @Param("swLat") double swLat,
+            @Param("neLng") double neLng,
+            @Param("neLat") double neLat
     );
 
     /**

@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { createMockChatRequest } from '@/mocks/chat';
 import type { ChatRequestResult } from '@/types/chat';
+import type { PinId } from '@/types/pin';
 
 /**
  * 익명 채팅 요청 — `POST /api/v1/chat/request/{pinId}`
@@ -15,7 +16,7 @@ import type { ChatRequestResult } from '@/types/chat';
  * 오류 코드: `INVALID_PIN_ID` `UNAUTHORIZED` `CHAT_REQUEST_FORBIDDEN`
  * `PIN_NOT_FOUND` `CHAT_REQUEST_ALREADY_EXISTS` `CHAT_REQUEST_CREATE_FAILED`.
  */
-function requestCreateChatRequest(pinId: number): Promise<ChatRequestResult> {
+function requestCreateChatRequest(pinId: PinId): Promise<ChatRequestResult> {
   return apiRequest<ChatRequestResult>({
     method: 'POST',
     url: `/api/v1/chat/request/${pinId}`,
@@ -23,6 +24,6 @@ function requestCreateChatRequest(pinId: number): Promise<ChatRequestResult> {
   });
 }
 
-export function createChatRequest(pinId: number): Promise<ChatRequestResult> {
+export function createChatRequest(pinId: PinId): Promise<ChatRequestResult> {
   return usesMock('chat/request') ? createMockChatRequest(pinId) : requestCreateChatRequest(pinId);
 }

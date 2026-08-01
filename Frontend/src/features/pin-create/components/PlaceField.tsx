@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { MIN_PLACE_QUERY_LENGTH } from '@/types/place';
 import type { PinDraftPlace } from '@/types/pinCreate';
-import { usePlaceSearch } from '../hooks/usePlaceSearch';
+import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { pinCreateStyles as s } from '../styles';
 
 export interface PlaceFieldProps {
