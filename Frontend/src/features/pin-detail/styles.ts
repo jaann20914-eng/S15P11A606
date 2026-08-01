@@ -305,8 +305,15 @@ export const pinDetailStyles = StyleSheet.create({
   /** 손잡이를 넉넉히 감싸 손가락이 닿는 자리를 넓힌다. */
   sheetHandleArea: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: spacing.x3 },
   sheetHandle: { width: 56, height: 5, borderRadius: radius.pill, backgroundColor: colors.gray200 },
-  sheetTitle: { ...type.title, alignSelf: 'flex-start', color: colors.dark },
-  sheetCaption: { ...type.caption, alignSelf: 'flex-start', color: colors.gray400 },
+  /** 시트에서 가장 큰 글자. 무엇을 하는 자리인지 한눈에 읽혀야 한다. */
+  sheetTitle: { ...type.h3, alignSelf: 'flex-start', color: colors.dark },
+  /** 제목에 딸린 주의 문구. 돈이 걸린 안내라 작게 흘리지 않는다. */
+  sheetCaption: {
+    ...type.small,
+    alignSelf: 'flex-start',
+    color: colors.gray400,
+    marginTop: spacing.x1,
+  },
 
   /* 채팅 요청 모달 — 가운데 상자 */
   modalBackdrop: {
@@ -342,7 +349,7 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   /** 비율 처리는 IllustrationVideo의 `contentFit`이 맡으므로 크기만 준다. */
-  coinVideo: { width: 200, height: 200, marginTop: spacing.x4 },
+  coinVideo: { width: 200, height: 200, marginTop: spacing.x6 },
   payError: { ...type.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.x3 },
   payButton: { alignSelf: 'stretch' },
   payButtonBusy: { opacity: 0.6 },
@@ -351,8 +358,8 @@ export const pinDetailStyles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     color: colors.dark,
-    marginTop: spacing.x2,
-    marginBottom: spacing.x5,
+    marginTop: spacing.x4,
+    marginBottom: spacing.x6,
   },
   chatModalCard: {
     width: '100%',
