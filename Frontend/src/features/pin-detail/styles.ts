@@ -167,8 +167,13 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 장소 */
   placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x4 },
-  /** 장소명 아래 줄. 주소가 있던 자리다. */
-  detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
+  /**
+   * 장소명 아래 줄. 주소가 있던 자리다.
+   *
+   * 장소명과 한 덩어리로 읽혀야 해서 거의 붙인다. 글자 크기가 24 → 16으로 크게 떨어져
+   * 간격을 주지 않아도 두 줄이 구분된다.
+   */
+  detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x1 },
   /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */
   crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x2 },
   rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x5 },
