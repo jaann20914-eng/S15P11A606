@@ -8,8 +8,8 @@ import { useEffect, useRef, useState } from 'react';
  */
 const STEPS = [0, 6, 14, 24, 32];
 
-/** 단계 사이 간격(ms). 전체로는 약 180ms 걸린다 — 시트가 오르내리는 시간과 비슷하다. */
-const STEP_MS = 45;
+/** 단계 사이 간격(ms). 전체로는 약 90ms 걸린다 — 시트가 오르내리는 시간과 비슷하다. */
+const STEP_MS = 22;
 
 /**
  * 뒤 화면에 거는 흐림의 반경.

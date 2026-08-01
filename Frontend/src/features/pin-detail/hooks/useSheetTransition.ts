@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder } from 'react-native';
+import { Animated, Easing, PanResponder } from 'react-native';
 import type { GestureResponderHandlers, LayoutChangeEvent } from 'react-native';
 
 export interface SheetTransition {
@@ -24,10 +24,11 @@ const DISMISS_DISTANCE = 120;
 /** 짧게 튕겨도 닫히도록 하는 속도 기준(px/ms). */
 const DISMISS_VELOCITY = 0.8;
 
-const ENTER_DURATION = 260;
+/** 올라오는 시간. 빠르게 치고 끝에서 부드럽게 멈추도록 감속 곡선을 쓴다. */
+const ENTER_DURATION = 150;
 
 /** 내려가는 데 걸리는 시간. 배경 흐림을 함께 거두려면 화면도 이 값을 알아야 한다. */
-export const SHEET_EXIT_DURATION = 200;
+export const SHEET_EXIT_DURATION = 120;
 
 /**
  * 아래에서 올라오고 아래로 내려가는 시트.
@@ -60,6 +61,7 @@ export function useSheetTransition(
         Animated.timing(translateY, {
           toValue: 0,
           duration: ENTER_DURATION,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
@@ -79,6 +81,7 @@ export function useSheetTransition(
       Animated.timing(translateY, {
         toValue: height.current,
         duration: SHEET_EXIT_DURATION,
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
