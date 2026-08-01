@@ -298,38 +298,36 @@ let nextMockPinSeed = 100;
 /** 등록에 이미 쓴 영상 키. 같은 키로 다시 등록하면 409가 난다. */
 const usedVideoKeys = new Set<string>();
 
+/** 발급 URL의 유효 시간. 실제 값은 서버가 정한다. */
+const UPLOAD_URL_TTL_MS = 10 * 60_000;
+
 /** 발급한 업로드 티켓 수. 키를 매번 다르게 만들기 위해서만 쓴다. */
 let issuedUploadCount = 0;
 
 /**
- * Presigned POST 발급 목업.
+ * 업로드 정보 발급 목업.
  *
  * 실제 서명을 만들 수 없으므로 업로드는 `videoUploadTask`가 흉내낸다.
- * 키 형식은 명세 예시를 따른다.
+ * 키 형식과 응답 필드는 명세를 따른다 — Presigned PUT이라 폼 필드가 없다.
  */
 export async function issueMockVideoUpload(
   contentType: string,
-  contentLength: number,
+  fileSize: number,
 ): Promise<VideoUploadTicket> {
   await delay(MOCK_LATENCY_MS);
 
   if (!contentType) {
-    throw new ApiError(400, 'INVALID_REQUEST', '업로드 요청이 올바르지 않습니다.');
+    throw new ApiError(400, 'INVALID_UPLOAD_REQUEST', '영상 업로드 정보 발급 요청이 올바르지 않습니다.');
   }
 
   const serial = ++issuedUploadCount;
-  const originalVideoKey = `pins/original/1/mock-${serial}-${contentLength}.mp4`;
+  const originalVideoKey = `pins/original/1/mock-${serial}-${fileSize}.mp4`;
 
   return {
-    // Presigned POST라 URL은 버킷 주소만이고 객체 경로는 fields.key가 갖는다.
-    uploadUrl: 'https://storage.example.com',
+    // Presigned PUT이라 서명이 URL 안에 있다. 목업은 형태만 흉내낸다.
+    uploadUrl: `https://storage.example.com/${originalVideoKey}?X-Amz-Signature=mock`,
     originalVideoKey,
-    fields: {
-      key: originalVideoKey,
-      policy: 'mock-policy',
-      'x-amz-algorithm': 'AWS4-HMAC-SHA256',
-      'x-amz-signature': 'mock-signature',
-    },
+    expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_MS).toISOString(),
   };
 }
 
@@ -345,7 +343,18 @@ export async function issueMockVideoUpload(
 export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName || !body.placeAddress) {
+  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName) {
+    throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
+  }
+
+  // 좌표 네 개는 모두 필수다. 하나라도 없으면 서버가 거리 검증을 할 수 없다.
+  const coordinates = [
+    body.latitude,
+    body.longitude,
+    body.kakaoPlaceLatitude,
+    body.kakaoPlaceLongitude,
+  ];
+  if (coordinates.some((value) => !Number.isFinite(value))) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
 
@@ -399,7 +408,10 @@ export async function fetchMockPinVideoStatus(pinId: PinId): Promise<PinStatusRe
 
   return {
     pinId,
-    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'COMPLETED' : 'PENDING',
+    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'ACTIVE' : 'PENDING',
+    // 실제로는 ACTIVE일 때만 Presigned GET URL이 온다. 목업은 줄 것이 없어 비워 둔다.
+    videoUrl: null,
+    thumbnailUrl: null,
   };
 }
 

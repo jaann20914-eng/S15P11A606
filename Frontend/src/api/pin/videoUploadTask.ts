@@ -30,19 +30,19 @@ export async function readVideoSize(fileUri: string): Promise<number> {
 }
 
 /**
- * 촬영 영상을 Presigned POST로 외부 스토리지에 올린다.
+ * 촬영 영상을 Presigned PUT으로 외부 스토리지에 올린다.
  *
- * 서명이 URL이 아니라 폼 필드에 있으므로 `fields`를 그대로 실은 `multipart/form-data`
- * `POST`로 보낸다. 필드 내용은 해석하지 않고 서버가 준 값을 그대로 넘긴다.
+ * 서명이 URL 자체에 들어 있어 폼 필드가 없다. 파일 본문만 그대로 실어 `PUT` 한 번을 보낸다.
  *
- * 인증 헤더는 붙이지 않는다. 붙이면 S3가 서명 검증에서 거부한다. 그래서 공용 `httpClient`를
- * 쓰지 않는다.
+ * **`Content-Type`은 발급 요청에 적은 값과 같아야 한다.** 다르면 S3가 서명 검증에서 거부한다
+ * (서명에 이 헤더가 포함된다).
  *
- * 성공은 2xx로 판정한다. Presigned POST는 기본이 `204`이고 서버가 `success_action_status`를
- * 넣었으면 `201`이라 특정 코드로 좁히지 않는다.
+ * 인증 헤더는 붙이지 않는다. 붙여도 같은 이유로 거부된다. 그래서 공용 `httpClient`를 쓰지 않는다.
+ *
+ * 성공은 2xx로 판정한다. Presigned PUT은 보통 `200`이다.
  */
 export function startVideoUpload(
-  ticket: Pick<VideoUploadTicket, 'uploadUrl' | 'fields'>,
+  ticket: Pick<VideoUploadTicket, 'uploadUrl'>,
   fileUri: string,
   onProgress: UploadProgressListener,
 ): StartedUpload {
@@ -55,12 +55,9 @@ export function startVideoUpload(
     ticket.uploadUrl,
     fileUri,
     {
-      httpMethod: 'POST',
-      uploadType: FileSystemUploadType.MULTIPART,
-      // S3는 파일 파트 이름이 `file`이어야 한다.
-      fieldName: 'file',
-      mimeType: VIDEO_CONTENT_TYPE,
-      parameters: ticket.fields,
+      httpMethod: 'PUT',
+      uploadType: FileSystemUploadType.BINARY_CONTENT,
+      headers: { 'Content-Type': VIDEO_CONTENT_TYPE },
     },
     ({ totalBytesSent, totalBytesExpectedToSend }) => {
       if (totalBytesExpectedToSend > 0) onProgress(totalBytesSent / totalBytesExpectedToSend);
