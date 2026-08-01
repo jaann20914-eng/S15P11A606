@@ -5,7 +5,13 @@ import type {
   RecommendedPlace,
 } from '@/types/recommend';
 import { MOCK_LATENCY_MS, delay } from './pin';
-import { REPRESENTATIVE_NICKNAME, mockPlaceSeeds, type MockPlaceSeed } from './placeSeeds';
+import {
+  averageCrowdLevelOf,
+  mockPlaceSeeds,
+  REPRESENTATIVE_NICKNAME,
+  WAGLE_FROM_LEVEL,
+  type MockPlaceSeed,
+} from './placeSeeds';
 
 /**
  * 추천 장소 고정 데이터.
@@ -63,12 +69,19 @@ export async function fetchMockRecommendations(
   const generatedAt = new Date();
   generatedAt.setMinutes(generatedAt.getMinutes() - UPDATED_MINUTES_AGO);
 
-  const places = mockPlaceSeeds.map(toPlace);
-  const limit = query.limit ?? places.length;
+  const limit = query.limit ?? mockPlaceSeeds.length;
 
-  // 핀이 적은 곳을 여유, 많은 곳을 와글로 나눈다. 실제로는 서버가 혼잡도로 정한다.
-  const quiet = places.filter((place) => place.activePinCount <= 9);
-  const busy = places.filter((place) => place.activePinCount > 9);
+  /*
+    계열은 **혼잡도로 나눈다.** 명세대로 평균 혼잡 단계 3.0부터가 와글이다.
+
+    예전에는 핀 수로 나눴는데(9개 초과면 와글), 핀 수를 실제 목록 길이에 맞추면서 모든 장소가
+    한쪽으로 몰려 와글 목록이 비어 버렸다. 핀이 많다고 붐비는 것도 아니라 기준 자체가 틀렸다.
+
+    한 장소는 한쪽에만 들어간다(명세). 그래서 같은 기준으로 한 번에 갈라 놓는다.
+  */
+  const isWagle = (seed: MockPlaceSeed) => (averageCrowdLevelOf(seed) ?? 0) >= WAGLE_FROM_LEVEL;
+  const quiet = mockPlaceSeeds.filter((seed) => !isWagle(seed)).map(toPlace);
+  const busy = mockPlaceSeeds.filter(isWagle).map(toPlace);
 
   return {
     locationSource: query.latitude !== undefined ? 'CURRENT_GPS' : 'CACHED_GPS',

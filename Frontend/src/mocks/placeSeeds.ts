@@ -237,6 +237,22 @@ export const mockPlaceSeeds: MockPlaceSeed[] = [
   { placeId: 11, name: '바나프레소 역삼점', address: '서울 광진구 동일로 60길 47 1층 (군자동)', phone: '010-1111-1111', latitude: 37.5556, longitude: 127.0791, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 0, crowdShift: 0.1 },
 ].map(toSeed);
 
+/**
+ * 이 장소의 평균 혼잡 단계.
+ *
+ * 실제로는 최근 1시간 유효 핀으로 서버가 계산한다. 목업은 요일 통계의 평균으로 대신한다 —
+ * 장소마다 값이 다르기만 하면 화면을 확인하는 데는 충분하다.
+ */
+export function averageCrowdLevelOf(seed: MockPlaceSeed): number | null {
+  const values = seed.weeklyCrowdLevels.filter((level): level is number => level !== null);
+  if (values.length === 0) return null;
+  const sum = values.reduce((total, level) => total + level, 0);
+  return Math.round((sum / values.length) * 10) / 10;
+}
+
+/** 붐빔으로 분류하는 경계. 명세와 같이 3.0부터다. */
+export const WAGLE_FROM_LEVEL = 3;
+
 /** `placeId`로 하나 찾는다. 없으면 null. */
 export function findMockPlaceSeed(placeId: number): MockPlaceSeed | null {
   return mockPlaceSeeds.find((seed) => seed.placeId === placeId) ?? null;

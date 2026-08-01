@@ -10,7 +10,14 @@ import type {
   PlacesResponse,
 } from '@/types/place';
 import { MOCK_LATENCY_MS, delay, mockPinId } from './pin';
-import { findMockPlaceSeed, mockPlaceSeeds, type MockPinSeed, type MockPlaceSeed } from './placeSeeds';
+import {
+  averageCrowdLevelOf,
+  findMockPlaceSeed,
+  mockPlaceSeeds,
+  WAGLE_FROM_LEVEL,
+  type MockPinSeed,
+  type MockPlaceSeed,
+} from './placeSeeds';
 
 /**
  * 장소 검색 고정 데이터.
@@ -119,15 +126,7 @@ const UNLOCKED_BY_SCENARIO = [false, true, true, true, false, true];
 /** 평균 혼잡 단계 → 표시 구간. 명세의 기준(3.0 이상이 WAGLE)을 그대로 쓴다. */
 function toCrowdLabel(average: number | null): PlaceListItem['crowdLabel'] {
   if (average === null) return null;
-  return average >= 3 ? 'WAGLE' : 'RELAXED';
-}
-
-/** 활성 핀의 평균 혼잡 단계. 목업은 요일 통계의 평균으로 대신한다. */
-function averageCrowdLevel(seed: MockPlaceSeed): number | null {
-  const values = seed.weeklyCrowdLevels.filter((level): level is number => level !== null);
-  if (values.length === 0) return null;
-  const sum = values.reduce((total, level) => total + level, 0);
-  return Math.round((sum / values.length) * 10) / 10;
+  return average >= WAGLE_FROM_LEVEL ? 'WAGLE' : 'RELAXED';
 }
 
 function toPinCard(pin: MockPinSeed, index: number): PlacePinCardResponse {
@@ -148,7 +147,7 @@ function toPinCard(pin: MockPinSeed, index: number): PlacePinCardResponse {
 }
 
 function toListItem(seed: MockPlaceSeed): PlaceListItem {
-  const average = averageCrowdLevel(seed);
+  const average = averageCrowdLevelOf(seed);
 
   return {
     placeId: seed.placeId,
