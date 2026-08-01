@@ -26,6 +26,8 @@ export type ApiModule =
   | 'pin/unlock'
   | 'pin/videoUpload'
   | 'pin/videoUploadTask'
+  | 'place/detail'
+  | 'place/list'
   | 'place/search'
   | 'recommend/places'
   | 'user/credits'
@@ -66,6 +68,9 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
 
   // GET /api/v1/recommendations/places 도 아직 없다. recommendation 컨트롤러가 없다.
   'recommend/places': true,
+
+  // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
+  'place/detail': true,
 
   // chat 도메인 컨트롤러가 아직 없다.
   'chat/request': true,

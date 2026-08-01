@@ -1,58 +1,28 @@
 import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
-import type { BusinessStatus, RecommendedPlace } from '@/types/recommend';
+import type { DayCrowdStat, PlaceSummary } from '@/types/place';
+import { CrowdWeekChart } from './CrowdWeekChart';
 import { recommendStyles as s } from '../styles';
 
 export interface RecommendPlaceInfoProps {
-  place: RecommendedPlace;
+  place: PlaceSummary;
+  weeklyCrowdStats: DayCrowdStat[];
 }
 
-/** 영업 상태 배지 문구. `UNKNOWN`은 알 수 없다는 뜻이라 배지를 아예 그리지 않는다. */
-const statusLabel: Record<BusinessStatus, string | null> = {
-  OPEN: '영업중',
-  CLOSED: '영업 종료',
-  UNKNOWN: null,
-};
-
-/** 기본정보 — 이름·영업 상태·주소·연락처. 값이 없는 줄은 그리지 않는다. */
-export function RecommendPlaceInfo({ place }: RecommendPlaceInfoProps) {
-  const badge = statusLabel[place.businessStatus];
-
+/**
+ * 기본정보 — 이름 · 연락처 · 주소 · 요일별 혼잡도.
+ *
+ * 시안대로 한 장의 카드다. 혼잡도 그래프까지 같은 카드에 두는 이유는 그것도 "이 장소가 어떤
+ * 곳인지"에 답하는 정보이기 때문이다. 지금 어떤지는 아래 영상핀이 답한다.
+ */
+export function RecommendPlaceInfo({ place, weeklyCrowdStats }: RecommendPlaceInfoProps) {
   return (
     <View style={s.infoCard}>
-      <View style={s.infoHead}>
-        <Text style={s.infoName}>{place.name}</Text>
-        {badge !== null && (
-          <View style={[s.statusBadge, place.businessStatus === 'CLOSED' && s.statusBadgeClosed]}>
-            <Text style={s.statusText}>{badge}</Text>
-          </View>
-        )}
-      </View>
+      <Text style={s.infoName}>{place.name}</Text>
+      {/* 연락처는 없는 장소(공원·산책로)가 있어 서버가 null을 준다. 그때는 줄을 그리지 않는다. */}
+      {place.phone !== null && <Text style={s.infoText}>연락처 : {place.phone}</Text>}
+      <Text style={s.infoText}>{place.address}</Text>
 
-      {/*
-        영업시간 문구는 `영업중 · 오후 10:00까지`처럼 상태까지 붙어서 온다. 확인할 수 없으면
-        서버가 null을 주고, 그때는 배지도 `UNKNOWN`이라 이 줄만 빠진다.
-      */}
-      {place.businessHoursText !== null && (
-        <View style={s.infoRow}>
-          <Ionicons name="time-outline" size={16} color={colors.gray400} />
-          <Text style={s.infoText}>{place.businessHoursText}</Text>
-        </View>
-      )}
-
-      <View style={s.infoRow}>
-        <Ionicons name="location-outline" size={16} color={colors.gray400} />
-        <Text style={s.infoText}>{place.address}</Text>
-      </View>
-
-      {/* 연락처는 받을 곳이 없는 장소(공원·산책로)도 있어 선택 값이다. */}
-      {place.phone != null && place.phone !== '' && (
-        <View style={s.infoRow}>
-          <Ionicons name="call-outline" size={16} color={colors.gray400} />
-          <Text style={s.infoText}>{place.phone}</Text>
-        </View>
-      )}
+      <CrowdWeekChart stats={weeklyCrowdStats} />
     </View>
   );
 }

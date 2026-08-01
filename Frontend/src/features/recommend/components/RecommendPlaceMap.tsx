@@ -1,16 +1,17 @@
 import { useCallback, useRef } from 'react';
 import { Text, View } from 'react-native';
 import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
-import type { RecommendedPlace } from '@/types/recommend';
+import type { Coordinate } from '@/store/useMapStore';
 import { recommendStyles as s } from '../styles';
 
 export interface RecommendPlaceMapProps {
-  place: RecommendedPlace;
+  placeId: number;
+  name: string;
+  /** 구하지 못했으면 null. 그때는 지도 대신 안내를 보여준다. */
+  coordinate: Coordinate | null;
 }
 
-/**
- * 이 장소만 확대해 보여줄 지도 레벨. 홈 기본값(5)은 동네 전체가 들어와 한 곳을 짚어 주지 못한다.
- */
+/** 이 장소만 확대해 보여줄 지도 레벨. 홈 기본값(5)은 동네 전체가 들어와 한 곳을 짚어 주지 못한다. */
 const PLACE_MAP_LEVEL = 3;
 
 /**
@@ -22,7 +23,7 @@ const PLACE_MAP_LEVEL = 3;
  *
  * `usePlaceSearch`를 켜지 않으므로 검색용 SDK 번들도 받지 않는다 — 첫 렌더가 그만큼 빠르다.
  */
-export function RecommendPlaceMap({ place }: RecommendPlaceMapProps) {
+export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceMapProps) {
   const mapRef = useRef<KakaoMapHandle>(null);
 
   /*
@@ -32,10 +33,10 @@ export function RecommendPlaceMap({ place }: RecommendPlaceMapProps) {
   const focusPlace = useCallback(() => mapRef.current?.setLevel(PLACE_MAP_LEVEL), []);
 
   /*
-    좌표는 추천 명세에 없는 값이라(`RecommendedPlace.latitude` 주석 참고) 없을 수 있다.
-    그때 지도를 그리면 엉뚱한 기본 좌표를 이 장소인 것처럼 보여주게 되므로 아예 그리지 않는다.
+    좌표는 장소 상세 응답에 없어 목록 API로 따로 구한다(`api/place/coordinates.ts`).
+    못 구했을 때 지도를 그리면 엉뚱한 기본 좌표를 이 장소인 것처럼 보여주게 되므로 비워 둔다.
   */
-  if (place.latitude === undefined || place.longitude === undefined) {
+  if (coordinate === null) {
     return (
       <View style={[s.map, s.mapFallback]}>
         <Text style={s.stateText}>이 장소의 위치 정보를 아직 받지 못했어요</Text>
@@ -43,16 +44,14 @@ export function RecommendPlaceMap({ place }: RecommendPlaceMapProps) {
     );
   }
 
-  const coordinate = { latitude: place.latitude, longitude: place.longitude };
-
   return (
     <KakaoMap
       ref={mapRef}
       center={coordinate}
-      places={[{ id: String(place.placeId), name: place.name, ...coordinate }]}
+      places={[{ id: String(placeId), name, ...coordinate }]}
       // 핀 하나뿐이라 계열 색은 의미를 만들지 못한다. 목록 기본값과 같은 라임 계열로 둔다.
       filter="relaxed"
-      selectedPlaceId={String(place.placeId)}
+      selectedPlaceId={String(placeId)}
       myLocation={null}
       onReady={focusPlace}
       style={s.map}

@@ -1,88 +1,109 @@
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ViewAvatar } from '@/components/common';
-import { usesMockApi } from '@/api/config';
-import { colors } from '@/constants/theme';
-import type { RecommendedPlace } from '@/types/recommend';
+import type { PlacePinCard } from '@/types/place';
+import { formatRelativeTime } from '@/utils/datetime';
 import { recommendStyles as s } from '../styles';
 
 export interface RecommendPlacePinsProps {
-  place: RecommendedPlace;
+  pins: PlacePinCard[];
+  /** 빈 상태 안내에 쓰는 장소 이름. */
+  placeName: string;
 }
 
-/** 목록 행의 각도 링 지름. 카드(30)보다 크게 잡아 상세에서 각도가 눈에 들어오게 한다. */
-const ANGLE_RING_SIZE = 40;
+/** 카드의 각도 링 지름. 시안 기준이다. */
+const ANGLE_RING_SIZE = 44;
 
-/** 목업에서 눌러볼 수 있는 핀 시나리오 수(`mocks/pin.ts`의 1~6번). */
-const MOCK_PIN_SCENARIO_COUNT = 6;
+/**
+ * 메모를 접는 길이.
+ *
+ * 시안이 네 줄쯤에서 `… 더보기`로 접는다. `numberOfLines`로 자르면 말줄임표 뒤에 글자를 붙일
+ * 수 없어 안내가 사라지므로, 글자 수로 잘라 직접 붙인다.
+ */
+const MEMO_PREVIEW_LENGTH = 82;
+
+/** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
+const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
+
+function PinCard({ pin }: { pin: PlacePinCard }) {
+  const folded = pin.memo.length > MEMO_PREVIEW_LENGTH;
+  const memo = folded ? `${pin.memo.slice(0, MEMO_PREVIEW_LENGTH).trimEnd()}... ` : pin.memo;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${pin.nickname}님의 영상핀 보기`}
+      onPress={() => router.push(`/pin/${pin.pinId}`)}
+      style={s.pinCard}
+    >
+      <View style={s.pinAuthor}>
+        <ViewAvatar angle={pin.viewAngle} size={ANGLE_RING_SIZE} />
+        <View style={s.pinAuthorCopy}>
+          <Text style={s.pinAuthorName}>{pin.nickname}</Text>
+          <Text style={s.pinTime}>{formatRelativeTime(pin.createdAt)}</Text>
+        </View>
+      </View>
+
+      <View style={s.pinBody}>
+        {/*
+          열람하지 않은 핀도 썸네일은 블러 처리된 것이 온다(서버가 원본을 주지 않는다).
+          아직 주소가 없으므로 지금은 색 자리만 둔다.
+        */}
+        {pin.thumbnailUrl === null ? (
+          <LinearGradient colors={THUMBNAIL_TINT} style={s.pinThumbnail} />
+        ) : (
+          <Image source={{ uri: pin.thumbnailUrl }} style={s.pinThumbnail} />
+        )}
+
+        <View style={s.pinCopy}>
+          <Text style={s.pinMemo}>
+            {memo}
+            {folded && <Text style={s.pinMore}>더보기</Text>}
+          </Text>
+
+          {pin.tags.length > 0 && (
+            <View style={s.pinTags}>
+              {pin.tags.map((tag) => (
+                <View key={tag} style={s.pinTag}>
+                  <Text numberOfLines={1} ellipsizeMode="tail" style={s.pinTagText}>
+                    #{tag}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 /**
  * 영상핀 목록.
  *
- * 추천 응답이 주는 것은 핀 식별자와 작성자 뷰 각도뿐이다(`pinPreviews`). 메모·썸네일·시각은
- * 장소별 핀 조회가 생겨야 채울 수 있어, 지금은 가진 값만으로 줄을 세운다. 각 줄은 핀 상세로
- * 보내므로 목록이 얇아도 할 일은 그대로 된다.
- *
- * 목업에서는 실제 핀 식별자 대신 시나리오 번호로 보낸다. 추천 목업의 `pinId`(101, 102…)는
- * 핀 목업 표에 없어 그대로 열면 조회 실패 화면이 뜬다.
+ * 장소 상세가 활성 핀만 준다(삭제·만료 제외). 카드를 누르면 핀 상세로 간다.
  */
-export function RecommendPlacePins({ place }: RecommendPlacePinsProps) {
-  const previews = place.pinPreviews;
-  const remaining = Math.max(place.activePinCount - previews.length, 0);
+export function RecommendPlacePins({ pins, placeName }: RecommendPlacePinsProps) {
+  if (pins.length === 0) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${placeName}에 영상핀 작성하기`}
+        onPress={() => router.push('/(tabs)/write')}
+        style={s.emptyPins}
+      >
+        <Text style={s.emptyPinsText}>아직 업로드된 핀이 없습니다</Text>
+        <Text style={s.writeLink}>작성하러 가기 →</Text>
+      </Pressable>
+    );
+  }
 
   return (
-    <View style={s.pinSection}>
-      <View style={s.pinSectionHead}>
-        <Text style={s.pinSectionTitle}>실시간 영상핀</Text>
-        <Text style={s.pinSectionMeta}>{place.activePinCount}개</Text>
-      </View>
-
-      {previews.length === 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${place.name}에 영상핀 작성하기`}
-          onPress={() => router.push('/(tabs)/write')}
-          style={s.emptyPins}
-        >
-          <Text style={s.emptyPinsText}>아직 업로드된 핀이 없습니다</Text>
-          <Text style={s.writeLink}>작성하러 가기 →</Text>
-        </Pressable>
-      ) : (
-        <View style={s.pinList}>
-          {previews.map((preview, index) => (
-            <Pressable
-              key={preview.pinId}
-              accessibilityRole="button"
-              accessibilityLabel={`영상핀 열기, 뷰 ${preview.uploaderViewReliability}도`}
-              onPress={() =>
-                router.push(
-                  usesMockApi
-                    ? `/pin/${(index % MOCK_PIN_SCENARIO_COUNT) + 1}`
-                    : `/pin/${preview.pinId}`,
-                )
-              }
-              style={s.pinRow}
-            >
-              <ViewAvatar angle={preview.uploaderViewReliability} size={ANGLE_RING_SIZE} />
-              <View style={s.pinRowCopy}>
-                {/*
-                  서버가 이름을 주는 것은 대표 업로더 한 명뿐이다. 나머지는 익명 정책대로 표시명을
-                  받지 못하므로 지어내지 않고 각도만 보여준다.
-                */}
-                <Text style={s.pinRowName}>
-                  {index === 0 ? place.representativeUploaderNickname : '익명 작성자'}
-                </Text>
-                <Text style={s.pinRowMeta}>뷰 {preview.uploaderViewReliability}°</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
-            </Pressable>
-          ))}
-
-          {/* 미리보기는 최대 5개다. 나머지가 몇 개인지는 알려 준다. */}
-          {remaining > 0 && <Text style={s.pinMore}>외 {remaining}개의 영상핀이 더 있어요</Text>}
-        </View>
-      )}
+    <View style={s.pinList}>
+      {pins.map((pin) => (
+        <PinCard key={pin.pinId} pin={pin} />
+      ))}
     </View>
   );
 }
