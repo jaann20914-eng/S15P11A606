@@ -1,4 +1,5 @@
-import { ActivityIndicator, SafeAreaView, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { AppTabBar, ConfirmModal, ErrorView } from '@/components/common';
@@ -73,7 +74,7 @@ export default function PinDetailRoute() {
 /** 로딩·오류 화면이 공유하는 껍데기. 소유 여부를 모르므로 헤더 우측은 비운다. */
 function PinDetailShell({ children }: { children: React.ReactNode }) {
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <PinDetailHeader hideActions />
       {children}
       <AppTabBar />
@@ -92,7 +93,7 @@ function PinDetailScreen({
   const isMine = isOwnPin(detail);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
 
       {menu.open && (
