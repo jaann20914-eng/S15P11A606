@@ -1,5 +1,6 @@
-import { ActivityIndicator, Animated, Modal, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { colors, spacing } from '@/constants/theme';
 import { pinDetailStyles as s } from '../styles';
 import { useDragToDismiss } from '../hooks/useDragToDismiss';
@@ -42,6 +43,16 @@ export function PinPurchaseModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <View style={s.sheetBackdrop}>
+        {/*
+          뒤 화면을 흐리게 가린다. 결제는 되돌릴 수 없는 선택이라 시선이 시트에만 머물러야 한다.
+
+          어두운 막만으로는 뒤 내용이 그대로 읽힌다. 흐림을 얹으면 형태가 뭉개져 시트가
+          또렷해진다. 두 겹을 함께 쓰는 이유는 안드로이드에서 흐림이 영상 위에는 걸리지
+          않기 때문이다 — 그 자리는 어두운 막이 대신 가린다.
+        */}
+        <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={s.sheetScrim} />
+
         <Pressable
           accessibilityLabel="닫기"
           disabled={busy}

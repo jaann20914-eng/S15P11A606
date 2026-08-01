@@ -274,7 +274,15 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 결제 · 채팅 요청 모달 */
   /* 아래에 붙는 시트 — 결제 확인 */
-  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(40,38,38,.45)' },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  /**
+   * 흐림 위에 한 겹 더 까는 어두운 막.
+   *
+   * 흐림만으로는 부족하다. 안드로이드의 `BlurView`는 영상 표면을 흐리게 하지 못하고
+   * (`PinDetailMedia` 주석 참고), 모달 안에서는 뒤 화면을 아예 못 잡는 경우도 있다.
+   * 그래서 이 막이 흐림 없이도 뒤가 거의 보이지 않을 만큼 진해야 한다.
+   */
+  sheetScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(20,18,18,.62)' },
   /** 시트 위 빈 자리. 여기를 누르면 닫힌다. */
   sheetDismissArea: { flex: 1 },
   sheet: {
