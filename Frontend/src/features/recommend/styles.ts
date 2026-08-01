@@ -108,21 +108,8 @@ export const recommendStyles = StyleSheet.create({
   infoName: { ...type.h2, color: colors.dark },
   infoText: { ...type.body, color: colors.gray400, marginTop: spacing.x1 },
 
-  /* 아직 채우지 않은 자리 — 공용 컴포넌트를 가져다 끼운다 */
-  placeholder: {
-    marginTop: spacing.x4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.x1,
-    padding: spacing.x4,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.gray200,
-    backgroundColor: colors.gray100,
-  },
-  placeholderLabel: { ...type.label, fontWeight: '600', color: colors.gray600 },
-  placeholderNote: { ...type.caption, textAlign: 'center', color: colors.gray400 },
+  /** 요일별 혼잡도 그래프 자리. 그래프 자체는 공용 컴포넌트가 그린다. */
+  chartSlot: { marginTop: spacing.x5 },
 
   /* 영상핀 목록 */
   pinList: { gap: spacing.x3 },

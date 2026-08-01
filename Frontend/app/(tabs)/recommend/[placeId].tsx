@@ -54,11 +54,11 @@ export default function RecommendPlaceScreen() {
 
           <View style={s.detailBody}>
             {/*
-              요일별 혼잡도(`detail.weeklyCrowdStats`)와 영상핀 카드는 장소 상세 담당자의
-              공용 컴포넌트를 가져다 쓰기로 해 지금은 자리만 잡아 두었다. 끼우는 법은 각
-              컴포넌트 파일의 주석에 적어 두었다. 데이터는 이미 여기까지 와 있다.
+              요일별 혼잡도 그래프와 영상핀 카드는 장소 상세와 같은 것을 쓴다
+              (`src/components/place`). 그 화면에 있던 구현을 공용으로 뺀 것이라 두 화면의
+              모양이 갈라지지 않는다.
             */}
-            <RecommendPlaceInfo place={detail.place} />
+            <RecommendPlaceInfo place={detail.place} weeklyCrowdStats={detail.weeklyCrowdStats} />
             <RecommendPlacePins pins={detail.pins} placeName={detail.place.name} />
           </View>
         </ScrollView>
