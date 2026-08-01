@@ -31,6 +31,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     onReady,
     onPlaceResolved,
     onPlaceNotFound,
+    // 웹은 iframe이라 최초 중심 최적화(fitPlacesOnReady)의 이득이 없다. 받기만 하고 쓰지 않는다.
+    usePlaceSearch = false,
   },
   ref,
 ) {
@@ -41,8 +43,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
 
   const initialCenter = useRef(center);
   const html = useMemo(
-    () => buildKakaoMapHtml({ appKey: kakaoMapAppKey, center: initialCenter.current }),
-    [],
+    () => buildKakaoMapHtml({ appKey: kakaoMapAppKey, center: initialCenter.current, usePlaceSearch }),
+    [usePlaceSearch],
   );
 
   const send = useCallback((method: MapCommand, ...args: unknown[]) => {
@@ -79,8 +81,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   useImperativeHandle(
     ref,
     () => ({
-      panTo: ({ latitude, longitude }) =>
-        send('panTo', latitude, longitude, Math.round(insetRef.current / 2)),
+      panTo: ({ latitude, longitude }, options) =>
+        send('panTo', latitude, longitude, Math.round(insetRef.current / 2), options?.animate ?? true),
       searchPlace: (keyword: string) => send('searchPlace', keyword, Math.round(insetRef.current / 2)),
       setLevel: (level: number) => send('setLevel', level),
       fitPlaces: () => send('fitPlaces', insetRef.current),

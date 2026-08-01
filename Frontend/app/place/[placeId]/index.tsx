@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,18 +13,25 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KakaoMap } from '@/components/home/KakaoMap';
-import type { KakaoMapHandle } from '@/components/home/KakaoMap';
-import type { ResolvedPlace } from '@/components/home/kakaoMapHtml';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
+import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useMapStore } from '@/store/useMapStore';
 import { usesMockApi } from '@/api/config';
 import { places } from '@/data/mock';
-import { colors, radius, spacing, type } from '@/constants/theme';
+import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
-type SheetLevel = 0 | 1 | 2;
+/** 손잡이 영역 높이. `s.handleArea`와 같은 값을 스냅 계산에서도 쓴다. */
+const SHEET_HANDLE_HEIGHT = 28;
+
+/**
+ * 측정이 오기 전에 쓰는 어림값.
+ *
+ * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다.
+ */
+const ESTIMATED_INFO_HEIGHT = 104;
+const ESTIMATED_VIDEO_HEIGHT = 216;
 
 const chartValues = [64, 52, 30, 42, 53, 38, 68];
 const days = ['월', '화', '수', '목', '금', '토', '일'];
@@ -148,114 +155,69 @@ export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
-  const crowdFilter = useMapStore((state) => state.crowdFilter);
-  const [level, setLevel] = useState<SheetLevel>(1);
-  const mapRef = useRef<KakaoMapHandle>(null);
+  const focusOn = useMapStore((state) => state.focusOn);
   const myLocation = useCurrentLocation();
   const navBarHeight = useAppTabBarHeight();
 
-  /** 백엔드 연동 전이라 목업 장소를 기준으로 삼고, 실제 좌표·주소는 장소명 검색으로 채운다. */
+  /**
+   * 백엔드 연동 전이라 목업 장소를 기준으로 삼는다.
+   *
+   * 예전에는 이 화면이 자기 지도를 띄우고 SDK의 장소 검색으로 주소·연락처를 채웠다. 지도를
+   * 없애면서 그 경로도 사라졌다. 원래 출처는 `GET /api/v1/places`이고, 그 응답
+   * (`PlaceListItem`)에 `address`와 `phone`이 이미 있다 — 연동되면 여기서 받아 쓴다.
+   */
   const mockPlace = places.find((item) => item.id === placeId) ?? places[0];
-  const [resolved, setResolved] = useState<ResolvedPlace | null>(null);
-  const [searchFailed, setSearchFailed] = useState(false);
-  const snapPoints = useMemo(
-    () => [height - 196, Math.round(height * 0.46), Math.max(insets.top + 138, 154)],
-    [height, insets.top],
-  );
-  const sheetY = useRef(new Animated.Value(snapPoints[1])).current;
-  const dragStart = useRef(snapPoints[1]);
+  /*
+    3단계 높이를 정하는 값. 시트 움직임은 useBottomSheet이 맡는다.
 
-  const moveTo = (next: SheetLevel) => {
-    setLevel(next);
-    Animated.spring(sheetY, {
-      toValue: snapPoints[next],
-      useNativeDriver: true,
-      damping: 24,
-      stiffness: 220,
-    }).start();
-  };
+    - 축소 — 손잡이 + 장소 정보(이름·연락처·주소)
+    - 기본 — 거기에 실시간 영상핀 첫 카드까지
+    - 확장 — 검색바 바로 아래까지 올려 혼잡도 차트와 목록을 훑는다
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 5,
-        onPanResponderGrant: () => {
-          dragStart.current = snapPoints[level];
-        },
-        onPanResponderMove: (_, gesture) =>
-          sheetY.setValue(Math.min(snapPoints[0], Math.max(snapPoints[2], dragStart.current + gesture.dy))),
-        onPanResponderRelease: (_, gesture) => {
-          const projected = dragStart.current + gesture.dy + gesture.vy * 70;
-          const nearest = snapPoints.reduce(
-            (best, point, index) =>
-              Math.abs(point - projected) < Math.abs(snapPoints[best] - projected) ? index : best,
-            0,
-          ) as SheetLevel;
-          moveTo(nearest);
-        },
-      }),
-    [level, sheetY, snapPoints],
-  );
+    이 화면은 탭 그룹 밖이라 `<AppTabBar/>`가 절대 배치로 **화면 위에 겹친다.** 그만큼
+    더 올려야 내용이 탭바 뒤로 들어가지 않는다. 홈은 탭바가 레이아웃을 차지해 이 보정이 없다.
+  */
+  const [infoHeight, setInfoHeight] = useState(0);
+  const [videoHeight, setVideoHeight] = useState(0);
 
-  const coveredHeight = Math.max(0, height - snapPoints[level]);
+  const sheet = useBottomSheet({
+    space: height,
+    collapsed: SHEET_HANDLE_HEIGHT + (infoHeight > 0 ? infoHeight : ESTIMATED_INFO_HEIGHT) + navBarHeight,
+    middleExtra: (videoHeight > 0 ? videoHeight : ESTIMATED_VIDEO_HEIGHT) + spacing.x4,
+    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
+    /*
+      아래로 밀어 내리면 닫고 홈 시트로 돌아간다. 이 화면은 홈 위에 겹쳐 있으므로
+      "내려서 덮개를 걷는" 동작이 곧 뒤로 가기다. 별도 버튼을 두지 않아도 된다.
+    */
+    onDismiss: router.back,
+  });
+  const { level, moveTo, sheetY } = sheet;
+
+  /*
+    이 화면에 들어오면 아래 깔린 홈 지도를 이 장소로 옮긴다.
+    지도를 새로 만들지 않으므로 재로드도, 전환 연출도 없다.
+  */
+  useEffect(() => {
+    focusOn({
+      coordinate: { latitude: mockPlace.latitude, longitude: mockPlace.longitude },
+      name: mockPlace.name,
+    });
+  }, [focusOn, mockPlace.latitude, mockPlace.longitude, mockPlace.name]);
 
   /**
-   * 백엔드 좌표 연동 전 임시 경로: 지도가 준비되면 장소명으로 검색해 좌표·주소를 채운다.
-   * 지도 SDK의 services(장소 검색)를 그대로 쓴다.
+   * 현재 위치로 이동. 이 화면에는 지도가 없으므로 **아래 깔린 홈 지도**에 요청한다.
+   *
+   * 검색 결과 이동에 쓰던 `useMapStore.focus`를 그대로 재사용한다. 홈이 살아 있어 그 지도가
+   * 움직이고, 우리는 반투명하게 겹쳐 있으니 사용자에게는 이 화면의 지도가 움직인 것으로 보인다.
    */
-  const handleMapReady = useCallback(() => {
-    mapRef.current?.searchPlace(mockPlace.name);
-  }, [mockPlace.name]);
-
-  const handleResolved = useCallback((place: ResolvedPlace) => {
-    setResolved(place);
-    setSearchFailed(false);
-  }, []);
-
-  /** 검색이 안 되면 등록된 좌표로라도 지도를 맞춘다. */
-  const handleNotFound = useCallback(
-    (keyword: string, reason: string) => {
-      if (__DEV__) console.warn(`[place] "${keyword}" 검색 실패 (${reason})`);
-      setSearchFailed(true);
-      mapRef.current?.panTo({ latitude: mockPlace.latitude, longitude: mockPlace.longitude });
-    },
-    [mockPlace.latitude, mockPlace.longitude],
-  );
-
   const goToMyLocation = useCallback(async () => {
     const coordinate = await myLocation.request();
-    if (coordinate) mapRef.current?.panTo(coordinate);
-  }, [myLocation]);
-
-  const marker = useMemo(
-    () => [
-      {
-        id: mockPlace.id,
-        name: resolved?.name ?? mockPlace.name,
-        latitude: resolved?.latitude ?? mockPlace.latitude,
-        longitude: resolved?.longitude ?? mockPlace.longitude,
-      },
-    ],
-    [mockPlace, resolved],
-  );
+    if (coordinate) focusOn({ coordinate, name: '현재 위치' });
+  }, [focusOn, myLocation]);
 
   return (
-    <View style={s.screen}>
-      <KakaoMap
-        ref={mapRef}
-        fullScreen
-        center={{ latitude: mockPlace.latitude, longitude: mockPlace.longitude }}
-        myLocation={myLocation.coordinate}
-        bottomInset={coveredHeight}
-        places={marker}
-        filter={crowdFilter}
-        selectedPlaceId={mockPlace.id}
-        onReady={handleMapReady}
-        onPlaceResolved={handleResolved}
-        onPlaceNotFound={handleNotFound}
-        onPinPress={() => router.push('/pin/1')}
-      />
-
+    // 배경을 두지 않는다. 아래 깔린 홈 지도가 그대로 보여야 한다.
+    <View style={s.overlay}>
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
         pointerEvents="box-none"
@@ -266,12 +228,24 @@ export default function Place() {
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
         {level !== 2 && (
-          <Pressable accessibilityLabel="현재 위치로 이동" onPress={goToMyLocation} style={s.location}>
-            <Ionicons
-              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
-              size={22}
-              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
-            />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="현재 위치로 이동"
+            accessibilityState={{ busy: myLocation.status === 'loading' }}
+            disabled={myLocation.status === 'loading'}
+            onPress={goToMyLocation}
+            style={s.location}
+          >
+            {/* 홈과 같은 이유로 기다리는 중임을 드러낸다. 표시가 없으면 먹통으로 보인다. */}
+            {myLocation.status === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.dark} />
+            ) : (
+              <Ionicons
+                name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+                size={22}
+                color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+              />
+            )}
           </Pressable>
         )}
       </View>
@@ -279,8 +253,14 @@ export default function Place() {
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
         <View style={s.sheetTint} />
-        <View {...panResponder.panHandlers}>
-          <Pressable onPress={() => moveTo(((level + 1) % 3) as SheetLevel)} style={s.handleArea}>
+        <View {...sheet.panHandlers}>
+          <Pressable
+            accessibilityRole="adjustable"
+            accessibilityLabel="장소 정보 높이"
+            accessibilityHint="탭하거나 위아래로 끌어 높이를 변경하세요"
+            onPress={sheet.cycle}
+            style={s.handleArea}
+          >
             <View style={s.handle} />
           </Pressable>
         </View>
@@ -290,43 +270,61 @@ export default function Place() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             s.sheetContent,
-            { paddingHorizontal: gutter, paddingBottom: navBarHeight + spacing.x10 },
+            {
+              paddingHorizontal: gutter,
+              /*
+                탭바가 겹치는 만큼과, 시트가 화면 밖으로 내려간 만큼(`sheet.top`)을 더한다.
+                후자가 없으면 ScrollView가 화면 밖까지 자기 영역으로 알아 마지막 카드를
+                끝까지 끌어올리지 못한다.
+              */
+              paddingBottom: navBarHeight + spacing.x10 + sheet.top,
+            },
           ]}
         >
-          <View style={s.placeInfo}>
-            <Text style={s.placeName}>{resolved?.name ?? mockPlace.name}</Text>
-            {resolved?.phone ? <Text style={s.placeMeta}>연락처 : {resolved.phone}</Text> : null}
-            <Text style={s.placeAddress}>
-              {resolved?.roadAddress || resolved?.address || mockPlace.address}
-            </Text>
-            {searchFailed && <Text style={s.placeNotice}>검색 결과가 없어 등록된 좌표로 표시했어요.</Text>}
+          <View
+            style={s.placeInfo}
+            onLayout={(event) => setInfoHeight(Math.round(event.nativeEvent.layout.height))}
+          >
+            <Text style={s.placeName}>{mockPlace.name}</Text>
+            <Text style={s.placeAddress}>{mockPlace.address}</Text>
           </View>
 
           {level === 2 && <CrowdChart />}
 
           {level > 0 && (
             <View style={s.videoSection}>
-              <View style={s.sectionHead}>
-                <Text style={s.sectionTitle}>실시간 영상핀</Text>
-                <Text style={s.sectionMeta}>최근 등록순</Text>
+              {/*
+                제목과 첫 카드를 함께 잰다. "기본" 단계에서 축소보다 더 보여야 하는 높이가
+                정확히 이만큼이다. 둘을 따로 재면 사이 간격을 다시 더해야 해 어긋나기 쉽다.
+              */}
+              <View
+                style={s.videoSection}
+                onLayout={(event) => setVideoHeight(Math.round(event.nativeEvent.layout.height))}
+              >
+                <View style={s.sectionHead}>
+                  <Text style={s.sectionTitle}>실시간 영상핀</Text>
+                  <Text style={s.sectionMeta}>최근 등록순</Text>
+                </View>
+                <VideoCard />
               </View>
+
               {/*
                 목업에서는 여섯 가지 상황을 모두 눌러볼 수 있게 카드를 다 그린다.
                 실기에서는 주소를 직접 칠 수 없어 목록이 유일한 진입 경로다.
               */}
-              {usesMockApi ? (
-                MOCK_PIN_LABELS.map((label, index) => <VideoCard key={label} index={index} />)
-              ) : (
-                <>
-                  <VideoCard />
-                  {level === 2 && <VideoCard index={1} />}
-                </>
-              )}
+              {usesMockApi
+                ? MOCK_PIN_LABELS.slice(1).map((label, index) => <VideoCard key={label} index={index + 1} />)
+                : level === 2 && <VideoCard index={1} />}
             </View>
           )}
         </ScrollView>
       </Animated.View>
 
+      {/*
+        홈을 강조한다. 장소 상세는 홈 지도에서 이어지는 화면이라 사용자는 여전히 "홈"
+        맥락에 있다(와이어프레임). 영상핀 상세(`app/pin/[pinId]`)는 게시글이라 다르다 —
+        거기서는 어느 탭도 강조하지 않는다.
+      */}
       <AppTabBar active="home" />
     </View>
   );
@@ -341,7 +339,13 @@ const shadow = {
 };
 
 const s = StyleSheet.create({
-  screen: { flex: 1, overflow: 'hidden', backgroundColor: '#E9EEE8' },
+  /**
+   * 이 화면은 홈 지도 위에 겹치는 오버레이다.
+   *
+   * 배경색을 두면 아래 지도를 가려 버린다. 반투명 모달로 띄우므로(`app/_layout.tsx`)
+   * 배경 없이 두면 홈 지도가 그대로 보이고, 시트만 바뀐 것처럼 읽힌다.
+   */
+  overlay: { flex: 1, overflow: 'hidden' },
   topControls: { position: 'absolute' },
   search: {
     height: 52,

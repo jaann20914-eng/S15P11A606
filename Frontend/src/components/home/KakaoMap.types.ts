@@ -13,6 +13,22 @@ export interface KakaoMapProps {
   selectedPlaceId?: string | null;
   /** 최초 중심 좌표. 이후 변경은 `ref.panTo`로 처리해 지도를 다시 로드하지 않는다. */
   center: Coordinate;
+  /**
+   * 준비되는 즉시 핀이 모두 보이도록 영역을 맞출지.
+   *
+   * 이 값을 켜면 최초 중심으로 `center` 대신 **핀들의 중심**을 쓴다. 그러지 않으면 지도가
+   * `center` 주변 타일을 한 번 받고, 곧바로 핀 영역으로 옮겨 가며 그 타일을 전부 버린다.
+   * 두 지점이 멀수록 낭비가 커진다.
+   *
+   * 화면에서 `onReady`로 `fitPlaces()`를 부르는 것과 결과는 같지만, 낭비되는 왕복이 없다.
+   */
+  fitPlacesOnReady?: boolean;
+  /**
+   * 이 화면에서 `searchPlace`를 쓰는지.
+   *
+   * 검색에 필요한 `libraries=services`는 별도 번들이라 첫 렌더를 늦춘다. 쓰는 화면만 켠다.
+   */
+  usePlaceSearch?: boolean;
   myLocation?: Coordinate | null;
   fullScreen?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -34,9 +50,23 @@ export interface KakaoMapProps {
   bottomInset?: number;
 }
 
+/** 지도 이동 방식. */
+export interface PanOptions {
+  /**
+   * 손으로 밀듯 이어서 움직일지. 기본은 `true`.
+   *
+   * 사용자가 목록이나 핀을 눌러 옮기는 경우에는 켜 둔다 — 화면이 갑자기 바뀌면 어디서
+   * 어디로 갔는지 알 수 없다. 첫 화면을 잡는 단계처럼 "원래 그 자리였던" 것으로 보여야
+   * 할 때만 끈다.
+   *
+   * 이동 거리가 화면보다 크면 SDK가 스스로 애니메이션을 건너뛴다.
+   */
+  animate?: boolean;
+}
+
 export interface KakaoMapHandle {
-  /** 좌표를 보이는 영역의 중앙으로 옮긴다. */
-  panTo: (coordinate: Coordinate) => void;
+  /** 좌표를 보이는 영역의 중앙으로 옮긴다. 기본은 부드럽게 이어서 움직인다. */
+  panTo: (coordinate: Coordinate, options?: PanOptions) => void;
   /** 장소명으로 검색해 그 위치로 이동한다. 결과는 `onPlaceResolved`로 온다. */
   searchPlace: (keyword: string) => void;
   setLevel: (level: number) => void;
