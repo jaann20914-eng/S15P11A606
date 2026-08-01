@@ -23,6 +23,13 @@ export interface MockPlaceSeed {
   address: string;
   /** 연락처. 공원·산책로처럼 받을 곳이 없으면 null이다. */
   phone: string | null;
+  /**
+   * 지도에 찍을 좌표. 손으로 넣은 **근사값**이다.
+   *
+   * 지도는 이 값을 그대로 찍으므로, 카카오 지도가 그 자리에 그려 주는 건물·상호 이름이
+   * 아래 `name`과 딱 맞지는 않는다. 목업 장소 자체가 실재하지 않는 곳도 있다.
+   * 실제 좌표는 서버가 `GET /api/v1/places`의 `latitude`·`longitude`로 준다.
+   */
   latitude: number;
   longitude: number;
   /** 영업시간 문구. 확인할 수 없으면 null이다. 추천 카드가 쓴다. */
@@ -81,13 +88,13 @@ function toSeed({ angles, ...rest }: SeedInput): MockPlaceSeed {
 export const mockPlaceSeeds: MockPlaceSeed[] = [
   { placeId: 1, name: '성수 연무장길', address: '서울 성동구 연무장길', phone: '02-462-1024', latitude: 37.5427, longitude: 127.0559, businessHoursText: '영업중 · 오후 10:00까지', activePinCount: 13, uploaderCount: 9, angles: [320, 90, 270, 90, 180], weeklyCrowdLevels: [2.4, 2.2, 3.4, 2.8, 3.2, 3.7, 3.1] },
   { placeId: 2, name: '서울숲 산책로', address: '서울 성동구 뚝섬로 273', phone: '02-460-2905', latitude: 37.5444, longitude: 127.0374, businessHoursText: '운영중 · 24시간 이용 가능', activePinCount: 12, uploaderCount: 8, angles: [90, 180, 320, 270, 90], weeklyCrowdLevels: [1.8, 2.0, 2.3, 2.6, 3.1, 3.8, 3.5] },
-  { placeId: 3, name: '뚝섬한강공원', address: '서울 광진구 강변북로 139', phone: null, latitude: 37.5299, longitude: 127.0668, businessHoursText: '운영중 · 24시간 이용 가능', activePinCount: 6, uploaderCount: 5, angles: [270, 90, 180, 320, 90], weeklyCrowdLevels: [1.5, 1.7, 2.1, 2.2, 2.9, 3.6, 3.4] },
+  { placeId: 3, name: '뚝섬한강공원', address: '서울 광진구 강변북로 139', phone: null, latitude: 37.5295, longitude: 127.0700, businessHoursText: '운영중 · 24시간 이용 가능', activePinCount: 6, uploaderCount: 5, angles: [270, 90, 180, 320, 90], weeklyCrowdLevels: [1.5, 1.7, 2.1, 2.2, 2.9, 3.6, 3.4] },
   { placeId: 4, name: '성수 카페거리', address: '서울 성동구 성수이로', phone: '02-499-3080', latitude: 37.5447, longitude: 127.0561, businessHoursText: '영업중 · 오후 11:00까지', activePinCount: 9, uploaderCount: 7, angles: [180, 320, 90, 90, 270], weeklyCrowdLevels: [2.6, 2.5, 3.0, 3.1, 3.5, 3.9, 3.3] },
   { placeId: 5, name: '연무장길 팝업존', address: '서울 성동구 연무장길 24', phone: '02-461-7742', latitude: 37.5412, longitude: 127.0552, businessHoursText: '영업중 · 오후 8:00까지', activePinCount: 14, uploaderCount: 11, angles: [90, 270, 320, 180, 90], weeklyCrowdLevels: [2.9, 3.0, 3.3, 3.4, 3.6, 4.0, 3.8] },
   { placeId: 6, name: '어린이대공원', address: '서울 광진구 능동로 216', phone: '02-450-9311', latitude: 37.5487, longitude: 127.0819, businessHoursText: '운영중 · 오후 10:00까지', activePinCount: 5, uploaderCount: 4, angles: [320, 180, 90, 270, 90], weeklyCrowdLevels: [1.4, 1.6, 1.9, 2.0, 2.4, 3.5, 3.3] },
-  { placeId: 7, name: '건대 커먼그라운드', address: '서울 광진구 아차산로 200', phone: '02-467-2747', latitude: 37.5410, longitude: 127.0687, businessHoursText: '영업중 · 오후 10:00까지', activePinCount: 11, uploaderCount: 6, angles: [90, 90, 180, 320, 270], weeklyCrowdLevels: [2.7, 2.8, 3.1, 3.2, 3.7, 3.9, 3.6] },
+  { placeId: 7, name: '건대 커먼그라운드', address: '서울 광진구 아차산로 200', phone: '02-467-2747', latitude: 37.5410, longitude: 127.0665, businessHoursText: '영업중 · 오후 10:00까지', activePinCount: 11, uploaderCount: 6, angles: [90, 90, 180, 320, 270], weeklyCrowdLevels: [2.7, 2.8, 3.1, 3.2, 3.7, 3.9, 3.6] },
   { placeId: 8, name: '송정제방길', address: '서울 성동구 송정동 73-448', phone: null, latitude: 37.5486, longitude: 127.0714, businessHoursText: '운영중 · 24시간 이용 가능', activePinCount: 3, uploaderCount: 3, angles: [270, 320, 90], weeklyCrowdLevels: [1.2, 1.3, 1.6, 1.5, 2.0, 2.6, 2.4] },
-  { placeId: 9, name: '성수 수제화거리', address: '서울 성동구 연무장7길', phone: '02-464-1114', latitude: 37.5397, longitude: 127.0570, businessHoursText: '영업중 · 오후 9:00까지', activePinCount: 7, uploaderCount: 6, angles: [180, 90, 270, 90, 320], weeklyCrowdLevels: [2.1, 2.3, 2.5, 2.7, 3.0, 3.4, 2.9] },
+  { placeId: 9, name: '성수 수제화거리', address: '서울 성동구 연무장7길', phone: '02-464-1114', latitude: 37.5405, longitude: 127.0575, businessHoursText: '영업중 · 오후 9:00까지', activePinCount: 7, uploaderCount: 6, angles: [180, 90, 270, 90, 320], weeklyCrowdLevels: [2.1, 2.3, 2.5, 2.7, 3.0, 3.4, 2.9] },
   // 요일 집계가 아직 없는 장소. 통계 빈칸을 확인할 수 있게 둔다.
   { placeId: 10, name: '서울숲 북쪽 산책로', address: '서울 성동구 서울숲2길', phone: null, latitude: 37.5471, longitude: 127.0413, businessHoursText: null, activePinCount: 10, uploaderCount: 7, angles: [90, 320, 90, 270, 180], weeklyCrowdLevels: [null, null, 2.2, 2.4, null, 3.2, 3.0] },
   // 감지카메라만 올린 장소. 추천 카드의 빈 상태를 확인할 수 있게 둔다.
