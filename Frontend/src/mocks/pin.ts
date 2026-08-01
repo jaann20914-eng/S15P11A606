@@ -97,8 +97,10 @@ function createBaseDetail(): PinDetailResponse {
     pinId: mockPinId(1),
     place: {
       placeId: 11,
+      kakaoPlaceId: '1234567891',
       name: '바나프레소 역삼점',
-      address: '서울 광진구 동일로 60길 47 1층 (군자동)',
+      latitude: 37.5556,
+      longitude: 127.0791,
     },
     authorViewAngle: 92,
     authorNickname: '역삼동 익명러',

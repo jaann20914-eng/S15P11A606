@@ -6,6 +6,7 @@ import { createChatRequest } from '@/api/chat/request';
 import { evaluatePin } from '@/api/pin/evaluate';
 import { deletePin } from '@/api/pin/remove';
 import { unlockPin } from '@/api/pin/unlock';
+import { rememberEditablePin } from '@/features/pin-create/editHandoff';
 import { createIdempotencyKey } from '@/utils/idempotency';
 import { goBackOrHome } from '@/utils/navigation';
 import type { PinId, PinDetail, PinRating } from '@/types/pin';
@@ -278,8 +279,15 @@ export function usePinDetailScreen(
       // 수정은 작성 화면을 그대로 쓴다. pinId가 붙으면 그 화면이 수정 모드로 뜬다.
       edit: useCallback(() => {
         menu.hide();
+
+        /*
+          지금 보고 있는 핀을 그대로 넘긴다. 수정 화면은 시작값이 있어야 무엇이 바뀌었는지
+          알 수 있는데, 그 값을 이 화면이 이미 들고 있다. 넘기지 않으면 같은 것을 한 번 더
+          받으려고 사용자를 기다리게 한다.
+        */
+        rememberEditablePin(detail);
         router.push({ pathname: '/(tabs)/write', params: { pinId: detail.pinId } });
-      }, [menu]),
+      }, [detail, menu]),
     },
     purchase,
     chat,

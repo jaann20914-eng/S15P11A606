@@ -58,7 +58,7 @@ export interface InternalDraftPlace {
   source: 'internal';
   placeId: number;
   name: string;
-  address: string;
+  /** 주소는 상세 응답에 없다. 서버가 저장하지 않아 이름과 좌표만 온다. */
   latitude: number;
   longitude: number;
 }

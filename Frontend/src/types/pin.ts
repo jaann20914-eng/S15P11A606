@@ -84,13 +84,18 @@ export type PinCrowdLevel = 'WAGLE_WAGLE' | 'WAGLE' | 'RELAXED' | 'LEISURELY';
 /**
  * 핀이 등록된 장소 요약.
  *
- * 명세에 `place: {}`로만 적혀 있어 필드가 확정되지 않았다.
- * 상세 화면이 실제로 쓰는 값만 우선 정의했고 서버 응답이 나오면 맞춘다.
+ * **주소는 오지 않는다.** 서버가 주소를 저장하지 않아 이름과 좌표만 준다. 주소가 필요하면
+ * 카카오에서 따로 받아야 한다.
+ *
+ * 식별자가 둘이다. `placeId`는 우리 DB의 것이고 `kakaoPlaceId`는 카카오의 것이다. 수정 API가
+ * 받는 것은 앞의 것이다.
  */
 export type PinPlaceSummary = {
   placeId: number;
+  kakaoPlaceId: string;
   name: string;
-  address: string;
+  latitude: number;
+  longitude: number;
 };
 
 /**

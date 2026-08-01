@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getPinDetail } from '@/api/pin/detail';
-import { getCrowdLevelByKey } from '@/constants/crowdLevels';
+
 import { isOwnPin } from '@/types/pin';
+import { takeEditablePin, toDraft } from '../editHandoff';
 import type { PinId } from '@/types/pin';
 import type { PinDraft } from '@/types/pinCreate';
 
@@ -35,16 +36,26 @@ const messageByCode: Record<string, string> = {
  * 장소를 바꾸려면 후보를 좌표로 찾아야 하는데, 그 좌표를 받을 방법이 아직 없다.
  */
 export function useEditablePin(pinId: PinId | null): EditablePin {
-  const [initial, setInitial] = useState<Partial<PinDraft> | null>(null);
-  const [loading, setLoading] = useState(pinId !== null);
+  /*
+    상세 화면이 넘겨준 값이 있으면 그것으로 시작한다.
+
+    수정은 게시글 상세에서만 들어오고, 그 화면은 이미 같은 핀을 받아 두었다. 다시 조회하면
+    같은 값을 한 번 더 받으려고 사용자를 기다리게 하는 셈이다.
+  */
+  const [initial, setInitial] = useState<Partial<PinDraft> | null>(() =>
+    pinId === null ? null : takeEditablePin(pinId),
+  );
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /** 이미 불러왔는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
   const requested = useRef(false);
 
   useEffect(() => {
-    if (pinId === null || requested.current) return;
+    // 넘겨받은 값이 있으면 조회하지 않는다.
+    if (pinId === null || initial !== null || requested.current) return;
     requested.current = true;
+    setLoading(true);
 
     getPinDetail(pinId)
       .then((detail) => {
@@ -55,20 +66,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
           return;
         }
 
-        setInitial({
-          crowdLevel: getCrowdLevelByKey(detail.crowdLevel).level,
-          memo: detail.memo ?? '',
-          tags: detail.tags,
-          detailLocation: detail.detailLocation ?? '',
-          place: {
-            source: 'internal',
-            placeId: detail.place.placeId,
-            name: detail.place.name,
-            address: detail.place.address,
-            latitude: 0,
-            longitude: 0,
-          },
-        });
+        setInitial(toDraft(detail));
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -79,7 +77,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
             : '영상핀을 불러오지 못했어요',
         );
       });
-  }, [pinId]);
+  }, [initial, pinId]);
 
   return { initial, loading, error };
 }

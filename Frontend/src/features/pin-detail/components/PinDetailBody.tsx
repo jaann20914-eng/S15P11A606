@@ -54,7 +54,10 @@ export function PinDetailBody({
         </View>
 
         <Text style={s.placeName}>{detail.place.name}</Text>
-        <Text style={s.address}>{detail.place.address}</Text>
+        {/*
+          주소는 상세 응답에 없다. 서버가 주소를 저장하지 않아 장소명과 좌표만 준다.
+          상세 위치(층·좌석)는 아래 본문에서 따로 보여준다.
+        */}
 
         <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
 
