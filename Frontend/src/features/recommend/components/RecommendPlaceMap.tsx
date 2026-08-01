@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Text, View } from 'react-native';
 import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
+import { isPlottableCoordinate } from '@/api/place/coordinates';
 import type { Coordinate } from '@/store/useMapStore';
 import { recommendStyles as s } from '../styles';
 
@@ -27,16 +28,27 @@ export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceM
   const mapRef = useRef<KakaoMapHandle>(null);
 
   /*
-    확대는 지도가 준비된 뒤에 건다. HTML에 심는 것은 중심 좌표뿐이라 레벨은 명령으로만 바꿀 수
-    있고, 준비 전에 보내면 그대로 버려진다.
+    지도가 준비되면 확대 레벨을 맞추고 중심을 다시 한 번 이 장소로 보낸다.
+
+    최초 중심은 지도 HTML에 심어 두지만, 그것은 컴포넌트가 처음 그려질 때의 값으로 굳는다.
+    중심을 명령으로 한 번 더 확정해 두면 그 사이 좌표가 늦게 도착했거나 지도가 다른 자리에서
+    시작한 경우에도 결과가 같다. 이미 그 자리면 지도 쪽에서 무시하므로 화면이 흔들리지 않는다.
+
+    준비 전에 보낸 명령은 그대로 버려지므로 반드시 `onReady` 이후여야 한다.
   */
-  const focusPlace = useCallback(() => mapRef.current?.setLevel(PLACE_MAP_LEVEL), []);
+  const focusPlace = useCallback(() => {
+    mapRef.current?.setLevel(PLACE_MAP_LEVEL);
+    if (coordinate !== null) mapRef.current?.panTo(coordinate, { animate: false });
+  }, [coordinate]);
 
   /*
     좌표는 장소 상세 응답에 없어 목록 API로 따로 구한다(`api/place/coordinates.ts`).
-    못 구했을 때 지도를 그리면 엉뚱한 기본 좌표를 이 장소인 것처럼 보여주게 되므로 비워 둔다.
+
+    못 구했으면 지도를 아예 그리지 않는다. 쓸 수 없는 좌표로 지도를 만들면 카카오가 중심을
+    잡지 못해 **제주 앞바다**를 보여주는데, 화면에는 그냥 "엉뚱한 곳에 가 있는 지도"로만
+    보여서 값이 없다는 사실이 드러나지 않는다.
   */
-  if (coordinate === null) {
+  if (coordinate === null || !isPlottableCoordinate(coordinate)) {
     return (
       <View style={[s.map, s.mapFallback]}>
         <Text style={s.stateText}>이 장소의 위치 정보를 아직 받지 못했어요</Text>

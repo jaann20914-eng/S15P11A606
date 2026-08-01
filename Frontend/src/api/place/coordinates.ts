@@ -11,13 +11,35 @@ import { DEFAULT_CENTER, type Coordinate } from '@/store/useMapStore';
  */
 const coordinateByPlaceId = new Map<number, Coordinate>();
 
-/** 목록 응답에 담긴 좌표를 전부 기억한다. */
+/**
+ * 지도에 찍을 수 있는 좌표인지.
+ *
+ * 숫자가 아니거나 범위를 벗어난 값을 그대로 넘기면 카카오 지도는 중심을 잡지 못하고 **엉뚱한
+ * 기본 위치(제주 앞바다)** 를 보여준다. 그 화면은 "지도가 이상한 데를 가리킨다"로만 보이고
+ * 값이 잘못 왔다는 사실은 드러나지 않는다. 그래서 경계에서 걸러 낸다.
+ *
+ * `0, 0`도 버린다. 좌표가 비어 있을 때 흔히 채워지는 값인데, 실제로는 기니만 앞바다다.
+ */
+export function isPlottableCoordinate(coordinate: {
+  latitude: number;
+  longitude: number;
+}): boolean {
+  const { latitude, longitude } = coordinate;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+  return latitude !== 0 || longitude !== 0;
+}
+
+/** 목록 응답에 담긴 좌표를 기억한다. 쓸 수 없는 좌표는 넣지 않는다. */
 export function rememberPlaceCoordinates(places: PlaceListItem[]): void {
   for (const place of places) {
-    coordinateByPlaceId.set(place.placeId, {
-      latitude: place.latitude,
-      longitude: place.longitude,
-    });
+    const coordinate = { latitude: place.latitude, longitude: place.longitude };
+    if (!isPlottableCoordinate(coordinate)) {
+      if (__DEV__) console.warn(`[place] 좌표를 쓸 수 없습니다: placeId=${place.placeId}`, coordinate);
+      continue;
+    }
+    coordinateByPlaceId.set(place.placeId, coordinate);
   }
 }
 
