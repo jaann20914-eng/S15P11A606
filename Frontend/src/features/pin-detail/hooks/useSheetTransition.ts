@@ -25,10 +25,10 @@ const DISMISS_DISTANCE = 120;
 const DISMISS_VELOCITY = 0.8;
 
 /** 올라오는 시간. 빠르게 치고 끝에서 부드럽게 멈추도록 감속 곡선을 쓴다. */
-const ENTER_DURATION = 150;
+const ENTER_DURATION = 110;
 
 /** 내려가는 데 걸리는 시간. 배경 흐림을 함께 거두려면 화면도 이 값을 알아야 한다. */
-export const SHEET_EXIT_DURATION = 120;
+export const SHEET_EXIT_DURATION = 90;
 
 /**
  * 아래에서 올라오고 아래로 내려가는 시트.
