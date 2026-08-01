@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -11,7 +10,7 @@ import { PinDetailHeader } from '@/features/pin-detail/components/PinDetailHeade
 import { PinPurchaseModal } from '@/features/pin-detail/components/PinPurchaseModal';
 import { parsePinId, usePinDetail } from '@/features/pin-detail/hooks/usePinDetail';
 import { usePinDetailScreen } from '@/features/pin-detail/hooks/usePinDetailScreen';
-import { SHEET_EXIT_DURATION } from '@/features/pin-detail/hooks/useSheetTransition';
+import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
 import { pinDetailStyles as s } from '@/features/pin-detail/styles';
 import { isOwnPin } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
@@ -94,20 +93,8 @@ function PinDetailScreen({
   const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(detail, onDetailChange);
   const isMine = isOwnPin(detail);
 
-  /*
-    흐림은 시트가 다 내려간 뒤에 거둔다. 곧바로 거두면 시트는 아직 내려가는 중인데 배경만
-    선명해져 두 움직임이 어긋난다.
-  */
-  const [dimmed, setDimmed] = useState(purchase.open);
-  useEffect(() => {
-    if (purchase.open) {
-      setDimmed(true);
-      return;
-    }
-
-    const timer = setTimeout(() => setDimmed(false), SHEET_EXIT_DURATION);
-    return () => clearTimeout(timer);
-  }, [purchase.open]);
+  // 시트가 오르내리는 동안 흐림도 함께 짙어지고 옅어진다.
+  const blurRadius = useBackdropBlur(purchase.open);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -118,7 +105,7 @@ function PinDetailScreen({
         `BlurView`는 안드로이드에서 영상 표면을 잡지 못해 이 화면에서는 쓸 수 없다
         (`PinDetailMedia` 주석 참고). 시트는 이 묶음 밖에 있어 또렷하게 남는다.
       */}
-      <View style={[s.screenContent, dimmed && s.screenBlurred]}>
+      <View style={[s.screenContent, { filter: [{ blur: blurRadius }] }]}>
         <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
 
         {menu.open && (

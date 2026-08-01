@@ -34,15 +34,14 @@ export const pinDetailStyles = StyleSheet.create({
     paddingHorizontal: layout.gutter,
     paddingBottom: APP_TAB_BAR_HEIGHT + spacing.x10,
   },
-  /** 결제 시트가 열렸을 때 흐려질 묶음. 시트는 이 밖에 있어 또렷하게 남는다. */
-  screenContent: { flex: 1 },
   /**
-   * 뒤 화면을 흐리게 한다.
+   * 결제 시트가 열렸을 때 흐려질 묶음. 시트는 이 밖에 있어 또렷하게 남는다.
    *
-   * `BlurView`가 아니라 `filter`를 쓴다. 스냅샷을 뜨지 않고 렌더 노드에 직접 걸려서 영상까지
-   * 함께 흐려진다. 결제 전 미리보기 영상에 쓴 것과 같은 방식이다(`PinDetailMedia` 주석).
+   * 흐림 반경은 화면이 정한다(`useBackdropBlur`). `BlurView`가 아니라 `filter`를 쓰는 이유는
+   * 스냅샷을 뜨지 않고 렌더 노드에 직접 걸려서 영상까지 함께 흐려지기 때문이다
+   * (`PinDetailMedia` 주석 참고).
    */
-  screenBlurred: { filter: [{ blur: 32 }] },
+  screenContent: { flex: 1 },
   body: { flex: 1 },
   /** 스크롤 내용. 아래 고정 영역이 자리를 차지하므로 탭바 높이를 더하지 않는다. */
   content: { paddingBottom: spacing.x6 },
