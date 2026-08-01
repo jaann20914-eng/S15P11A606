@@ -315,39 +315,6 @@ export const pinDetailStyles = StyleSheet.create({
     marginTop: spacing.x1,
   },
 
-  /* 채팅 요청 모달 — 가운데 상자 */
-  modalBackdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: layout.gutter,
-    backgroundColor: 'rgba(255,255,255,.68)',
-  },
-  modalCard: {
-    width: '100%',
-    padding: spacing.x5,
-    borderRadius: radius.md,
-    backgroundColor: ILLUSTRATION_BACKGROUND,
-    ...shadow,
-  },
-  modalTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
-  modalCaption: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
-  modalClose: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#D3D6DA',
-  },
-  payPanel: {
-    marginTop: spacing.x4,
-    padding: spacing.x4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.lime,
-    borderRadius: radius.md,
-  },
   /** 비율 처리는 IllustrationVideo의 `contentFit`이 맡으므로 크기만 준다. */
   coinVideo: { width: 200, height: 200, marginTop: spacing.x6 },
   payError: { ...type.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.x3 },
@@ -361,14 +328,15 @@ export const pinDetailStyles = StyleSheet.create({
     marginTop: spacing.x4,
     marginBottom: spacing.x6,
   },
-  chatModalCard: {
-    width: '100%',
-    padding: spacing.x6,
-    borderRadius: radius.lg,
-    backgroundColor: ILLUSTRATION_BACKGROUND,
-    ...shadow,
+  /** 결제 시트의 코인 영상과 같은 크기·여백으로 맞춘다. 두 시트가 같은 자리에서 열린다. */
+  chatIllustration: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginTop: spacing.x6,
+    marginBottom: spacing.x6,
   },
-  chatIllustration: { width: 150, height: 150, resizeMode: 'contain', alignSelf: 'center' },
   chatStart: {
     height: 52,
     alignItems: 'center',

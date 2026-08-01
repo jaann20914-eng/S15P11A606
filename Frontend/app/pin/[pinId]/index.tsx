@@ -93,13 +93,13 @@ function PinDetailScreen({
   const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(detail, onDetailChange);
   const isMine = isOwnPin(detail);
 
-  // 시트가 오르내리는 동안 흐림도 함께 짙어지고 옅어진다.
-  const blurRadius = useBackdropBlur(purchase.open);
+  // 시트가 오르내리는 동안 흐림도 함께 짙어지고 옅어진다. 결제와 채팅 요청이 같은 시트를 쓴다.
+  const blurRadius = useBackdropBlur(purchase.open || chat.open);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       {/*
-        결제 시트가 열리면 화면 전체를 흐리게 한다.
+        아래에서 시트가 올라오면 화면 전체를 흐리게 한다.
 
         `filter`는 스냅샷을 뜨지 않고 뷰의 렌더 노드에 직접 걸리므로 영상까지 함께 흐려진다.
         `BlurView`는 안드로이드에서 영상 표면을 잡지 못해 이 화면에서는 쓸 수 없다
