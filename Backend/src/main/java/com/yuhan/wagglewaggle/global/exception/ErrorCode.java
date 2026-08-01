@@ -71,7 +71,11 @@ public enum ErrorCode {
     LOCATION_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "장소와 촬영 위치가 너무 멉니다."),
     VIDEO_NOT_ACCESSIBLE(HttpStatus.BAD_REQUEST, "영상을 확인할 수 없습니다."),
     DAILY_PIN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 등록할 수 있는 핀 개수를 초과했습니다."),
-    PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다.");
+    PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다."),
+
+    // AI Blur Result
+    INVALID_AI_BLUR_RESULT(HttpStatus.BAD_REQUEST, "AI 블러 결과 메시지 형식이 올바르지 않습니다."),
+    AI_BLUR_PIN_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "AI 블러 대상 핀을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
