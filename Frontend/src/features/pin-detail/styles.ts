@@ -273,6 +273,25 @@ export const pinDetailStyles = StyleSheet.create({
   rewardText: { ...type.caption, color: colors.gray600, marginTop: 2 },
 
   /* 결제 · 채팅 요청 모달 */
+  /* 아래에 붙는 시트 — 결제 확인 */
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(40,38,38,.45)' },
+  /** 시트 위 빈 자리. 여기를 누르면 닫힌다. */
+  sheetDismissArea: { flex: 1 },
+  sheet: {
+    alignItems: 'center',
+    paddingHorizontal: layout.gutter,
+    paddingTop: spacing.x2,
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: ILLUSTRATION_BACKGROUND,
+  },
+  /** 손잡이를 넉넉히 감싸 손가락이 닿는 자리를 넓힌다. */
+  sheetHandleArea: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: spacing.x3 },
+  sheetHandle: { width: 56, height: 5, borderRadius: radius.pill, backgroundColor: colors.gray200 },
+  sheetTitle: { ...type.title, alignSelf: 'flex-start', color: colors.dark },
+  sheetCaption: { ...type.caption, alignSelf: 'flex-start', color: colors.gray400 },
+
+  /* 채팅 요청 모달 — 가운데 상자 */
   modalBackdrop: {
     flex: 1,
     alignItems: 'center',
@@ -287,7 +306,6 @@ export const pinDetailStyles = StyleSheet.create({
     backgroundColor: ILLUSTRATION_BACKGROUND,
     ...shadow,
   },
-  modalHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   modalTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
   modalCaption: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   modalClose: {
@@ -307,17 +325,17 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   /** 비율 처리는 IllustrationVideo의 `contentFit`이 맡으므로 크기만 준다. */
-  coinVideo: { width: 110, height: 110 },
+  coinVideo: { width: 200, height: 200, marginTop: spacing.x4 },
   payError: { ...type.caption, color: colors.danger, textAlign: 'center', marginBottom: spacing.x3 },
   payButton: { alignSelf: 'stretch' },
   payButtonBusy: { opacity: 0.6 },
   payMessage: {
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
     fontWeight: '500',
     textAlign: 'center',
     color: colors.dark,
-    marginVertical: spacing.x4,
+    marginTop: spacing.x2,
+    marginBottom: spacing.x5,
   },
   chatModalCard: {
     width: '100%',

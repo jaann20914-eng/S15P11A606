@@ -1,8 +1,8 @@
-import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
-import { MODAL_ANIMATION } from '@/components/common/modalAnimation';
+import { ActivityIndicator, Animated, Modal, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing } from '@/constants/theme';
 import { pinDetailStyles as s } from '../styles';
+import { useDragToDismiss } from '../hooks/useDragToDismiss';
 import { IllustrationVideo } from './IllustrationVideo';
 
 const COIN_VIDEO = require('../../../../assets/videos/credit-coin-3d.mp4');
@@ -11,13 +11,24 @@ export interface PinPurchaseModalProps {
   visible: boolean;
   /** 요청 중이면 버튼을 잠근다. */
   busy?: boolean;
-  /** 실패 문구. 모달을 닫지 않고 그 자리에 노출해 같은 키로 재시도하게 한다. */
+  /** 실패 문구. 시트를 닫지 않고 그 자리에 노출해 같은 키로 재시도하게 한다. */
   error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
-/** 영상 열람 결제 확인. 크레딧 차감액은 확정되면 상수로 뺀다. */
+/**
+ * 영상 열람 결제 확인.
+ *
+ * 화면 가운데 뜨는 상자가 아니라 **아래에 붙는 시트**다. 가운데 상자는 위아래로 빈 공간이
+ * 남아 어수선했고, 그 여백 때문에 그림을 키울 자리도 없었다. 아래에 붙이면 폭과 높이를
+ * 그대로 쓸 수 있다.
+ *
+ * 닫는 방법도 손잡이를 아래로 끄는 것으로 바꿨다. 시트가 아래에 있으니 닫는 몸짓도 아래가
+ * 자연스럽고, 위쪽 구석의 작은 X는 한 손으로 닿기 어렵다. 바깥을 눌러도 닫힌다.
+ *
+ * 결제가 진행 중일 때는 둘 다 막는다. 화면이 사라지면 사용자는 결제가 취소된 것으로 읽는다.
+ */
 export function PinPurchaseModal({
   visible,
   busy = false,
@@ -25,39 +36,49 @@ export function PinPurchaseModal({
   onCancel,
   onConfirm,
 }: PinPurchaseModalProps) {
+  const { bottom } = useSafeAreaInsets();
+  const { translateY, panHandlers } = useDragToDismiss(visible, busy, onCancel);
+
   return (
-    <Modal visible={visible} transparent animationType={MODAL_ANIMATION} onRequestClose={onCancel}>
-      <View style={s.modalBackdrop}>
-        <View style={s.modalCard}>
-          <View style={s.modalHead}>
-            <View>
-              <Text style={s.modalTitle}>뷰포인트 결제</Text>
-              <Text style={s.modalCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
-            </View>
-            <Pressable accessibilityLabel="닫기" disabled={busy} onPress={onCancel} style={s.modalClose}>
-              <Ionicons name="close" size={18} color={colors.white} />
-            </Pressable>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+      <View style={s.sheetBackdrop}>
+        <Pressable
+          accessibilityLabel="닫기"
+          disabled={busy}
+          onPress={onCancel}
+          style={s.sheetDismissArea}
+        />
+
+        <Animated.View
+          style={[s.sheet, { paddingBottom: bottom + spacing.x6 }, { transform: [{ translateY }] }]}
+        >
+          {/* 손잡이. 여기를 아래로 끌면 닫힌다. */}
+          <View {...panHandlers} style={s.sheetHandleArea}>
+            <View style={s.sheetHandle} />
           </View>
 
-          <View style={s.payPanel}>
-            {/* 모달이 열릴 때만 마운트해 매번 처음부터 재생되게 한다. */}
-            {visible && <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />}
-            <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
-            {error && <Text style={s.payError}>{error}</Text>}
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy}
-              onPress={onConfirm}
-              style={[s.primaryDark, s.payButton, busy && s.payButtonBusy]}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.lime} />
-              ) : (
-                <Text style={s.primaryDarkText}>동의하고 결제하기</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
+          <Text style={s.sheetTitle}>뷰포인트 결제</Text>
+          <Text style={s.sheetCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
+
+          {/* 시트가 열릴 때만 마운트해 매번 처음부터 재생되게 한다. */}
+          {visible && <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />}
+
+          <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
+          {error && <Text style={s.payError}>{error}</Text>}
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={onConfirm}
+            style={[s.primaryDark, s.payButton, busy && s.payButtonBusy]}
+          >
+            {busy ? (
+              <ActivityIndicator color={colors.lime} />
+            ) : (
+              <Text style={s.primaryDarkText}>동의하고 결제하기</Text>
+            )}
+          </Pressable>
+        </Animated.View>
       </View>
     </Modal>
   );
