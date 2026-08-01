@@ -34,7 +34,22 @@ export const pinDetailStyles = StyleSheet.create({
     paddingHorizontal: layout.gutter,
     paddingBottom: APP_TAB_BAR_HEIGHT + spacing.x10,
   },
-  content: { paddingBottom: APP_TAB_BAR_HEIGHT + spacing.x10 },
+  body: { flex: 1 },
+  /** 스크롤 내용. 아래 고정 영역이 자리를 차지하므로 탭바 높이를 더하지 않는다. */
+  content: { paddingBottom: spacing.x6 },
+  /**
+   * 늘 보이는 행동 영역.
+   *
+   * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위쪽에 경계를 둔다. 아래 여백은 떠 있는
+   * 탭바 높이만큼 화면에서 넣어 준다.
+   */
+  actionBar: {
+    paddingHorizontal: layout.gutter,
+    paddingTop: spacing.x4,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
+    backgroundColor: colors.white,
+  },
 
   /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
   headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },
@@ -137,7 +152,7 @@ export const pinDetailStyles = StyleSheet.create({
   authorRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center' },
   /** 링은 각도별 이미지라 테두리를 그리지 않고 이미지를 깔고 그 위에 숫자를 얹는다. */
   authorCopy: { flex: 1, marginLeft: spacing.x3 },
-  authorName: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
+  authorName: { ...type.h3, color: colors.dark },
   authorMeta: { ...type.small, color: colors.gray400 },
   chatButton: {
     height: 40,
@@ -151,8 +166,9 @@ export const pinDetailStyles = StyleSheet.create({
   chatText: { ...type.label, color: colors.white, fontWeight: '600' },
 
   /* 장소 */
-  placeName: { ...type.h3, fontWeight: '700', color: colors.dark, marginTop: spacing.x8 },
-  address: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
+  placeName: { ...type.h2, color: colors.dark, marginTop: spacing.x8 },
+  /** 장소명 아래 줄. 주소가 있던 자리다. */
+  detailLocation: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
   /** 모양은 CrowdLevelBadge가 갖고 있고 여기서는 배치만 준다. */
   crowdBadge: { alignSelf: 'flex-start', marginTop: spacing.x3 },
   rule: { height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x6 },
@@ -161,7 +177,7 @@ export const pinDetailStyles = StyleSheet.create({
   tag: { ...type.small, color: colors.blue },
 
   /* 내 핀 하단 액션 */
-  ownerFooter: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x10 },
+  ownerFooter: { flexDirection: 'row', gap: spacing.x2 },
   footerButton: {
     flex: 1,
     height: 56,
@@ -175,7 +191,7 @@ export const pinDetailStyles = StyleSheet.create({
   goChatButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
 
   /* 미열람 안내 */
-  watchArea: { marginTop: spacing.x12 },
+  watchArea: {},
   watchTitle: { ...type.title, color: colors.dark },
   watchHint: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
   watchButton: { marginTop: spacing.x4 },
@@ -189,11 +205,11 @@ export const pinDetailStyles = StyleSheet.create({
   primaryDarkText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.lime },
 
   /* 평가 */
-  ratingArea: { marginTop: spacing.x10 },
+  ratingArea: {},
   selectedRating: { fontSize: 16, lineHeight: 24, fontWeight: '500', color: '#A3A78F' },
-  ratingTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
-  ratingHint: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
-  ratingError: { ...type.caption, color: colors.danger, marginTop: spacing.x3 },
+  ratingTitle: { ...type.title, color: colors.dark },
+  ratingHint: { ...type.small, color: colors.gray600, marginTop: spacing.x1 },
+  ratingError: { ...type.small, color: colors.danger, marginTop: spacing.x3 },
   ratingButtons: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x4 },
   ratingButton: {
     flex: 1,

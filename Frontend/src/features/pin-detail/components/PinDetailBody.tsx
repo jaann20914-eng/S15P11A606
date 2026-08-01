@@ -2,7 +2,8 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
-import { colors } from '@/constants/theme';
+import { useAppTabBarHeight } from '@/components/common/AppTabBar';
+import { colors, spacing } from '@/constants/theme';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
@@ -29,52 +30,63 @@ export function PinDetailBody({
   const unlocked = isVideoUnlocked(detail);
 
   const showChatAction = !own && unlocked;
-
-  // "2층 창가석 기준 · 40초 전 업로드". 없는 조각은 빠진 채로 조립된다.
   const uploadedAt = formatRelativeTime(detail.createdAt);
-  const metaText = [
-    detail.detailLocation && `${detail.detailLocation} 기준`,
-    uploadedAt && `${uploadedAt} 업로드`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const tabBarHeight = useAppTabBarHeight();
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
-      <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
+    <View style={s.body}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+        <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
 
-      <View style={s.detailSheet}>
-        <View style={s.authorRow}>
-          <ViewAvatar angle={detail.authorViewAngle} size={40} />
-          <View style={s.authorCopy}>
-            <Text style={s.authorName}>{detail.authorNickname}</Text>
-            {metaText !== '' && <Text style={s.authorMeta}>{metaText}</Text>}
+        <View style={s.detailSheet}>
+          <View style={s.authorRow}>
+            <ViewAvatar angle={detail.authorViewAngle} size={44} />
+            <View style={s.authorCopy}>
+              <Text style={s.authorName}>{detail.authorNickname}</Text>
+              {uploadedAt !== '' && <Text style={s.authorMeta}>{uploadedAt} 업로드</Text>}
+            </View>
+            {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
           </View>
-          {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
+
+          <Text style={s.placeName}>{detail.place.name}</Text>
+
+          {/*
+            상세 위치는 장소명 바로 아래 줄이다. 예전에는 작성자 옆에 업로드 시각과 함께
+            "2층 창가석 기준 · 40초 전 업로드"로 붙어 있었는데, 그건 장소에 대한 설명이라
+            장소명 밑이 맞다. 주소가 있던 자리이기도 하다 — 서버가 주소를 주지 않는다.
+          */}
+          {detail.detailLocation && (
+            <Text style={s.detailLocation}>{detail.detailLocation} 기준</Text>
+          )}
+
+          <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
+
+          <View style={s.rule} />
+
+          {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
+
+          {detail.tags.length > 0 && (
+            <View style={s.tags}>
+              {detail.tags.map((tag) => (
+                <Text key={tag} style={s.tag}>
+                  #{tag}
+                </Text>
+              ))}
+            </View>
+          )}
         </View>
+      </ScrollView>
 
-        <Text style={s.placeName}>{detail.place.name}</Text>
-        {/*
-          주소는 상세 응답에 없다. 서버가 주소를 저장하지 않아 장소명과 좌표만 준다.
-          상세 위치(층·좌석)는 아래 본문에서 따로 보여준다.
-        */}
+      {/*
+        할 일은 늘 화면에 보인다.
 
-        <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
+        예전에는 본문 끝에 있어서 스크롤을 내려야 나왔다. 처음 쓰는 사람은 영상보기 버튼이
+        있다는 것조차 모른 채 화면을 떠날 수 있었다. 결제·평가·떠났어요는 이 화면에서 할 수
+        있는 유일한 행동이라 아래에 고정한다.
 
-        <View style={s.rule} />
-
-        {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
-
-        {detail.tags.length > 0 && (
-          <View style={s.tags}>
-            {detail.tags.map((tag) => (
-              <Text key={tag} style={s.tag}>
-                #{tag}
-              </Text>
-            ))}
-          </View>
-        )}
-
+        탭바가 떠 있는 만큼 띄운다. 그러지 않으면 버튼이 탭바 뒤로 들어간다.
+      */}
+      <View style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}>
         {own ? (
           <OwnerFooter onLeave={onLeave} />
         ) : unlocked ? (
@@ -83,7 +95,7 @@ export function PinDetailBody({
           <PurchasePrompt onPress={onRequestPurchase} />
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
