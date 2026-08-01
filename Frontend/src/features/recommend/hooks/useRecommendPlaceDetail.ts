@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getPlaceDetail } from '@/api/place/detail';
-import { resolvePlaceCoordinate } from '@/api/place/coordinates';
+import { resolvePlaceMapData, type PlaceMapData } from '@/api/place/coordinates';
 import type { PlaceDetail } from '@/types/place';
-import type { Coordinate } from '@/store/useMapStore';
 import { withMinimumDuration } from '@/utils/promise';
 
 export interface RecommendPlaceDetailState {
   detail: PlaceDetail | null;
-  /** 지도에 찍을 좌표. 구하지 못하면 null이고 지도 자리만 비운다. */
-  coordinate: Coordinate | null;
+  /** 지도에 찍을 것들(장소 좌표와 활성 핀 좌표). 구하지 못하면 null이고 지도 자리만 비운다. */
+  mapData: PlaceMapData | null;
   loading: boolean;
   /** 실패 문구. 성공하면 null. */
   error: string | null;
@@ -36,7 +35,7 @@ const MIN_LOADING_MS = 400;
  */
 export function useRecommendPlaceDetail(placeId: number | null): RecommendPlaceDetailState {
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
-  const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
+  const [mapData, setMapData] = useState<PlaceMapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,12 +51,12 @@ export function useRecommendPlaceDetail(placeId: number | null): RecommendPlaceD
     if (requested.current) return;
     requested.current = true;
 
-    const load = Promise.all([getPlaceDetail(placeId), resolvePlaceCoordinate(placeId)]);
+    const load = Promise.all([getPlaceDetail(placeId), resolvePlaceMapData(placeId)]);
 
     withMinimumDuration(load, MIN_LOADING_MS)
       .then(([received, found]) => {
         setDetail(received);
-        setCoordinate(found);
+        setMapData(found);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -70,5 +69,5 @@ export function useRecommendPlaceDetail(placeId: number | null): RecommendPlaceD
       });
   }, [placeId]);
 
-  return { detail, coordinate, loading, error };
+  return { detail, mapData, loading, error };
 }

@@ -27,7 +27,7 @@ export default function RecommendPlaceScreen() {
 
   // 경로 파라미터는 문자열이다. 숫자가 아니면 조회하지 않고 바로 안내로 넘긴다.
   const parsed = Number(placeId);
-  const { detail, coordinate, loading, error } = useRecommendPlaceDetail(
+  const { detail, mapData, loading, error } = useRecommendPlaceDetail(
     Number.isInteger(parsed) ? parsed : null,
   );
 
@@ -46,11 +46,7 @@ export default function RecommendPlaceScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.detail}>
           {/* 지도는 좌우 여백 없이 화면 폭을 그대로 쓴다(시안). */}
-          <RecommendPlaceMap
-            placeId={detail.place.placeId}
-            name={detail.place.name}
-            coordinate={coordinate}
-          />
+          <RecommendPlaceMap name={detail.place.name} mapData={mapData} />
 
           <View style={s.detailBody}>
             {/*

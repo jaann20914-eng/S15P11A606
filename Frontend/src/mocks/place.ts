@@ -161,9 +161,9 @@ function toListItem(seed: MockPlaceSeed): PlaceListItem {
     crowdLabel: toCrowdLabel(average),
     activePins: seed.pins.map((pin, index) => ({
       pinId: mockPinId((index % MOCK_PIN_SCENARIO_COUNT) + 1),
-      // 핀 좌표는 장소 주변으로 조금씩 흩어 놓는다. 전부 같은 점이면 마커가 겹친다.
-      latitude: seed.latitude + (index - 2) * 0.0004,
-      longitude: seed.longitude + (index - 2) * 0.0004,
+      // 핀마다 장소 주변 다른 자리에 있다. 전부 같은 점이면 지도에서 겹쳐 하나로 보인다.
+      latitude: seed.latitude + pin.latitudeOffset,
+      longitude: seed.longitude + pin.longitudeOffset,
       viewAngle: pin.viewAngle,
     })),
   };
