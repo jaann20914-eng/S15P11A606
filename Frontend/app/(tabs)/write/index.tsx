@@ -119,7 +119,11 @@ export default function PinCreateScreen() {
 
             <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
 
-            <PlaceField place={form.draft.place} onSelect={form.setPlace} />
+            <PlaceField
+              place={form.draft.place}
+              onSelect={form.setPlace}
+              droppedPlaceName={form.droppedPlaceName}
+            />
 
             <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
 
