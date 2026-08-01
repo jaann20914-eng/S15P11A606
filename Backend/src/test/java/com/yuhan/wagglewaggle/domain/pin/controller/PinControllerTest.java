@@ -1,15 +1,22 @@
 package com.yuhan.wagglewaggle.domain.pin.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.ChatRequestState;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusView;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.VideoAccessLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
+
+import java.util.List;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.exception.GlobalExceptionHandler;
@@ -41,6 +48,7 @@ class PinControllerTest {
     private PinVideoUploadService pinVideoUploadService;
     private PinCreateService pinCreateService;
     private PinVideoStatusQueryService pinVideoStatusQueryService;
+    private PinDetailService pinDetailService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -53,8 +61,10 @@ class PinControllerTest {
         pinVideoUploadService = Mockito.mock(PinVideoUploadService.class);
         pinCreateService = Mockito.mock(PinCreateService.class);
         pinVideoStatusQueryService = Mockito.mock(PinVideoStatusQueryService.class);
+        pinDetailService = Mockito.mock(PinDetailService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new PinController(pinVideoUploadService, pinCreateService, pinVideoStatusQueryService))
+                        new PinController(pinVideoUploadService, pinCreateService,
+                                pinVideoStatusQueryService, pinDetailService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -252,5 +262,125 @@ class PinControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.statusCode").value(500))
                 .andExpect(jsonPath("$.error.code").value("PIN_STATUS_READ_FAILED"));
+    }
+
+    // ---------- 핀 상세 조회 ----------
+
+    private PinDetailResponse detailResponse() {
+        return new PinDetailResponse(
+                java.util.UUID.fromString(PIN_ID),
+                90,
+                "와글러",
+                Instant.parse("2026-07-28T03:20:00Z"),
+                new PinDetailResponse.PlaceDetail(
+                        1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
+                CrowdLevel.WAGLE,
+                "2층 창가 좌석",
+                "점심시간 기준",
+                List.of("조용함", "콘센트"),
+                VideoAccessLevel.OWNER,
+                null,
+                "https://bucket.s3/blurred?sig=v",
+                "https://bucket.s3/thumb?sig=t",
+                false,
+                ChatRequestState.NONE);
+    }
+
+    @Test
+    void 상세_조회_성공시_200과_응답형식을_반환하고_객체키와_원본URL은_노출하지_않는다() throws Exception {
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID))).willReturn(detailResponse());
+
+        mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("영상 핀 상세 조회가 완료되었습니다."))
+                .andExpect(jsonPath("$.data.pinId").value(PIN_ID))
+                .andExpect(jsonPath("$.data.authorViewAngle").value(90))
+                .andExpect(jsonPath("$.data.authorNickname").value("와글러"))
+                .andExpect(jsonPath("$.data.createdAt").value("2026-07-28T03:20:00Z"))
+                .andExpect(jsonPath("$.data.place.placeId").value(1))
+                .andExpect(jsonPath("$.data.place.kakaoPlaceId").value("1372855768"))
+                .andExpect(jsonPath("$.data.place.name").value("바나프레소 테헤란로점"))
+                .andExpect(jsonPath("$.data.place.latitude").value(37.501123))
+                .andExpect(jsonPath("$.data.place.longitude").value(127.039625))
+                .andExpect(jsonPath("$.data.crowdLevel").value("WAGLE"))
+                .andExpect(jsonPath("$.data.detailLocation").value("2층 창가 좌석"))
+                .andExpect(jsonPath("$.data.memo").value("점심시간 기준"))
+                .andExpect(jsonPath("$.data.tags").isArray())
+                .andExpect(jsonPath("$.data.tags[0]").value("조용함"))
+                .andExpect(jsonPath("$.data.videoAccess").value("OWNER"))
+                .andExpect(jsonPath("$.data.isEvaluated").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.videoUrl").value("https://bucket.s3/blurred?sig=v"))
+                .andExpect(jsonPath("$.data.thumbnailUrl").value("https://bucket.s3/thumb?sig=t"))
+                .andExpect(jsonPath("$.data.canRequestChat").value(false))
+                .andExpect(jsonPath("$.data.chatRequestState").value("NONE"))
+                // 보안: 객체 키·원본 URL·내부 memberId는 응답에 없다.
+                .andExpect(jsonPath("$.data.blurredVideoKey").doesNotExist())
+                .andExpect(jsonPath("$.data.thumbnailKey").doesNotExist())
+                .andExpect(jsonPath("$.data.originalVideoKey").doesNotExist())
+                .andExpect(jsonPath("$.data.originalVideoUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.memberId").doesNotExist());
+
+        verify(pinDetailService).getPinDetail(eq(PIN_ID), eq(MEMBER_ID));
+    }
+
+    @Test
+    void 상세_조회_isEvaluated는_null이면_필드가_null로_포함된다() throws Exception {
+        // isEvaluated=null은 명시적으로 null로 직렬화되어야 한다(요구 예시와 동일).
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID))).willReturn(detailResponse());
+
+        String json = mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        org.assertj.core.api.Assertions.assertThat(json).contains("\"isEvaluated\":null");
+    }
+
+    @Test
+    void 상세_조회_잘못된_pinId_형식이면_400과_INVALID_PIN_ID를_반환한다() throws Exception {
+        given(pinDetailService.getPinDetail(eq("not-a-uuid"), any()))
+                .willThrow(new CustomException(ErrorCode.INVALID_PIN_ID));
+
+        mockMvc.perform(get("/api/v1/pins/{pinId}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("INVALID_PIN_ID"))
+                .andExpect(jsonPath("$.message").value("핀 ID 형식이 올바르지 않습니다."));
+    }
+
+    @Test
+    void 상세_조회_핀이_없으면_404와_PIN_NOT_FOUND를_반환한다() throws Exception {
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID)))
+                .willThrow(new CustomException(ErrorCode.PIN_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.error.code").value("PIN_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("조회할 수 있는 핀이 없습니다."));
+    }
+
+    @Test
+    void 상세_조회_내부_실패면_500과_PIN_DETAIL_FETCH_FAILED를_반환한다() throws Exception {
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID)))
+                .willThrow(new CustomException(ErrorCode.PIN_DETAIL_FETCH_FAILED));
+
+        mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.statusCode").value(500))
+                .andExpect(jsonPath("$.error.code").value("PIN_DETAIL_FETCH_FAILED"))
+                .andExpect(jsonPath("$.message").value("영상 핀 상세 조회 중 오류가 발생했습니다."));
+    }
+
+    @Test
+    void 상세_조회_미디어_URL_발급_실패면_503과_MEDIA_URL_ISSUE_FAILED를_반환한다() throws Exception {
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID)))
+                .willThrow(new CustomException(ErrorCode.MEDIA_URL_ISSUE_FAILED));
+
+        mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.statusCode").value(503))
+                .andExpect(jsonPath("$.error.code").value("MEDIA_URL_ISSUE_FAILED"))
+                .andExpect(jsonPath("$.message").value("영상 미디어 URL 발급에 실패했습니다."));
     }
 }

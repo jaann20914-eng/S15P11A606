@@ -24,4 +24,11 @@ public interface PinUnlockRepository extends JpaRepository<PinUnlock, Long> {
             @Param("memberId") Long memberId,
             @Param("pinIds") Collection<UUID> pinIds
     );
+
+    /**
+     * 특정 회원이 해당 핀의 결제 완료 열람 권한(PinUnlock)을 가졌는지 검사한다(핀 상세 접근 수준 판정용).
+     * PinUnlock에는 별도 결제 상태 컬럼이 없고 (pin_id, member_id) 유니크 제약이 있어,
+     * 행의 존재 자체가 결제 완료 열람을 의미한다.
+     */
+    boolean existsByPin_IdAndMember_Id(UUID pinId, Long memberId);
 }
