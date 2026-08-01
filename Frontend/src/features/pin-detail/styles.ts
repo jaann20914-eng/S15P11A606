@@ -216,7 +216,8 @@ export const pinDetailStyles = StyleSheet.create({
   /* 미열람 안내 */
   watchArea: {},
   watchTitle: { ...type.title, color: colors.dark },
-  watchHint: { ...type.body, color: colors.gray400, marginTop: spacing.x2 },
+  /** 제목에 딸린 설명이라 붙여 두고 한 단계 작게 쓴다. */
+  watchHint: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
   watchButton: { marginTop: spacing.x4 },
   primaryDark: {
     height: 52,
