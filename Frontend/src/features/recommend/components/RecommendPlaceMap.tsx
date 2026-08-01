@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
-import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
+import { KakaoMap } from '@/components/home/KakaoMap';
 import { isPlottableCoordinate } from '@/api/place/coordinates';
 import type { Coordinate } from '@/store/useMapStore';
 import { recommendStyles as s } from '../styles';
@@ -25,26 +24,6 @@ const PLACE_MAP_LEVEL = 3;
  * `usePlaceSearch`를 켜지 않으므로 검색용 SDK 번들도 받지 않는다 — 첫 렌더가 그만큼 빠르다.
  */
 export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceMapProps) {
-  const mapRef = useRef<KakaoMapHandle>(null);
-  const [ready, setReady] = useState(false);
-
-  /*
-    중심은 지도가 준비된 뒤 **명령으로 확정한다.**
-
-    최초 중심은 지도 HTML에 심는 값인데, 그 HTML은 컴포넌트가 처음 그려질 때 만들어져 그대로
-    굳는다. 좌표가 조금 늦게 도착하거나 화면이 재사용되면 지도는 엉뚱한 자리에서 시작하고,
-    핀만 새 장소에 찍혀 화면 밖으로 나가 버린다. 카카오가 중심을 아예 읽지 못하면 기본 위치
-    (제주 앞바다)에서 시작한다 — 성수 장소를 열었는데 건대나 제주가 보이던 증상이 이것이다.
-
-    그래서 HTML의 최초 중심에 기대지 않는다. 준비된 뒤(그리고 좌표가 바뀔 때마다) 이 장소로
-    옮기고 확대까지 맞춘다. 이미 그 자리면 지도 쪽에서 무시하므로 화면이 흔들리지 않는다.
-  */
-  useEffect(() => {
-    if (!ready || coordinate === null) return;
-    mapRef.current?.setLevel(PLACE_MAP_LEVEL);
-    mapRef.current?.panTo(coordinate, { animate: false });
-  }, [coordinate, ready]);
-
   /*
     좌표는 장소 상세 응답에 없어 목록 API로 따로 구한다(`api/place/coordinates.ts`).
 
@@ -62,14 +41,25 @@ export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceM
 
   return (
     <KakaoMap
-      ref={mapRef}
+      /*
+        지도는 **이 좌표로 만들어진다.** 준비된 뒤에 `panTo`·`setLevel` 명령으로 옮기지
+        않는다. 그 방식은 두 가지로 어긋났다.
+
+        - 확대는 애니메이션이라, 시작 시점의 중심을 붙잡고 있다가 끝나면서 그 자리로 화면을
+          정리한다. 그 사이에 보낸 중심 이동이 취소된다
+        - 명령은 지도가 준비된 뒤에만 닿는다. 준비 전에 보낸 것은 그냥 사라진다
+
+        좌표가 바뀌면 key가 달라져 지도를 새로 만든다. 화면 하나에 장소 하나뿐이라 이 비용은
+        들지 않는 것이나 마찬가지고, 대신 "핀이 화면 밖에 있는" 상태가 생길 수 없다.
+      */
+      key={`${coordinate.latitude},${coordinate.longitude}`}
       center={coordinate}
+      level={PLACE_MAP_LEVEL}
       places={[{ id: String(placeId), name, ...coordinate }]}
       // 핀 하나뿐이라 계열 색은 의미를 만들지 못한다. 목록 기본값과 같은 라임 계열로 둔다.
       filter="relaxed"
       selectedPlaceId={String(placeId)}
       myLocation={null}
-      onReady={() => setReady(true)}
       style={s.map}
     />
   );

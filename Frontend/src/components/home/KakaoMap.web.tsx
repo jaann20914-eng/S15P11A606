@@ -21,6 +21,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     filter,
     selectedPlaceId = null,
     center,
+    level,
     myLocation = null,
     fullScreen = false,
     bottomInset = 0,
@@ -42,8 +43,16 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const [attempt, setAttempt] = useState(0);
 
   const initialCenter = useRef(center);
+  /** 최초 확대도 중심과 같이 지도를 만들 때 한 번만 반영한다. */
+  const initialLevel = useRef(level);
   const html = useMemo(
-    () => buildKakaoMapHtml({ appKey: kakaoMapAppKey, center: initialCenter.current, usePlaceSearch }),
+    () =>
+      buildKakaoMapHtml({
+        appKey: kakaoMapAppKey,
+        center: initialCenter.current,
+        level: initialLevel.current,
+        usePlaceSearch,
+      }),
     [usePlaceSearch],
   );
 
