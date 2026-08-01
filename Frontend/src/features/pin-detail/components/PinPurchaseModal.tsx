@@ -2,7 +2,7 @@ import { ActivityIndicator, Animated, Pressable, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/constants/theme';
 import { pinDetailStyles as s } from '../styles';
-import { useDragToDismiss } from '../hooks/useDragToDismiss';
+import { useSheetTransition } from '../hooks/useSheetTransition';
 import { IllustrationVideo } from './IllustrationVideo';
 
 const COIN_VIDEO = require('../../../../assets/videos/credit-coin-3d.mp4');
@@ -37,10 +37,14 @@ export function PinPurchaseModal({
   onConfirm,
 }: PinPurchaseModalProps) {
   const { bottom } = useSafeAreaInsets();
-  const { translateY, panHandlers } = useDragToDismiss(visible, busy, onCancel);
+  const { rendered, translateY, backdropOpacity, onSheetLayout, panHandlers } = useSheetTransition(
+    visible,
+    busy,
+    onCancel,
+  );
 
-  // 화면 안에 그리는 오버레이라 스스로 닫힌 상태를 처리한다.
-  if (!visible) return null;
+  // 다 내려간 뒤에야 화면에서 뺀다. 그전까지는 내려가는 모습을 보여야 한다.
+  if (!rendered) return null;
 
   return (
     <View style={s.sheetBackdrop}>
@@ -48,7 +52,7 @@ export function PinPurchaseModal({
         어두운 막. 흐림만으로는 뒤 화면이 밝게 남아 시트와 구분되지 않는다.
         누르는 것은 아래 빈 자리가 받으므로 이 막은 터치를 통과시킨다.
       */}
-      <View pointerEvents="none" style={s.sheetScrim} />
+      <Animated.View pointerEvents="none" style={[s.sheetScrim, { opacity: backdropOpacity }]} />
 
       <Pressable
         accessibilityLabel="닫기"
@@ -58,6 +62,7 @@ export function PinPurchaseModal({
       />
 
       <Animated.View
+        onLayout={onSheetLayout}
         style={[s.sheet, { paddingBottom: bottom + spacing.x6 }, { transform: [{ translateY }] }]}
       >
         {/* 손잡이. 여기를 아래로 끌면 닫힌다. */}
