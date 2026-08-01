@@ -1,0 +1,124 @@
+import { getPlaces } from './list';
+import type { PlaceActivePin, PlaceListItem } from '@/types/place';
+import { DEFAULT_CENTER, type Coordinate } from '@/store/useMapStore';
+
+/**
+ * 장소의 지도 정보 저장소.
+ *
+ * 좌표를 주는 곳은 목록(`GET /api/v1/places`) 하나뿐이다. 장소 상세에는 위도·경도가 없고
+ * (장소도, 핀도) 추천 응답에도 없다. 그래서 목록으로 한 번 받아 둔 것을 여기 모아 두고,
+ * 상세처럼 지도가 필요한 화면이 꺼내 쓴다.
+ */
+
+/** 지도가 한 장소를 그리는 데 필요한 것. */
+export interface PlaceMapData {
+  coordinate: Coordinate;
+  /** 최근 1시간 이내의 활성 핀. 각자 자기 좌표를 가진다. */
+  activePins: PlaceActivePin[];
+}
+
+const mapDataByPlaceId = new Map<number, PlaceMapData>();
+
+/**
+ * 지도에 찍을 수 있는 좌표인지.
+ *
+ * 숫자가 아니거나 범위를 벗어난 값을 그대로 넘기면 카카오 지도는 중심을 잡지 못하고 **엉뚱한
+ * 기본 위치(제주 앞바다)** 를 보여준다. 그 화면은 "지도가 이상한 데를 가리킨다"로만 보이고
+ * 값이 잘못 왔다는 사실은 드러나지 않는다. 그래서 경계에서 걸러 낸다.
+ *
+ * `0, 0`도 버린다. 좌표가 비어 있을 때 흔히 채워지는 값인데, 실제로는 기니만 앞바다다.
+ */
+export function isPlottableCoordinate(coordinate: {
+  latitude: number;
+  longitude: number;
+}): boolean {
+  const { latitude, longitude } = coordinate;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  if (latitude < -90 || latitude > 90) return false;
+  if (longitude < -180 || longitude > 180) return false;
+  return latitude !== 0 || longitude !== 0;
+}
+
+/** 목록 응답을 기억한다. 쓸 수 없는 좌표는 넣지 않는다. */
+export function rememberPlaceMapData(places: PlaceListItem[]): void {
+  for (const place of places) {
+    const coordinate = { latitude: place.latitude, longitude: place.longitude };
+    if (!isPlottableCoordinate(coordinate)) {
+      if (__DEV__) console.warn(`[place] 좌표를 쓸 수 없습니다: placeId=${place.placeId}`, coordinate);
+      continue;
+    }
+
+    mapDataByPlaceId.set(place.placeId, {
+      coordinate,
+      // 핀 좌표도 같은 기준으로 거른다. 하나가 깨져도 나머지는 그린다.
+      activePins: place.activePins.filter(isPlottableCoordinate),
+    });
+  }
+}
+
+/** 기억해 둔 지도 정보. 없으면 null. */
+export function recallPlaceMapData(placeId: number): PlaceMapData | null {
+  return mapDataByPlaceId.get(placeId) ?? null;
+}
+
+
+/**
+ * 장소 좌표를 알 때 물어볼 범위(위경도 도 단위). 약 ±330m로, 그 장소와 바로 옆만 들어온다.
+ *
+ * 목록 API는 지도 경계로 묻는 API지만, 어디인지 알고 있으면 그 자리를 경계로 삼으면 된다.
+ * 좁게 물을수록 정확하다 — 서버가 중심에서 가까운 순으로 주고 개수 상한이 있어서, 넓게
+ * 물으면 정작 찾는 장소가 목록에서 밀려날 수 있다.
+ */
+const NEARBY_SPAN_DEGREES = 0.003;
+
+/**
+ * 좌표를 모를 때 훑어 볼 범위(위경도 도 단위). 약 ±11km.
+ *
+ * 어디인지 모르면 기본 중심 주변을 훑는 수밖에 없다. 그 안에 없는 장소는 못 찾고, 개수
+ * 상한에 밀려도 못 찾는다. 그래서 좌표를 아는 경로를 우선한다.
+ */
+const LOOKUP_SPAN_DEGREES = 0.1;
+
+/**
+ * 장소 하나의 지도 정보(장소 좌표와 활성 핀 좌표)를 구한다.
+ *
+ * 핀 좌표를 주는 곳은 목록 API 하나뿐이라, 상세 화면에 들어올 때 그 API를 한 번 부른다.
+ * 그때 **그 장소가 어디인지 알고 있으면 그 자리를 경계로 삼는다.** 추천 목록이 장소 좌표를
+ * 함께 주므로 보통은 이 경로다.
+ *
+ * 좌표를 모르면 기준점(사용자 위치, 없으면 기본 중심) 주변을 넓게 훑는다. 이쪽은 확실하지
+ * 않다 — 그 범위 밖이거나 개수 상한에 밀리면 찾지 못한다.
+ *
+ * 찾지 못해도 예외를 던지지 않는다. 좌표는 화면의 일부(지도)만 좌우하므로, 없으면 지도 자리만
+ * 비우고 기본정보와 핀 목록은 그대로 보여주는 편이 낫다.
+ */
+export async function resolvePlaceMapData(
+  placeId: number,
+  placeCoordinate?: Coordinate | null,
+): Promise<PlaceMapData | null> {
+  const remembered = recallPlaceMapData(placeId);
+  if (remembered !== null) return remembered;
+
+  const known = placeCoordinate != null && isPlottableCoordinate(placeCoordinate);
+  const center = known ? placeCoordinate : DEFAULT_CENTER;
+  const span = known ? NEARBY_SPAN_DEGREES : LOOKUP_SPAN_DEGREES;
+
+  try {
+    const { places } = await getPlaces({
+      southWestLatitude: center.latitude - span,
+      southWestLongitude: center.longitude - span,
+      northEastLatitude: center.latitude + span,
+      northEastLongitude: center.longitude + span,
+    });
+    rememberPlaceMapData(places);
+  } catch {
+    // 목록을 못 받은 것뿐이다. 좌표를 알고 있으면 핀 없이 장소만이라도 지도에 찍는다.
+    return known ? { coordinate: placeCoordinate, activePins: [] } : null;
+  }
+
+  const found = recallPlaceMapData(placeId);
+  if (found !== null) return found;
+
+  // 목록에 없더라도 좌표를 알고 있으면 지도는 그릴 수 있다. 핀만 비운다.
+  return known ? { coordinate: placeCoordinate, activePins: [] } : null;
+}

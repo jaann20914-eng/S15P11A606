@@ -26,21 +26,14 @@ export interface AppTabDefinition {
 }
 
 /**
- * 표시 순서 그대로다. 홈 · 추천 · 영상핀 · 채팅 · 마이.
+ * 표시 순서 그대로다. 홈 · 채팅 · 영상핀 · 추천 · 마이.
  *
- * 순서는 `DESIGN_GUIDE.md` 9.2("홈, 추천, 영상핀, 채팅, 마이 5개 탭")와 와이어프레임을 따른다.
- * 예전에는 추천과 채팅이 뒤바뀌어 있었다.
+ * 순서는 `DESIGN_GUIDE.md`의 `BottomNavigation`과 `docs/UX-SPEC.md`를 따른다.
+ *
+ * 탭 네비게이터(`app/(tabs)/_layout.tsx`)가 이 배열을 그대로 그리므로 순서는 여기서만 정한다.
  */
 export const APP_TABS: readonly AppTabDefinition[] = [
   { key: 'home', label: '홈', icon: 'map-outline', iconActive: 'map', href: '/(tabs)/home' },
-  {
-    key: 'recommend',
-    label: '추천',
-    icon: 'sparkles-outline',
-    iconActive: 'sparkles',
-    href: '/(tabs)/recommend',
-  },
-  { key: 'write', label: '제보', icon: 'add', iconActive: 'add', href: '/(tabs)/write' },
   {
     key: 'chat',
     label: '채팅',
@@ -48,6 +41,14 @@ export const APP_TABS: readonly AppTabDefinition[] = [
     icon: 'chatbubble-outline',
     iconActive: 'chatbubble',
     href: '/(tabs)/chat/sent',
+  },
+  { key: 'write', label: '제보', icon: 'add', iconActive: 'add', href: '/(tabs)/write' },
+  {
+    key: 'recommend',
+    label: '추천',
+    icon: 'sparkles-outline',
+    iconActive: 'sparkles',
+    href: '/(tabs)/recommend',
   },
   { key: 'mypage', label: '마이', icon: 'person-outline', iconActive: 'person', href: '/(tabs)/mypage' },
 ];

@@ -54,6 +54,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     filter,
     selectedPlaceId = null,
     center,
+    level,
     fitPlacesOnReady = false,
     usePlaceSearch = false,
     myLocation = null,
@@ -84,11 +85,14 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     핀은 영등포에 있어, 지도 한 화면을 통째로 받고 다시 받았다.
   */
   const initialCenter = useRef(fitPlacesOnReady && places.length > 0 ? centerOfPlaces(places) : center);
+  /** 최초 확대도 중심과 같이 지도를 만들 때 한 번만 반영한다. */
+  const initialLevel = useRef(level);
   const html = useMemo(
     () =>
       buildKakaoMapHtml({
         appKey: kakaoMapAppKey,
         center: initialCenter.current,
+        level: initialLevel.current,
         usePlaceSearch,
       }),
     [usePlaceSearch],
