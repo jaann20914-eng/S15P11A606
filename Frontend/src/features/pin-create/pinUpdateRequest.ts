@@ -12,9 +12,8 @@ import type { PinDraft, PinUpdateRequest } from '@/types/pinCreate';
  *
  * 그래서 처음 불러온 값(`initial`)과 지금 값(`draft`)을 비교해 달라진 것만 담는다.
  *
- * **장소는 담지 않는다.** 서버는 내부 `placeId`(정수)만 받는데, 우리 장소 검색은 카카오
- * 식별자를 준다. 검색 결과를 내부 식별자로 바꿀 방법이 없어 이 화면에서는 장소를 바꿀 수
- * 없다. 장소를 옮기려면 지우고 다시 등록해야 한다.
+ * 장소는 **내부 식별자를 가진 것만** 보낼 수 있다. 서버가 `placeId`(정수)만 받기 때문이다.
+ * 그래서 수정 화면은 카카오 검색이 아니라 우리 장소 목록에서 고른다(`PlaceEditField`).
  *
  * 촬영 좌표는 영상을 다시 찍었을 때만 함께 보낸다. 영상이 바뀌면 찍은 자리도 바뀌기 때문이다.
  */
@@ -24,6 +23,24 @@ export function toPinUpdateRequest(
   originalVideoKey?: string,
 ): PinUpdateRequest {
   const body: PinUpdateRequest = {};
+
+  /*
+    장소를 옮겼을 때만 담는다.
+
+    내부 식별자를 가진 장소만 보낼 수 있다. 수정 화면이 우리 장소 목록에서만 고르게 하므로
+    보통은 이 조건에 걸리지 않지만, 형태로 한 번 더 막아 둔다.
+
+    촬영 좌표는 함께 보내지 않는다(영상을 다시 찍은 경우가 아니라면). 서버는 기존 촬영 좌표와
+    새 장소의 거리를 재는데, 후보를 원래 장소 기준 50m로 좁혀 두어도 촬영 좌표가 그 반대편에
+    있으면 50m를 넘을 수 있다. 그때는 서버가 `LOCATION_OUT_OF_RANGE`로 거절하고 화면이 그
+    이유를 그대로 알린다.
+  */
+  if (
+    draft.place?.source === 'internal' &&
+    (initial.place?.source !== 'internal' || draft.place.placeId !== initial.place.placeId)
+  ) {
+    body.placeId = draft.place.placeId;
+  }
 
   if (draft.crowdLevel !== initial.crowdLevel) {
     body.crowdLevel = toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key);

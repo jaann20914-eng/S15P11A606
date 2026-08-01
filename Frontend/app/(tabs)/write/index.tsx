@@ -10,6 +10,7 @@ import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSe
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
 import { MemoField } from '@/features/pin-create/components/MemoField';
 import { PinCreateHeader } from '@/features/pin-create/components/PinCreateHeader';
+import { PlaceEditField } from '@/features/pin-create/components/PlaceEditField';
 import { PlaceField } from '@/features/pin-create/components/PlaceField';
 import { PublishingOverlay } from '@/features/pin-create/components/PublishingOverlay';
 import { TagField } from '@/features/pin-create/components/TagField';
@@ -44,6 +45,9 @@ export default function PinCreateScreen() {
   );
 
   const form = usePinCreateForm(editable.initial ?? undefined);
+
+  /** 원래 등록돼 있던 장소. 수정에서 다른 장소를 찾을 기준이 된다. */
+  const originPlace = initialDraft.place?.source === 'internal' ? initialDraft.place : null;
 
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
@@ -152,11 +156,16 @@ export default function PinCreateScreen() {
 
             <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
 
-            <PlaceField
-              place={form.draft.place}
-              onSelect={form.setPlace}
-              droppedPlaceName={form.droppedPlaceName}
-            />
+            {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
+            {mode.type === 'edit' ? (
+              <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
+            ) : (
+              <PlaceField
+                place={form.draft.place}
+                onSelect={form.setPlace}
+                droppedPlaceName={form.droppedPlaceName}
+              />
+            )}
 
             <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
 
