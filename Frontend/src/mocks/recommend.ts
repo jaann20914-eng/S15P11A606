@@ -34,6 +34,9 @@ function toPlace(seed: MockPlaceSeed): RecommendedPlace {
     placeId: seed.placeId,
     name: seed.name,
     address: seed.address,
+    // 명세에는 아직 없다. 상세 화면이 좌표를 넘겨받는 경로를 확인할 수 있게 목업은 넣어 둔다.
+    latitude: seed.latitude,
+    longitude: seed.longitude,
     businessStatus: seed.businessHoursText === null ? 'UNKNOWN' : 'OPEN',
     businessHoursText: seed.businessHoursText,
     activePinCount: seed.activePinCount,

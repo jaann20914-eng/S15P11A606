@@ -62,45 +62,62 @@ export function recallPlaceMapData(placeId: number): PlaceMapData | null {
 }
 
 /**
+ * 장소 좌표를 알 때 물어볼 범위(위경도 도 단위). 약 ±330m로, 그 장소와 바로 옆만 들어온다.
+ *
+ * 목록 API는 지도 경계로 묻는 API지만, 어디인지 알고 있으면 그 자리를 경계로 삼으면 된다.
+ * 좁게 물을수록 정확하다 — 서버가 중심에서 가까운 순으로 주고 개수 상한이 있어서, 넓게
+ * 물으면 정작 찾는 장소가 목록에서 밀려날 수 있다.
+ */
+const NEARBY_SPAN_DEGREES = 0.003;
+
+/**
  * 좌표를 모를 때 훑어 볼 범위(위경도 도 단위). 약 ±11km로, 서울 안에서 움직이는 범위를 덮는다.
  *
- * 목록 API는 지도 경계로 조회하는 API라 "이 장소 하나만" 물어볼 방법이 없다. 상세 화면에는
- * 지도 경계라 할 것이 없으니 기준점 주변을 넓게 훑어 그 안에서 `placeId`를 찾는다.
- *
- * 장소 상세 응답에 좌표가 실리면 이 우회는 통째로 사라진다.
+ * 어디인지 모르면 기준점(사용자 위치 또는 기본 중심) 주변을 넓게 훑는 수밖에 없다. 그 안에
+ * 없는 장소는 못 찾고, 개수 상한에 밀려도 못 찾는다. 그래서 좌표를 아는 경로를 우선한다.
  */
 const LOOKUP_SPAN_DEGREES = 0.1;
 
 /**
- * 장소 하나의 지도 정보를 구한다.
+ * 장소 하나의 지도 정보(장소 좌표와 활성 핀 좌표)를 구한다.
  *
- * 이미 받아 둔 것이 있으면 그대로 쓰고, 없으면 기준점 주변을 목록 API로 훑는다. 기준점은
- * 사용자의 현재 위치이며, 없으면 기본 중심(서울숲)이다.
+ * 핀 좌표를 주는 곳은 목록 API 하나뿐이라, 상세 화면에 들어올 때 그 API를 한 번 부른다.
+ * 그때 **그 장소가 어디인지 알고 있으면 그 자리를 경계로 삼는다.** 추천 목록이 장소 좌표를
+ * 함께 주므로 보통은 이 경로다.
+ *
+ * 좌표를 모르면 기준점(사용자 위치, 없으면 기본 중심) 주변을 넓게 훑는다. 이쪽은 확실하지
+ * 않다 — 그 범위 밖이거나 개수 상한에 밀리면 찾지 못한다.
  *
  * 찾지 못해도 예외를 던지지 않는다. 좌표는 화면의 일부(지도)만 좌우하므로, 없으면 지도 자리만
  * 비우고 기본정보와 핀 목록은 그대로 보여주는 편이 낫다.
  */
 export async function resolvePlaceMapData(
   placeId: number,
-  near?: Coordinate | null,
+  placeCoordinate?: Coordinate | null,
 ): Promise<PlaceMapData | null> {
   const remembered = recallPlaceMapData(placeId);
   if (remembered !== null) return remembered;
 
-  const center = near ?? DEFAULT_CENTER;
+  const known = placeCoordinate != null && isPlottableCoordinate(placeCoordinate);
+  const center = known ? placeCoordinate : DEFAULT_CENTER;
+  const span = known ? NEARBY_SPAN_DEGREES : LOOKUP_SPAN_DEGREES;
 
   try {
     const { places } = await getPlaces({
-      southWestLatitude: center.latitude - LOOKUP_SPAN_DEGREES,
-      southWestLongitude: center.longitude - LOOKUP_SPAN_DEGREES,
-      northEastLatitude: center.latitude + LOOKUP_SPAN_DEGREES,
-      northEastLongitude: center.longitude + LOOKUP_SPAN_DEGREES,
+      southWestLatitude: center.latitude - span,
+      southWestLongitude: center.longitude - span,
+      northEastLatitude: center.latitude + span,
+      northEastLongitude: center.longitude + span,
     });
     rememberPlaceMapData(places);
   } catch {
-    // 좌표를 못 구한 것뿐이다. 화면은 지도 없이 나머지를 보여준다.
-    return null;
+    // 목록을 못 받은 것뿐이다. 좌표를 알고 있으면 핀 없이 장소만이라도 지도에 찍는다.
+    return known ? { coordinate: placeCoordinate, activePins: [] } : null;
   }
 
-  return recallPlaceMapData(placeId);
+  const found = recallPlaceMapData(placeId);
+  if (found !== null) return found;
+
+  // 목록에 없더라도 좌표를 알고 있으면 지도는 그릴 수 있다. 핀만 비운다.
+  return known ? { coordinate: placeCoordinate, activePins: [] } : null;
 }

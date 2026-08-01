@@ -37,10 +37,22 @@ export function RecommendCard({ place }: RecommendCardProps) {
           바텀시트라 추천 목록 위에서 열면 배경이 어긋나고, 돌아오는 길도 시트를 내리는
           동작뿐이다. 추천 안에는 같은 내용을 제 화면으로 보여주는 상세가 따로 있다.
         */
+        /*
+          좌표도 함께 넘긴다. 상세는 지도를 그 좌표로 곧바로 만들고, 영상핀 좌표를 받아 올
+          때(`GET /api/v1/places`)도 그 자리 주변만 물어본다. 넘기지 못하면 상세가 기본 중심
+          주변을 넓게 훑어야 하고, 그 범위 밖이면 지도를 못 그린다.
+
+          아직 추천 명세에 좌표가 없어 값이 없을 수 있다. 그때는 파라미터를 빼고 보낸다.
+        */
         onPress={() =>
           router.push({
             pathname: '/(tabs)/recommend/[placeId]',
-            params: { placeId: place.placeId },
+            params: {
+              placeId: place.placeId,
+              ...(place.latitude !== undefined && place.longitude !== undefined
+                ? { latitude: place.latitude, longitude: place.longitude }
+                : null),
+            },
           })
         }
         style={s.card}

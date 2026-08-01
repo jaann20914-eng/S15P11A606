@@ -39,6 +39,16 @@ export interface RecommendedPlace {
   placeId: number;
   name: string;
   address: string;
+  /**
+   * 장소 좌표.
+   *
+   * 명세에 아직 없어 선택 필드다. 있으면 상세 화면이 두 가지를 얻는다.
+   * - 지도를 그 좌표로 곧바로 만든다
+   * - 영상핀 좌표를 받아 올 때(`GET /api/v1/places`) 그 자리 주변 좁은 범위로 물어본다.
+   *   없으면 기본 중심 주변을 넓게 훑어야 하고, 그 안에 없는 장소는 못 찾는다
+   */
+  latitude?: number;
+  longitude?: number;
   businessStatus: BusinessStatus;
   /** `영업중 · 오후 10:00까지`. 확인할 수 없으면 null이다. */
   businessHoursText: string | null;

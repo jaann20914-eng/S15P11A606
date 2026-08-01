@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,12 +24,29 @@ import { colors } from '@/constants/theme';
  * `(tabs)` 안에 있으므로 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
 export default function RecommendPlaceScreen() {
-  const { placeId } = useLocalSearchParams<{ placeId: string }>();
+  const { placeId, latitude, longitude } = useLocalSearchParams<{
+    placeId: string;
+    latitude?: string;
+    longitude?: string;
+  }>();
 
   // 경로 파라미터는 문자열이다. 숫자가 아니면 조회하지 않고 바로 안내로 넘긴다.
   const parsed = Number(placeId);
+
+  /*
+    목록에서 넘겨준 장소 좌표. 지도를 그 자리로 만들고, 영상핀 좌표를 받아 올 때도 그 주변만
+    물어본다. 목록을 거치지 않고 들어오면(주소로 바로 열기 등) 없으므로 훅이 알아서 찾는다.
+  */
+  const known = useMemo(() => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { latitude: lat, longitude: lng };
+  }, [latitude, longitude]);
+
   const { detail, mapData, loading, error } = useRecommendPlaceDetail(
     Number.isInteger(parsed) ? parsed : null,
+    known,
   );
 
   return (
