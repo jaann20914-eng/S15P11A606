@@ -21,28 +21,42 @@ export interface StartedUpload {
   cancel: () => void;
 }
 
-/** 촬영 파일의 크기(바이트). 발급 요청에 실어 서버가 크기 정책을 서명에 넣을 수 있게 한다. */
-export async function readVideoSize(fileUri: string): Promise<number> {
-  if (usesMock('pin/videoUploadTask')) return 0;
-
-  const info = await loadFileSystem().getInfoAsync(fileUri);
-  return info.exists ? info.size : 0;
+/** 개발 중 어느 단계에서 막혔는지 터미널에서 따라갈 수 있게 한다. */
+function logUpload(step: string, detail?: Record<string, unknown>): void {
+  if (!__DEV__) return;
+  console.log(`[pin-upload] ${step}`, detail ?? '');
 }
 
 /**
- * 촬영 영상을 Presigned POST로 외부 스토리지에 올린다.
+ * 촬영 파일의 크기(바이트).
  *
- * 서명이 URL이 아니라 폼 필드에 있으므로 `fields`를 그대로 실은 `multipart/form-data`
- * `POST`로 보낸다. 필드 내용은 해석하지 않고 서버가 준 값을 그대로 넘긴다.
+ * 발급 요청에 싣는다. 서버는 이 값이 **양수가 아니면 400(`INVALID_UPLOAD_REQUEST`)** 으로
+ * 막으므로, 못 읽었으면 그대로 보내지 말고 여기서 드러나야 한다.
+ */
+export async function readVideoSize(fileUri: string): Promise<number> {
+  if (usesMock('pin/videoUploadTask')) return 1;
+
+  const info = await loadFileSystem().getInfoAsync(fileUri);
+  const size = info.exists ? info.size : 0;
+
+  logUpload('파일 크기', { size, exists: info.exists, uri: fileUri.slice(0, 40) });
+  return typeof size === 'number' && size > 0 ? size : 0;
+}
+
+/**
+ * 촬영 영상을 Presigned PUT으로 외부 스토리지에 올린다.
  *
- * 인증 헤더는 붙이지 않는다. 붙이면 S3가 서명 검증에서 거부한다. 그래서 공용 `httpClient`를
- * 쓰지 않는다.
+ * 서명이 URL 자체에 들어 있어 폼 필드가 없다. 파일 본문만 그대로 실어 `PUT` 한 번을 보낸다.
  *
- * 성공은 2xx로 판정한다. Presigned POST는 기본이 `204`이고 서버가 `success_action_status`를
- * 넣었으면 `201`이라 특정 코드로 좁히지 않는다.
+ * **`Content-Type`은 발급 요청에 적은 값과 같아야 한다.** 다르면 S3가 서명 검증에서 거부한다
+ * (서명에 이 헤더가 포함된다).
+ *
+ * 인증 헤더는 붙이지 않는다. 붙여도 같은 이유로 거부된다. 그래서 공용 `httpClient`를 쓰지 않는다.
+ *
+ * 성공은 2xx로 판정한다. Presigned PUT은 보통 `200`이다.
  */
 export function startVideoUpload(
-  ticket: Pick<VideoUploadTicket, 'uploadUrl' | 'fields'>,
+  ticket: Pick<VideoUploadTicket, 'uploadUrl'>,
   fileUri: string,
   onProgress: UploadProgressListener,
 ): StartedUpload {
@@ -55,26 +69,31 @@ export function startVideoUpload(
     ticket.uploadUrl,
     fileUri,
     {
-      httpMethod: 'POST',
-      uploadType: FileSystemUploadType.MULTIPART,
-      // S3는 파일 파트 이름이 `file`이어야 한다.
-      fieldName: 'file',
-      mimeType: VIDEO_CONTENT_TYPE,
-      parameters: ticket.fields,
+      httpMethod: 'PUT',
+      uploadType: FileSystemUploadType.BINARY_CONTENT,
+      headers: { 'Content-Type': VIDEO_CONTENT_TYPE },
     },
     ({ totalBytesSent, totalBytesExpectedToSend }) => {
       if (totalBytesExpectedToSend > 0) onProgress(totalBytesSent / totalBytesExpectedToSend);
     },
   );
 
+  logUpload('업로드 시작', { url: ticket.uploadUrl.split('?')[0], contentType: VIDEO_CONTENT_TYPE });
+
   const completed = task.uploadAsync().then((result) => {
     // 취소하면 결과가 없다. 그 경우는 호출부가 취소로 알고 있으므로 조용히 끝낸다.
     if (!result) return;
 
     if (result.status < 200 || result.status >= 300) {
+      /*
+        S3가 왜 거절했는지는 본문에 XML로 온다(`<Code>SignatureDoesNotMatch</Code>` 등).
+        상태 코드만으로는 헤더 문제인지 URL 문제인지 알 수 없어 그대로 남긴다.
+      */
+      logUpload('업로드 실패', { status: result.status, body: result.body?.slice(0, 400) });
       throw new Error(`영상을 올리지 못했어요 (${result.status})`);
     }
 
+    logUpload('업로드 완료', { status: result.status });
     onProgress(1);
   });
 

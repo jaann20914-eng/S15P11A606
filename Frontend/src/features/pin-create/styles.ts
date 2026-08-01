@@ -219,6 +219,8 @@ export const pinCreateStyles = StyleSheet.create({
   placeName: { ...type.label, color: colors.dark },
   placeAddress: { ...type.caption, color: colors.gray400, marginTop: 2 },
   placeEmpty: { ...type.caption, color: colors.gray400, padding: spacing.x4 },
+  /** 촬영 자리에서 멀어 선택이 취소됐을 때의 안내. 입력칸 바로 아래에 붙는다. */
+  placeNotice: { ...type.caption, color: colors.danger, marginTop: spacing.x2 },
   /** 검색 중·실패 상태를 목록 자리에 대신 놓는다. */
   placeStatus: { alignItems: 'center', justifyContent: 'center', gap: spacing.x2, padding: spacing.x4 },
   placeRetry: {
