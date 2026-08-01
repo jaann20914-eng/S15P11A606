@@ -32,6 +32,20 @@ export function ScreenHeader({
 }) {
   return (
     <View style={[s.header, divider && s.headerDivider]}>
+      {/*
+        제목은 양옆 버튼과 나란히 두지 않고 **화면 기준으로 가운데에 고정한다.**
+
+        나란히 두면 좌우 슬롯의 폭 차이만큼 제목이 밀린다. 게시글 상세는 오른쪽이 "신고"
+        (아이콘+글자)라 뒤로 버튼보다 넓어서, 제목이 다른 화면보다 왼쪽에 있었다.
+
+        터치는 통과시킨다. 그러지 않으면 제목이 양옆 버튼 위를 덮어 눌리지 않는다.
+      */}
+      <View pointerEvents="none" style={s.headerTitleSlot}>
+        <Text numberOfLines={1} style={s.headerTitle}>
+          {title}
+        </Text>
+      </View>
+
       {back ? (
         <Pressable accessibilityLabel="뒤로 가기" onPress={onBack} style={s.iconBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.gray400} />
@@ -39,7 +53,6 @@ export function ScreenHeader({
       ) : (
         <View style={s.headerGap} />
       )}
-      <Text style={s.headerTitle}>{title}</Text>
       <View style={s.headerRight}>{right}</View>
     </View>
   );
@@ -182,7 +195,20 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { ...type.title, color: colors.dark },
+  /**
+   * 제목 자리. 양옆 버튼 폭과 무관하게 늘 화면 가운데다.
+   *
+   * 좌우로 버튼 폭(44)만큼 비워 두어 긴 제목이 버튼과 겹치지 않는다.
+   */
+  headerTitleSlot: {
+    position: 'absolute',
+    left: layout.minTouch + spacing.x2,
+    right: layout.minTouch + spacing.x2,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  headerTitle: { ...type.title, textAlign: 'center', color: colors.dark },
   button: {
     minHeight: layout.buttonHeight,
     borderRadius: radius.lg,
