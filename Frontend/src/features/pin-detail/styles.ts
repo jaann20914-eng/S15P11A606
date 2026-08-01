@@ -139,7 +139,14 @@ export const pinDetailStyles = StyleSheet.create({
 
   /* 본문 시트 */
   detailSheet: {
-    marginTop: -8,
+    /**
+     * 영상 위로 **모서리 반경만큼** 올라온다.
+     *
+     * 이 값이 반경보다 작으면 곡선이 끝나기 전에 영상의 아래 직선이 지나가, 둥근 모서리가
+     * 중간에서 잘려 보인다. 8px일 때 그랬다. 반경과 같게 두면 곡선이 끝나는 지점과 영상의
+     * 아래 끝이 정확히 맞닿아 이어진다.
+     */
+    marginTop: -radius.hero,
     paddingHorizontal: layout.gutter,
     paddingTop: spacing.x5,
     paddingBottom: spacing.x6,
