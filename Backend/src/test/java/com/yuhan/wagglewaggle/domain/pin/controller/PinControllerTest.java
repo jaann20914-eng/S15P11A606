@@ -337,6 +337,32 @@ class PinControllerTest {
     }
 
     @Test
+    void 상세_조회_detailLocation과_memo가_null이면_JSON에_null로_포함되고_tags는_빈배열이다() throws Exception {
+        PinDetailResponse res = new PinDetailResponse(
+                java.util.UUID.fromString(PIN_ID), 90, "와글러",
+                Instant.parse("2026-07-28T03:20:00Z"),
+                new PinDetailResponse.PlaceDetail(1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
+                CrowdLevel.WAGLE, null, null, List.of(),
+                VideoAccessLevel.OWNER, null,
+                "https://bucket.s3/blurred?sig=v", "https://bucket.s3/thumb?sig=t",
+                false, ChatRequestState.NONE);
+        given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID))).willReturn(res);
+
+        String json = mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.detailLocation").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.memo").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.data.tags").isArray())
+                .andExpect(jsonPath("$.data.tags").isEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        // 명세 예시처럼 null 필드는 생략되지 않고 명시적으로 직렬화된다.
+        org.assertj.core.api.Assertions.assertThat(json)
+                .contains("\"detailLocation\":null")
+                .contains("\"memo\":null");
+    }
+
+    @Test
     void 상세_조회_잘못된_pinId_형식이면_400과_INVALID_PIN_ID를_반환한다() throws Exception {
         given(pinDetailService.getPinDetail(eq("not-a-uuid"), any()))
                 .willThrow(new CustomException(ErrorCode.INVALID_PIN_ID));
