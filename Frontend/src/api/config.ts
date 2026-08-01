@@ -23,12 +23,16 @@ export type ApiModule =
   | 'pin/evaluate'
   | 'pin/remove'
   | 'pin/status'
+  | 'pin/tag-pins'
+  | 'pin/tag-search'
   | 'pin/unlock'
   | 'pin/videoUpload'
   | 'pin/videoUploadTask'
   | 'place/detail'
   | 'place/list'
   | 'place/search'
+  | 'place/search-confirm'
+  | 'place/search-recent'
   | 'recommend/places'
   | 'user/credits'
   | 'user/me'
@@ -50,9 +54,14 @@ export type ApiModule =
  * **엔드포인트가 생기면 해당 줄을 지운다.** 두면 서버가 준비된 뒤에도 목업을 계속 본다.
  */
 const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
-  // 2026-07-30 기준, 백엔드에 컨트롤러가 없는 것들이다.
+  // 2026-08-01 기준, 백엔드에 컨트롤러가 없는 것들이다.
   // 있는 것: /auth/oauth, /auth/refresh, /onboarding, /users/nickname-availability,
-  //          /places/search, /places, /pins/tags/search
+  //          /places, /places/{placeId}, /places/search,
+  //          /places/search/{kakaoPlaceId}, /places/search/recent,
+  //          /pins/tags/search(GET·POST)
+  //
+  // 검색 관련 셋(확정·최근기록·태그)은 컨트롤러를 확인하고 넣지 않았다. API 명세 CSV에는
+  // 최근 검색기록이 "진행 중"으로 남아 있지만 RecentSearchController가 완성돼 있다.
 
   // pin 도메인 컨트롤러가 아직 없다. 엔티티와 마이그레이션만 들어와 있다.
   'pin/detail': true,

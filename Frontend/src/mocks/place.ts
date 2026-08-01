@@ -1,19 +1,24 @@
 import { ApiError } from '@/api/client';
-import { DAYS_OF_WEEK, MIN_PLACE_QUERY_LENGTH } from '@/types/place';
+import { DAYS_OF_WEEK, MIN_PLACE_QUERY_LENGTH, RECENT_SEARCH_MAX_LIMIT } from '@/types/place';
 import type {
   DayCrowdStat,
   PlaceDetailResponse,
   PlaceListItem,
   PlacePinCardResponse,
+  PlaceSearchConfirmResponse,
   PlaceSearchItem,
   PlacesQuery,
   PlacesResponse,
+  RecentSearch,
+  TaggedPinsResponse,
+  TagSuggestion,
 } from '@/types/place';
 import { MOCK_LATENCY_MS, delay, mockPinId } from './pin';
 import {
   averageCrowdLevelOf,
   findMockPlaceSeed,
   mockPlaceSeeds,
+  mockTagVocabulary,
   WAGLE_FROM_LEVEL,
   type MockPinSeed,
   type MockPlaceSeed,
@@ -228,4 +233,168 @@ export async function fetchMockPlaceDetail(placeId: number): Promise<PlaceDetail
     pins: seed.pins.map(toPinCard),
     weeklyCrowdStats: toWeeklyStats(seed),
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * 장소 검색 확정 · 최근 검색기록 · 태그 검색
+ * ------------------------------------------------------------------ */
+
+/**
+ * 카카오 장소 → 우리 장소.
+ *
+ * 실제 서버는 `places` 테이블을 `kakaoPlaceId`로 뒤져 있으면 상세를, 없으면 카카오 정보만
+ * 돌려준다. 목업도 두 갈래를 모두 열어 둬야 미등록 장소 화면을 확인할 수 있다.
+ *
+ * 표에 없는 검색 결과는 전부 미등록 장소로 답한다.
+ */
+const SEED_PLACE_ID_BY_KAKAO_ID: Record<string, number> = {
+  // 바나프레소 역삼1점 → 시드 11번(바나프레소 역삼점)
+  '1234567890': 11,
+};
+
+/**
+ * 장소 검색 확정 목업.
+ *
+ * 화면에서 확인하는 법: "바나"를 검색해 **역삼1점**을 고르면 등록된 장소(핀·통계 있음),
+ * 나머지를 고르면 미등록 장소(`placeId: null`, 빈 배열)가 된다.
+ */
+export async function confirmMockPlaceSearch(
+  kakaoPlaceId: string,
+  placeName: string,
+): Promise<PlaceSearchConfirmResponse> {
+  await delay(MOCK_LATENCY_MS);
+
+  const found = places.find((place) => place.kakaoPlaceId === kakaoPlaceId);
+  if (found === undefined) {
+    throw new ApiError(404, 'PLACE_NOT_FOUND', '장소를 찾을 수 없습니다.');
+  }
+
+  const seed = findMockPlaceSeed(SEED_PLACE_ID_BY_KAKAO_ID[kakaoPlaceId] ?? -1);
+
+  // 우리 DB에 없는 장소. 카카오에서 온 이름·주소만 있고 핀과 통계는 있을 수 없다.
+  if (seed === null) {
+    return {
+      place: { placeId: null, name: placeName, address: found.address, phone: null },
+      pins: [],
+      weeklyCrowdStats: [],
+    };
+  }
+
+  return {
+    place: { placeId: seed.placeId, name: seed.name, address: seed.address, phone: seed.phone },
+    pins: seed.pins.map(toPinCard),
+    weeklyCrowdStats: toWeeklyStats(seed),
+  };
+}
+
+/**
+ * 최근 검색기록 목업.
+ *
+ * 서버는 (유형, 키워드) 기준으로 중복을 제거해 최신순으로 준다. 두 유형을 섞어 둬서 화면이
+ * `PLACE`와 `TAG`를 다르게 다루는지 확인할 수 있게 한다.
+ */
+const mockRecentSearches: RecentSearch[] = [
+  {
+    searchId: 3,
+    type: 'TAG',
+    keyword: '감성',
+    placeId: null,
+    kakaoPlaceId: null,
+    createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+  },
+  {
+    searchId: 2,
+    type: 'PLACE',
+    keyword: '바나프레소 역삼1점',
+    placeId: 11,
+    kakaoPlaceId: '1234567890',
+    createdAt: new Date(Date.now() - 3 * 60 * 60_000).toISOString(),
+  },
+  {
+    // 미등록 장소를 검색한 기록. placeId가 비어 있어도 kakaoPlaceId로 다시 확정할 수 있다.
+    searchId: 1,
+    type: 'PLACE',
+    keyword: '카페 그리다',
+    placeId: null,
+    kakaoPlaceId: '3234567890',
+    createdAt: new Date(Date.now() - 26 * 60 * 60_000).toISOString(),
+  },
+];
+
+export async function fetchMockRecentSearches(limit?: number): Promise<RecentSearch[]> {
+  await delay(MOCK_LATENCY_MS);
+
+  // 생략하면 서버가 20을 쓴다. 목업 기록이 그보다 적으므로 전부 주는 것과 같다.
+  if (limit === undefined) return mockRecentSearches;
+
+  if (limit < 1 || limit > RECENT_SEARCH_MAX_LIMIT) {
+    throw new ApiError(400, 'INVALID_LIMIT', '조회 개수가 올바르지 않습니다.');
+  }
+
+  return mockRecentSearches.slice(0, limit);
+}
+
+/** 서버가 한 번에 주는 자동완성 최대 개수(`TagSearchService.MAX_RESULTS`). */
+const MAX_TAG_SUGGESTIONS = 10;
+
+/**
+ * 태그 자동완성 목업.
+ *
+ * 서버는 완전일치 → 접두어 → 부분일치 순으로 준다. 목업도 같은 순서를 지켜야 화면에서
+ * 순서가 뒤집히는 것을 알아볼 수 있다.
+ *
+ * 화면에서 확인하는 법: "카페" 또는 "감성"을 입력한다.
+ */
+export async function searchMockTags(query: string): Promise<TagSuggestion[]> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (query.length === 0) {
+    throw new ApiError(400, 'INVALID_TAG_NAME', '태그명이 올바르지 않습니다.');
+  }
+
+  const tier = (tag: string): number => {
+    if (tag === query) return 0;
+    return tag.startsWith(query) ? 1 : 2;
+  };
+
+  return mockTagVocabulary
+    .filter((tag) => tag.includes(query))
+    .sort((a, b) => tier(a) - tier(b))
+    .slice(0, MAX_TAG_SUGGESTIONS)
+    .map((name) => ({ name }));
+}
+
+/**
+ * 태그 검색 확정 목업.
+ *
+ * 실제 서버는 **정확히 일치하는** 태그의 핀만 준다. 자동완성과 달리 부분일치를 쓰지 않으므로
+ * 어휘에 없는 태그를 고르면 빈 배열이 되고, 결과 없음 화면을 확인할 수 있다.
+ *
+ * 핀은 여러 장소에서 모으되 같은 식별자는 한 번만 넣는다. 목업 핀은 여섯 시나리오를 돌려
+ * 쓰기 때문에(`MOCK_PIN_SCENARIO_COUNT`) 그대로 모으면 같은 핀이 여러 번 들어간다.
+ */
+export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsResponse> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (tag.length === 0) {
+    throw new ApiError(400, 'INVALID_TAG_NAME', '태그명이 올바르지 않습니다.');
+  }
+
+  const seen = new Set<string>();
+  const pins: PlacePinCardResponse[] = [];
+
+  for (const seed of mockPlaceSeeds) {
+    seed.pins.forEach((pin, index) => {
+      if (!pin.tags.includes(tag)) return;
+
+      const card = toPinCard(pin, index);
+      if (seen.has(card.pinId)) return;
+
+      seen.add(card.pinId);
+      pins.push(card);
+    });
+  }
+
+  // 서버는 최신 작성순으로 준다.
+  return { pins: pins.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
 }

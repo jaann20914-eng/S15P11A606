@@ -188,6 +188,112 @@ export const PLACE_SEARCH_DEBOUNCE_MS = 700;
  */
 export const WIDE_PLACE_SEARCH_RADIUS_M = 20_000;
 
+/* ------------------------------------------------------------------ *
+ * POST /api/v1/places/search/{kakaoPlaceId} — 장소 검색 확정
+ * ------------------------------------------------------------------ */
+
+/**
+ * 확정된 장소의 기본 정보.
+ *
+ * 상세(`PlaceSummary`)와 한 가지가 다르다. **`placeId`가 `null`일 수 있다.** 우리 DB에 없는
+ * 카카오 장소를 고르면 서버가 이름·주소·연락처만 카카오에서 실시간으로 채우고 식별자는
+ * 비운다 — 아직 아무도 핀을 남기지 않은 장소다. 오류가 아니라 정상 응답(200)이다.
+ */
+export type ConfirmedPlaceSummary = Omit<PlaceSummary, 'placeId'> & {
+  placeId: number | null;
+};
+
+/**
+ * `POST /api/v1/places/search/{kakaoPlaceId}` 응답의 `data` 원형.
+ *
+ * 상세와 같은 모양을 준다. 그래서 검색으로 들어오든 지도에서 들어오든 화면 하나로 받는다.
+ * 미등록 장소면 `pins`와 `weeklyCrowdStats`는 빈 배열이다.
+ */
+export interface PlaceSearchConfirmResponse extends Omit<PlaceDetailResponse, 'place'> {
+  place: ConfirmedPlaceSummary;
+}
+
+/** 화면이 쓰는 검색 확정 결과. 상세와 마찬가지로 썸네일 필드만 정리된 모양이다. */
+export interface PlaceSearchConfirmResult extends Omit<PlaceSearchConfirmResponse, 'pins'> {
+  pins: PlacePinCard[];
+}
+
+/* ------------------------------------------------------------------ *
+ * GET /api/v1/places/search/recent — 최근 검색기록
+ * ------------------------------------------------------------------ */
+
+/**
+ * 검색기록 유형.
+ *
+ * 명세 문서에는 `KEYWORD`도 적혀 있으나 서버 `SearchType` enum은 이 둘뿐이다.
+ */
+export type RecentSearchType = 'PLACE' | 'TAG';
+
+/**
+ * 최근 검색기록 한 건.
+ *
+ * `type`이 재실행 경로를 가른다 — `PLACE`면 `kakaoPlaceId`로 장소 확정을, `TAG`면 `keyword`로
+ * 태그 확정을 다시 부른다.
+ *
+ * 기록을 남기는 일은 프론트가 하지 않는다. 두 확정 API가 각각 서버에서 저장하므로 등록
+ * API는 없다. 개별·전체 삭제 API도 아직 없다.
+ */
+export interface RecentSearch {
+  searchId: number;
+  type: RecentSearchType;
+  keyword: string;
+  /** `TAG`이거나, 우리 DB에 없는 장소를 골랐으면 null이다. */
+  placeId: number | null;
+  /** `TAG`이면 null이다. */
+  kakaoPlaceId: string | null;
+  /** ISO 8601 UTC. 표시할 때 현지 시각으로 바꾼다. */
+  createdAt: string;
+}
+
+/**
+ * 최근 검색기록 조회 개수의 서버 허용 범위(`RecentSearchService`).
+ * 벗어나면 `INVALID_LIMIT`으로 400이 온다. 생략하면 서버가 20을 쓴다.
+ */
+export const RECENT_SEARCH_MAX_LIMIT = 50;
+
+/* ------------------------------------------------------------------ *
+ * GET · POST /api/v1/pins/tags/search — 태그 검색
+ * ------------------------------------------------------------------ */
+
+/**
+ * 지도 경계만 담은 조회 조건.
+ *
+ * 태그 검색 두 API가 장소 목록과 똑같은 네 값을 요구한다. 따로 적으면 한쪽만 고쳐질 수
+ * 있으므로 목록 조건에서 필터만 뺀 모양으로 둔다.
+ */
+export type MapBoundsQuery = Omit<PlacesQuery, 'filter'>;
+
+/**
+ * 태그 자동완성 한 건.
+ *
+ * 서버가 지도 경계 안의 활성·미만료 핀에 달린 태그만 후보로 삼고, 완전일치 → 접두어 →
+ * 부분일치 순으로 최대 10개를 준다. 그래서 결과가 없는 태그는 제안되지 않는다.
+ */
+export interface TagSuggestion {
+  name: string;
+}
+
+/** `GET /api/v1/pins/tags/search` 응답의 `data`. */
+export interface TagSearchResponse {
+  tags: TagSuggestion[];
+}
+
+/**
+ * `POST /api/v1/pins/tags/search` 응답의 `data` 원형.
+ *
+ * 핀 카드가 장소 상세와 **같은 모양**이다(서버도 같은 레코드를 재사용한다). 태그 검색이
+ * `/pins` 경로인데 타입이 이 파일에 있는 이유가 그것이다 — 카드 타입을 여기서 소유하고
+ * 있어 옮기면 파일 사이가 서로를 참조하게 된다.
+ */
+export interface TaggedPinsResponse {
+  pins: PlacePinCardResponse[];
+}
+
 /** `usePlaceSearch` 동작 조정. 화면의 용도에 따라 달라지는 것만 둔다. */
 export interface PlaceSearchOptions {
   /** 생략하면 서버 기본값(50m). 넓게 찾아야 하는 화면은 직접 정한다. */

@@ -98,7 +98,13 @@ const memos = [
   '입장 줄이 건물 밖까지 이어집니다. 30분은 잡으셔야 할 것 같아요.',
 ];
 
-const tags = [
+/**
+ * 핀에 붙는 태그 어휘.
+ *
+ * 태그 검색 목업이 이 목록을 그대로 쓴다. 따로 두면 자동완성이 제안한 태그가 정작 어느
+ * 핀에도 없어, 고르는 순간 항상 빈 결과가 된다.
+ */
+export const mockTagVocabulary = [
   '카페',
   '감성',
   '가성비맛집',
@@ -153,7 +159,7 @@ function buildPins(placeId: number, count: number): MockPinSeed[] {
     // 90~360도, 10도 단위. 링 이미지가 그 간격으로 있다.
     viewAngle: 90 + Math.floor(random() * 28) * 10,
     memo: stories[index],
-    tags: pickMany(tags, 2 + Math.floor(random() * 2), random),
+    tags: pickMany(mockTagVocabulary, 2 + Math.floor(random() * 2), random),
     latitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,
     longitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,
     // 최신순으로 늘어놓는다. 목록이 등록 시각 내림차순이라 뒤로 갈수록 오래된 것이 온다.
