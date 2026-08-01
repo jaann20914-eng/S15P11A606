@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
 import { isPlottableCoordinate } from '@/api/place/coordinates';
@@ -26,20 +26,24 @@ const PLACE_MAP_LEVEL = 3;
  */
 export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceMapProps) {
   const mapRef = useRef<KakaoMapHandle>(null);
+  const [ready, setReady] = useState(false);
 
   /*
-    지도가 준비되면 확대 레벨을 맞추고 중심을 다시 한 번 이 장소로 보낸다.
+    중심은 지도가 준비된 뒤 **명령으로 확정한다.**
 
-    최초 중심은 지도 HTML에 심어 두지만, 그것은 컴포넌트가 처음 그려질 때의 값으로 굳는다.
-    중심을 명령으로 한 번 더 확정해 두면 그 사이 좌표가 늦게 도착했거나 지도가 다른 자리에서
-    시작한 경우에도 결과가 같다. 이미 그 자리면 지도 쪽에서 무시하므로 화면이 흔들리지 않는다.
+    최초 중심은 지도 HTML에 심는 값인데, 그 HTML은 컴포넌트가 처음 그려질 때 만들어져 그대로
+    굳는다. 좌표가 조금 늦게 도착하거나 화면이 재사용되면 지도는 엉뚱한 자리에서 시작하고,
+    핀만 새 장소에 찍혀 화면 밖으로 나가 버린다. 카카오가 중심을 아예 읽지 못하면 기본 위치
+    (제주 앞바다)에서 시작한다 — 성수 장소를 열었는데 건대나 제주가 보이던 증상이 이것이다.
 
-    준비 전에 보낸 명령은 그대로 버려지므로 반드시 `onReady` 이후여야 한다.
+    그래서 HTML의 최초 중심에 기대지 않는다. 준비된 뒤(그리고 좌표가 바뀔 때마다) 이 장소로
+    옮기고 확대까지 맞춘다. 이미 그 자리면 지도 쪽에서 무시하므로 화면이 흔들리지 않는다.
   */
-  const focusPlace = useCallback(() => {
+  useEffect(() => {
+    if (!ready || coordinate === null) return;
     mapRef.current?.setLevel(PLACE_MAP_LEVEL);
-    if (coordinate !== null) mapRef.current?.panTo(coordinate, { animate: false });
-  }, [coordinate]);
+    mapRef.current?.panTo(coordinate, { animate: false });
+  }, [coordinate, ready]);
 
   /*
     좌표는 장소 상세 응답에 없어 목록 API로 따로 구한다(`api/place/coordinates.ts`).
@@ -65,7 +69,7 @@ export function RecommendPlaceMap({ placeId, name, coordinate }: RecommendPlaceM
       filter="relaxed"
       selectedPlaceId={String(placeId)}
       myLocation={null}
-      onReady={focusPlace}
+      onReady={() => setReady(true)}
       style={s.map}
     />
   );
