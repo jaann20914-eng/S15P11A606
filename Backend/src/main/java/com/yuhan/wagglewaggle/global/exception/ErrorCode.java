@@ -79,8 +79,8 @@ public enum ErrorCode {
 
     // Pin Status
     PIN_NOT_FOUND(HttpStatus.NOT_FOUND, "핀을 찾을 수 없습니다."),
-    PIN_STATUS_READ_FORBIDDEN(HttpStatus.FORBIDDEN, "핀 영상 처리 상태를 조회할 권한이 없습니다."),
-    PIN_STATUS_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 영상 처리 상태 조회 중 오류가 발생했습니다.");
+    PIN_STATUS_READ_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 핀의 처리 상태를 조회할 권한이 없습니다."),
+    PIN_STATUS_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 상태 조회 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;
