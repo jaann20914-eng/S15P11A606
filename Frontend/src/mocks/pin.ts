@@ -54,8 +54,6 @@ const scenarioByPinId: Record<PinId, PinDetailScenario> = {
 /** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
 const INSUFFICIENT_CREDIT_PIN_IDS = new Set([mockPinId(5)]);
 
-/** 삭제 실패 화면을 확인하기 위한 내 핀. 삭제 요청에서 409가 난다. */
-const DELETE_NOT_ALLOWED_PIN_IDS = new Set([mockPinId(6)]);
 
 /**
  * 짧은 번호를 목업 식별자로 맞춘다.
@@ -518,7 +516,11 @@ const deleteResultsByPinId = new Map<PinId, PinDeleteResult>();
 
 /**
  * 삭제 목업.
- * 권한 없음·삭제 불가 상태·재요청 멱등성을 실제 서버와 같은 코드로 재현한다.
+ *
+ * 권한 없음과 재요청 멱등성을 실제 서버와 같은 코드로 재현한다. 상태 때문에 막히는 경우는
+ * 없다 — 명세상 `PENDING`·`ACTIVE`·`REJECTED`·`FAILED` 어디서든 지울 수 있다.
+ *
+ * 재요청은 처음 결과를 그대로 돌려준다. `deletedAt`도 그때 값이다.
  */
 export async function deleteMockPin(pinId: PinId): Promise<PinDeleteResult> {
   // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
@@ -537,10 +539,6 @@ export async function deleteMockPin(pinId: PinId): Promise<PinDeleteResult> {
 
   if (scenario !== 'owner') {
     throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '핀을 삭제할 권한이 없습니다.');
-  }
-
-  if (DELETE_NOT_ALLOWED_PIN_IDS.has(pinId)) {
-    throw new ApiError(409, 'PIN_DELETE_NOT_ALLOWED', '현재 상태에서는 핀을 삭제할 수 없습니다.');
   }
 
   const result: PinDeleteResult = {
