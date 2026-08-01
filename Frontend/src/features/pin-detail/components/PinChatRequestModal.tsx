@@ -58,9 +58,12 @@ export function PinChatRequestModal({
         </View>
 
         <Text style={s.sheetTitle}>채팅 요청</Text>
-        <Text style={s.sheetCaption}>요청을 수락하면 크레딧이 상대에게 넘어갑니다</Text>
+        <Text style={s.sheetCaption}>상대가 수락하면 크레딧이 전해져요</Text>
 
         <Image source={CHAT_IMAGE} style={s.chatIllustration} />
+
+        {/* 결제 시트와 같은 스타일·줄 수로 두어야 두 시트의 높이가 맞는다. */}
+        <Text style={s.payMessage}>궁금한 걸 직접 물어볼 수 있어요{'\n'}5 크레딧으로 대화를 시작해요</Text>
 
         {error && <Text style={s.chatRequestError}>{error}</Text>}
 

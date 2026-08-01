@@ -328,15 +328,14 @@ export const pinDetailStyles = StyleSheet.create({
     marginTop: spacing.x4,
     marginBottom: spacing.x6,
   },
-  /** 결제 시트의 코인 영상과 같은 크기·여백으로 맞춘다. 두 시트가 같은 자리에서 열린다. */
-  chatIllustration: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginTop: spacing.x6,
-    marginBottom: spacing.x6,
-  },
+  /**
+   * 결제 시트의 코인 영상과 같은 크기·여백.
+   *
+   * 두 시트는 같은 자리에서 같은 높이로 올라와야 한다. 그래서 아래 여백을 여기서 주지 않고
+   * 결제 시트와 똑같이 `payMessage`의 위 여백이 맡는다. 그림 크기·문구 줄 수까지 맞춰 두면
+   * 두 시트의 높이가 정확히 같아진다.
+   */
+  chatIllustration: { width: 200, height: 200, resizeMode: 'contain', alignSelf: 'center', marginTop: spacing.x6 },
   chatStart: {
     height: 52,
     alignItems: 'center',
