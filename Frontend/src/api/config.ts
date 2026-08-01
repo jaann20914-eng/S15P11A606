@@ -56,6 +56,20 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     - /places/search, /places, /places/{placeId}
   */
 
+  /*
+    ⚠ 등록 3종은 실서버로 연결했지만 **업로드부터는 아직 확인하지 못했다** (2026-08-01).
+
+    배포 서버에 `AWS_S3_BUCKET`이 비어 있어 Presigned URL이
+    `https://s3.ap-northeast-2.amazonaws.com/${AWS_S3_BUCKET}/pins/original/...` 로 발급되고
+    S3가 `InvalidBucketName`(400)으로 거절한다. 등록(`POST /pins`)은 그 객체가 S3에 있는지
+    확인하므로(`VIDEO_NOT_ACCESSIBLE`) 업로드가 막히면 그다음 단계도 전부 막힌다.
+
+    확인된 것: 발급 요청·응답 형식, 객체 키 형식, 파일 크기 전달.
+    확인 못한 것: 업로드 성공, 등록 202, 상태 폴링(PENDING → ACTIVE), AI 블러 결과 반영.
+
+    버킷 환경변수와 자격증명(또는 IAM 역할)이 채워지면 코드 변경 없이 다시 시도해 확인한다.
+  */
+
   // 핀 상세·열람·평가·삭제는 아직 없다. 등록 3종(발급·등록·상태)만 열려 있다.
   'pin/detail': true,
   'pin/unlock': true,
