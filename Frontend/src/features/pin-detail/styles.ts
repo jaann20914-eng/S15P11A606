@@ -335,7 +335,7 @@ export const pinDetailStyles = StyleSheet.create({
    * 결제 시트와 똑같이 `payMessage`의 위 여백이 맡는다. 그림 크기·문구 줄 수까지 맞춰 두면
    * 두 시트의 높이가 정확히 같아진다.
    */
-  chatIllustration: { width: 200, height: 200, resizeMode: 'contain', alignSelf: 'center', marginTop: spacing.x6 },
+  chatIllustration: { width: 200, height: 200, alignSelf: 'center', marginTop: spacing.x6 },
   chatStart: {
     height: 52,
     alignItems: 'center',
