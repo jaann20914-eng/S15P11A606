@@ -40,6 +40,7 @@ class PinDetailAuthTest {
     @MockitoBean private PinUpdateService pinUpdateService;
     @MockitoBean private PinDeleteService pinDeleteService;
     @MockitoBean private PinEvaluationService pinEvaluationService;
+
     // 메인의 JPA Auditing(@EnableJpaAuditing)이 요구하는 매핑 컨텍스트를 목으로 채워
     // WebMvc 슬라이스 컨텍스트 로딩을 통과시킨다(실제 JPA는 이 테스트에서 쓰지 않는다).
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;

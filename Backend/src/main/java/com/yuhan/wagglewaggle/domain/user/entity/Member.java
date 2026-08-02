@@ -1,6 +1,8 @@
 package com.yuhan.wagglewaggle.domain.user.entity;
 
 import com.yuhan.wagglewaggle.global.entity.BaseEntity;
+import com.yuhan.wagglewaggle.global.exception.CustomException;
+import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -105,5 +107,23 @@ public class Member extends BaseEntity {
         }
         this.viewAngle = next;
         return this.viewAngle;
+    }
+
+    /**
+     * 크레딧을 차감한다. 잔액이 부족하면 {@code INSUFFICIENT_CREDIT}로 거래를 막는다.
+     * 호출 전 행 잠금(findByIdForUpdate)으로 동시 변경을 직렬화해야 한다.
+     */
+    public void decreaseCredit(int amount) {
+        if (this.creditBalance < amount) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_CREDIT);
+        }
+        this.creditBalance -= amount;
+    }
+
+    /**
+     * 크레딧을 적립한다. 호출 전 행 잠금(findByIdForUpdate)으로 동시 변경을 직렬화해야 한다.
+     */
+    public void increaseCredit(int amount) {
+        this.creditBalance += amount;
     }
 }
