@@ -96,6 +96,14 @@ public enum ErrorCode {
     CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
     CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
 
+    // Chat Request Decision
+    INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
+    CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
+    CHAT_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅 요청을 찾을 수 없습니다."),
+    CHAT_REQUEST_ALREADY_DECIDED(HttpStatus.CONFLICT, "이미 처리된 채팅 요청입니다."),
+    INSUFFICIENT_CREDIT(HttpStatus.CONFLICT, "크레딧 잔액이 부족합니다."),
+    CHAT_REQUEST_DECISION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 응답 처리 중 오류가 발생했습니다."),
+
     // Pin Update
     INVALID_PIN_UPDATE_REQUEST(HttpStatus.BAD_REQUEST, "핀 수정 요청값이 올바르지 않습니다."),
     PIN_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 수정할 권한이 없습니다."),
