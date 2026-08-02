@@ -1,8 +1,11 @@
 package com.yuhan.wagglewaggle.global.config;
 
+import com.yuhan.wagglewaggle.global.websocket.StompAuthChannelInterceptor;
+import com.yuhan.wagglewaggle.global.websocket.StompErrorHandler;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -16,8 +19,9 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * {@link #configureMessageBroker} 한 곳에서 {@code enableStompBrokerRelay}로 교체할 수 있도록
  * 인증/구독 검증 로직과 브로커 설정을 분리해 둔다.
  *
- * <p>이 단계에서는 연결/하트비트만 담당하며 CONNECT 인증·SUBSCRIBE 권한 검증 인터셉터는
- * 이후 단계에서 {@code configureClientInboundChannel}에 추가한다.
+ * <p>CONNECT 인증과 SUBSCRIBE 권한 검증은 {@code configureClientInboundChannel}에 등록한
+ * {@link StompAuthChannelInterceptor}가 담당하고, 처리 중 예외는 {@link StompErrorHandler}가
+ * ERROR 프레임으로 변환한다.
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -28,12 +32,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // Spring WebSocket 설정이 자동 생성하는 브로커 전용 스케줄러를 재사용한다.
     // 별도 TaskScheduler 빈을 만들면 @Scheduled용 스케줄러 선택이 모호해지므로 이 빈을 주입해 쓴다.
     private final TaskScheduler messageBrokerTaskScheduler;
+    private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
+    private final StompErrorHandler stompErrorHandler;
 
     // messageBrokerTaskScheduler는 이 설정을 다시 참조하는 구조라 즉시 주입 시 순환 참조가 발생한다.
     // @Lazy 지연 프록시로 주입해 생성 시점 사이클을 끊는다.
     public WebSocketConfig(
-            @Lazy @Qualifier("messageBrokerTaskScheduler") TaskScheduler messageBrokerTaskScheduler) {
+            @Lazy @Qualifier("messageBrokerTaskScheduler") TaskScheduler messageBrokerTaskScheduler,
+            StompAuthChannelInterceptor stompAuthChannelInterceptor,
+            StompErrorHandler stompErrorHandler) {
         this.messageBrokerTaskScheduler = messageBrokerTaskScheduler;
+        this.stompAuthChannelInterceptor = stompAuthChannelInterceptor;
+        this.stompErrorHandler = stompErrorHandler;
     }
 
     @Override
@@ -42,6 +52,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // 네이티브 클라이언트는 브라우저 Origin 헤더를 보내지 않으므로 origin 패턴은 열어 둔다.
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*");
+        // CONNECT 인증 실패 등 STOMP 처리 예외를 오류코드 JSON ERROR 프레임으로 변환한다.
+        registry.setErrorHandler(stompErrorHandler);
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // 클라이언트가 보내는 모든 STOMP 프레임(CONNECT, SUBSCRIBE 등)을 가로채 인증/권한을 검증한다.
+        registration.interceptors(stompAuthChannelInterceptor);
     }
 
     @Override
