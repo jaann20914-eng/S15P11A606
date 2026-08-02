@@ -12,10 +12,12 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 3D 일러스트 영상의 배경색.
  *
  * 영상은 알파 채널이 없어 배경이 사각형으로 그대로 보인다. 카드를 영상과 같은 색으로
- * 맞춰야 경계가 사라진다. 코인 영상에서 추출한 값이며, 새 일러스트 영상도 이 색을 배경으로
- * 내보낸다. 순백(`#FFFFFF`)보다 파랑이 미세하게 높다.
+ * 맞춰야 경계가 사라진다. 예전 코인 영상이 살짝 푸른 흰색(`#FAFAFF`)이라 그 값을 썼는데,
+ * 새로 받은 영상들은 순백을 배경으로 내보내 흰색으로 맞췄다.
+ *
+ * 영상이 바뀌어 경계가 보이면 그 영상의 배경색을 여기에 다시 맞춘다.
  */
-const ILLUSTRATION_BACKGROUND = '#FAFAFF';
+const ILLUSTRATION_BACKGROUND = colors.white;
 
 const shadow = {
   shadowColor: colors.dark,
