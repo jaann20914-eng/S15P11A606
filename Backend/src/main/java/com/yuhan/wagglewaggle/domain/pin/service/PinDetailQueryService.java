@@ -139,11 +139,12 @@ public class PinDetailQueryService {
     }
 
     /**
-     * 실제 채팅방 상태({@link ChatRoomStatus} = ACTIVE/REFUSED/LEFT)를 응답 계약 상태로 매핑한다.
-     * ACTIVE → ACTIVE, REFUSED·LEFT → CLOSED. 현재 데이터 모델에는 PENDING에 대응하는 방 상태가 없다.
+     * 실제 채팅방 상태({@link ChatRoomStatus} = PENDING/ACTIVE/REFUSED/LEFT)를 응답 계약 상태로 매핑한다.
+     * PENDING → PENDING, ACTIVE → ACTIVE, REFUSED·LEFT → CLOSED.
      */
     static ChatRequestState toChatRequestState(ChatRoomStatus status) {
         return switch (status) {
+            case PENDING -> ChatRequestState.PENDING;
             case ACTIVE -> ChatRequestState.ACTIVE;
             case REFUSED, LEFT -> ChatRequestState.CLOSED;
         };
