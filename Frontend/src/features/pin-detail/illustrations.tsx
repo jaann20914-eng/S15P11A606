@@ -1,12 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useVideoPlayer } from 'expo-video';
 import type { VideoPlayer, VideoSource } from 'expo-video';
 
 /**
  * 이 화면에서 쓰는 3D 장식 영상.
  *
- * 파일이 커서(각 300~600KB) 필요할 때 마운트하면 몇 프레임 동안 빈 자리가 보인다. 시트가
- * 올라오는 도중에 흰 사각형이 있다가 뒤늦게 그림이 채워져 화면이 두 번 바뀐다.
+ * 파일이 커서(각 300~600KB) 필요한 순간에 받기 시작하면 몇 프레임 동안 빈 자리가 보이고,
+ * 시트가 올라온 뒤에 그림이 따로 채워져 화면이 두 번 바뀐다.
  */
 const SOURCES = {
   /** 결제 시트의 코인. */
@@ -19,54 +19,69 @@ const SOURCES = {
 
 export type IllustrationKey = keyof typeof SOURCES;
 
-export interface Illustrations {
-  /** 미리 만들어 둔 플레이어. 화면이 살아 있는 동안 같은 것을 계속 쓴다. */
+interface Illustrations {
   players: Record<IllustrationKey, VideoPlayer>;
-  /** 셋 다 재생할 준비가 되었는지. */
-  ready: boolean;
+  ready: Record<IllustrationKey, boolean>;
+  /** 받기를 시작한다. 이미 받았으면 아무 일도 하지 않는다. */
+  load: (key: IllustrationKey) => void;
 }
 
 const IllustrationContext = createContext<Illustrations | null>(null);
 
 /**
- * 화면에 들어오는 순간 장식 영상을 모두 불러 둔다.
+ * 장식 영상을 **필요해질 때** 받아 두는 자리.
  *
- * 데이터를 받아 오는 동안 함께 받으므로 대개 로딩이 끝날 때 영상도 준비돼 있다. 쓰는 쪽은
- * 이미 준비된 플레이어를 받아 곧바로 재생하니 빈 자리가 보이지 않는다.
+ * 화면에 들어오자마자 받지 않는다. 이 화면의 주인공은 현장 영상이라, 장식까지 함께 받으면
+ * 정작 봐야 할 것이 늦게 뜬다. 그래서 버튼을 누른 순간에 받기 시작하고, 다 받은 뒤에 시트를
+ * 통째로 띄운다 — 기다리는 곳은 누른 버튼 한 자리로 모인다.
  *
- * 플레이어는 화면 하나당 하나씩만 만든다. 시트를 열 때마다 새로 만들면 그때마다 다시 불러와
- * 미리 받아 둔 뜻이 없어진다. 대신 다시 볼 때 처음부터 재생하려면 쓰는 쪽에서 `currentTime`을
- * 0으로 되돌려야 한다.
+ * 플레이어는 화면 하나당 하나씩만 만든다. 시트를 열 때마다 새로 만들면 그때마다 다시 받아
+ * 미리 받아 둔 뜻이 없어진다. 대신 다시 열 때 처음부터 재생하려면 쓰는 쪽에서 되감아야 한다.
  */
 export function IllustrationProvider({ children }: { children: React.ReactNode }) {
-  const coin = usePreloadedPlayer(SOURCES.coin);
-  const chat = usePreloadedPlayer(SOURCES.chat);
-  const leaf = usePreloadedPlayer(SOURCES.leaf);
+  const coin = useLazyPlayer(SOURCES.coin);
+  const chat = useLazyPlayer(SOURCES.chat);
+  const leaf = useLazyPlayer(SOURCES.leaf);
+
+  /*
+    각 `load`는 그대로 유지되므로 이 함수도 바뀌지 않는다. 쓰는 쪽에서 효과의 의존값으로
+    걸어도 매 렌더마다 다시 돌지 않는다.
+  */
+  const load = useCallback(
+    (key: IllustrationKey) => {
+      ({ coin: coin.load, chat: chat.load, leaf: leaf.load })[key]();
+    },
+    [chat.load, coin.load, leaf.load],
+  );
 
   const value = useMemo<Illustrations>(
     () => ({
       players: { coin: coin.player, chat: chat.player, leaf: leaf.player },
-      ready: coin.ready && chat.ready && leaf.ready,
+      ready: { coin: coin.ready, chat: chat.ready, leaf: leaf.ready },
+      load,
     }),
-    [chat.player, chat.ready, coin.player, coin.ready, leaf.player, leaf.ready],
+    [chat.player, chat.ready, coin.player, coin.ready, leaf.player, leaf.ready, load],
   );
 
   return <IllustrationContext.Provider value={value}>{children}</IllustrationContext.Provider>;
 }
 
-/** 준비될 때까지 재생하지 않고 기다리기만 하는 플레이어. */
-function usePreloadedPlayer(source: VideoSource): { player: VideoPlayer; ready: boolean } {
+/**
+ * 소스를 나중에 붙이는 플레이어.
+ *
+ * 빈 플레이어로 만들어 두고 `load()`를 부를 때 소스를 넣는다. 만들어 두는 것 자체는 비용이
+ * 거의 없고, 실제로 받아 오는 일은 그때 시작된다.
+ */
+function useLazyPlayer(source: VideoSource): { player: VideoPlayer; ready: boolean; load: () => void } {
   const [ready, setReady] = useState(false);
+  const requested = useRef(false);
 
-  const player = useVideoPlayer(source, (instance) => {
+  const player = useVideoPlayer(null, (instance) => {
     instance.muted = true;
     instance.loop = false;
   });
 
   useEffect(() => {
-    // 구독보다 준비가 먼저 끝났을 수 있어 지금 상태도 함께 본다.
-    if (player.status === 'readyToPlay') setReady(true);
-
     const subscription = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay') setReady(true);
     });
@@ -74,44 +89,87 @@ function usePreloadedPlayer(source: VideoSource): { player: VideoPlayer; ready: 
     return () => subscription.remove();
   }, [player]);
 
-  return { player, ready };
+  const load = useCallback(() => {
+    if (requested.current) return;
+
+    requested.current = true;
+    player.replace(source);
+
+    // 구독보다 준비가 먼저 끝나는 경우가 있어 한 번 더 본다.
+    if (player.status === 'readyToPlay') setReady(true);
+  }, [player, source]);
+
+  return { player, ready, load };
 }
 
-/**
- * 미리 받아 둔 플레이어를 꺼내 쓴다.
- *
- * 공급자 밖에서 부르면 화면이 조립을 빠뜨린 것이므로 조용히 넘어가지 않고 끊는다.
- */
-export function useIllustration(key: IllustrationKey): VideoPlayer {
+function useIllustrations(): Illustrations {
   const illustrations = useContext(IllustrationContext);
 
   if (illustrations === null) {
-    throw new Error('useIllustration은 IllustrationProvider 안에서만 쓸 수 있어요');
+    throw new Error('장식 영상은 IllustrationProvider 안에서만 쓸 수 있어요');
   }
 
-  return illustrations.players[key];
+  return illustrations;
 }
 
-/** 셋 다 준비됐는지. 화면이 로딩을 언제 거둘지 정하는 데 쓴다. */
-export function useIllustrationsReady(): boolean {
-  return useContext(IllustrationContext)?.ready ?? true;
+export function useIllustration(key: IllustrationKey): { player: VideoPlayer; ready: boolean } {
+  const { players, ready } = useIllustrations();
+
+  return { player: players[key], ready: ready[key] };
 }
 
 /**
- * 준비될 때까지 기다리되, 오래 걸리면 그냥 넘어간다.
+ * 누르면 영상을 받고, 다 받은 뒤에 `run`을 실행하는 버튼용 상태.
  *
- * 장식 영상 때문에 화면 전체가 붙잡히면 안 된다. 느린 망에서는 몇 초씩 걸릴 수 있고, 그때는
- * 장식이 조금 늦게 채워지는 편이 아무것도 못 보는 것보다 낫다.
+ * 받는 동안 `pending`이 참이라 버튼에 로딩을 띄울 수 있다. 열린 뒤에 그림이 따로 채워지는
+ * 대신, 누른 버튼에서 잠깐 기다렸다가 시트가 완성된 채로 올라온다.
+ *
+ * 오래 걸려도 결국은 연다. 장식 때문에 결제·채팅 요청 자체를 막을 수는 없다.
  */
-export function useIllustrationsSettled(timeoutMs = 2000): boolean {
-  const ready = useIllustrationsReady();
-  const [expired, setExpired] = useState(false);
+export function useIllustrationCue(
+  key: IllustrationKey,
+  run: () => void,
+  timeoutMs = 3000,
+): { trigger: () => void; pending: boolean } {
+  const { load } = useIllustrations();
+  const { ready } = useIllustration(key);
+  const [waiting, setWaiting] = useState(false);
+
+  const runRef = useRef(run);
+  runRef.current = run;
 
   useEffect(() => {
-    const timer = setTimeout(() => setExpired(true), timeoutMs);
+    if (!waiting) return;
+
+    if (ready) {
+      setWaiting(false);
+      runRef.current();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setWaiting(false);
+      runRef.current();
+    }, timeoutMs);
 
     return () => clearTimeout(timer);
-  }, [timeoutMs]);
+  }, [ready, timeoutMs, waiting]);
 
-  return ready || expired;
+  const trigger = useCallback(() => {
+    load(key);
+
+    if (ready) {
+      runRef.current();
+      return;
+    }
+
+    setWaiting(true);
+  }, [key, load, ready]);
+
+  return { trigger, pending: waiting };
+}
+
+/** 버튼을 거치지 않고 미리 받아 두고 싶을 때. 평가 보상 나뭇잎이 이 경우다. */
+export function useIllustrationLoader(): (key: IllustrationKey) => void {
+  return useIllustrations().load;
 }

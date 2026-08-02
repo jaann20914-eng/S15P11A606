@@ -1,15 +1,17 @@
+import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
-import type { PinDetail } from '@/types/pin';
+import type { PinDetail, PinRating } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
 import { IllustrationVideo } from './IllustrationVideo';
+import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -125,14 +127,33 @@ function ChatAction({ detail, onRequestChat }: { detail: PinDetail; onRequestCha
   const waiting = detail.chatRequestState === 'PENDING';
   const disabled = waiting || !detail.canRequestChat;
 
+  return <ChatRequestButton disabled={disabled} waiting={waiting} onRequestChat={onRequestChat} />;
+}
+
+/** 시트에 쓸 그림을 받은 뒤에 연다. 받는 동안에는 이 버튼에서 기다린다. */
+function ChatRequestButton({
+  disabled,
+  waiting,
+  onRequestChat,
+}: {
+  disabled: boolean;
+  waiting: boolean;
+  onRequestChat: () => void;
+}) {
+  const { trigger, pending } = useIllustrationCue('chat', onRequestChat);
+
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
-      onPress={onRequestChat}
-      style={[s.chatButton, disabled && s.chatPending]}
+      disabled={disabled || pending}
+      onPress={trigger}
+      style={[s.chatButton, (disabled || pending) && s.chatPending]}
     >
-      <Text style={s.chatText}>{waiting ? '수락 대기' : '채팅 요청'}</Text>
+      {pending ? (
+        <ActivityIndicator color={colors.white} />
+      ) : (
+        <Text style={s.chatText}>{waiting ? '수락 대기' : '채팅 요청'}</Text>
+      )}
     </Pressable>
   );
 }
@@ -155,15 +176,49 @@ function OwnerFooter({ onLeave }: { onLeave: () => void }) {
 }
 
 function PurchasePrompt({ onPress }: { onPress: () => void }) {
+  /*
+    누른 뒤에 시트에 쓸 그림을 받는다. 다 받은 다음에 시트가 완성된 채로 올라오므로,
+    기다리는 곳은 이 버튼 하나로 모인다.
+  */
+  const { trigger, pending } = useIllustrationCue('coin', onPress);
+
   return (
     <View style={s.watchArea}>
       <Text style={s.watchTitle}>현장 영상을 확인할까요?</Text>
       <Text style={s.watchHint}>3크레딧을 사용하면 전체 블러가 해제돼요.</Text>
-      <Pressable accessibilityRole="button" onPress={onPress} style={[s.primaryDark, s.watchButton]}>
-        <Text style={s.primaryDarkText}>영상보기</Text>
+      <Pressable
+        accessibilityRole="button"
+        disabled={pending}
+        onPress={trigger}
+        style={[s.primaryDark, s.watchButton, pending && s.primaryDarkBusy]}
+      >
+        {pending ? (
+          <ActivityIndicator color={colors.lime} />
+        ) : (
+          <Text style={s.primaryDarkText}>영상보기</Text>
+        )}
       </Pressable>
     </View>
   );
+}
+
+/**
+ * 보상 자리의 나뭇잎.
+ *
+ * 방금 받았으면 잎이 떨어지는 장면을 한 번 재생하고, 다시 볼 때는 이미 떨어진 채로 멈춰 있다.
+ * 매번 떨어지면 아무 일도 없었는데 무언가 일어난 것처럼 읽히고 들어올 때마다 시선을 뺏긴다.
+ *
+ * 평가를 누를 때 받기 시작하지만, 이미 평가한 핀으로 다시 들어온 경우에는 누른 적이 없으므로
+ * 여기서 받는다. 다 받기 전까지는 빈 자리로 기다린다.
+ */
+function RewardLeaf({ animate }: { animate: boolean }) {
+  const loadIllustration = useIllustrationLoader();
+
+  useEffect(() => {
+    loadIllustration('leaf');
+  }, [loadIllustration]);
+
+  return <IllustrationVideo name="leaf" mode={animate ? 'play' : 'end'} style={s.rewardCoin} />;
 }
 
 function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluation: EvaluationState }) {
@@ -176,8 +231,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
           {submitted === null ? '평가를 남겼어요' : submitted === 'HELPFUL' ? '유익해요!' : '아쉬워요!'}
         </Text>
         <View style={s.reward}>
-          {/* 방금 받은 경우에만 잎이 떨어진다. 다시 볼 때는 떨어진 채로 멈춰 있다. */}
-          <IllustrationVideo name="leaf" mode={submitted === null ? 'end' : 'play'} style={s.rewardCoin} />
+          <RewardLeaf animate={submitted !== null} />
           <View>
             <Text style={s.rewardTitle}>
               {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}
@@ -191,6 +245,16 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
 
   const { busy, error, submit } = evaluation;
 
+  /*
+    평가를 누르면 보상 자리에 나뭇잎이 뜬다. 그 그림을 지금부터 받아 둔다 —
+    서버 응답을 기다리는 동안 함께 받으므로 보상이 뜰 때는 대개 준비돼 있다.
+  */
+  const loadIllustration = useIllustrationLoader();
+  const evaluate = (rating: PinRating) => {
+    loadIllustration('leaf');
+    submit(rating);
+  };
+
   return (
     <View style={s.ratingArea}>
       <Text style={s.ratingTitle}>이 영상핀이 유익했나요?</Text>
@@ -200,7 +264,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
         <Pressable
           accessibilityRole="button"
           disabled={busy}
-          onPress={() => submit('HELPFUL')}
+          onPress={() => evaluate('HELPFUL')}
           style={[s.ratingButton, s.helpfulButton, busy && s.ratingButtonBusy]}
         >
           {busy ? <ActivityIndicator color={colors.dark} /> : <Text style={s.helpfulText}>유익해요</Text>}
@@ -208,7 +272,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
         <Pressable
           accessibilityRole="button"
           disabled={busy}
-          onPress={() => submit('NOT_HELPFUL')}
+          onPress={() => evaluate('NOT_HELPFUL')}
           style={[s.ratingButton, s.missButton, busy && s.ratingButtonBusy]}
         >
           <Text style={s.missText}>아쉬워요</Text>

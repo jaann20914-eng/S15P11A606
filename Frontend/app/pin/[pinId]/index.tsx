@@ -11,7 +11,7 @@ import { PinPurchaseModal } from '@/features/pin-detail/components/PinPurchaseMo
 import { parsePinId, usePinDetail } from '@/features/pin-detail/hooks/usePinDetail';
 import { usePinDetailScreen } from '@/features/pin-detail/hooks/usePinDetailScreen';
 import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
-import { IllustrationProvider, useIllustrationsSettled } from '@/features/pin-detail/illustrations';
+import { IllustrationProvider } from '@/features/pin-detail/illustrations';
 import { pinDetailStyles as s } from '@/features/pin-detail/styles';
 import { isOwnPin } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
@@ -19,9 +19,9 @@ import type { PinDetail } from '@/types/pin';
 /**
  * 게시글 상세 라우트.
  *
- * 3D 장식 영상은 이 자리에서 미리 받는다. 시트를 열 때 받기 시작하면 몇 프레임 동안 빈 자리가
- * 보였다가 뒤늦게 그림이 채워져, 올라오는 시트가 두 번 바뀌는 것처럼 보인다. 화면에 들어오는
- * 즉시 받아 두면 데이터를 기다리는 동안 함께 준비된다.
+ * 3D 장식 영상을 담아 두는 자리(`IllustrationProvider`). 화면에 들어올 때 받지는 않는다 —
+ * 이 화면의 주인공은 현장 영상이라 장식까지 함께 받으면 정작 봐야 할 것이 늦게 뜬다.
+ * 버튼을 누른 순간에 받고, 다 받은 뒤에 시트를 통째로 띄운다.
  */
 export default function PinDetailRoute() {
   return (
@@ -40,9 +40,6 @@ function PinDetailContent() {
   const pinId = parsePinId(pinIdParam);
   const { status, data, error, errorCode, reload, patchDetail } = usePinDetail(pinId);
 
-  // 장식 영상까지 준비된 뒤에 한꺼번에 보여준다. 오래 걸리면 기다리지 않고 넘어간다.
-  const illustrationsSettled = useIllustrationsSettled();
-
   const goHome = () => router.replace('/(tabs)/home');
 
   // 경로에 숫자가 아닌 값이 들어오면 요청 자체를 하지 않으므로 여기서 끊는다.
@@ -59,7 +56,7 @@ function PinDetailContent() {
     );
   }
 
-  if (status === 'loading' || status === 'idle' || !illustrationsSettled) {
+  if (status === 'loading' || status === 'idle') {
     return (
       <PinDetailShell>
         <View style={s.stateArea}>

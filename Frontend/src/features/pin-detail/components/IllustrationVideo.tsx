@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { VideoView } from 'expo-video';
 import { useIllustration } from '../illustrations';
@@ -46,9 +47,11 @@ export function IllustrationVideo({
   mode = 'play',
   contentFit = 'cover',
 }: IllustrationVideoProps) {
-  const player = useIllustration(name);
+  const { player, ready } = useIllustration(name);
 
   useEffect(() => {
+    if (!ready) return;
+
     if (mode === 'play') {
       player.currentTime = 0;
       player.play();
@@ -57,21 +60,21 @@ export function IllustrationVideo({
 
     /*
       마지막 모습으로 세운다. 정확히 끝으로 보내면 재생이 끝난 상태로 취급돼 빈 화면이
-      나올 수 있어 조금 앞에 세운다. 아직 길이를 모르면(준비 전) 준비된 뒤에 다시 시도한다.
+      나올 수 있어 조금 앞에 세운다.
     */
-    const settle = () => {
-      if (player.duration > 0) player.currentTime = Math.max(0, player.duration - 0.05);
-    };
-
     player.pause();
-    settle();
+    if (player.duration > 0) player.currentTime = Math.max(0, player.duration - 0.05);
+  }, [mode, player, ready]);
 
-    const subscription = player.addListener('statusChange', ({ status }) => {
-      if (status === 'readyToPlay') settle();
-    });
+  /*
+    다 받기 전에는 자리만 잡아 둔다.
 
-    return () => subscription.remove();
-  }, [mode, player]);
+    덜 받은 영상을 걸면 흰 사각형이 먼저 보였다가 그림이 나중에 채워진다. 배경만 깔린 빈 자리로
+    기다리다가 준비된 뒤에 한 번에 나타나는 편이 덜 어수선하다. 시트는 아예 준비된 뒤에
+    열리므로(`useIllustrationCue`) 이 자리가 보이는 경우는 평가 보상처럼 화면 안에 섞인
+    장식뿐이다.
+  */
+  if (!ready) return <View style={style} />;
 
   return (
     <VideoView

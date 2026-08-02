@@ -240,6 +240,8 @@ export const pinDetailStyles = StyleSheet.create({
     backgroundColor: colors.dark,
   },
   primaryDarkText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.lime },
+  /** 시트에 쓸 그림을 받는 동안. 눌리지 않는다는 것만 보이면 된다. */
+  primaryDarkBusy: { opacity: 0.6 },
 
   /* 평가 */
   ratingArea: {},
