@@ -103,11 +103,11 @@ public class ChatDecisionService {
         Member requester = requesterId.equals(lowerId) ? lower : higher;
         Member recipient = recipientId.equals(lowerId) ? lower : higher;
 
-        UUID pinId = room.getPin().getId();
-
-        // 요청자 차감(부족 시 INSUFFICIENT_CREDIT) → 수락자 적립.
+        // 요청자 차감(부족 시 INSUFFICIENT_CREDIT로 조기 실패) → 수락자 적립.
         requester.decreaseCredit(CHAT_ACCEPT_CREDIT);
         recipient.increaseCredit(CHAT_ACCEPT_CREDIT);
+
+        UUID pinId = room.getPin().getId();
 
         creditTransactionRepository.save(CreditTransaction.create(
                 requesterId, CreditTransactionType.SENT_CHAT_REQUEST_ACCEPTED, pinId,
