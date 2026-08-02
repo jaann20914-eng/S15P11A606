@@ -110,6 +110,20 @@ public class Pin extends BaseEntity {
     }
 
     /**
+     * 영상 교체 PASS 결과를 반영한다. 기존 공개(ACTIVE) 상태를 유지한 채
+     * 원본·블러·썸네일 키를 새 결과로 교체하고, 만료 시각을 반영 시각(processedAt) 기준 1시간 뒤로 갱신한다.
+     * videoStatus는 ACTIVE로 유지한다(REJECTED·FAILED로 바꾸지 않는다).
+     * processedAt은 메시지의 과거 시각이 아니라 Back이 결과를 정상 반영하는 서버 시각을 전달한다.
+     */
+    public void replaceVideo(String originalVideoKey, String blurredVideoKey,
+                             String thumbnailKey, Instant processedAt) {
+        this.originalVideoKey = originalVideoKey;
+        this.blurredVideoKey = blurredVideoKey;
+        this.thumbnailKey = thumbnailKey;
+        this.expiresAt = processedAt.plus(ACTIVE_VIDEO_TTL);
+    }
+
+    /**
      * AI 검수 결과가 FAIL인 경우. 핀을 공개하지 않으며(REJECTED) expiresAt은 설정하지 않는다.
      */
     public void reject() {

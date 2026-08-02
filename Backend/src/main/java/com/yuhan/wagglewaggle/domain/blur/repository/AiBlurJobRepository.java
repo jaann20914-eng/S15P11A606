@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AiBlurJobRepository extends JpaRepository<AiBlurJob, UUID> {
@@ -29,6 +30,13 @@ public interface AiBlurJobRepository extends JpaRepository<AiBlurJob, UUID> {
      */
     boolean existsByPinIdAndJobTypeAndStatus(
             UUID pinId, AiBlurJobType jobType, AiBlurJobStatus status);
+
+    /**
+     * 특정 핀의 지정 유형(영상 교체) 작업 중 가장 최근에 생성된 1건을 조회한다.
+     * 영상 교체 결과 반영 시 "현재 작업이 최신 교체 작업인지" 판정에 사용한다.
+     */
+    Optional<AiBlurJob> findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(
+            UUID pinId, AiBlurJobType jobType);
 
     /**
      * 재발행 대상 조회: 지정한 상태(예: PENDING)이면서 생성된 지 오래된 작업을

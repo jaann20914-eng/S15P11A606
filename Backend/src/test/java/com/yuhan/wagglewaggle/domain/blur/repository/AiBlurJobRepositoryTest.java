@@ -186,6 +186,36 @@ class AiBlurJobRepositoryTest {
                 UUID.randomUUID(), AiBlurJobType.VIDEO_REPLACEMENT, AiBlurJobStatus.PENDING)).isFalse();
     }
 
+    @Test
+    @DisplayName("findFirstByPinIdAndJobTypeOrderByCreatedAtDesc로 최신 영상 교체 작업을 조회한다")
+    void findLatestReplacementJob() {
+        // 과거 교체 작업
+        AiBlurJob older =
+                AiBlurJob.create(pinId, "videos/original/replace-old.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(older);
+        backdateCreatedAt(older.getRequestId(), Instant.now().minus(30, ChronoUnit.MINUTES));
+
+        // 최신 교체 작업
+        AiBlurJob newer =
+                AiBlurJob.create(pinId, "videos/original/replace-new.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(newer);
+        backdateCreatedAt(newer.getRequestId(), Instant.now().minus(5, ChronoUnit.MINUTES));
+
+        // 최초 등록 작업(유형이 달라 대상 아님)
+        aiBlurJobRepository.saveAndFlush(
+                AiBlurJob.create(pinId, "videos/original/initial.mp4", AiBlurJobType.INITIAL_UPLOAD));
+        em.clear();
+
+        AiBlurJob latest = aiBlurJobRepository
+                .findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(pinId, AiBlurJobType.VIDEO_REPLACEMENT)
+                .orElseThrow();
+        assertThat(latest.getRequestId()).isEqualTo(newer.getRequestId());
+
+        // 교체 작업이 없는 다른 핀은 빈 결과
+        assertThat(aiBlurJobRepository.findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(
+                UUID.randomUUID(), AiBlurJobType.VIDEO_REPLACEMENT)).isEmpty();
+    }
+
     private Point point(double lng, double lat) {
         Point p = GF.createPoint(new Coordinate(lng, lat));
         p.setSRID(4326);

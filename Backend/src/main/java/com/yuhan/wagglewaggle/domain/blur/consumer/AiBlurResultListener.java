@@ -54,11 +54,14 @@ public class AiBlurResultListener {
     }
 
     /**
-     * ACK 대상: 정상 반영(APPLIED)과 이미 정상 처리된 동일 결과(DUPLICATE).
+     * ACK 대상: 정상 반영(APPLIED), 이미 정상 처리된 동일 결과(DUPLICATE),
+     * 영상 교체 정상 결과지만 반영하지 않고 종료(REPLACEMENT_SKIPPED).
      * 그 외(JOB_NOT_FOUND·UNSUPPORTED_JOB_TYPE·OBJECT_NOT_FOUND·CONFLICT)는 NACK → DLQ.
      */
     private boolean isAckable(AiBlurResultOutcome outcome) {
-        return outcome == AiBlurResultOutcome.APPLIED || outcome == AiBlurResultOutcome.DUPLICATE;
+        return outcome == AiBlurResultOutcome.APPLIED
+                || outcome == AiBlurResultOutcome.DUPLICATE
+                || outcome == AiBlurResultOutcome.REPLACEMENT_SKIPPED;
     }
 
     private UUID requestIdOf(AiBlurResultMessage message) {
