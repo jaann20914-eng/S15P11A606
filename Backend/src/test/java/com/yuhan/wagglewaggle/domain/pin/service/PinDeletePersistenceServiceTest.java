@@ -90,8 +90,12 @@ class PinDeletePersistenceServiceTest {
 
     private ChatRoom activeChatRoom(Long id) {
         ChatRoom room = ChatRoom.create(
-                activePin(), org.mockito.Mockito.mock(Member.class), UUID.randomUUID());
+                activePin(),
+                org.mockito.Mockito.mock(Member.class),
+                org.mockito.Mockito.mock(Member.class));
         ReflectionTestUtils.setField(room, "id", id);
+        // 기본 상태가 PENDING이므로, 삭제 대상(ACTIVE 방)을 만들기 위해 명시적으로 ACTIVE로 둔다.
+        ReflectionTestUtils.setField(room, "status", ChatRoomStatus.ACTIVE);
         return room;
     }
 
