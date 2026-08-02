@@ -89,7 +89,7 @@ class PinViewerAccessRepositoryJpaTest {
 
         em.persist(PinUnlock.create(pin, viewer, UUID.randomUUID()));
         em.persist(PinEvaluation.create(pin, viewer, PinEvaluationType.HELPFUL));
-        ChatRoom room = ChatRoom.create(pin, viewer, UUID.randomUUID());
+        ChatRoom room = ChatRoom.create(pin, viewer, author);
         ReflectionTestUtils.setField(room, "status", ChatRoomStatus.REFUSED);
         em.persist(room);
 

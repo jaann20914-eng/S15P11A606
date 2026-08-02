@@ -318,7 +318,7 @@ class PinDetailQueryServiceTest {
 
     // ---------------------------------------------------------------------
     // 순수 판정 로직 (채팅 상태 매핑 · canRequestChat)
-    // 현재 데이터 모델로는 도달할 수 없는 PENDING 분기까지 계약 수준에서 검증한다.
+    // PENDING/ACTIVE/CLOSED 매핑 분기를 계약 수준에서 검증한다.
     // ---------------------------------------------------------------------
 
     @Nested
@@ -326,6 +326,8 @@ class PinDetailQueryServiceTest {
 
         @Test
         void ChatRoomStatus_매핑() {
+            assertThat(PinDetailQueryService.toChatRequestState(ChatRoomStatus.PENDING))
+                    .isEqualTo(ChatRequestState.PENDING);
             assertThat(PinDetailQueryService.toChatRequestState(ChatRoomStatus.ACTIVE))
                     .isEqualTo(ChatRequestState.ACTIVE);
             assertThat(PinDetailQueryService.toChatRequestState(ChatRoomStatus.REFUSED))
