@@ -2,10 +2,14 @@ package com.yuhan.wagglewaggle.domain.blur.repository;
 
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobStatus;
+import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AiBlurJobRepository extends JpaRepository<AiBlurJob, UUID> {
@@ -22,9 +26,42 @@ public interface AiBlurJobRepository extends JpaRepository<AiBlurJob, UUID> {
     List<AiBlurJob> findByPinIdOrderByCreatedAtDesc(UUID pinId);
 
     /**
-     * 재발행 대상 조회: 지정한 상태(예: PENDING)이면서 생성된 지 오래된 작업을
-     * 오래된 순으로 조회한다. (status, created_at) 인덱스를 활용한다.
+     * 특정 핀에 지정한 유형·상태의 AI 작업이 존재하는지 검사한다.
+     * 영상 교체 시 진행 중(PENDING) 교체 작업 중복 생성을 막는 데 사용한다.
+     * (Pin 행 비관적 잠금과 함께 호출해 "핀당 PENDING 교체 1건" 불변식을 원자적으로 보장한다.)
      */
-    List<AiBlurJob> findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(
-            AiBlurJobStatus status, Instant createdAtThreshold);
+    boolean existsByPinIdAndJobTypeAndStatus(
+            UUID pinId, AiBlurJobType jobType, AiBlurJobStatus status);
+
+    /**
+     * 특정 핀의 지정 유형(영상 교체) 작업 중 가장 최근에 생성된 1건을 조회한다.
+     * 영상 교체 결과 반영 시 "현재 작업이 최신 교체 작업인지" 판정에 사용한다.
+     */
+    Optional<AiBlurJob> findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(
+            UUID pinId, AiBlurJobType jobType);
+
+    /**
+     * 특정 핀의 지정 상태 작업을 조회한다. 핀 삭제 시 PENDING 작업의 후보 원본 영상 키를
+     * 스토리지 정리 대상으로 등록하는 데 사용한다(INITIAL_UPLOAD·VIDEO_REPLACEMENT 모두 포함).
+     */
+    List<AiBlurJob> findByPinIdAndStatus(UUID pinId, AiBlurJobStatus status);
+
+    /**
+     * 재발행 대상 조회(삭제된 핀 제외). 지정 상태(PENDING)이면서 생성된 지 오래된 작업 중,
+     * 소프트 삭제된 핀(deleted_at IS NOT NULL)에 속한 작업은 재발행 대상에서 제외한다.
+     * AiBlurJob은 pin_id를 raw FK로만 보관하므로 pins와 명시적으로 대조한다.
+     */
+    @Query("""
+            SELECT j FROM AiBlurJob j
+            WHERE j.status = :status
+              AND j.createdAt < :threshold
+              AND NOT EXISTS (
+                    SELECT 1 FROM Pin p
+                    WHERE p.id = j.pinId
+                      AND p.deletedAt IS NOT NULL)
+            ORDER BY j.createdAt ASC
+            """)
+    List<AiBlurJob> findRepublishTargetsExcludingDeletedPins(
+            @Param("status") AiBlurJobStatus status,
+            @Param("threshold") Instant threshold);
 }

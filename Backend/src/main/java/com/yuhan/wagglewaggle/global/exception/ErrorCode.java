@@ -13,7 +13,7 @@ public enum ErrorCode {
 
     // Common
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청값이 올바르지 않습니다."),
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 
@@ -72,8 +72,8 @@ public enum ErrorCode {
     // Pin Create
     INVALID_CROWD_LEVEL(HttpStatus.BAD_REQUEST, "허용되지 않은 혼잡 단계입니다."),
     VIDEO_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 사용된 영상입니다."),
-    LOCATION_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "장소와 촬영 위치가 너무 멉니다."),
-    VIDEO_NOT_ACCESSIBLE(HttpStatus.BAD_REQUEST, "영상을 확인할 수 없습니다."),
+    LOCATION_OUT_OF_RANGE(HttpStatus.UNPROCESSABLE_CONTENT, "장소와 촬영 위치가 너무 멉니다."),
+    VIDEO_NOT_ACCESSIBLE(HttpStatus.UNPROCESSABLE_CONTENT, "영상을 확인할 수 없습니다."),
     DAILY_PIN_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 등록할 수 있는 핀 개수를 초과했습니다."),
     PIN_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 등록 처리 중 오류가 발생했습니다."),
 
@@ -82,9 +82,30 @@ public enum ErrorCode {
     AI_BLUR_PIN_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "AI 블러 대상 핀을 찾을 수 없습니다."),
 
     // Pin Status
-    PIN_NOT_FOUND(HttpStatus.NOT_FOUND, "핀을 찾을 수 없습니다."),
+    PIN_NOT_FOUND(HttpStatus.NOT_FOUND, "조회할 수 있는 핀이 없습니다."),
     PIN_STATUS_READ_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 핀의 처리 상태를 조회할 권한이 없습니다."),
-    PIN_STATUS_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 상태 조회 중 오류가 발생했습니다.");
+    PIN_STATUS_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 상태 조회 중 오류가 발생했습니다."),
+
+    // Pin Detail
+    INVALID_PIN_ID(HttpStatus.BAD_REQUEST, "핀 ID 형식이 올바르지 않습니다."),
+    PIN_DETAIL_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 상세 조회 중 오류가 발생했습니다."),
+    MEDIA_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 미디어 URL 발급에 실패했습니다."),
+
+    // Chat
+    CHAT_REQUEST_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅을 요청할 수 없습니다."),
+    CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
+    CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
+
+    // Pin Update
+    INVALID_PIN_UPDATE_REQUEST(HttpStatus.BAD_REQUEST, "핀 수정 요청값이 올바르지 않습니다."),
+    PIN_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 수정할 권한이 없습니다."),
+    PIN_NOT_EDITABLE(HttpStatus.CONFLICT, "수정할 수 없는 상태의 핀입니다."),
+    PIN_UPDATE_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 영상 교체 작업이 있습니다."),
+    PIN_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 수정 처리 중 오류가 발생했습니다."),
+
+    // Pin Delete
+    PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
+    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;
