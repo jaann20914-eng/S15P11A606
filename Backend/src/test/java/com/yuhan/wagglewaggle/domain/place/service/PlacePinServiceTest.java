@@ -297,7 +297,7 @@ class PlacePinServiceTest {
         assertThat(item.activePins().get(0).pinId()).isEqualTo(new UUID(0, 11L));
         assertThat(item.activePins().get(0).latitude()).isEqualTo(37.5002);
         assertThat(item.activePins().get(0).longitude()).isEqualTo(127.0301);
-        assertThat(item.activePins().get(0).viewAngle()).isEqualTo(270);
+        assertThat(item.activePins().get(0).viewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(270));
     }
 
     // ===== 유효 핀 조회 윈도우 =====
@@ -434,7 +434,7 @@ class PlacePinServiceTest {
 
     private static Member member(int viewAngle) {
         Member member = Member.create("nick", AgeGroup.TWENTIES, Gender.FEMALE);
-        ReflectionTestUtils.setField(member, "viewAngle", viewAngle);
+        ReflectionTestUtils.setField(member, "viewAngle", java.math.BigDecimal.valueOf(viewAngle));
         return member;
     }
 

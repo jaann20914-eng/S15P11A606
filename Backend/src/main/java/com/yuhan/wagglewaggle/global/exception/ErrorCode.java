@@ -113,7 +113,13 @@ public enum ErrorCode {
 
     // Pin Delete
     PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
-    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다.");
+    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다."),
+
+    // Pin Evaluation
+    INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),
+    PIN_EVALUATION_FORBIDDEN(HttpStatus.FORBIDDEN, "이 핀을 평가할 수 없습니다."),
+    PIN_ALREADY_EVALUATED(HttpStatus.CONFLICT, "이미 평가한 핀입니다."),
+    PIN_EVALUATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 평가 등록 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

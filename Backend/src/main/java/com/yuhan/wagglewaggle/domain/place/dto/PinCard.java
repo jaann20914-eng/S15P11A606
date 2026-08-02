@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.domain.place.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -10,7 +11,7 @@ import java.util.UUID;
 public record PinCard(
         UUID pinId,
         String nickname,
-        int viewAngle,
+        BigDecimal viewAngle,
         Instant createdAt,
         String memo,
         String thumbnailKey,

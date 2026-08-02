@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.domain.place.dto;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -9,6 +10,6 @@ public record ActivePinResponse(
         UUID pinId,
         double latitude,
         double longitude,
-        int viewAngle
+        BigDecimal viewAngle
 ) {
 }
