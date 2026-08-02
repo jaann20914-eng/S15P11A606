@@ -140,21 +140,29 @@ export const mypageStyles = StyleSheet.create({
   cellLow: { backgroundColor: '#EFF8B5' },
   cellMid: { backgroundColor: '#D6ED60' },
   cellHigh: { backgroundColor: colors.lime },
-  /** 이 달의 활동. 셋을 같은 폭으로 나눠 나란히 둔다. */
-  monthStats: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x5 },
+  /**
+   * 이 달의 활동.
+   *
+   * 세 칸이지만 하나의 카드로 읽혀야 한다. 바깥 모서리만 둥글게 두고 맞닿는 안쪽은 각지게
+   * 두면, 한 덩어리를 살짝 갈라 놓은 모습이 된다. 칸마다 모서리를 다 둥글리면 따로 놓인
+   * 배지 세 개로 보인다. 사이는 실금만큼만 띄운다.
+   */
+  monthStats: { flexDirection: 'row', gap: 3, marginTop: spacing.x5 },
   monthStat: {
     flex: 1,
+    alignItems: 'center',
     paddingVertical: spacing.x3,
-    paddingHorizontal: spacing.x3,
-    borderRadius: radius.md,
+    paddingHorizontal: spacing.x2,
     backgroundColor: '#F3F9D5',
   },
+  monthStatFirst: { borderTopLeftRadius: radius.hero, borderBottomLeftRadius: radius.hero },
+  monthStatLast: { borderTopRightRadius: radius.hero, borderBottomRightRadius: radius.hero },
   monthStatLabel: { ...type.caption, color: colors.gray600 },
   monthStatValue: {
     fontSize: 22,
     lineHeight: 30,
     fontWeight: '700',
-    color: colors.dark,
+    color: colors.gray600,
     marginTop: spacing.x1,
   },
 

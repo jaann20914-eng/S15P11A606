@@ -109,8 +109,15 @@ export function ActivityCalendarCard({
       </View>
 
       <View style={s.monthStats}>
-        {stats.map((stat) => (
-          <View key={stat.label} style={s.monthStat}>
+        {stats.map((stat, index) => (
+          <View
+            key={stat.label}
+            style={[
+              s.monthStat,
+              index === 0 && s.monthStatFirst,
+              index === stats.length - 1 && s.monthStatLast,
+            ]}
+          >
             <Text style={s.monthStatLabel}>{stat.label}</Text>
             <Text style={s.monthStatValue}>{stat.value}</Text>
           </View>
