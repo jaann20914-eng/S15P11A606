@@ -45,4 +45,16 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("pinId") UUID pinId,
             @Param("requesterId") Long requesterId
     );
+
+    /**
+     * 해당 채팅방의 참여자(요청자 또는 수신자)가 지정 사용자인지 확인한다(실시간 구독 권한 검증용).
+     * 참여자 행(ChatRoomMember)은 ACTIVE 수락 후 생성되므로, 상태와 무관하게 항상 존재하는
+     * requester/recipient를 기준으로 판단해 PENDING 방의 정당한 참여자 구독도 허용한다.
+     */
+    @Query("""
+            SELECT (COUNT(cr) > 0) FROM ChatRoom cr
+            WHERE cr.id = :roomId
+              AND (cr.requester.id = :memberId OR cr.recipient.id = :memberId)
+            """)
+    boolean existsByIdAndParticipant(@Param("roomId") Long roomId, @Param("memberId") Long memberId);
 }
