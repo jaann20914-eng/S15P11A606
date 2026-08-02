@@ -58,7 +58,7 @@ class PinDetailServiceTest {
 
     private PinDetailView view(PinViewerAccess access, String blurredKey, String thumbnailKey) {
         PinDetail detail = new PinDetail(
-                PIN_ID, 90, "와글러", Instant.parse("2026-07-28T03:20:00Z"),
+                PIN_ID, java.math.BigDecimal.valueOf(90), "와글러", Instant.parse("2026-07-28T03:20:00Z"),
                 1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625,
                 CrowdLevel.WAGLE, "2층 창가 좌석", "점심시간 기준",
                 List.of("조용함", "콘센트"), blurredKey, thumbnailKey,
@@ -100,7 +100,7 @@ class PinDetailServiceTest {
         PinDetailResponse res = service.getPinDetail(PIN_ID_STR, MEMBER_ID);
 
         assertThat(res.pinId()).isEqualTo(PIN_ID);
-        assertThat(res.authorViewAngle()).isEqualTo(90);
+        assertThat(res.authorViewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(90));
         assertThat(res.authorNickname()).isEqualTo("와글러");
         assertThat(res.createdAt()).isEqualTo(Instant.parse("2026-07-28T03:20:00Z"));
         assertThat(res.place().placeId()).isEqualTo(1L);
@@ -140,7 +140,7 @@ class PinDetailServiceTest {
     @Test
     void detailLocation과_memo가_null이고_태그가_없으면_null과_빈배열로_응답한다() {
         PinDetail detail = new PinDetail(
-                PIN_ID, 90, "와글러", Instant.parse("2026-07-28T03:20:00Z"),
+                PIN_ID, java.math.BigDecimal.valueOf(90), "와글러", Instant.parse("2026-07-28T03:20:00Z"),
                 1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625,
                 CrowdLevel.WAGLE, null, null,
                 List.of(), BLURRED_KEY, THUMBNAIL_KEY,

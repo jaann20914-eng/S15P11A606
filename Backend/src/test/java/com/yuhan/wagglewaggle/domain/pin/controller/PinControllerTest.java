@@ -281,7 +281,7 @@ class PinControllerTest {
     private PinDetailResponse detailResponse() {
         return new PinDetailResponse(
                 java.util.UUID.fromString(PIN_ID),
-                90,
+                java.math.BigDecimal.valueOf(90),
                 "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
                 new PinDetailResponse.PlaceDetail(
@@ -351,7 +351,7 @@ class PinControllerTest {
     @Test
     void 상세_조회_detailLocation과_memo가_null이면_JSON에_null로_포함되고_tags는_빈배열이다() throws Exception {
         PinDetailResponse res = new PinDetailResponse(
-                java.util.UUID.fromString(PIN_ID), 90, "와글러",
+                java.util.UUID.fromString(PIN_ID), java.math.BigDecimal.valueOf(90), "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
                 new PinDetailResponse.PlaceDetail(1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
                 CrowdLevel.WAGLE, null, null, List.of(),
