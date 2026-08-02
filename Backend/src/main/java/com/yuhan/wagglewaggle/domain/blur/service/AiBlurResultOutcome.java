@@ -11,10 +11,15 @@ public enum AiBlurResultOutcome {
     DUPLICATE,
     /** 이미 최종 상태인 작업에 충돌하는 결과가 도착(기존 상태 유지). */
     CONFLICT,
-    /** 이번 단계에서 처리하지 않는 작업 유형(예: VIDEO_REPLACEMENT). Pin을 변경하지 않는다. */
+    /** 정의되지 않은 작업 유형(방어적 기본값). Pin을 변경하지 않는다. */
     UNSUPPORTED_JOB_TYPE,
     /** PASS이지만 블러 영상·썸네일 객체를 확인할 수 없어 DB를 변경하지 않았다. */
     OBJECT_NOT_FOUND,
+    /**
+     * 영상 교체 PASS 결과이지만 Pin에 반영할 수 없어(삭제·비ACTIVE·최신 교체 작업 아님)
+     * 새 영상을 적용하지 않고 작업만 최종 상태로 종료했다. 재처리하지 않도록 ACK 대상이다.
+     */
+    REPLACEMENT_SKIPPED,
     /** requestId로 AI 블러 작업을 찾을 수 없다. */
     JOB_NOT_FOUND
 }

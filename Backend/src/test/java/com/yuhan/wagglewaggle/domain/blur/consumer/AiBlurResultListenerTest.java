@@ -98,6 +98,16 @@ class AiBlurResultListenerTest {
         verify(channel, never()).basicNack(anyTag(), anyBool(), anyBool());
     }
 
+    @Test
+    void 영상_교체_반영_불가_정상종료는_ACK한다() throws IOException {
+        given(aiBlurResultService.apply(any())).willReturn(AiBlurResultOutcome.REPLACEMENT_SKIPPED);
+
+        listener().onMessage(passMessage(), channel, DELIVERY_TAG);
+
+        verify(channel).basicAck(DELIVERY_TAG, false);
+        verify(channel, never()).basicNack(anyTag(), anyBool(), anyBool());
+    }
+
     // ---------- NACK → DLQ ----------
 
     @Test
