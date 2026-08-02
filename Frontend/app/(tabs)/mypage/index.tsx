@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { ConfirmModal } from '@/components/common';
+import { ConfirmModal, ScreenHeader } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { ActivityCalendarCard } from '@/features/mypage/components/ActivityCalendarCard';
 import { MypageMenuList } from '@/features/mypage/components/MypageMenuList';
@@ -34,17 +34,19 @@ export default function MypageScreen() {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
-      <View style={s.rootHeader}>
-        <View style={s.rootHeaderSide} />
-        <Text style={s.rootHeaderTitle}>마이페이지</Text>
-        <Pressable
-          accessibilityLabel="설정"
-          onPress={() => router.push('/(tabs)/mypage/edit-nickname')}
-          style={s.settingButton}
-        >
-          <Ionicons name="settings-outline" size={19} color={colors.gray600} />
-        </Pressable>
-      </View>
+      {/* 헤더는 앱 전체가 같은 것을 쓴다. 오른쪽 자리에만 설정 버튼을 넣는다. */}
+      <ScreenHeader
+        title="마이페이지"
+        right={
+          <Pressable
+            accessibilityLabel="설정"
+            onPress={() => router.push('/(tabs)/mypage/edit-nickname')}
+            style={s.settingButton}
+          >
+            <Ionicons name="settings-outline" size={19} color={colors.gray600} />
+          </Pressable>
+        }
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.summaryContent}>
         {/*

@@ -46,10 +46,15 @@ export function ActivityCalendarCard({
 }: ActivityCalendarCardProps) {
   const weeks = useMemo(() => toWeeks(toCalendarCells(activity.days)), [activity.days]);
 
+  const stats = [
+    { label: '작성한 영상핀', value: `${activity.summary.createdVideoPinCount}개` },
+    { label: '획득 크레딧', value: `${activity.summary.earnedCredit}` },
+    { label: '도움된 열람', value: `${activity.summary.helpfulViewCount}회` },
+  ];
+
   return (
     <View style={[s.activityCard, loading && s.activityCardLoading]}>
-      <View style={s.calendar}>
-        <View style={s.monthRow}>
+      <View style={s.monthRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="이전 달"
@@ -61,9 +66,8 @@ export function ActivityCalendarCard({
             <Ionicons name="chevron-back" size={18} color={canGoPrev ? colors.gray400 : colors.gray200} />
           </Pressable>
 
-          <Text style={s.month}>
-            {activity.year}년 {activity.month}월
-          </Text>
+          {/* 연도는 붙이지 않는다. 시안 기준이고, 갈 수 있는 달이 가입 이후로 좁아 헷갈릴 일이 적다. */}
+          <Text style={s.month}>{activity.month}월</Text>
 
           <Pressable
             accessibilityRole="button"
@@ -77,6 +81,8 @@ export function ActivityCalendarCard({
           </Pressable>
         </View>
 
+      {/* 요일과 칸이 같은 열에 서야 하므로 한 덩어리로 묶어 가운데에 놓는다. */}
+      <View style={s.calendar}>
         <View style={s.weekRow}>
           {weekdays.map((day) => (
             <Text key={day} style={s.weekday}>
@@ -103,10 +109,12 @@ export function ActivityCalendarCard({
       </View>
 
       <View style={s.monthStats}>
-        <Text style={s.statsTitle}>이 달의 활동</Text>
-        <Text style={s.statLine}>작성한 영상핀 · {activity.summary.createdVideoPinCount}개</Text>
-        <Text style={s.statLine}>획득 크레딧 · {activity.summary.earnedCredit}</Text>
-        <Text style={s.statLine}>도움 열람 · {activity.summary.helpfulViewCount}회</Text>
+        {stats.map((stat) => (
+          <View key={stat.label} style={s.monthStat}>
+            <Text style={s.monthStatLabel}>{stat.label}</Text>
+            <Text style={s.monthStatValue}>{stat.value}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
