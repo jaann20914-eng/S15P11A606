@@ -125,7 +125,13 @@ public enum ErrorCode {
     INVALID_ROOM_ID(HttpStatus.BAD_REQUEST, "채팅방 ID 형식이 올바르지 않습니다."),
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
     CHAT_ROOM_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "채팅방 실시간 이벤트를 구독할 권한이 없습니다."),
-    USER_CHANNEL_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "사용자 전용 채널을 구독할 수 없습니다.");
+    USER_CHANNEL_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "사용자 전용 채널을 구독할 수 없습니다."),
+
+    // Pin Evaluation
+    INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),
+    PIN_EVALUATION_FORBIDDEN(HttpStatus.FORBIDDEN, "이 핀을 평가할 수 없습니다."),
+    PIN_ALREADY_EVALUATED(HttpStatus.CONFLICT, "이미 평가한 핀입니다."),
+    PIN_EVALUATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 평가 등록 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

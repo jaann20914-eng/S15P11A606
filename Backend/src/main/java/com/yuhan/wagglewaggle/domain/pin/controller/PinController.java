@@ -4,6 +4,8 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationRequest;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
@@ -13,6 +15,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
@@ -44,6 +47,7 @@ public class PinController {
     private final PinDetailService pinDetailService;
     private final PinUpdateService pinUpdateService;
     private final PinDeleteService pinDeleteService;
+    private final PinEvaluationService pinEvaluationService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -143,5 +147,23 @@ public class PinController {
         PinDeleteResponse data = pinDeleteService.delete(memberId, pinId);
 
         return ApiResponse.success(HttpStatus.OK.value(), "영상 핀이 삭제되었습니다.", data);
+    }
+
+    /**
+     * 인증 사용자가 열람(UNLOCKED)한 핀의 유용성을 평가한다(HELPFUL·NOT_HELPFUL).
+     * 정상 최초 평가 시 평가자에게 1 크레딧을 지급하고, 작성자 온도를 변화시킨다(HELPFUL +1·NOT_HELPFUL -0.5).
+     * 작성자 본인 또는 미열람 사용자는 평가할 수 없으며, 한 핀은 한 번만 평가할 수 있다.
+     * pinId 형식 검증(INVALID_PIN_ID)을 위해 경로 변수를 문자열로 받아 서비스에서 파싱한다.
+     */
+    @PostMapping("/{pinId}/evaluation")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PinEvaluationResponse> evaluatePin(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable String pinId,
+            @RequestBody(required = false) PinEvaluationRequest request
+    ) {
+        PinEvaluationResponse data = pinEvaluationService.evaluate(memberId, pinId, request);
+
+        return ApiResponse.success(HttpStatus.CREATED.value(), "핀 평가가 등록되었습니다.", data);
     }
 }

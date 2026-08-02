@@ -16,6 +16,7 @@ import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
@@ -57,6 +58,7 @@ class PinControllerTest {
     private PinDetailService pinDetailService;
     private PinUpdateService pinUpdateService;
     private PinDeleteService pinDeleteService;
+    private PinEvaluationService pinEvaluationService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -72,10 +74,11 @@ class PinControllerTest {
         pinDetailService = Mockito.mock(PinDetailService.class);
         pinUpdateService = Mockito.mock(PinUpdateService.class);
         pinDeleteService = Mockito.mock(PinDeleteService.class);
+        pinEvaluationService = Mockito.mock(PinEvaluationService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PinController(pinVideoUploadService, pinCreateService,
                                 pinVideoStatusQueryService, pinDetailService, pinUpdateService,
-                                pinDeleteService))
+                                pinDeleteService, pinEvaluationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -281,7 +284,7 @@ class PinControllerTest {
     private PinDetailResponse detailResponse() {
         return new PinDetailResponse(
                 java.util.UUID.fromString(PIN_ID),
-                90,
+                java.math.BigDecimal.valueOf(90),
                 "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
                 new PinDetailResponse.PlaceDetail(
@@ -351,7 +354,7 @@ class PinControllerTest {
     @Test
     void 상세_조회_detailLocation과_memo가_null이면_JSON에_null로_포함되고_tags는_빈배열이다() throws Exception {
         PinDetailResponse res = new PinDetailResponse(
-                java.util.UUID.fromString(PIN_ID), 90, "와글러",
+                java.util.UUID.fromString(PIN_ID), java.math.BigDecimal.valueOf(90), "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
                 new PinDetailResponse.PlaceDetail(1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
                 CrowdLevel.WAGLE, null, null, List.of(),

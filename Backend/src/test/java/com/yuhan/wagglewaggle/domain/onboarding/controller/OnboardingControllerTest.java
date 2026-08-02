@@ -39,7 +39,7 @@ class OnboardingControllerTest {
     @Test
     void 온보딩_완료시_201과_응답형식을_반환한다() throws Exception {
         given(onboardingService.complete(any(), any()))
-                .willReturn(new OnboardingResponse(1L, 90, 10, true, "access-jwt", "refresh-raw"));
+                .willReturn(new OnboardingResponse(1L, java.math.BigDecimal.valueOf(90), 10, true, "access-jwt", "refresh-raw"));
 
         mockMvc.perform(post("/api/v1/onboarding")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer onboarding-jwt")
