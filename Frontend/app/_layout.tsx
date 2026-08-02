@@ -3,10 +3,14 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
+import { useChatSocketSession } from '@/features/chat/hooks/useChatSocketSession';
 
 export default function RootLayout() {
   // 저장된 세션 복원과 세션 만료 시 로그인 복귀를 담당한다.
   useAuthSession();
+
+  // 로그인해 있는 동안 채팅 소켓을 열어 둔다. 다른 탭에서도 새 메시지·요청을 받기 위해서다.
+  useChatSocketSession();
 
   return (
     <SafeAreaProvider>

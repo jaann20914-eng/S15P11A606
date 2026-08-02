@@ -3,6 +3,7 @@ import { Client, Versions } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { SocketStatus } from '@/types/chatSocket';
+import { isTokenExpired } from '@/utils/accessToken';
 import { HEARTBEAT_MS, RECONNECT_DELAYS_MS, STOMP_VERSION, canUseSocket, resolveSocketUrl } from './config';
 
 /**
@@ -11,9 +12,9 @@ import { HEARTBEAT_MS, RECONNECT_DELAYS_MS, STOMP_VERSION, canUseSocket, resolve
  * 앱 전체에서 **하나만** 쓴다. 채팅방을 옮길 때마다 연결을 새로 맺지 않고 구독만 바꾼다 —
  * 핸드셰이크와 인증을 매번 다시 하는 비용이 크고, 그 사이 도착한 이벤트를 놓친다.
  *
- * 연결을 여는 시점은 화면이 정한다(`retain`). 채팅 영역에 있는 화면이 하나도 남지 않으면
- * 자동으로 끊는다. 여는 곳과 닫는 곳이 갈리면 화면 하나가 먼저 내려갔다는 이유로 다른
- * 화면의 실시간 갱신이 멈추기 때문에, 세는 일을 이 모듈이 맡는다.
+ * 여는 시점은 로그인이다(`useChatSocketSession`). 채팅 탭 밖에서도 새 메시지와 채팅 요청을
+ * 받아야 해서다. 그래도 여닫는 주체가 여럿일 수 있으므로(`retain`) 세는 일은 이 모듈이 맡는다 —
+ * 화면 하나가 먼저 내려갔다는 이유로 다른 화면의 실시간 갱신이 멈추면 안 된다.
  */
 
 /** 구독 하나의 신청서. 재연결 뒤 그대로 다시 신청한다. */
@@ -87,13 +88,24 @@ function createClient(): Client {
       토큰은 연결할 때마다 새로 읽는다. 재연결 사이에 갱신됐을 수 있고, 처음 만들 때 박아 두면
       만료된 값으로 계속 두드리게 된다.
 
-      토큰이 없는 채로 붙는 일은 없다. 여는 쪽에서 막고(`retainSocket`), 로그인되면 세션
-      감시가 깨운다. 빈 헤더로 보내면 거절 → 재연결 → 거절이 끝없이 돈다.
-    */
-    beforeConnect: () => {
-      const { accessToken } = useAuthStore.getState();
+      만료된 토큰이면 먼저 갱신한다. REST는 401을 받고 갱신하면 되지만 소켓에는 그 흐름이
+      없다 — 만료된 토큰으로 붙으면 서버가 끊고, 우리는 그것을 "끊겼다"로 보고 같은 토큰으로
+      다시 두드린다. 오래 다른 탭에 머물다 돌아왔을 때 실제로 그렇게 된다.
 
-      client?.configure({ connectHeaders: { Authorization: `Bearer ${accessToken ?? ''}` } });
+      갱신은 스토어가 한 번만 나가도록 묶어 두므로(RTR), 여기서 불러도 REST 요청과 겹쳐
+      리프레시 토큰이 두 번 쓰이는 일은 없다.
+    */
+    beforeConnect: async () => {
+      const { accessToken, refreshAccessToken } = useAuthStore.getState();
+
+      if (isTokenExpired(accessToken)) {
+        // 실패하면 스토어가 세션을 정리한다. 그때는 세션 감시가 연결을 거둔다.
+        await refreshAccessToken().catch(() => undefined);
+      }
+
+      const token = useAuthStore.getState().accessToken;
+
+      client?.configure({ connectHeaders: { Authorization: `Bearer ${token ?? ''}` } });
     },
     heartbeatIncoming: HEARTBEAT_MS,
     heartbeatOutgoing: HEARTBEAT_MS,
