@@ -113,7 +113,19 @@ public enum ErrorCode {
 
     // Pin Delete
     PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
-    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다.");
+    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다."),
+
+    // WebSocket / Chat Realtime
+    // WebSocket은 REST 공통 응답을 쓰지 않고 STOMP ERROR 프레임/SUBSCRIPTION_FAILED 이벤트에 code만 실어 전달한다.
+    // status는 규약 통일을 위해 유지하되, 실제 전송 본문에는 name()과 message만 사용한다.
+    WEBSOCKET_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "WebSocket 인증에 실패했습니다."),
+    WEBSOCKET_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "WebSocket 인증 토큰이 만료되었습니다."),
+    UNSUPPORTED_STOMP_VERSION(HttpStatus.BAD_REQUEST, "지원하지 않는 STOMP 버전입니다."),
+    WEBSOCKET_CONNECTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "WebSocket 연결 처리 중 오류가 발생했습니다."),
+    INVALID_ROOM_ID(HttpStatus.BAD_REQUEST, "채팅방 ID 형식이 올바르지 않습니다."),
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
+    CHAT_ROOM_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "채팅방 실시간 이벤트를 구독할 권한이 없습니다."),
+    USER_CHANNEL_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "사용자 전용 채널을 구독할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
