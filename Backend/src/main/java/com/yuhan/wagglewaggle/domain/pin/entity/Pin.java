@@ -165,4 +165,21 @@ public class Pin extends BaseEntity {
     public void changeMemo(String memo) {
         this.memo = memo;
     }
+
+    // ===== 소프트 삭제 =====
+
+    /** 이미 삭제된 핀인지 여부. deleted_at이 기록되어 있으면 삭제된 것으로 본다. */
+    public boolean isDeleted() {
+        return this.deletedAt != null;
+    }
+
+    /**
+     * 핀을 소프트 삭제한다(물리 삭제하지 않고 삭제 시각만 기록).
+     * videoStatus·영상 키는 변경하지 않는다. 이미 삭제된 핀이면 최초 삭제 시각을 유지한다(멱등).
+     */
+    public void softDelete(Instant deletedAt) {
+        if (this.deletedAt == null) {
+            this.deletedAt = deletedAt;
+        }
+    }
 }

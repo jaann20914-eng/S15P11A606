@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.pin.controller;
 
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
@@ -10,6 +11,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusView;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +43,7 @@ public class PinController {
     private final PinVideoStatusQueryService pinVideoStatusQueryService;
     private final PinDetailService pinDetailService;
     private final PinUpdateService pinUpdateService;
+    private final PinDeleteService pinDeleteService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -123,5 +127,21 @@ public class PinController {
 
         return ResponseEntity.status(status)
                 .body(ApiResponse.success(status.value(), message, data));
+    }
+
+    /**
+     * 인증 사용자가 작성한 핀을 소프트 삭제한다(pins.deleted_at 기록, video_status·영상 키 미변경).
+     * PENDING·ACTIVE·REJECTED·FAILED 상태에서 삭제할 수 있으며, 활성 채팅방은 CLOSED로 종료한다.
+     * 이미 삭제된 핀을 동일 작성자가 다시 삭제하면 최초 삭제 시각을 유지한 채 200 OK를 반환한다(멱등).
+     * pinId 형식 검증(INVALID_PIN_ID)을 위해 경로 변수를 문자열로 받아 서비스에서 파싱한다.
+     */
+    @DeleteMapping("/{pinId}")
+    public ApiResponse<PinDeleteResponse> deletePin(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable String pinId
+    ) {
+        PinDeleteResponse data = pinDeleteService.delete(memberId, pinId);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "영상 핀이 삭제되었습니다.", data);
     }
 }
