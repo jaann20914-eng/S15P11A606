@@ -6,6 +6,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinUnlockResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
@@ -16,6 +17,7 @@ import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinUnlockService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,6 +51,7 @@ public class PinController {
     private final PinUpdateService pinUpdateService;
     private final PinDeleteService pinDeleteService;
     private final PinEvaluationService pinEvaluationService;
+    private final PinUnlockService pinUnlockService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -165,5 +169,23 @@ public class PinController {
         PinEvaluationResponse data = pinEvaluationService.evaluate(memberId, pinId, request);
 
         return ApiResponse.success(HttpStatus.CREATED.value(), "핀 평가가 등록되었습니다.", data);
+    }
+
+    /**
+     * 인증 사용자가 타인의 ACTIVE 핀 영상을 크레딧 결제로 잠금 해제하고, 열람용 signed URL을 발급받는다.
+     * 최초 유료 구매는 구매자 3 크레딧 차감·작성자 3 크레딧 지급, 작성자와 기존 구매자는 차감 없이 접근한다.
+     * 멱등성 키({@code Idempotency-Key} 헤더)로 중복 결제를 방지하며, 동일 키 재시도는 최초 거래 결과를 반환한다.
+     * pinId 형식 검증(INVALID_PIN_ID)·키 검증(IDEMPOTENCY_KEY_REQUIRED·INVALID_IDEMPOTENCY_KEY)을 위해
+     * 경로 변수와 헤더를 문자열로 받아 서비스에서 파싱한다.
+     */
+    @PostMapping("/{pinId}/unlock")
+    public ApiResponse<PinUnlockResponse> unlockPin(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable String pinId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        PinUnlockResponse data = pinUnlockService.unlock(memberId, pinId, idempotencyKey);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "영상 핀 잠금 해제가 완료되었습니다.", data);
     }
 }
