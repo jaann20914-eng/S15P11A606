@@ -1,4 +1,5 @@
-import { Client } from '@stomp/stompjs';
+import { AppState } from 'react-native';
+import { Client, Versions } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { SocketStatus } from '@/types/chatSocket';
@@ -78,18 +79,21 @@ function createClient(): Client {
   return new Client({
     brokerURL: resolveSocketUrl(),
     /*
+      1.2만 제안한다. 기본값은 1.0·1.1·1.2를 모두 제안하는데, 서버가 하나만 받는다면
+      `UNSUPPORTED_STOMP_VERSION`으로 끊길 수 있다. 우리가 쓰는 것은 1.2뿐이다.
+    */
+    stompVersions: new Versions([STOMP_VERSION]),
+    /*
       토큰은 연결할 때마다 새로 읽는다. 재연결 사이에 갱신됐을 수 있고, 처음 만들 때 박아 두면
       만료된 값으로 계속 두드리게 된다.
+
+      토큰이 없는 채로 붙는 일은 없다. 여는 쪽에서 막고(`retainSocket`), 로그인되면 세션
+      감시가 깨운다. 빈 헤더로 보내면 거절 → 재연결 → 거절이 끝없이 돈다.
     */
     beforeConnect: () => {
       const { accessToken } = useAuthStore.getState();
 
-      client?.configure({
-        connectHeaders: {
-          'accept-version': STOMP_VERSION,
-          Authorization: accessToken === null ? '' : `Bearer ${accessToken}`,
-        },
-      });
+      client?.configure({ connectHeaders: { Authorization: `Bearer ${accessToken ?? ''}` } });
     },
     heartbeatIncoming: HEARTBEAT_MS,
     heartbeatOutgoing: HEARTBEAT_MS,
@@ -172,14 +176,18 @@ function readErrorCode(body: string): string | null {
 export function retainSocket(): () => void {
   if (!canUseSocket) return () => undefined;
 
-  watchSession();
+  watch();
   holders += 1;
 
   if (client === null) {
     client = createClient();
   }
 
-  if (!client.active) {
+  /*
+    로그인 전에는 열지 않는다. 채팅 탭에 들어올 수 있는 상태라면 대개 로그인돼 있지만,
+    세션이 끊긴 직후처럼 어긋나는 순간이 있다. 그때는 붙잡아만 두고 로그인되면 붙는다.
+  */
+  if (!client.active && useAuthStore.getState().accessToken !== null) {
     attempt = 0;
     client.configure({ reconnectDelay: RECONNECT_DELAYS_MS[0] });
     setStatus('connecting');
@@ -192,7 +200,12 @@ export function retainSocket(): () => void {
     if (released) return;
 
     released = true;
-    holders -= 1;
+    /*
+      0 밑으로 내려가지 않게 한다. 로그아웃이 세는 값을 0으로 되돌린 뒤(`resetSocket`) 채팅
+      화면이 내려가면서 놓는 순간이 있는데, 그때 음수가 되면 다음에 다시 붙잡아도 "아직 놓을
+      사람이 남았다"가 되어 연결이 열리지 않는다.
+    */
+    holders = Math.max(0, holders - 1);
 
     if (holders > 0) return;
 
@@ -215,13 +228,19 @@ export function subscribeDestination(
 ): () => void {
   if (!canUseSocket) return () => undefined;
 
+  // 같은 id로 다시 신청하면 앞의 것은 버린다. 남겨 두면 서버에는 구독이 둘 남아 같은 이벤트를
+  // 두 번 받는다(STOMP는 id가 같으면 덮어쓰지 않는다).
+  registrations.get(id)?.active?.unsubscribe();
+
   const registration: Registration = { id, destination, handler, active: null };
 
   registrations.set(id, registration);
   activate(registration);
 
   return () => {
-    registrations.delete(id);
+    // 이미 다른 신청서가 이 id를 쓰고 있으면 그건 남의 것이라 지우지 않는다.
+    if (registrations.get(id) === registration) registrations.delete(id);
+
     registration.active?.unsubscribe();
     registration.active = null;
   };
@@ -240,23 +259,74 @@ export function publish(destination: string, body: unknown): boolean {
   return true;
 }
 
-/** 세션을 지켜보고 있는지. 소켓을 처음 쓸 때 한 번만 건다. */
-let watchingSession = false;
+/** 감시를 걸었는지. 소켓을 처음 쓸 때 한 번만 건다. */
+let watching = false;
 
 /**
- * 로그아웃되면 남은 화면과 상관없이 끊는다.
+ * 세션과 앱 상태를 지켜본다.
  *
  * 스토어가 이 파일을 부르게 하지 않는다. 여기서 이미 스토어를 읽고 있어 서로 부르면 순환
- * 참조가 된다. 대신 이쪽에서 세션을 지켜본다 — 방향이 한쪽이라 어느 쪽을 고쳐도 안전하다.
+ * 참조가 된다. 대신 이쪽에서 지켜본다 — 방향이 한쪽이라 어느 쪽을 고쳐도 안전하다.
  */
-function watchSession(): void {
-  if (watchingSession) return;
+function watch(): void {
+  if (watching) return;
 
-  watchingSession = true;
+  watching = true;
 
   useAuthStore.subscribe(() => {
-    if (useAuthStore.getState().authStatus === 'UNAUTHENTICATED') resetSocket();
+    const { authStatus } = useAuthStore.getState();
+
+    if (authStatus === 'UNAUTHENTICATED') {
+      resetSocket();
+      return;
+    }
+
+    // 토큰이 없어 붙지 못하고 멈춰 있었다면 로그인된 지금 다시 붙는다.
+    if (holders > 0 && useAuthStore.getState().accessToken !== null) reconnectNow();
   });
+
+  AppState.addEventListener('change', (next) => {
+    if (next !== 'active' || holders === 0) return;
+
+    handleForeground();
+  });
+}
+
+/**
+ * 앱이 다시 앞으로 나왔을 때.
+ *
+ * 백그라운드에 있는 동안 OS가 소켓을 조용히 끊어도 라이브러리는 한동안 모른다. 하트비트가
+ * 알아채기까지 20초쯤 걸리고, 그 사이 화면은 "연결됨"인데 이벤트만 오지 않는 상태가 된다.
+ * 돌아온 순간 살아 있는지 확인해 죽었으면 곧바로 다시 붙는다.
+ *
+ * **연결이 살아 있으면 건드리지 않는다.** 멀쩡한 연결을 끊고 다시 맺으면 그 사이의 이벤트를
+ * 오히려 놓친다. 확인은 하트비트에 맡긴다.
+ */
+function handleForeground(): void {
+  if (client !== null && client.connected) return;
+
+  reconnectNow();
+}
+
+/** 기다리던 재연결 예약을 앞당겨 지금 시도한다. */
+function reconnectNow(): void {
+  if (client === null) return;
+
+  attempt = 0;
+  client.configure({ reconnectDelay: RECONNECT_DELAYS_MS[0] });
+
+  if (!client.active) {
+    setStatus('connecting');
+    void client.activate();
+    return;
+  }
+
+  /*
+    이미 재연결을 기다리는 중이면(최대 10초) 그 예약을 앞당긴다. 되살리는 가장 확실한 방법은
+    한 번 끊는 것이다 — 닫힘 처리가 곧바로 1초짜리 재연결을 잡는다.
+  */
+  setStatus('reconnecting');
+  void client.forceDisconnect();
 }
 
 /**
