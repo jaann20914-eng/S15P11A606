@@ -89,7 +89,12 @@ public enum ErrorCode {
     // Pin Detail
     INVALID_PIN_ID(HttpStatus.BAD_REQUEST, "핀 ID 형식이 올바르지 않습니다."),
     PIN_DETAIL_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 상세 조회 중 오류가 발생했습니다."),
-    MEDIA_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 미디어 URL 발급에 실패했습니다.");
+    MEDIA_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 미디어 URL 발급에 실패했습니다."),
+
+    // Chat
+    CHAT_REQUEST_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅을 요청할 수 없습니다."),
+    CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
+    CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;
