@@ -2,7 +2,9 @@ package com.yuhan.wagglewaggle.domain.pin.controller;
 
 import com.yuhan.wagglewaggle.domain.auth.jwt.JwtProvider;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
@@ -36,6 +38,8 @@ class PinDetailAuthTest {
     @MockitoBean private PinVideoStatusQueryService pinVideoStatusQueryService;
     @MockitoBean private PinDetailService pinDetailService;
     @MockitoBean private PinUpdateService pinUpdateService;
+    @MockitoBean private PinDeleteService pinDeleteService;
+    @MockitoBean private PinEvaluationService pinEvaluationService;
     // 메인의 JPA Auditing(@EnableJpaAuditing)이 요구하는 매핑 컨텍스트를 목으로 채워
     // WebMvc 슬라이스 컨텍스트 로딩을 통과시킨다(실제 JPA는 이 테스트에서 쓰지 않는다).
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
