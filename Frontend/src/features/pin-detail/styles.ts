@@ -269,13 +269,19 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.limeSoft,
   },
+  /**
+   * 나뭇잎이 떨어지는 자리.
+   *
+   * 아이콘 하나였을 때는 48이면 충분했지만, 지금은 잎이 떨어지는 움직임이 들어가서 그 크기로는
+   * 무엇이 지나갔는지 알아볼 수 없다. 64까지만 키운다 — 더 키우면 옆 문구보다 그림이 커진다.
+   * 영상이 모서리를 덮으므로 `overflow`로 잘라야 둥근 모서리가 남는다.
+   */
   rewardCoin: {
-    width: 48,
-    height: 48,
+    width: 64,
+    height: 64,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
+    overflow: 'hidden',
+    backgroundColor: ILLUSTRATION_BACKGROUND,
   },
   rewardTitle: { ...type.label, color: colors.dark, fontWeight: '600' },
   rewardText: { ...type.caption, color: colors.gray600, marginTop: 2 },

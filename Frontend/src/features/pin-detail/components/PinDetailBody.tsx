@@ -1,6 +1,5 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
@@ -10,6 +9,7 @@ import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
+import { RewardLeaf } from './RewardLeaf';
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -176,9 +176,8 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
           {submitted === null ? '평가를 남겼어요' : submitted === 'HELPFUL' ? '유익해요!' : '아쉬워요!'}
         </Text>
         <View style={s.reward}>
-          <View style={s.rewardCoin}>
-            <Ionicons name="leaf" size={24} color="#91A700" />
-          </View>
+          {/* 방금 받은 경우에만 잎이 떨어진다. 다시 볼 때는 떨어진 채로 멈춰 있다. */}
+          <RewardLeaf animate={submitted !== null} style={s.rewardCoin} />
           <View>
             <Text style={s.rewardTitle}>
               {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}
