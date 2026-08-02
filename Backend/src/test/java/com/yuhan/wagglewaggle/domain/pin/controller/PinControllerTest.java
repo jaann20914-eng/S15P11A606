@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinUnlockResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusResponse;
@@ -17,6 +18,7 @@ import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinUnlockService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
@@ -59,6 +61,7 @@ class PinControllerTest {
     private PinUpdateService pinUpdateService;
     private PinDeleteService pinDeleteService;
     private PinEvaluationService pinEvaluationService;
+    private PinUnlockService pinUnlockService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -75,10 +78,11 @@ class PinControllerTest {
         pinUpdateService = Mockito.mock(PinUpdateService.class);
         pinDeleteService = Mockito.mock(PinDeleteService.class);
         pinEvaluationService = Mockito.mock(PinEvaluationService.class);
+        pinUnlockService = Mockito.mock(PinUnlockService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PinController(pinVideoUploadService, pinCreateService,
                                 pinVideoStatusQueryService, pinDetailService, pinUpdateService,
-                                pinDeleteService, pinEvaluationService))
+                                pinDeleteService, pinEvaluationService, pinUnlockService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -605,5 +609,68 @@ class PinControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(500))
                 .andExpect(jsonPath("$.error.code").value("PIN_DELETE_FAILED"))
                 .andExpect(jsonPath("$.message").value("영상 핀 삭제 중 오류가 발생했습니다."));
+    }
+
+    // ===== 잠금 해제(POST /{pinId}/unlock) =====
+
+    private static final String IDEMPOTENCY_KEY = "12341234-5678-5678-5678-123412341234";
+
+    @Test
+    void 잠금해제_성공시_200과_결제결과_및_URL을_반환한다() throws Exception {
+        given(pinUnlockService.unlock(eq(MEMBER_ID), eq(PIN_ID), eq(IDEMPOTENCY_KEY)))
+                .willReturn(new PinUnlockResponse(
+                        java.util.UUID.fromString(PIN_ID), 3, 9,
+                        "https://bucket.s3/blurred?sig=v", true));
+
+        mockMvc.perform(post("/api/v1/pins/{pinId}/unlock", PIN_ID)
+                        .header("Idempotency-Key", IDEMPOTENCY_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("영상 핀 잠금 해제가 완료되었습니다."))
+                .andExpect(jsonPath("$.data.pinId").value(PIN_ID))
+                .andExpect(jsonPath("$.data.creditCharged").value(3))
+                .andExpect(jsonPath("$.data.creditBalance").value(9))
+                .andExpect(jsonPath("$.data.videoUrl").value("https://bucket.s3/blurred?sig=v"))
+                .andExpect(jsonPath("$.data.accessGranted").value(true));
+
+        // 인증 memberId·pinId·멱등성 키 헤더가 서비스로 전달된다.
+        verify(pinUnlockService).unlock(eq(MEMBER_ID), eq(PIN_ID), eq(IDEMPOTENCY_KEY));
+    }
+
+    @Test
+    void 잠금해제_멱등성_키가_없으면_400과_IDEMPOTENCY_KEY_REQUIRED를_반환한다() throws Exception {
+        // 헤더 누락 시에도 서비스가 정확한 코드를 판정하도록 헤더 없이 전달된다(null).
+        given(pinUnlockService.unlock(eq(MEMBER_ID), eq(PIN_ID), eq(null)))
+                .willThrow(new CustomException(ErrorCode.IDEMPOTENCY_KEY_REQUIRED));
+
+        mockMvc.perform(post("/api/v1/pins/{pinId}/unlock", PIN_ID))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_KEY_REQUIRED"));
+    }
+
+    @Test
+    void 잠금해제_잔액이_부족하면_409와_INSUFFICIENT_CREDIT를_반환한다() throws Exception {
+        given(pinUnlockService.unlock(eq(MEMBER_ID), eq(PIN_ID), eq(IDEMPOTENCY_KEY)))
+                .willThrow(new CustomException(ErrorCode.INSUFFICIENT_CREDIT));
+
+        mockMvc.perform(post("/api/v1/pins/{pinId}/unlock", PIN_ID)
+                        .header("Idempotency-Key", IDEMPOTENCY_KEY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.error.code").value("INSUFFICIENT_CREDIT"));
+    }
+
+    @Test
+    void 잠금해제_URL_발급_실패면_503과_VIDEO_URL_ISSUE_FAILED를_반환한다() throws Exception {
+        given(pinUnlockService.unlock(eq(MEMBER_ID), eq(PIN_ID), eq(IDEMPOTENCY_KEY)))
+                .willThrow(new CustomException(ErrorCode.VIDEO_URL_ISSUE_FAILED));
+
+        mockMvc.perform(post("/api/v1/pins/{pinId}/unlock", PIN_ID)
+                        .header("Idempotency-Key", IDEMPOTENCY_KEY))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.statusCode").value(503))
+                .andExpect(jsonPath("$.error.code").value("VIDEO_URL_ISSUE_FAILED"))
+                .andExpect(jsonPath("$.message").value("영상 URL 발급에 실패했습니다."));
     }
 }
