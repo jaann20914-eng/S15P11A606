@@ -17,12 +17,6 @@ export interface IllustrationVideoProps {
   name: IllustrationKey;
   style?: StyleProp<ViewStyle>;
   /**
-   * 기본값 `play` — 마운트할 때 처음부터 한 번 재생한다.
-   *
-   * `end`는 재생하지 않고 마지막 모습만 세운다. 이미 끝난 일을 보여줄 때 쓴다.
-   */
-  mode?: 'play' | 'end';
-  /**
    * 기본값 `cover`.
    *
    * 3D 영상은 대상 주변에 빈 여백을 크게 두고 렌더된 것이 많다. `contain`으로 넣으면
@@ -41,30 +35,15 @@ export interface IllustrationVideoProps {
  * 순간 이미 준비돼 있고, 빈 자리가 보였다가 뒤늦게 그림이 채워지는 일이 없다. 대신 같은
  * 플레이어를 계속 쓰므로 처음부터 보이려면 여기서 되감아야 한다.
  */
-export function IllustrationVideo({
-  name,
-  style,
-  mode = 'play',
-  contentFit = 'cover',
-}: IllustrationVideoProps) {
+export function IllustrationVideo({ name, style, contentFit = 'cover' }: IllustrationVideoProps) {
   const { player, ready } = useIllustration(name);
 
   useEffect(() => {
     if (!ready) return;
 
-    if (mode === 'play') {
-      player.currentTime = 0;
-      player.play();
-      return;
-    }
-
-    /*
-      마지막 모습으로 세운다. 정확히 끝으로 보내면 재생이 끝난 상태로 취급돼 빈 화면이
-      나올 수 있어 조금 앞에 세운다.
-    */
-    player.pause();
-    if (player.duration > 0) player.currentTime = Math.max(0, player.duration - 0.05);
-  }, [mode, player, ready]);
+    player.currentTime = 0;
+    player.play();
+  }, [player, ready]);
 
   /*
     다 받기 전에는 자리만 잡아 둔다.

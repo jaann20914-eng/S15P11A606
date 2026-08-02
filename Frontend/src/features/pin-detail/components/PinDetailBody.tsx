@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
@@ -12,6 +12,9 @@ import { pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
 import { IllustrationVideo } from './IllustrationVideo';
 import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
+
+/** 나뭇잎이 다 떨어진 뒤의 모습. 영상의 마지막 프레임을 그대로 뽑아 둔 것이다. */
+const LEAF_SETTLED = require('../../../../assets/images/credit-leaf-settled.png');
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -205,20 +208,24 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
 /**
  * 보상 자리의 나뭇잎.
  *
- * 방금 받았으면 잎이 떨어지는 장면을 한 번 재생하고, 다시 볼 때는 이미 떨어진 채로 멈춰 있다.
+ * 방금 받았으면 떨어지는 장면을 한 번 재생하고, 다시 볼 때는 이미 떨어진 모습만 보여준다.
  * 매번 떨어지면 아무 일도 없었는데 무언가 일어난 것처럼 읽히고 들어올 때마다 시선을 뺏긴다.
  *
- * 평가를 누를 때 받기 시작하지만, 이미 평가한 핀으로 다시 들어온 경우에는 누른 적이 없으므로
- * 여기서 받는다. 다 받기 전까지는 빈 자리로 기다린다.
+ * 떨어진 모습은 **영상이 아니라 마지막 프레임 그림**이다. 영상으로 마지막 장면을 세우려면
+ * 붙이고 → 되감고 → 멈추는 과정을 거치는데, 그 사이 첫 프레임이 잠깐 보였다가 끝 프레임으로
+ * 튄다. 어차피 움직이지 않는 화면이라 그림 한 장이면 충분하고, 다시 볼 때는 영상을 받을
+ * 필요조차 없어진다.
  */
 function RewardLeaf({ animate }: { animate: boolean }) {
   const loadIllustration = useIllustrationLoader();
 
   useEffect(() => {
-    loadIllustration('leaf');
-  }, [loadIllustration]);
+    if (animate) loadIllustration('leaf');
+  }, [animate, loadIllustration]);
 
-  return <IllustrationVideo name="leaf" mode={animate ? 'play' : 'end'} style={s.rewardCoin} />;
+  if (!animate) return <Image source={LEAF_SETTLED} style={s.rewardCoin} />;
+
+  return <IllustrationVideo name="leaf" style={s.rewardCoin} />;
 }
 
 function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluation: EvaluationState }) {
