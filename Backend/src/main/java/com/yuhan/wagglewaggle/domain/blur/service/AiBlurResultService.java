@@ -73,16 +73,39 @@ public class AiBlurResultService {
             return resolveTerminalOutcome(job, message);
         }
 
+        // 핀 행을 잠금 조회하고 삭제 여부를 재확인한다(삭제 처리와 동시 실행돼도 이 잠금으로 직렬화된다).
+        Pin pin = loadPin(job, message);
+        if (pin.isDeleted()) {
+            return applyDeletedPinSkip(job, message);
+        }
+
         return switch (job.getJobType()) {
-            case INITIAL_UPLOAD -> applyInitialUpload(job, message);
-            case VIDEO_REPLACEMENT -> applyReplacement(job, message);
+            case INITIAL_UPLOAD -> applyInitialUpload(pin, job, message);
+            case VIDEO_REPLACEMENT -> applyReplacement(pin, job, message);
         };
+    }
+
+    /**
+     * 삭제된 핀의 결과: 핀의 영상 키·video_status는 변경하지 않고 작업만 최종 상태로 종료한다.
+     * PASS·FAIL이면 COMPLETED, 시스템 처리 결과가 FAILED이면 FAILED로 종료하고 완료 시각을 기록한다.
+     * 새 후보 원본·미적용 결과 객체는 커밋 이후 삭제 대상으로 등록한다.
+     */
+    private AiBlurResultOutcome applyDeletedPinSkip(AiBlurJob job, AiBlurResultMessage message) {
+        if (message.processingStatus() == ProcessingStatus.FAILED) {
+            job.markFailed(message.completedAt());
+        } else {
+            job.markCompleted(message.completedAt());
+        }
+        log.info("삭제된 핀의 AI 결과 → 핀 미반영, 작업만 종료 "
+                        + "(requestId={}, pinId={}, jobType={}, processingStatus={})",
+                job.getRequestId(), job.getPinId(), job.getJobType(), message.processingStatus());
+        runAfterCommit(() -> registerCandidateCleanup(job, message));
+        return AiBlurResultOutcome.PIN_DELETED_SKIPPED;
     }
 
     // ===================== INITIAL_UPLOAD (기존 로직 유지) =====================
 
-    private AiBlurResultOutcome applyInitialUpload(AiBlurJob job, AiBlurResultMessage message) {
-        Pin pin = loadPin(job, message);
+    private AiBlurResultOutcome applyInitialUpload(Pin pin, AiBlurJob job, AiBlurResultMessage message) {
         return switch (message.processingStatus()) {
             case FAILED -> applyFailed(pin, job, message.completedAt());
             case COMPLETED -> switch (message.finalStatus()) {
@@ -139,9 +162,7 @@ public class AiBlurResultService {
      * </ul>
      * 반영 여부와 무관하게 후보 원본·미적용 결과 객체는 커밋 이후 삭제 대상으로 등록한다.
      */
-    private AiBlurResultOutcome applyReplacement(AiBlurJob job, AiBlurResultMessage message) {
-        Pin pin = loadPin(job, message);
-
+    private AiBlurResultOutcome applyReplacement(Pin pin, AiBlurJob job, AiBlurResultMessage message) {
         return switch (message.processingStatus()) {
             case FAILED -> applyReplacementFailed(job, message);
             case COMPLETED -> switch (message.finalStatus()) {
@@ -233,13 +254,17 @@ public class AiBlurResultService {
 
     // ===================== 공통 =====================
 
-    /** 작업 pinId로 Pin을 조회한다. 메시지 pinId가 다르면 로그만 남긴다(추적용). */
+    /**
+     * 작업 pinId로 Pin을 비관적 잠금 조회한다. 메시지 pinId가 다르면 로그만 남긴다(추적용).
+     * 삭제 처리와 AI 결과 반영이 동시에 실행돼도 이 잠금으로 pins 행 접근이 직렬화되어,
+     * deleted_at 재확인 결과와 결과 반영이 원자적으로 처리된다.
+     */
     private Pin loadPin(AiBlurJob job, AiBlurResultMessage message) {
         if (!job.getPinId().equals(message.pinId())) {
             log.warn("메시지 pinId({})와 작업 pinId({})가 다르다. 작업 pinId를 기준으로 처리한다.",
                     message.pinId(), job.getPinId());
         }
-        return pinRepository.findById(job.getPinId())
+        return pinRepository.findByIdForUpdate(job.getPinId())
                 .orElseThrow(() -> new CustomException(ErrorCode.AI_BLUR_PIN_NOT_FOUND));
     }
 

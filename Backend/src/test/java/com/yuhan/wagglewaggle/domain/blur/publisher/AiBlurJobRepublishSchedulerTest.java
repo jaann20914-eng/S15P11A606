@@ -61,14 +61,14 @@ class AiBlurJobRepublishSchedulerTest {
     void PENDING_임계시각_기준으로_조회해_각_작업을_동일_requestId로_재발행한다() {
         AiBlurJob initial = job(AiBlurJobType.INITIAL_UPLOAD);
         AiBlurJob replacement = job(AiBlurJobType.VIDEO_REPLACEMENT); // jobType으로 제한하지 않음
-        given(aiBlurJobRepository.findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(any(), any()))
+        given(aiBlurJobRepository.findRepublishTargetsExcludingDeletedPins(any(), any()))
                 .willReturn(List.of(initial, replacement));
 
         scheduler(true).republishPendingJobs();
 
         // 조회 조건: status=PENDING, threshold=now-5m
         ArgumentCaptor<Instant> thresholdCaptor = ArgumentCaptor.forClass(Instant.class);
-        verify(aiBlurJobRepository).findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(
+        verify(aiBlurJobRepository).findRepublishTargetsExcludingDeletedPins(
                 eq(AiBlurJobStatus.PENDING), thresholdCaptor.capture());
         assertThat(thresholdCaptor.getValue()).isEqualTo(NOW.minus(THRESHOLD));
 
@@ -85,7 +85,7 @@ class AiBlurJobRepublishSchedulerTest {
     void 한_작업_발행이_실패해도_나머지_작업은_계속_재발행한다() {
         AiBlurJob first = job(AiBlurJobType.INITIAL_UPLOAD);
         AiBlurJob second = job(AiBlurJobType.INITIAL_UPLOAD);
-        given(aiBlurJobRepository.findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(any(), any()))
+        given(aiBlurJobRepository.findRepublishTargetsExcludingDeletedPins(any(), any()))
                 .willReturn(List.of(first, second));
         willThrow(new RuntimeException("발행 실패")).given(aiBlurJobPublisher).publish(first);
 

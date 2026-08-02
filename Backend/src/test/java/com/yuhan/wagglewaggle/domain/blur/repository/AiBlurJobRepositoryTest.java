@@ -132,7 +132,7 @@ class AiBlurJobRepositoryTest {
     }
 
     @Test
-    @DisplayName("재발행 대상: 특정 status·created_at 기준으로 오래된 순 조회가 가능하다")
+    @DisplayName("재발행 대상: 특정 status·created_at 기준으로 오래된 순 조회가 가능하다(삭제되지 않은 핀)")
     void findRepublishTargets_byStatusAndCreatedAt() {
         // 오래된 PENDING(재발행 대상)
         AiBlurJob stalePending =
@@ -155,11 +155,47 @@ class AiBlurJobRepositoryTest {
 
         Instant threshold = Instant.now().minus(10, ChronoUnit.MINUTES);
         List<AiBlurJob> targets = aiBlurJobRepository
-                .findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(AiBlurJobStatus.PENDING, threshold);
+                .findRepublishTargetsExcludingDeletedPins(AiBlurJobStatus.PENDING, threshold);
 
         assertThat(targets)
                 .extracting(AiBlurJob::getOriginalVideoKey)
                 .containsExactly("videos/original/stale.mp4");
+    }
+
+    @Test
+    @DisplayName("재발행 대상: 소프트 삭제된 핀의 오래된 PENDING 작업은 제외한다")
+    void findRepublishTargets_excludesDeletedPinJobs() {
+        Instant stale = Instant.now().minus(30, ChronoUnit.MINUTES);
+
+        // 살아있는 핀의 오래된 PENDING(대상)
+        AiBlurJob alive =
+                AiBlurJob.create(pinId, "videos/original/alive.mp4", AiBlurJobType.INITIAL_UPLOAD);
+        aiBlurJobRepository.saveAndFlush(alive);
+        backdateCreatedAt(alive.getRequestId(), stale);
+
+        // 소프트 삭제된 핀의 오래된 PENDING(제외)
+        Member member = em.persist(Member.create("tester2", AgeGroup.TWENTIES, Gender.MALE));
+        Place place = em.persist(Place.create("kakao-2", "삭제된 장소", point(127.03, 37.50)));
+        Pin deletedPin = Pin.create(
+                member, place, CrowdLevel.WAGLE, point(127.03, 37.50),
+                null, null, "videos/original/deleted-pin.mp4", null);
+        deletedPin.softDelete(Instant.now());
+        em.persist(deletedPin);
+        em.flush();
+        AiBlurJob deletedPinJob = AiBlurJob.create(
+                deletedPin.getId(), "videos/original/deleted-job.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(deletedPinJob);
+        backdateCreatedAt(deletedPinJob.getRequestId(), stale);
+
+        em.clear();
+
+        Instant threshold = Instant.now().minus(10, ChronoUnit.MINUTES);
+        List<AiBlurJob> targets = aiBlurJobRepository
+                .findRepublishTargetsExcludingDeletedPins(AiBlurJobStatus.PENDING, threshold);
+
+        assertThat(targets)
+                .extracting(AiBlurJob::getOriginalVideoKey)
+                .containsExactly("videos/original/alive.mp4");
     }
 
     @Test

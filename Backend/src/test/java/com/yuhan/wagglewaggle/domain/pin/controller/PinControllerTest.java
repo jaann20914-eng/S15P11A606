@@ -3,6 +3,7 @@ package com.yuhan.wagglewaggle.domain.pin.controller;
 import com.yuhan.wagglewaggle.domain.pin.dto.ChatRequestState;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
@@ -13,6 +14,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.VideoAccessLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
@@ -40,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -53,6 +56,7 @@ class PinControllerTest {
     private PinVideoStatusQueryService pinVideoStatusQueryService;
     private PinDetailService pinDetailService;
     private PinUpdateService pinUpdateService;
+    private PinDeleteService pinDeleteService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -67,9 +71,11 @@ class PinControllerTest {
         pinVideoStatusQueryService = Mockito.mock(PinVideoStatusQueryService.class);
         pinDetailService = Mockito.mock(PinDetailService.class);
         pinUpdateService = Mockito.mock(PinUpdateService.class);
+        pinDeleteService = Mockito.mock(PinDeleteService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PinController(pinVideoUploadService, pinCreateService,
-                                pinVideoStatusQueryService, pinDetailService, pinUpdateService))
+                                pinVideoStatusQueryService, pinDetailService, pinUpdateService,
+                                pinDeleteService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -515,5 +521,86 @@ class PinControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.statusCode").value(404))
                 .andExpect(jsonPath("$.error.code").value("PIN_NOT_FOUND"));
+    }
+
+    // ---------- 핀 삭제(DELETE) ----------
+
+    @Test
+    void 삭제_성공시_200과_DELETED_상태_종료된_채팅방ID_삭제시각을_반환한다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString(PIN_ID);
+        given(pinDeleteService.delete(MEMBER_ID, PIN_ID))
+                .willReturn(PinDeleteResponse.of(
+                        pinId, java.util.List.of(1L), Instant.parse("2026-07-22T04:00:00Z")));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("영상 핀이 삭제되었습니다."))
+                .andExpect(jsonPath("$.data.pinId").value(PIN_ID))
+                .andExpect(jsonPath("$.data.status").value("DELETED"))
+                .andExpect(jsonPath("$.data.closedChatRoomIds[0]").value(1))
+                .andExpect(jsonPath("$.data.deletedAt").value("2026-07-22T04:00:00Z"));
+
+        verify(pinDeleteService).delete(MEMBER_ID, PIN_ID);
+    }
+
+    @Test
+    void 재삭제_요청이면_200과_빈_종료_채팅방ID를_반환한다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString(PIN_ID);
+        given(pinDeleteService.delete(MEMBER_ID, PIN_ID))
+                .willReturn(PinDeleteResponse.of(
+                        pinId, java.util.List.of(), Instant.parse("2026-07-22T04:00:00Z")));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DELETED"))
+                .andExpect(jsonPath("$.data.closedChatRoomIds").isArray())
+                .andExpect(jsonPath("$.data.closedChatRoomIds").isEmpty());
+    }
+
+    @Test
+    void 삭제_잘못된_pinId_형식이면_400_INVALID_PIN_ID를_반환한다() throws Exception {
+        given(pinDeleteService.delete(eq(MEMBER_ID), eq("not-a-uuid")))
+                .willThrow(new CustomException(ErrorCode.INVALID_PIN_ID));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", "not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("INVALID_PIN_ID"));
+    }
+
+    @Test
+    void 삭제_작성자가_아니면_403_PIN_DELETE_FORBIDDEN을_반환한다() throws Exception {
+        given(pinDeleteService.delete(MEMBER_ID, PIN_ID))
+                .willThrow(new CustomException(ErrorCode.PIN_DELETE_FORBIDDEN));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.statusCode").value(403))
+                .andExpect(jsonPath("$.error.code").value("PIN_DELETE_FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("핀을 삭제할 권한이 없습니다."));
+    }
+
+    @Test
+    void 삭제_대상_핀이_없으면_404_PIN_NOT_FOUND를_반환한다() throws Exception {
+        given(pinDeleteService.delete(MEMBER_ID, PIN_ID))
+                .willThrow(new CustomException(ErrorCode.PIN_NOT_FOUND));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.error.code").value("PIN_NOT_FOUND"));
+    }
+
+    @Test
+    void 삭제_처리_실패면_500_PIN_DELETE_FAILED를_반환한다() throws Exception {
+        given(pinDeleteService.delete(MEMBER_ID, PIN_ID))
+                .willThrow(new CustomException(ErrorCode.PIN_DELETE_FAILED));
+
+        mockMvc.perform(delete("/api/v1/pins/{pinId}", PIN_ID))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.statusCode").value(500))
+                .andExpect(jsonPath("$.error.code").value("PIN_DELETE_FAILED"))
+                .andExpect(jsonPath("$.message").value("영상 핀 삭제 중 오류가 발생했습니다."));
     }
 }
