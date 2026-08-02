@@ -4,6 +4,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.ChatRequestState;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusView;
@@ -13,6 +14,7 @@ import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 
@@ -39,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,6 +52,7 @@ class PinControllerTest {
     private PinCreateService pinCreateService;
     private PinVideoStatusQueryService pinVideoStatusQueryService;
     private PinDetailService pinDetailService;
+    private PinUpdateService pinUpdateService;
     private MockMvc mockMvc;
 
     private static final Long MEMBER_ID = 42L;
@@ -62,9 +66,10 @@ class PinControllerTest {
         pinCreateService = Mockito.mock(PinCreateService.class);
         pinVideoStatusQueryService = Mockito.mock(PinVideoStatusQueryService.class);
         pinDetailService = Mockito.mock(PinDetailService.class);
+        pinUpdateService = Mockito.mock(PinUpdateService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PinController(pinVideoUploadService, pinCreateService,
-                                pinVideoStatusQueryService, pinDetailService))
+                                pinVideoStatusQueryService, pinDetailService, pinUpdateService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -154,11 +159,12 @@ class PinControllerTest {
         given(pinCreateService.create(any(), any()))
                 .willThrow(new CustomException(ErrorCode.VIDEO_NOT_ACCESSIBLE));
 
+        // VIDEO_NOT_ACCESSIBLE은 명세에 맞춰 422(UNPROCESSABLE_CONTENT)로 매핑된다(등록·수정 공용 코드).
         mockMvc.perform(post("/api/v1/pins")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"originalVideoKey\":\"k\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.statusCode").value(422))
                 .andExpect(jsonPath("$.error.code").value("VIDEO_NOT_ACCESSIBLE"));
     }
 
@@ -408,5 +414,106 @@ class PinControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(503))
                 .andExpect(jsonPath("$.error.code").value("MEDIA_URL_ISSUE_FAILED"))
                 .andExpect(jsonPath("$.message").value("영상 미디어 URL 발급에 실패했습니다."));
+    }
+
+    // ---------- 핀 수정(PATCH) ----------
+
+    @Test
+    void 일반_정보만_수정하면_200과_updatedFields를_반환한다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString(PIN_ID);
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willReturn(PinUpdateResponse.generalOnly(
+                        pinId, VideoStatus.ACTIVE, java.util.List.of("detailLocation", "memo")));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memo\":\"새 메모\",\"detailLocation\":\"2층 창가\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("영상 핀이 수정되었습니다."))
+                .andExpect(jsonPath("$.data.pinId").value(PIN_ID))
+                .andExpect(jsonPath("$.data.videoStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.updatedFields[0]").value("detailLocation"))
+                .andExpect(jsonPath("$.data.updatedFields[1]").value("memo"))
+                // 일반 정보만 수정하면 교체 관련 필드는 응답에서 생략된다.
+                .andExpect(jsonPath("$.data.videoReplacementStatus").doesNotExist())
+                .andExpect(jsonPath("$.data.pendingFields").doesNotExist());
+
+        verify(pinUpdateService).update(eq(MEMBER_ID), eq(PIN_ID), any());
+    }
+
+    @Test
+    void 영상_교체가_포함되면_202와_교체_상태를_반환한다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString(PIN_ID);
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willReturn(PinUpdateResponse.withReplacement(
+                        pinId, VideoStatus.ACTIVE, java.util.List.of("detailLocation"),
+                        java.util.List.of("originalVideoKey")));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"pins/original/42/bbb.mp4\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.statusCode").value(202))
+                .andExpect(jsonPath("$.message").value("영상 교체 요청이 접수되었습니다."))
+                .andExpect(jsonPath("$.data.videoStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.videoReplacementStatus").value("PENDING"))
+                .andExpect(jsonPath("$.data.updatedFields[0]").value("detailLocation"))
+                .andExpect(jsonPath("$.data.pendingFields[0]").value("originalVideoKey"));
+    }
+
+    @Test
+    void 영상만_교체하면_updatedFields는_빈_배열이다() throws Exception {
+        java.util.UUID pinId = java.util.UUID.fromString(PIN_ID);
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willReturn(PinUpdateResponse.withReplacement(
+                        pinId, VideoStatus.ACTIVE, java.util.List.of(),
+                        java.util.List.of("originalVideoKey")));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"pins/original/42/bbb.mp4\"}"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.data.updatedFields").isArray())
+                .andExpect(jsonPath("$.data.updatedFields").isEmpty());
+    }
+
+    @Test
+    void 진행_중_교체_작업이면_409_PIN_UPDATE_IN_PROGRESS를_반환한다() throws Exception {
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willThrow(new CustomException(ErrorCode.PIN_UPDATE_IN_PROGRESS));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"pins/original/42/bbb.mp4\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.statusCode").value(409))
+                .andExpect(jsonPath("$.error.code").value("PIN_UPDATE_IN_PROGRESS"));
+    }
+
+    @Test
+    void 영상_객체_확인_실패면_422_VIDEO_NOT_ACCESSIBLE를_반환한다() throws Exception {
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willThrow(new CustomException(ErrorCode.VIDEO_NOT_ACCESSIBLE));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalVideoKey\":\"pins/original/42/bbb.mp4\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.statusCode").value(422))
+                .andExpect(jsonPath("$.error.code").value("VIDEO_NOT_ACCESSIBLE"));
+    }
+
+    @Test
+    void 수정_대상_핀이_없으면_404_PIN_NOT_FOUND를_반환한다() throws Exception {
+        given(pinUpdateService.update(eq(MEMBER_ID), eq(PIN_ID), any()))
+                .willThrow(new CustomException(ErrorCode.PIN_NOT_FOUND));
+
+        mockMvc.perform(patch("/api/v1/pins/{pinId}", PIN_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memo\":\"m\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.error.code").value("PIN_NOT_FOUND"));
     }
 }
