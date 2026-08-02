@@ -47,6 +47,20 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     long countByMember_IdAndCreatedAtGreaterThanEqual(Long memberId, Instant from);
 
     /**
+     * 수정 검증용 단일 핀 조회. 삭제·만료·상태와 무관하게 조회한다.
+     * 오류 코드를 정확히 구분(PIN_NOT_FOUND / PIN_UPDATE_FORBIDDEN / PIN_NOT_EDITABLE)하기 위해
+     * 필터링은 서비스에서 수행한다. 작성자 판별(member)과 최종 장소·좌표 계산(place)에 쓰므로
+     * member·place를 fetch join 하여 N+1을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            JOIN FETCH p.place
+            WHERE p.id = :pinId
+            """)
+    Optional<Pin> findByIdWithMemberAndPlace(@Param("pinId") UUID pinId);
+
+    /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.
      * 유효 = createdAt이 from 이후(최근 1시간 이내) AND (expiresAt이 없거나 아직 만료되지 않음).
      * 작성자 뷰 각도(member.viewAngle) 사용을 위해 member를 fetch join 하여 N+1을 방지한다.
