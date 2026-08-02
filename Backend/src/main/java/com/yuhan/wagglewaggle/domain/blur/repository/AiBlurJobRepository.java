@@ -44,4 +44,10 @@ public interface AiBlurJobRepository extends JpaRepository<AiBlurJob, UUID> {
      */
     List<AiBlurJob> findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(
             AiBlurJobStatus status, Instant createdAtThreshold);
+
+    /**
+     * 특정 핀의 지정 상태 작업을 조회한다. 핀 삭제 시 PENDING 작업의 후보 원본 영상 키를
+     * 스토리지 정리 대상으로 등록하는 데 사용한다(INITIAL_UPLOAD·VIDEO_REPLACEMENT 모두 포함).
+     */
+    List<AiBlurJob> findByPinIdAndStatus(UUID pinId, AiBlurJobStatus status);
 }

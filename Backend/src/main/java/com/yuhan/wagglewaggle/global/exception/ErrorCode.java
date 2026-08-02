@@ -96,7 +96,11 @@ public enum ErrorCode {
     PIN_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 수정할 권한이 없습니다."),
     PIN_NOT_EDITABLE(HttpStatus.CONFLICT, "수정할 수 없는 상태의 핀입니다."),
     PIN_UPDATE_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 영상 교체 작업이 있습니다."),
-    PIN_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 수정 처리 중 오류가 발생했습니다.");
+    PIN_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 수정 처리 중 오류가 발생했습니다."),
+
+    // Pin Delete
+    PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
+    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String message;

@@ -67,4 +67,12 @@ public class ChatRoom extends BaseEntity {
     public static ChatRoom create(Pin pin, Member requester, UUID idempotencyKey) {
         return new ChatRoom(pin, requester, idempotencyKey);
     }
+
+    /**
+     * 채팅방을 종료한다. 핀 삭제 등으로 대화가 끝났을 때 호출하며 상태를 LEFT로 전환한다.
+     * 종료 이후에는 기존 정보·메시지 조회만 허용하고 새 메시지는 차단한다.
+     */
+    public void close() {
+        this.status = ChatRoomStatus.LEFT;
+    }
 }

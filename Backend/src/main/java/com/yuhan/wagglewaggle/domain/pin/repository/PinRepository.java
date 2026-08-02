@@ -74,6 +74,17 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     Optional<Pin> findByIdForUpdate(@Param("pinId") UUID pinId);
 
     /**
+     * 삭제 트랜잭션용 단일 핀 조회(비관적 쓰기 잠금).
+     * deleted_at 조건을 제외한 전용 잠금 조회로, 이미 삭제된 핀도 함께 조회한다
+     * (동일 작성자의 재삭제 요청에서 최초 deleted_at을 유지하고 200 OK를 반환하기 위함).
+     * 삭제 처리와 AI 결과 반영이 동시에 실행돼도 이 잠금으로 pins 행 접근이 직렬화된다.
+     * 작성자 판별에 member 식별자만 사용하므로 member·place는 지연 로딩 프록시로 접근한다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Pin p WHERE p.id = :pinId")
+    Optional<Pin> findByIdForDelete(@Param("pinId") UUID pinId);
+
+    /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.
      * 유효 = createdAt이 from 이후(최근 1시간 이내) AND (expiresAt이 없거나 아직 만료되지 않음).
      * 작성자 뷰 각도(member.viewAngle) 사용을 위해 member를 fetch join 하여 N+1을 방지한다.
