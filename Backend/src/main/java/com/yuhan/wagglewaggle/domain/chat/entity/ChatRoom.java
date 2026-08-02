@@ -60,4 +60,25 @@ public class ChatRoom extends BaseEntity {
     public static ChatRoom create(Pin pin, Member requester, Member recipient) {
         return new ChatRoom(pin, requester, recipient);
     }
+
+    /**
+     * 요청을 수락한다(PENDING → ACTIVE). PENDING 여부는 호출부에서 행 잠금 후 검증한다.
+     */
+    public void accept() {
+        this.status = ChatRoomStatus.ACTIVE;
+    }
+
+    /**
+     * 요청을 거절한다(PENDING → REFUSED).
+     */
+    public void reject() {
+        this.status = ChatRoomStatus.REFUSED;
+    }
+
+    /**
+     * 요청에서 나간다(PENDING → LEFT).
+     */
+    public void leave() {
+        this.status = ChatRoomStatus.LEFT;
+    }
 }
