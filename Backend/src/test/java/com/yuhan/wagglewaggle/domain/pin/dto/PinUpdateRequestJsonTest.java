@@ -1,19 +1,20 @@
 package com.yuhan.wagglewaggle.domain.pin.dto;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * PATCH 요청의 "필드 생략"과 "명시적 null"이 역직렬화 단계에서 구분되는지 검증한다.
  * 별도 라이브러리 없이 Jackson 기본 기능(PatchField + 커스텀 디시리얼라이저)만 사용한다.
+ * Spring(부트 4)의 HTTP 계층과 동일한 Jackson 3(tools.jackson) 매퍼로 검증한다.
  */
 class PinUpdateRequestJsonTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper objectMapper = JsonMapper.builder().build();
 
-    private PinUpdateRequest read(String json) throws Exception {
+    private PinUpdateRequest read(String json) {
         return objectMapper.readValue(json, PinUpdateRequest.class);
     }
 

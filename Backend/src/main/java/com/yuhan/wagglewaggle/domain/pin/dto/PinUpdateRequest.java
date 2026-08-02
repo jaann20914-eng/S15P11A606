@@ -2,9 +2,9 @@ package com.yuhan.wagglewaggle.domain.pin.dto;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.yuhan.wagglewaggle.global.jackson.PatchField;
 import com.yuhan.wagglewaggle.global.jackson.PatchFieldDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.List;
 
@@ -17,7 +17,11 @@ import java.util.List;
  * <p>필드는 no-arg 생성 시 {@code PatchField.absent()}로 초기화되고, Jackson은 JSON에 존재하는
  * 키만 필드에 바인딩한다({@code fieldVisibility = ANY}). 따라서 생략된 필드는 absent로 남는다.</p>
  */
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
+// creatorVisibility=NONE: 8-인자 생성자가 creator로 자동 선택되면 필드 초기값(absent)이 무시된다.
+// no-arg 생성자로 인스턴스를 만들고 JSON에 존재하는 키만 필드에 주입하도록 강제한다.
+@JsonAutoDetect(
+        fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        creatorVisibility = JsonAutoDetect.Visibility.NONE)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class PinUpdateRequest {
 

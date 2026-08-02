@@ -122,4 +122,33 @@ public class Pin extends BaseEntity {
     public void markFailed() {
         this.videoStatus = VideoStatus.FAILED;
     }
+
+    // ===== 일반 정보 수정(PATCH) 반영 메서드 =====
+    // 영상 관련 필드(originalVideoKey·blurredVideoKey·thumbnailKey·videoStatus·expiresAt)는
+    // 이 메서드들로 바꾸지 않는다. 영상 교체는 AiBlurJob 접수 후 결과 반영 단계에서 처리한다.
+
+    /** 최종 장소를 변경한다. */
+    public void changePlace(Place place) {
+        this.place = place;
+    }
+
+    /** 최종 촬영 좌표를 변경한다(geography Point, x=경도·y=위도). */
+    public void changeCaptureLocation(Point captureLocation) {
+        this.captureLocation = captureLocation;
+    }
+
+    /** 혼잡 단계를 변경한다. */
+    public void changeCrowdLevel(CrowdLevel crowdLevel) {
+        this.crowdLevel = crowdLevel;
+    }
+
+    /** 상세 위치를 변경한다. null이면 기존 값 삭제. */
+    public void changeDetailLocation(String detailLocation) {
+        this.detailLocation = detailLocation;
+    }
+
+    /** 메모를 변경한다. null이면 기존 값 삭제. */
+    public void changeMemo(String memo) {
+        this.memo = memo;
+    }
 }

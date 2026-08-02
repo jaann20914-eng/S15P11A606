@@ -162,6 +162,30 @@ class AiBlurJobRepositoryTest {
                 .containsExactly("videos/original/stale.mp4");
     }
 
+    @Test
+    @DisplayName("existsByPinIdAndJobTypeAndStatus로 진행 중 영상 교체 작업 존재 여부를 검사한다")
+    void existsByPinIdAndJobTypeAndStatus_works() {
+        // 진행 중(PENDING) 영상 교체 작업
+        aiBlurJobRepository.saveAndFlush(
+                AiBlurJob.create(pinId, "videos/original/replace-pending.mp4", AiBlurJobType.VIDEO_REPLACEMENT));
+
+        // 완료된 교체 작업(상태가 달라 대상 아님)
+        AiBlurJob completed =
+                AiBlurJob.create(pinId, "videos/original/replace-done.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        completed.markCompleted(Instant.now());
+        aiBlurJobRepository.saveAndFlush(completed);
+        em.clear();
+
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                pinId, AiBlurJobType.VIDEO_REPLACEMENT, AiBlurJobStatus.PENDING)).isTrue();
+        // 최초 등록(INITIAL_UPLOAD) PENDING이 있어도 영상 교체 진행 중으로 보지 않는다.
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                pinId, AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING)).isFalse();
+        // 다른 핀에는 진행 중 교체 작업이 없다.
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                UUID.randomUUID(), AiBlurJobType.VIDEO_REPLACEMENT, AiBlurJobStatus.PENDING)).isFalse();
+    }
+
     private Point point(double lng, double lat) {
         Point p = GF.createPoint(new Coordinate(lng, lat));
         p.setSRID(4326);
