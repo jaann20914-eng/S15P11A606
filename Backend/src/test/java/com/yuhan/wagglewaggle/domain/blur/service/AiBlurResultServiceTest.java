@@ -166,7 +166,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
         Pin pin = pendingPin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         objectsExist(true, true);
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
@@ -189,7 +189,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
         Pin pin = pendingPin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         objectsExist(false, true);
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
@@ -204,7 +204,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
         Pin pin = pendingPin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         AiBlurResultOutcome outcome = service.apply(failMessage());
 
@@ -219,13 +219,57 @@ class AiBlurResultServiceTest {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
         Pin pin = pendingPin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         AiBlurResultOutcome outcome = service.apply(failedMessage());
 
         assertThat(outcome).isEqualTo(AiBlurResultOutcome.APPLIED);
         assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.FAILED);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.FAILED);
+    }
+
+    // ========================= 삭제된 핀: 결과 미반영 =========================
+
+    @Test
+    void INITIAL_PASS_삭제된_Pin이면_반영하지_않고_작업만_COMPLETED로_종료한다() {
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
+        Pin pin = pendingPin();
+        ReflectionTestUtils.setField(pin, "deletedAt", Instant.parse("2026-08-01T00:00:00Z"));
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
+
+        AiBlurResultOutcome outcome = service.apply(passMessage());
+
+        assertThat(outcome).isEqualTo(AiBlurResultOutcome.PIN_DELETED_SKIPPED);
+        // 핀 영상 키·video_status 미변경
+        assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.PENDING);
+        assertThat(pin.getBlurredVideoKey()).isNull();
+        assertThat(pin.getThumbnailKey()).isNull();
+        // 작업만 종료, 후보 원본·미적용 결과 객체는 삭제 대상 등록
+        assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
+        assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
+        verify(videoObjectCleanupPort).registerForDeletion(ORIGINAL_KEY);
+        verify(videoObjectCleanupPort).registerForDeletion(BLURRED_KEY);
+        verify(videoObjectCleanupPort).registerForDeletion(THUMBNAIL_KEY);
+        // 삭제된 핀은 결과 객체 존재 확인 이전에 단락된다
+        verify(s3ObjectInspector, never()).findObjectMetadata(any());
+    }
+
+    @Test
+    void INITIAL_FAILED_삭제된_Pin이면_반영하지_않고_작업만_FAILED로_종료한다() {
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
+        Pin pin = pendingPin();
+        ReflectionTestUtils.setField(pin, "deletedAt", Instant.parse("2026-08-01T00:00:00Z"));
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
+
+        AiBlurResultOutcome outcome = service.apply(failedMessage());
+
+        assertThat(outcome).isEqualTo(AiBlurResultOutcome.PIN_DELETED_SKIPPED);
+        assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.PENDING);
+        assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.FAILED);
+        assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
+        verify(videoObjectCleanupPort).registerForDeletion(ORIGINAL_KEY);
     }
 
     // ========================= 멱등 / 중복 / 충돌 =========================
@@ -238,7 +282,7 @@ class AiBlurResultServiceTest {
         AiBlurResultOutcome outcome = service.apply(passMessage());
 
         assertThat(outcome).isEqualTo(AiBlurResultOutcome.DUPLICATE);
-        verify(pinRepository, never()).findById(any());
+        verify(pinRepository, never()).findByIdForUpdate(any());
     }
 
     @Test
@@ -249,7 +293,7 @@ class AiBlurResultServiceTest {
         AiBlurResultOutcome outcome = service.apply(passMessage());
 
         assertThat(outcome).isEqualTo(AiBlurResultOutcome.DUPLICATE);
-        verify(pinRepository, never()).findById(any());
+        verify(pinRepository, never()).findByIdForUpdate(any());
         verify(videoObjectCleanupPort, never()).registerForDeletion(any());
     }
 
@@ -278,7 +322,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         givenCurrentIsLatestReplacement(job);
         objectsExist(true, true);
 
@@ -301,7 +345,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         givenCurrentIsLatestReplacement(job);
         objectsExist(true, true);
 
@@ -320,7 +364,7 @@ class AiBlurResultServiceTest {
         // 기존 만료 시각을 과거로 만든다(요청 당시엔 미만료였고 AI 처리 중 만료된 상황).
         ReflectionTestUtils.setField(pin, "expiresAt", Instant.parse("2026-08-01T00:00:00Z"));
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         givenCurrentIsLatestReplacement(job);
         objectsExist(true, true);
 
@@ -336,7 +380,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         givenCurrentIsLatestReplacement(job);
         objectsExist(false, true);
 
@@ -356,7 +400,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         // 최신 교체 작업은 다른(더 최근) requestId
         AiBlurJob newer = replacementJob(AiBlurJobStatus.PENDING);
         ReflectionTestUtils.setField(newer, "requestId", OTHER_REQUEST_ID);
@@ -382,12 +426,12 @@ class AiBlurResultServiceTest {
         Pin pin = activePin();
         ReflectionTestUtils.setField(pin, "deletedAt", Instant.parse("2026-08-01T00:00:00Z"));
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
-        givenCurrentIsLatestReplacement(job);
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
 
-        assertThat(outcome).isEqualTo(AiBlurResultOutcome.REPLACEMENT_SKIPPED);
+        // 삭제된 핀은 최신 교체 판정 이전에 단락되어 PIN_DELETED_SKIPPED로 종료한다.
+        assertThat(outcome).isEqualTo(AiBlurResultOutcome.PIN_DELETED_SKIPPED);
         assertThat(pin.getOriginalVideoKey()).isEqualTo(OLD_ORIGINAL_KEY);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
         verify(videoObjectCleanupPort).registerForDeletion(NEW_ORIGINAL_KEY);
@@ -399,7 +443,7 @@ class AiBlurResultServiceTest {
         Pin pin = activePin();
         ReflectionTestUtils.setField(pin, "videoStatus", VideoStatus.REJECTED);
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         givenCurrentIsLatestReplacement(job);
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
@@ -416,7 +460,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         AiBlurResultOutcome outcome = service.apply(failMessage());
 
@@ -437,7 +481,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         AiBlurResultOutcome outcome = service.apply(failedMessage());
 
@@ -457,13 +501,13 @@ class AiBlurResultServiceTest {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
 
         // 메시지 pinId(MSG_PIN_ID)는 DB_PIN_ID와 다르다. FAIL은 반영 가능 여부와 무관하게 종료된다.
         service.apply(failMessage());
 
-        verify(pinRepository).findById(DB_PIN_ID);
-        verify(pinRepository, never()).findById(MSG_PIN_ID);
+        verify(pinRepository).findByIdForUpdate(DB_PIN_ID);
+        verify(pinRepository, never()).findByIdForUpdate(MSG_PIN_ID);
     }
 
     // ========================= 트랜잭션 롤백(예외 전파) =========================
@@ -473,7 +517,7 @@ class AiBlurResultServiceTest {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
         Pin pin = pendingPin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
-        given(pinRepository.findById(DB_PIN_ID)).willReturn(Optional.of(pin));
+        given(pinRepository.findByIdForUpdate(DB_PIN_ID)).willReturn(Optional.of(pin));
         given(s3ObjectInspector.findObjectMetadata(BLURRED_KEY))
                 .willThrow(new RuntimeException("S3 오류"));
 
