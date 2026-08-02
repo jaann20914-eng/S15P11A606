@@ -129,7 +129,12 @@ export function useIllustration(key: IllustrationKey): { player: VideoPlayer; re
 export function useIllustrationCue(
   key: IllustrationKey,
   run: () => void,
-  timeoutMs = 3000,
+  /*
+    넉넉히 잡는다. 그림이 준비되기 전에 열리면 시트가 빈 자리를 안고 올라와, 기다린 보람 없이
+    화면이 두 번 바뀐다. 이 시간은 "무언가 잘못됐을 때 그래도 열어 주는" 안전장치지 평소에
+    닿을 값이 아니다 — 영상 하나가 1MB 남짓이라 정상이면 훨씬 빨리 준비된다.
+  */
+  timeoutMs = 8000,
 ): { trigger: () => void; pending: boolean } {
   const { load } = useIllustrations();
   const { ready } = useIllustration(key);
