@@ -5,8 +5,6 @@ import { pinDetailStyles as s } from '../styles';
 import { useSheetTransition } from '../hooks/useSheetTransition';
 import { IllustrationVideo } from './IllustrationVideo';
 
-const COIN_VIDEO = require('../../../../assets/videos/credit-coin-3d.mp4');
-
 export interface PinPurchaseModalProps {
   visible: boolean;
   /** 요청 중이면 버튼을 잠근다. */
@@ -73,8 +71,8 @@ export function PinPurchaseModal({
         <Text style={s.sheetTitle}>뷰포인트 결제</Text>
         <Text style={s.sheetCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
 
-        {/* 열릴 때 마운트되므로 매번 처음부터 재생된다. */}
-        <IllustrationVideo source={COIN_VIDEO} style={s.coinVideo} />
+        {/* 미리 받아 둔 영상이라 곧바로 뜬다. 열 때마다 처음부터 재생된다. */}
+        <IllustrationVideo name="coin" style={s.coinVideo} />
 
         <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
         {error && <Text style={s.payError}>{error}</Text>}

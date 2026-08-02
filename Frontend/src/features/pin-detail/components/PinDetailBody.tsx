@@ -9,7 +9,7 @@ import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
-import { RewardLeaf } from './RewardLeaf';
+import { IllustrationVideo } from './IllustrationVideo';
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -177,7 +177,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
         </Text>
         <View style={s.reward}>
           {/* 방금 받은 경우에만 잎이 떨어진다. 다시 볼 때는 떨어진 채로 멈춰 있다. */}
-          <RewardLeaf animate={submitted !== null} style={s.rewardCoin} />
+          <IllustrationVideo name="leaf" mode={submitted === null ? 'end' : 'play'} style={s.rewardCoin} />
           <View>
             <Text style={s.rewardTitle}>
               {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}

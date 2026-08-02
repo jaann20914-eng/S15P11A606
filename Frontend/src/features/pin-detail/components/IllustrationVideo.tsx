@@ -1,7 +1,8 @@
+import { useEffect } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { VideoView } from 'expo-video';
-import type { VideoSource } from 'expo-video';
-import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { useIllustration } from '../illustrations';
+import type { IllustrationKey } from '../illustrations';
 
 /**
  * 전체화면 버튼을 내보내지 않는다. 컨트롤을 모두 끈 화면이라 들어갈 수단이 없다.
@@ -11,8 +12,15 @@ import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 const NO_FULLSCREEN = { enable: false } as const;
 
 export interface IllustrationVideoProps {
-  source: VideoSource;
+  /** 화면에서 미리 받아 둔 영상 중 무엇을 그릴지(`IllustrationProvider`). */
+  name: IllustrationKey;
   style?: StyleProp<ViewStyle>;
+  /**
+   * 기본값 `play` — 마운트할 때 처음부터 한 번 재생한다.
+   *
+   * `end`는 재생하지 않고 마지막 모습만 세운다. 이미 끝난 일을 보여줄 때 쓴다.
+   */
+  mode?: 'play' | 'end';
   /**
    * 기본값 `cover`.
    *
@@ -23,16 +31,47 @@ export interface IllustrationVideoProps {
 }
 
 /**
- * 모달의 3D 일러스트 자리에 쓰는 장식용 영상.
+ * 3D 일러스트 자리에 쓰는 장식용 영상.
  *
  * 소리 없이 한 번만 재생하고 마지막 프레임에 멈춘다. 반복하면 시선을 계속 끌어
  * 정작 눌러야 하는 버튼에서 주의를 빼앗는다.
  *
- * 모달을 다시 열면 처음부터 재생돼야 하므로 호출부에서 열릴 때만 마운트한다.
- * 조작할 것이 없어 컨트롤은 모두 끈다. 크기는 호출부가 `style`로 정한다.
+ * 플레이어는 화면이 미리 만들어 둔 것을 그대로 쓴다(`useIllustration`). 그래서 마운트하는
+ * 순간 이미 준비돼 있고, 빈 자리가 보였다가 뒤늦게 그림이 채워지는 일이 없다. 대신 같은
+ * 플레이어를 계속 쓰므로 처음부터 보이려면 여기서 되감아야 한다.
  */
-export function IllustrationVideo({ source, style, contentFit = 'cover' }: IllustrationVideoProps) {
-  const player = useAutoplayVideo(source, { loop: false, muted: true });
+export function IllustrationVideo({
+  name,
+  style,
+  mode = 'play',
+  contentFit = 'cover',
+}: IllustrationVideoProps) {
+  const player = useIllustration(name);
+
+  useEffect(() => {
+    if (mode === 'play') {
+      player.currentTime = 0;
+      player.play();
+      return;
+    }
+
+    /*
+      마지막 모습으로 세운다. 정확히 끝으로 보내면 재생이 끝난 상태로 취급돼 빈 화면이
+      나올 수 있어 조금 앞에 세운다. 아직 길이를 모르면(준비 전) 준비된 뒤에 다시 시도한다.
+    */
+    const settle = () => {
+      if (player.duration > 0) player.currentTime = Math.max(0, player.duration - 0.05);
+    };
+
+    player.pause();
+    settle();
+
+    const subscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') settle();
+    });
+
+    return () => subscription.remove();
+  }, [mode, player]);
 
   return (
     <VideoView

@@ -5,8 +5,6 @@ import { pinDetailStyles as s } from '../styles';
 import { useSheetTransition } from '../hooks/useSheetTransition';
 import { IllustrationVideo } from './IllustrationVideo';
 
-const CHAT_VIDEO = require('../../../../assets/videos/chat-request-3d.mp4');
-
 export interface PinChatRequestModalProps {
   visible: boolean;
   /** 요청 중이면 버튼을 잠근다. */
@@ -61,8 +59,8 @@ export function PinChatRequestModal({
         <Text style={s.sheetTitle}>채팅 요청</Text>
         <Text style={s.sheetCaption}>상대가 수락하면 크레딧이 전해져요</Text>
 
-        {/* 열릴 때 마운트되므로 매번 처음부터 재생된다. */}
-        <IllustrationVideo source={CHAT_VIDEO} style={s.chatIllustration} />
+        {/* 미리 받아 둔 영상이라 곧바로 뜬다. 열 때마다 처음부터 재생된다. */}
+        <IllustrationVideo name="chat" style={s.chatIllustration} />
 
         {/* 결제 시트와 같은 스타일·줄 수로 두어야 두 시트의 높이가 맞는다. */}
         <Text style={s.payMessage}>궁금한 걸 직접 물어볼 수 있어요{'\n'}5 크레딧으로 대화를 시작해요</Text>
