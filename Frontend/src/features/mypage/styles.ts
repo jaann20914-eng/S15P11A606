@@ -67,15 +67,22 @@ export const mypageStyles = StyleSheet.create({
     color: colors.gray400,
     marginTop: spacing.x1,
   },
-  metrics: {
+  /**
+   * 보유 크레딧과 오늘 영상핀.
+   *
+   * 아래 이 달의 활동과 같은 방식이다 — 선을 긋는 대신 실금만큼 띄워 흰 바탕이 비치게 하고,
+   * 바깥 모서리만 둥글려 한 카드를 갈라 놓은 것처럼 보이게 한다.
+   */
+  metrics: { flexDirection: 'row', gap: 3, marginTop: spacing.x3 },
+  metric: {
+    flex: 1,
     height: 88,
-    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.x3,
-    borderRadius: radius.card,
+    justifyContent: 'center',
     backgroundColor: '#F3F9D5',
   },
-  metric: { flex: 1, alignItems: 'center' },
+  metricFirst: { borderTopLeftRadius: radius.card, borderBottomLeftRadius: radius.card },
+  metricLast: { borderTopRightRadius: radius.card, borderBottomRightRadius: radius.card },
   metricLabel: { ...type.small, color: colors.gray600 },
   metricValue: {
     fontSize: 28,
@@ -84,7 +91,6 @@ export const mypageStyles = StyleSheet.create({
     color: colors.gray600,
     marginTop: 2,
   },
-  metricDivider: { width: 1, height: 44, backgroundColor: '#AEBB7F' },
 
   /* 활동 달력 카드 */
   /**

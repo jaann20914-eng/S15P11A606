@@ -30,12 +30,11 @@ export function TrustSummaryCard({ profile }: TrustSummaryCardProps) {
       </View>
 
       <View style={s.metrics}>
-        <View style={s.metric}>
+        <View style={[s.metric, s.metricFirst]}>
           <Text style={s.metricLabel}>보유 크레딧</Text>
           <Text style={s.metricValue}>{profile.creditBalance}</Text>
         </View>
-        <View style={s.metricDivider} />
-        <View style={s.metric}>
+        <View style={[s.metric, s.metricLast]}>
           <Text style={s.metricLabel}>오늘 영상핀</Text>
           <Text style={s.metricValue}>{profile.todayVideoPinCount}</Text>
         </View>
