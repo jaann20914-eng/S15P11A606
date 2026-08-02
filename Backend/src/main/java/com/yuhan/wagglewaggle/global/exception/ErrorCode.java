@@ -131,7 +131,15 @@ public enum ErrorCode {
     INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),
     PIN_EVALUATION_FORBIDDEN(HttpStatus.FORBIDDEN, "이 핀을 평가할 수 없습니다."),
     PIN_ALREADY_EVALUATED(HttpStatus.CONFLICT, "이미 평가한 핀입니다."),
-    PIN_EVALUATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 평가 등록 중 오류가 발생했습니다.");
+    PIN_EVALUATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 평가 등록 중 오류가 발생했습니다."),
+
+    // Pin Unlock
+    // INSUFFICIENT_CREDIT(409)·PIN_NOT_FOUND(404)·INVALID_PIN_ID(400)·UNAUTHORIZED(401)는 위에서 재사용한다.
+    IDEMPOTENCY_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "멱등성 키가 필요합니다."),
+    INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "멱등성 키 형식이 올바르지 않습니다."),
+    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키가 다른 요청에 사용되었습니다."),
+    PIN_UNLOCK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 잠금 해제 중 오류가 발생했습니다."),
+    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;
