@@ -2,11 +2,13 @@ package com.yuhan.wagglewaggle.domain.pin.controller;
 
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUploadUrlRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusView;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoUploadService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
@@ -31,6 +33,7 @@ public class PinController {
     private final PinVideoUploadService pinVideoUploadService;
     private final PinCreateService pinCreateService;
     private final PinVideoStatusQueryService pinVideoStatusQueryService;
+    private final PinDetailService pinDetailService;
 
     /**
      * 인증 사용자의 원본 영상 업로드 정보(Presigned PUT URL·객체 키·만료 시각)를 발급한다.
@@ -75,5 +78,21 @@ public class PinController {
         PinVideoStatusView view = pinVideoStatusQueryService.getVideoStatus(memberId, pinId);
 
         return ApiResponse.success(HttpStatus.OK.value(), view.message(), view.data());
+    }
+
+    /**
+     * 인증 사용자 기준으로 영상 핀 상세를 조회한다.
+     * 작성자·장소·혼잡 정보와 태그, 사용자별 영상 접근 수준·평가 여부·채팅 상태를 반환하며,
+     * 블러 영상·썸네일은 요청 시점마다 Presigned GET URL로 발급한다.
+     * pinId 형식 검증(INVALID_PIN_ID)을 위해 경로 변수를 문자열로 받아 서비스에서 파싱한다.
+     */
+    @GetMapping("/{pinId}")
+    public ApiResponse<PinDetailResponse> getPinDetail(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable String pinId
+    ) {
+        PinDetailResponse data = pinDetailService.getPinDetail(pinId, memberId);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "영상 핀 상세 조회가 완료되었습니다.", data);
     }
 }

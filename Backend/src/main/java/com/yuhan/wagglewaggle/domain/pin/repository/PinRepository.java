@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PinRepository extends JpaRepository<Pin, UUID> {
@@ -17,6 +18,28 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
      * 동일한 원본 영상 키가 이미 핀에 사용되었는지 검사한다(영상 중복 등록 방지).
      */
     boolean existsByOriginalVideoKey(String originalVideoKey);
+
+    /**
+     * 상세 조회 가능한 단일 핀을 조회한다(핀 상세용).
+     * 조회 가능 = 요청 pinId 일치 AND videoStatus = ACTIVE AND 삭제되지 않음(deletedAt IS NULL)
+     *            AND 아직 만료되지 않음(expiresAt이 현재 시각 이후).
+     * 조건을 하나라도 충족하지 못하면 빈 결과이며, 호출부는 실제 상태와 무관하게 PIN_NOT_FOUND로 처리한다.
+     * 작성자(닉네임·뷰 각도)와 장소(내부 ID·카카오 ID·장소명·좌표)를 함께 쓰므로
+     * member·place를 fetch join 하여 N+1을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            JOIN FETCH p.place
+            WHERE p.id = :pinId
+              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.deletedAt IS NULL
+              AND p.expiresAt > :now
+            """)
+    Optional<Pin> findActivePinDetailById(
+            @Param("pinId") UUID pinId,
+            @Param("now") Instant now
+    );
 
     /**
      * 특정 회원이 기준 시각 이후 등록한 핀 개수를 센다(일일 등록 제한 확인용).
