@@ -239,13 +239,13 @@ const mockChatPins: ChatPinListItem[] = [
     pinId: mockPinId(4),
     createdAt: minutesAgo(40),
     placeName: '바나프레소 역삼점',
-    placeAddress: '서울 강남구 테헤란로 123 1층',
+    placeAddress: '서울 강남구 테헤란로 123 1층 (역삼동)',
   },
   {
     pinId: mockPinId(6),
     createdAt: minutesAgo(220),
     placeName: '성수 카페거리 로스터리 앤 베이커리 본점',
-    placeAddress: '서울 성동구 연무장길 45 성수동2가 273-13 지하 1층',
+    placeAddress: '서울 성동구 연무장길 45 성수동2가 273-13 지하 1층 (성수동2가)',
   },
 ];
 

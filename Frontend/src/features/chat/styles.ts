@@ -131,6 +131,8 @@ export const chatListStyles = StyleSheet.create({
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   address: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  /** 주소 끝의 괄호(법정동). 도로명에 딸린 값이라 붙여 두고 같은 크기로 쓴다. */
+  addressRegion: { ...type.caption, color: colors.gray400 },
   /**
    * 마지막 메시지. 두 줄까지 보여주고 넘치면 줄임표로 끝낸다.
    *

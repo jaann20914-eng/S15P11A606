@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import type { ChatPinListItem } from '@/types/chat';
+import { splitAddress } from '@/utils/address';
 import { formatTimeOfDay } from '@/utils/datetime';
 import { chatListStyles as s } from '../styles';
 
@@ -17,6 +18,12 @@ export interface ChatPinRowProps {
  * 같은 목록이 아닌 것처럼 보인다. 내용은 시각 · 장소 · 주소로 두고, 대화는 눌러 들어가서 본다.
  */
 export function ChatPinRow({ pin, onOpen }: ChatPinRowProps) {
+  /*
+    주소 끝의 괄호(법정동)를 아랫줄로 내린다. 한 줄로 두면 좁은 화면에서 그 괄호 때문에 도로명이
+    잘려, 정작 필요한 부분이 가려진다. 괄호가 없는 주소는 한 줄로 남는다.
+  */
+  const { street, region } = splitAddress(pin.placeAddress);
+
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.postRow}>
       <View style={s.timePill}>
@@ -28,8 +35,13 @@ export function ChatPinRow({ pin, onOpen }: ChatPinRowProps) {
           {pin.placeName}
         </Text>
         <Text numberOfLines={1} style={s.address}>
-          {pin.placeAddress}
+          {street}
         </Text>
+        {region !== null && (
+          <Text numberOfLines={1} style={s.addressRegion}>
+            {region}
+          </Text>
+        )}
       </View>
 
       <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
