@@ -10,6 +10,14 @@ import { HEARTBEAT_MS, RECONNECT_DELAYS_MS, STOMP_VERSION, canUseSocket, resolve
 
 const log = createDevLogger('chat-socket');
 
+/**
+ * 오가는 프레임을 한 줄씩 남길지.
+ *
+ * 평소에는 끈다. 하트비트가 10초마다 오가서 켜 두면 다른 로그가 묻힌다. 연결이 이상할 때만
+ * 잠깐 켜서 어디서 멈추는지 본다 — 이 값을 켜면 프레임 전문과 소켓 수신이 모두 보인다.
+ */
+const TRACE_FRAMES = false;
+
 /** 브라우저·서버가 합의하는 STOMP 하위 프로토콜. 버전을 하나만 제안하므로 값도 하나다. */
 const STOMP_SUBPROTOCOLS = [`v${STOMP_VERSION.replace('.', '')}.stomp`];
 
@@ -134,7 +142,9 @@ function createClient(): Client {
       개발 중에는 프레임을 남긴다. 어디서 멈췄는지는 이것 없이 알기 어렵다.
       **토큰은 지우고 남긴다** — 로그는 캡처로 옮겨 다니므로 그대로 두면 세션이 새어 나간다.
     */
-    debug: (line) => log('stomp', { 줄: redactToken(line) }),
+    debug: (line) => {
+      if (TRACE_FRAMES) log('stomp', { 줄: redactToken(line) });
+    },
     onWebSocketError: (event) => log('소켓 오류', { 내용: String(event?.message ?? event) }),
     /*
       소켓을 직접 만들어 오가는 것을 따로 듣는다.
@@ -143,18 +153,12 @@ function createClient(): Client {
     webSocketFactory: () => {
       const socket = new WebSocket(resolveSocketUrl(), STOMP_SUBPROTOCOLS);
 
-      if (__DEV__) listenForDiagnostics(socket);
+      if (__DEV__ && TRACE_FRAMES) listenForDiagnostics(socket);
 
       return socket;
     },
     beforeConnect: async () => {
       const { accessToken, refreshAccessToken } = useAuthStore.getState();
-
-      log('CONNECT 준비', {
-        토큰있음: accessToken !== null,
-        만료됨: isTokenExpired(accessToken),
-        TextEncoder: typeof TextEncoder,
-      });
 
       if (isTokenExpired(accessToken)) {
         // 실패하면 스토어가 세션을 정리한다. 그때는 세션 감시가 연결을 거둔다.
@@ -162,8 +166,6 @@ function createClient(): Client {
       }
 
       const token = useAuthStore.getState().accessToken;
-
-      log('CONNECT 보냄', { 토큰있음: token !== null });
 
       client?.configure({ connectHeaders: { Authorization: `Bearer ${token ?? ''}` } });
     },
@@ -194,14 +196,12 @@ function createClient(): Client {
       setStatus('connected');
 
       /*
-        오류 큐를 가장 먼저 구독한다.
+        이전 세션의 구독은 함께 끊겼다. 살아 있다고 표시된 것도 지우고 새로 신청한다.
 
-        구독이 거절되면 서버는 연결을 끊지 않고 이 큐로만 알려 준다. 방을 구독한 뒤에 이 큐를
-        열면 그사이 온 거절을 놓쳐, 화면에서는 "이벤트가 오지 않는다"로만 보인다.
+        오류 큐는 신청서 목록의 첫 자리에 들어 있어(`watch`) 여기서 가장 먼저 나간다. 구독이
+        거절되면 서버는 연결을 끊지 않고 그 큐로만 알려 주므로, 방보다 먼저 열려 있어야
+        그사이 온 거절을 놓치지 않는다.
       */
-      watchSubscriptionErrors();
-
-      // 이전 세션의 구독은 함께 끊겼다. 살아 있다고 표시된 것도 지우고 새로 신청한다.
       registrations.forEach((registration) => {
         registration.active = null;
         activate(registration);
@@ -360,7 +360,10 @@ export function publish(destination: string, body: unknown): boolean {
 }
 
 /**
- * 구독 거절을 듣는다. 연결될 때마다 다시 건다.
+ * 구독 거절을 듣는다. **한 번만 신청한다** — 다시 붙을 때는 신청서 목록이 알아서 되살린다.
+ *
+ * 연결될 때마다 신청하면 그 순간 목록에도 들어가고 곧이어 목록 전체가 다시 신청되어, 같은
+ * 구독이 두 번 나간다.
  *
  * 화면이 따로 걸지 않아도 개발 중에는 무엇이 왜 막혔는지 남는다. 화면에서 다뤄야 하는 거절은
  * `useSubscriptionErrors`로 같은 큐를 한 번 더 구독하면 된다 — 구독 식별자가 달라 겹치지 않는다.
@@ -384,6 +387,9 @@ function watch(): void {
   if (watching) return;
 
   watching = true;
+
+  // 화면보다 먼저 신청해 목록의 첫 자리를 차지한다. 연결되면 가장 먼저 구독된다.
+  watchSubscriptionErrors();
 
   useAuthStore.subscribe(() => {
     const { authStatus } = useAuthStore.getState();
