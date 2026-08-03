@@ -126,6 +126,10 @@ public enum ErrorCode {
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
     CHAT_ROOM_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "채팅방 실시간 이벤트를 구독할 권한이 없습니다."),
     USER_CHANNEL_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "사용자 전용 채널을 구독할 수 없습니다."),
+    CHAT_ROOM_NOT_ACTIVE(HttpStatus.CONFLICT, "활성 상태가 아닌 채팅방에는 메시지를 보낼 수 없습니다."),
+    CHAT_MESSAGE_SEND_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅방에 메시지를 보낼 권한이 없습니다."),
+    CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
+    CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 내용이 너무 깁니다."),
 
     // Pin Evaluation
     INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),

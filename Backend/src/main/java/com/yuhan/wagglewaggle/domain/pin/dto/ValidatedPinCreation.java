@@ -8,6 +8,8 @@ import java.util.List;
  * 핀 등록 요청 검증을 통과한 뒤의 신뢰 가능한 값 묶음(커맨드).
  * 장소명·좌표는 Front 입력이 아니라 DB 또는 Kakao API로 확인한 값이며,
  * tags는 정규화·중복 제거를 마친 결과다. 다음 단계(실제 저장·발행)에서 이 값을 그대로 사용한다.
+ * categoryGroupCode/categoryGroupName/phone/addressName은 Front가 보낸 카카오 장소 부가 정보를
+ * null→"" 정규화한 값으로, 장소 신규 저장 시 places 에 저장한다.
  */
 public record ValidatedPinCreation(
         Long memberId,
@@ -16,6 +18,10 @@ public record ValidatedPinCreation(
         String resolvedPlaceName,
         double placeLatitude,
         double placeLongitude,
+        String categoryGroupCode,
+        String categoryGroupName,
+        String phone,
+        String addressName,
         double captureLatitude,
         double captureLongitude,
         String detailLocation,

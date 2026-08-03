@@ -69,6 +69,10 @@ class PinCreateServiceTest {
     private static final String PLACE_NAME = "테스트 장소";
     private static final double PLACE_LAT = 37.500000;
     private static final double PLACE_LNG = 127.030000;
+    private static final String CATEGORY_GROUP_CODE = "CE7";
+    private static final String CATEGORY_GROUP_NAME = "카페";
+    private static final String PHONE = "02-123-4567";
+    private static final String ADDRESS_NAME = "서울 강남구 역삼동 858";
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -103,6 +107,7 @@ class PinCreateServiceTest {
         return new PinCreateRequest(
                 key, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,          // Front가 보낸 참고 좌표(신뢰하지 않음)
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, PHONE, ADDRESS_NAME,
                 captureLat, captureLng,
                 "2층 창가", crowdLevel, "메모", tags);
     }
@@ -119,6 +124,27 @@ class PinCreateServiceTest {
         assertThat(result.placeLongitude()).isEqualTo(PLACE_LNG);
         assertThat(result.crowdLevel()).isEqualTo(CrowdLevel.WAGLE);
         assertThat(result.tags()).isEmpty();
+        assertThat(result.categoryGroupCode()).isEqualTo(CATEGORY_GROUP_CODE);
+        assertThat(result.categoryGroupName()).isEqualTo(CATEGORY_GROUP_NAME);
+        assertThat(result.phone()).isEqualTo(PHONE);
+        assertThat(result.addressName()).isEqualTo(ADDRESS_NAME);
+    }
+
+    @Test
+    void 카카오_부가정보가_null이면_빈_문자열로_정규화한다() {
+        PinCreateRequest request = new PinCreateRequest(
+                VALID_KEY, KAKAO_PLACE_ID, PLACE_NAME,
+                PLACE_LAT, PLACE_LNG,
+                null, null, null, null,
+                PLACE_LAT, PLACE_LNG,
+                "2층 창가", "WAGLE", "메모", null);
+
+        ValidatedPinCreation result = service.validate(MEMBER_ID, request);
+
+        assertThat(result.categoryGroupCode()).isEmpty();
+        assertThat(result.categoryGroupName()).isEmpty();
+        assertThat(result.phone()).isEmpty();
+        assertThat(result.addressName()).isEmpty();
     }
 
     @Test

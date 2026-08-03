@@ -77,7 +77,11 @@ public class PinPersistenceService {
                 .orElseGet(() -> placeRepository.save(Place.create(
                         validated.kakaoPlaceId(),
                         validated.resolvedPlaceName(),
-                        point(validated.placeLongitude(), validated.placeLatitude()))));
+                        point(validated.placeLongitude(), validated.placeLatitude()),
+                        validated.categoryGroupCode(),
+                        validated.categoryGroupName(),
+                        validated.phone(),
+                        validated.addressName())));
     }
 
     private Point point(double longitude, double latitude) {
