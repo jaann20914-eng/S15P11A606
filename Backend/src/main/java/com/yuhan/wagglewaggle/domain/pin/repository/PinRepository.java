@@ -126,6 +126,28 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     );
 
     /**
+     * 여러 장소의 현재 열람 가능한(활성) 핀을 한 번에 조회한다(추천 응답·AI 후보 집계용).
+     * 추천 기능의 표준 활성 조건: videoStatus = ACTIVE AND deletedAt IS NULL AND expiresAt > now.
+     * (핀 상세 조회 findActivePinDetailById와 동일한 기준이다.)
+     * 작성자 닉네임·성별·연령대·뷰 각도 사용을 위해 member를 fetch join 하여 N+1을 방지하고,
+     * 활성화 시각 내림차순(expiresAt = 활성화시각 + 1h이므로 expiresAt DESC)으로 정렬해
+     * 대표 핀(첫 번째)과 pinPreviews 순서를 그대로 쓸 수 있게 한다.
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            WHERE p.place.id IN :placeIds
+              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.deletedAt IS NULL
+              AND p.expiresAt > :now
+            ORDER BY p.expiresAt DESC
+            """)
+    List<Pin> findActivePinsByPlaceIdIn(
+            @Param("placeIds") Collection<Long> placeIds,
+            @Param("now") Instant now
+    );
+
+    /**
      * 지도 영역 내에서 특정 태그가 정확히 일치하는 활성 핀을 조회한다(태그 검색 확정용).
      * 활성 = 삭제되지 않음(deleted_at IS NULL) AND (expires_at이 없거나 아직 만료되지 않음)
      * PostGIS ST_Covers로 지도 경계(bounds) 영역 필터를 적용하고 최신순으로 정렬한다.
