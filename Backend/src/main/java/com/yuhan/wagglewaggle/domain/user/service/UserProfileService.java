@@ -56,15 +56,16 @@ public class UserProfileService {
      * 현재 인증 사용자의 프로필·활동 요약을 조회한다.
      * year·month는 함께 전달해야 하며, 생략 시 현재 서비스 연월을 사용한다.
      * 형식·범위 위반 또는 미래 연월은 집계를 수행하지 않고 INVALID_YEAR_MONTH로 실패한다.
+     * 형식 오류(INVALID_YEAR_MONTH)를 정확히 구분하기 위해 연월을 문자열로 받아 서비스에서 파싱한다.
      * 프로필·크레딧·활동 요약 중 하나라도 조회에 실패하면 부분 응답 없이 USER_PROFILE_FETCH_FAILED로 실패한다.
      */
     @Transactional(readOnly = true)
-    public UserProfileResponse getMyProfile(Long memberId, Integer year, Integer month) {
+    public UserProfileResponse getMyProfile(Long memberId, String yearRaw, String monthRaw) {
         LocalDate currentServiceDate = toServiceDate(clock.instant());
         YearMonth currentServiceMonth = YearMonth.from(currentServiceDate);
 
         // 조회 연월 결정·검증은 집계 이전에 수행한다(잘못되면 집계하지 않는다).
-        YearMonth target = resolveTargetMonth(year, month, currentServiceMonth);
+        YearMonth target = resolveTargetMonth(parseYearMonthPart(yearRaw), parseYearMonthPart(monthRaw), currentServiceMonth);
 
         try {
             // 토큰의 사용자가 존재하고 탈퇴하지 않았을 때만 조회한다.
@@ -90,6 +91,20 @@ public class UserProfileService {
         } catch (Exception e) {
             log.error("내 프로필·활동 요약 조회 실패 (memberId={})", memberId, e);
             throw new CustomException(ErrorCode.USER_PROFILE_FETCH_FAILED);
+        }
+    }
+
+    /**
+     * 연/월 쿼리 파라미터를 정수로 파싱한다. 미전달(null·공백)은 null, 숫자가 아니면 INVALID_YEAR_MONTH로 실패한다.
+     */
+    private Integer parseYearMonthPart(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new CustomException(ErrorCode.INVALID_YEAR_MONTH);
         }
     }
 
