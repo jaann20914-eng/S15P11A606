@@ -16,6 +16,7 @@ export const usesMockApi = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true' || !a
  * 앞은 서버에 있고 뒤는 없다. 이름을 잘못 적으면 컴파일에서 걸린다.
  */
 export type ApiModule =
+  | 'chat/decision'
   | 'chat/leave'
   | 'chat/request'
   | 'pin/create'
@@ -98,8 +99,10 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
   'place/detail': true,
 
-  // chat 도메인 컨트롤러가 아직 없다.
-  'chat/request': true,
+  /*
+    채팅 요청과 응답은 ChatController에 들어와 실서버로 연결했다(2026-08-03).
+    핀 떠났어요(POST /chat/pins/{pinId}/rooms/leave)만 아직 컨트롤러가 없다.
+  */
   'chat/leave': true,
 
   // GET·PATCH /api/v1/users/me 가 아직 없다.
