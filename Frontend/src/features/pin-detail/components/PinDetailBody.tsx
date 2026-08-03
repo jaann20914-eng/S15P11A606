@@ -21,6 +21,16 @@ import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
  */
 const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
 
+/**
+ * 사라짐 구간의 중간 색과 멈춤 위치.
+ *
+ * 투명에서 흰색으로 곧게 이으면 아래쪽 절반이 아직 반투명이라, 완전한 흰 바와 만나는 자리에
+ * 단이 진다. 중간에 거의 흰색을 한 번 찍어 절반쯤에서 이미 흰색이 되게 하면 이어지는 곳이
+ * 눈에 띄지 않는다.
+ */
+const FADE_NEAR_WHITE = 'rgba(255,255,255,0.96)';
+const FADE_STOPS = [0, 0.55, 1] as const;
+
 /** 나뭇잎이 다 떨어진 뒤의 모습. 영상의 마지막 프레임을 그대로 뽑아 둔 것이다. */
 const LEAF_SETTLED = require('../../../../assets/images/credit-leaf-settled.png');
 
@@ -112,7 +122,8 @@ export function PinDetailBody({
       {/* 내용이 바 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
       <LinearGradient
         pointerEvents="none"
-        colors={[FADE_TRANSPARENT, colors.white]}
+        colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
+        locations={FADE_STOPS}
         style={[s.actionFade, { bottom: actionBarHeight - ACTION_FADE_DROP }]}
       />
 
