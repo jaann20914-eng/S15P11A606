@@ -56,6 +56,16 @@ export const KAKAO_MAP_BASE_URL = 'https://localhost';
 /** 지도 최초 확대 레벨. 숫자가 작을수록 확대된다(카카오 기준 1~14). */
 export const DEFAULT_MAP_LEVEL = 5;
 
+/**
+ * 장소 하나를 들여다보는 확대 레벨. 지도 왼쪽 아래 축척 막대가 **250m**를 가리키는 단계다.
+ *
+ * 카카오 레벨과 축척 막대는 이렇게 대응한다.
+ * `1` 20m · `2` 30m · `3` 50m · `4` 100m · `5` 250m · `6` 500m · `7` 1km · `8` 2km …
+ *
+ * 실기에서 축척 막대가 250m가 아니면 이 숫자 하나만 고치면 된다. 판정하는 쪽은 이 값만 본다.
+ */
+export const PLACE_FOCUS_MAP_LEVEL = 5;
+
 const pinTone: Record<CrowdFilter, { fill: string; ring: string }> = {
   relaxed: { fill: color.pin.relaxed.strong, ring: color.pin.relaxed.soft },
   wagle: { fill: color.pin.wagle.strong, ring: color.pin.wagle.soft },
@@ -191,6 +201,13 @@ export function buildKakaoMapHtml({
   var panTimeout = null;
   /** 진행 중인 이동의 도착 좌표. 중간에 끊길 때 이 자리로 마무리한다. */
   var panTarget = null;
+  /**
+   * 이동이 끝난 뒤 이어서 할 일. 없으면 null.
+   *
+   * 확대를 이동 뒤로 미루는 데 쓴다. 사용자가 도중에 지도를 끌면 cancelPan이 이 값도 비워,
+   * 손으로 옮긴 자리에서 뒤늦게 확대가 튀어나오지 않는다.
+   */
+  var panDone = null;
 
   function toneOf(filter) {
     return INITIAL.tone[filter] || INITIAL.tone.relaxed;
@@ -294,6 +311,7 @@ export function buildKakaoMapHtml({
       panTimeout = null;
     }
     panTarget = null;
+    panDone = null;
   }
 
   /**
@@ -309,9 +327,12 @@ export function buildKakaoMapHtml({
     if (panTarget === null) return;
 
     var target = panTarget;
+    // cancelPan이 비우기 전에 붙잡아 둔다. 끝맺음을 건너뛰면 확대가 영영 오지 않는다.
+    var done = panDone;
     cancelPan();
     map.setCenter(target);
     sendIdle();
+    if (done) done();
   }
 
   /** 시작과 끝이 느리고 가운데가 빠른 곡선. 손으로 밀어 놓는 느낌에 가깝다. */
@@ -326,12 +347,13 @@ export function buildKakaoMapHtml({
    * 건너뛴다. 우리 장소들은 서로 몇 km씩 떨어져 있어 거의 항상 그 조건에 걸리고, 그러면
    * 화면이 순간적으로 바뀌어 새 화면이 열린 것처럼 보인다. 그래서 직접 보간한다.
    */
-  function centerOn(latLng, liftPx, animate) {
+  function centerOn(latLng, liftPx, animate, onDone) {
     var target = liftedLatLng(latLng, liftPx);
     cancelPan();
 
     if (!animate) {
       map.setCenter(target);
+      if (onDone) onDone();
       return;
     }
 
@@ -349,12 +371,17 @@ export function buildKakaoMapHtml({
     var dy = toPoint.y - fromPoint.y;
     var screens = Math.sqrt(dx * dx + dy * dy) / Math.max(1, window.innerWidth);
 
-    // 이미 그 자리면 아무것도 하지 않는다. 같은 카드를 두 번 눌러도 흔들리지 않는다.
-    if (screens < 0.002) return;
+    // 이미 그 자리면 옮기지 않는다. 같은 카드를 두 번 눌러도 흔들리지 않는다.
+    // 다만 뒤이어 할 일(확대)은 그대로 이어 간다 — 자리가 맞다고 축척까지 맞은 것은 아니다.
+    if (screens < 0.002) {
+      if (onDone) onDone();
+      return;
+    }
 
     if (screens > PAN_MAX_SCREENS) {
       map.setCenter(target);
       sendIdle();
+      if (onDone) onDone();
       return;
     }
 
@@ -376,12 +403,15 @@ export function buildKakaoMapHtml({
         return;
       }
 
+      var done = panDone;
       cancelPan();
       // 움직이는 동안은 idle을 막아 두었으므로(initMap 참고) 끝난 자리를 한 번 알린다.
       sendIdle();
+      if (done) done();
     }
 
     panTarget = target;
+    panDone = onDone || null;
     // rAF가 멈춰도 이 타이머가 이동을 마무리한다. 여유를 조금 둬 정상 완료를 방해하지 않는다.
     panTimeout = setTimeout(finishPan, duration + 400);
     panFrame = requestAnimationFrame(step);
@@ -562,6 +592,42 @@ export function buildKakaoMapHtml({
       cancelPan();
       map.setLevel(level, { animate: true });
     },
+    /**
+     * 한 장소를 화면 중앙으로 데려오고, 필요하면 그만큼 당겨 본다.
+     *
+     * **미는 것이 먼저다.** 순서를 뒤집으면 두 가지가 망가진다.
+     * - 당긴 뒤에 밀면 같은 거리가 화면 몇 배로 늘어난다. centerOn은 화면 20개를 넘게
+     *   가로지르면 애니메이션을 포기하고 순간이동하므로, 쓸어가는 느낌이 사라진다.
+     * - 확대 애니메이션은 시작 시점의 중심을 붙잡고 있다가 끝나며 되돌린다. 방금 옮긴
+     *   자리가 취소된다.
+     *
+     * 확대는 애니메이션 없이 한 번에 한다. 애니메이션을 켜면 언제 끝나는지 알 수 없어,
+     * 그 뒤에 해야 하는 중심 보정 시점을 잡을 수 없다.
+     *
+     * targetLevel보다 이미 더 당겨져 있으면 축척은 건드리지 않는다. 사용자가 자기 손으로
+     * 더 가까이 본 것을 되돌리지 않는다.
+     */
+    focusPlace: function (lat, lng, targetLevel, liftPx) {
+      if (!map) return;
+
+      var target = new kakao.maps.LatLng(lat, lng);
+      var zoomOut = typeof targetLevel === 'number' && map.getLevel() > targetLevel;
+
+      if (!zoomOut) {
+        centerOn(target, liftPx, true);
+        return;
+      }
+
+      centerOn(target, liftPx, true, function () {
+        map.setLevel(targetLevel);
+        /*
+          중심 보정(liftPx)은 픽셀 기준이라 축척이 바뀌면 다른 좌표를 가리킨다.
+          당긴 뒤 한 번 더 맞춰야 마커가 시트에 가리지 않는 자리에 남는다.
+        */
+        centerOn(target, liftPx, false);
+        sendIdle();
+      });
+    },
     relayout: function () {
       if (map) map.relayout();
     }
@@ -638,7 +704,8 @@ export function buildKakaoMapHtml({
 </html>`;
 }
 
-export type MapCommand = 'update' | 'panTo' | 'searchPlace' | 'setLevel' | 'fitPlaces' | 'relayout';
+export type MapCommand =
+  'update' | 'panTo' | 'focusPlace' | 'searchPlace' | 'setLevel' | 'fitPlaces' | 'relayout';
 
 /** 지도 안의 `window.WagleMap` 메서드를 호출하는 명령을 직렬화한다. */
 export function serializeMapCommand(method: MapCommand, ...args: unknown[]): string {

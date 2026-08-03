@@ -15,9 +15,10 @@ import { BlurView } from 'expo-blur';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
+import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
 import { CrowdFilterToggle } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common';
-import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
+import { DEFAULT_CENTER, isWithinBounds, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -52,6 +53,9 @@ export default function Home() {
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
   const setCenter = useMapStore((state) => state.setCenter);
   const setBounds = useMapStore((state) => state.setBounds);
+  const bounds = useMapStore((state) => state.bounds);
+  const mapLevel = useMapStore((state) => state.mapLevel);
+  const setMapLevel = useMapStore((state) => state.setMapLevel);
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const [mapReady, setMapReady] = useState(false);
@@ -135,29 +139,38 @@ export default function Home() {
   );
 
   /**
-   * 상세 화면으로 넘어간다. **고른 카드에 나타나는 `상세 보기` 버튼만** 이 역할을 한다.
+   * 카드나 지도 핀을 눌렀을 때.
    *
-   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
-   * 전환하려면 한 번 고른 뒤 글자로 적힌 버튼을 눌러야 하므로, 지도를 보려던 탭이 화면
-   * 전환으로 이어지는 일이 없다.
+   * **카드 전체가 누를 자리다.** 예전에는 고른 카드에만 작은 `상세 보기` 버튼이 나타났는데,
+   * 표적이 너무 작았다. 대신 "지금 그 장소를 제대로 보고 있는가"로 갈래를 나눈다.
+   *
+   * - 충분히 당겨져 있고(축척 250m 이하) 화면 안에 있으면 — 이미 보고 있는 장소다.
+   *   가운데로 맞추면서 곧바로 상세로 넘어간다.
+   * - 그렇지 않으면 — 먼저 보여준다. 멀리서 보고 있었으면 250m까지 당기고, 화면 밖이면
+   *   손으로 쓸어가듯 중앙으로 데려온다. 한 번 더 누르면 위 조건이 맞아 상세로 넘어간다.
+   *
+   * 그래서 누르는 횟수는 늘 둘 중 하나다. 이미 보고 있던 장소면 한 번, 아니면 두 번.
+   *
+   * 축척을 되돌리지는 않는다. 사용자가 250m보다 더 가까이 당겨 둔 상태라면 그대로 둔다
+   * (판정은 `focusPlace`가 지도 쪽에서 한 번 더 한다).
    */
-  const openPlace = (placeId: string) => {
-    selectPlace(placeId);
-    router.push(`/place/${placeId}`);
-  };
-
-  /** 핀·카드 탭은 상세로 넘어가지 않고 해당 장소를 지도 중앙으로 부드럽게 옮긴다. */
-  const focusPlace = useCallback(
+  const choosePlace = useCallback(
     (placeId: string) => {
       const place = places.find((item) => item.id === placeId);
       if (!place) return;
 
+      const coordinate = { latitude: place.latitude, longitude: place.longitude };
+      const closeEnough = mapLevel !== null && mapLevel <= PLACE_FOCUS_MAP_LEVEL;
+      const onScreen = bounds !== null && isWithinBounds(bounds, coordinate);
+
       selectPlace(placeId);
       // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
       if (level === 2) moveTo(1);
-      setPendingPan({ latitude: place.latitude, longitude: place.longitude });
+      setPendingPan(coordinate);
+
+      if (closeEnough && onScreen) router.push(`/place/${placeId}`);
     },
-    [level, moveTo, selectPlace],
+    [bounds, level, mapLevel, moveTo, selectPlace],
   );
 
   const handleViewChange = useCallback(
@@ -167,8 +180,10 @@ export default function Home() {
         southWest: { latitude: view.bounds.swLat, longitude: view.bounds.swLng },
         northEast: { latitude: view.bounds.neLat, longitude: view.bounds.neLng },
       });
+      // 카드를 눌렀을 때 얼마나 가까이 보고 있는지 판정하려면 축척도 알아야 한다.
+      setMapLevel(view.level);
     },
-    [setBounds, setCenter],
+    [setBounds, setCenter, setMapLevel],
   );
 
   const clearSelection = useCallback(() => selectPlace(null), [selectPlace]);
@@ -210,10 +225,16 @@ export default function Home() {
     clearFocus();
   }, [clearFocus, focus, mapReady]);
 
-  // 밀린 이동을 실행한다. 이 시점의 coveredHeight는 시트의 최종 높이를 반영하고 있다.
+  /*
+    밀린 이동을 실행한다. 이 시점의 coveredHeight는 시트의 최종 높이를 반영하고 있다.
+
+    `panTo`가 아니라 `focusPlace`를 쓴다. 옮기면서 필요한 만큼 당기는 것까지 지도가 한 번에
+    맡는다 — 여기서 두 명령을 잇달아 보내면 확대가 이동을 끊거나, 끝나면서 방금 옮긴 중심을
+    되돌린다. 이미 250m보다 가까이 보고 있으면 지도가 축척을 그대로 둔다.
+  */
   useEffect(() => {
     if (!mapReady || !pendingPan) return;
-    mapRef.current?.panTo(pendingPan);
+    mapRef.current?.focusPlace(pendingPan, PLACE_FOCUS_MAP_LEVEL);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
 
@@ -256,7 +277,8 @@ export default function Home() {
           // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
-          onPinPress={focusPlace}
+          // 지도 핀도 카드와 같은 규칙을 따른다. 같은 장소인데 반응이 다르면 헷갈린다.
+          onPinPress={choosePlace}
           onMapPress={clearSelection}
           onViewChange={handleViewChange}
         />
@@ -360,9 +382,15 @@ export default function Home() {
             <Pressable
               key={place.id}
               accessibilityRole="button"
-              accessibilityLabel={`${place.name} 지도에서 보기`}
+              /*
+                한 번 눌러 바로 상세로 가는지, 지도부터 맞추는지가 상황에 따라 다르다.
+                읽는 사람이 무엇이 일어날지 알 수 있도록 라벨도 그에 맞춰 바꾼다.
+              */
+              accessibilityLabel={
+                place.id === selectedPlaceId ? `${place.name} 상세 보기` : `${place.name} 지도에서 보기`
+              }
               accessibilityState={{ selected: place.id === selectedPlaceId }}
-              onPress={() => focusPlace(place.id)}
+              onPress={() => choosePlace(place.id)}
               /*
                 첫 카드만 재서 "기본" 단계 높이를 정한다. 카드 구조가 같아 하나로 충분하고,
                 모두 재면 같은 값을 여러 번 쓰게 된다. 값이 실제로 바뀔 때만 반영해 되풀이를 막는다.
@@ -388,26 +416,22 @@ export default function Home() {
                   </Text>
                 </View>
                 {/*
-                  고른 카드에만 상세로 가는 버튼을 글자로 띄운다.
+                  버튼이 아니라 표시다. 누를 자리는 카드 전체다.
 
-                  예전에는 이 자리에 `>` 아이콘이 있었는데, 목록의 오른쪽 화살표는 "이 항목
-                  열기"로 읽혀서 카드를 누르려는 손이 그쪽을 겨냥했다. 결국 지도만 옮기려는
-                  탭이 화면 전환이 됐다. 글자로 적고 고른 뒤에만 보이면 헷갈릴 여지가 없다.
+                  예전에는 고른 카드에만 작은 `상세 보기` 버튼이 나타났는데 표적이 너무 작아
+                  잘 눌리지 않았다. 지금은 어디를 눌러도 같으므로, 이 자리는 다음에 무엇이
+                  일어날지만 알려 준다 — 고른 카드는 상세로, 아직 아닌 카드는 지도 이동으로.
                 */}
-                {place.id === selectedPlaceId ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${place.name} 상세 보기`}
-                    hitSlop={8}
-                    onPress={() => openPlace(place.id)}
-                    style={s.detailButton}
-                  >
-                    <Text style={s.detailButtonText}>상세 보기</Text>
-                  </Pressable>
-                ) : (
-                  // 누르면 무엇이 일어나는지 알리는 표시. 화살표와 달리 이동을 약속하지 않는다.
-                  <Ionicons name="location-outline" size={20} color={colors.gray400} />
-                )}
+                <View style={s.cardHint}>
+                  <Ionicons
+                    name={place.id === selectedPlaceId ? 'chevron-forward' : 'location-outline'}
+                    size={20}
+                    color={place.id === selectedPlaceId ? colors.dark : colors.gray400}
+                  />
+                  <Text style={[s.cardHintText, place.id === selectedPlaceId && s.cardHintTextActive]}>
+                    {place.id === selectedPlaceId ? '상세 보기' : '지도에서'}
+                  </Text>
+                </View>
               </View>
               <View style={s.cardRule} />
               <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
@@ -522,15 +546,9 @@ const s = StyleSheet.create({
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
   placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
-  detailButton: {
-    minHeight: 34,
-    paddingHorizontal: spacing.x3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.gray100,
-  },
-  detailButtonText: { ...type.caption, color: colors.dark, fontWeight: '600' },
+  cardHint: { alignItems: 'center', gap: 2, paddingLeft: spacing.x2 },
+  cardHintText: { ...type.caption, color: colors.gray400 },
+  cardHintTextActive: { color: colors.dark, fontWeight: '600' },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
