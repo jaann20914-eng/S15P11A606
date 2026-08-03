@@ -78,7 +78,7 @@ class CandidatePlace(BaseModel):
     # 혼잡도 4단계(1 유유자적 ~ 4 와글와글)의 평균값이라 소수점이 올 수 있다.
     crowdLevel: float = Field(ge=1, le=4)
 
-    latestPinCreatedAt: datetime
+    lastPinActivatedAt: datetime
 
     unlockCount7d: int = Field(ge=0)
 
@@ -89,13 +89,13 @@ class CandidatePlace(BaseModel):
     # 비율이 0인 연령대는 생략될 수 있어 7종이 모두 오지는 않는다.
     authorAgeDist: dict[AgeGroup, float]
 
-    @field_validator("latestPinCreatedAt")
+    @field_validator("lastPinActivatedAt")
     @classmethod
-    def latest_pin_created_at_must_have_timezone(
+    def last_pin_activated_at_must_have_timezone(
         cls,
         value: datetime,
     ) -> datetime:
-        return require_timezone(value, "latestPinCreatedAt")
+        return require_timezone(value, "lastPinActivatedAt")
 
     @field_validator("authorGenderDist")
     @classmethod
@@ -160,7 +160,7 @@ class ScoreResponse(BaseModel):
 
     relaxedList: list[ScoredPlace]
 
-    busyList: list[ScoredPlace]
+    wagleList: list[ScoredPlace]
 
     lastUpdated: datetime
 

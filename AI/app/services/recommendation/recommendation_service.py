@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 # 혼잡도 4단계(1 유유자적 ~ 4 와글와글)의 평균이 이 값 이상이면 "와글"로 본다.
 # 화면 배지가 평균을 반올림해 단계를 정하므로 그 경계(2.5)와 맞춘다.
-CROWD_LEVEL_BUSY_THRESHOLD = 2.5
+CROWD_LEVEL_WAGLE_THRESHOLD = 2.5
 
 _MAX_UINT32 = 0xFFFFFFFF
 
@@ -49,28 +49,28 @@ def score_places(request: ScoreRequest) -> ScoreResponse:
         logger.info("scoring skipped | userId=%s reason=no candidates", request.userId)
         return ScoreResponse(
             relaxedList=[],
-            busyList=[],
+            wagleList=[],
             lastUpdated=datetime.now(UTC),
         )
 
     relaxed: list[ScoredPlace] = []
-    busy: list[ScoredPlace] = []
+    wagle: list[ScoredPlace] = []
 
     for place in request.candidatePlaces:
-        target = busy if place.crowdLevel >= CROWD_LEVEL_BUSY_THRESHOLD else relaxed
+        target = wagle if place.crowdLevel >= CROWD_LEVEL_WAGLE_THRESHOLD else relaxed
         target.append(_to_scored_place(place))
 
     response = ScoreResponse(
         relaxedList=_sort_by_score_desc(relaxed),
-        busyList=_sort_by_score_desc(busy),
+        wagleList=_sort_by_score_desc(wagle),
         lastUpdated=datetime.now(UTC),
     )
 
     logger.info(
-        "scoring finished | userId=%s relaxed=%d busy=%d",
+        "scoring finished | userId=%s relaxed=%d wagle=%d",
         request.userId,
         len(response.relaxedList),
-        len(response.busyList),
+        len(response.wagleList),
     )
 
     return response

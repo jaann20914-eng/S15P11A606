@@ -26,7 +26,7 @@ def build_place(
         "longitude": 127.0366,
         "category": "CAFE",
         "crowdLevel": crowd_level,
-        "latestPinCreatedAt": "2026-07-27T08:55:00Z",
+        "lastPinActivatedAt": "2026-07-27T08:55:00Z",
         "unlockCount7d": 42,
         "authorCount": 8,
         "authorGenderDist": {"MALE": 0.375, "FEMALE": 0.625},
@@ -66,7 +66,7 @@ def test_returns_scored_lists() -> None:
         body["relaxedList"][0]["representativePinId"]
         == "00000000-0000-0000-0000-000000000001"
     )
-    assert body["busyList"] == []
+    assert body["wagleList"] == []
 
 
 def test_crowd_level_below_threshold_goes_to_relaxed_list() -> None:
@@ -75,16 +75,16 @@ def test_crowd_level_below_threshold_goes_to_relaxed_list() -> None:
     body = post_score(payload).json()
 
     assert len(body["relaxedList"]) == 1
-    assert body["busyList"] == []
+    assert body["wagleList"] == []
 
 
-def test_crowd_level_at_threshold_goes_to_busy_list() -> None:
+def test_crowd_level_at_threshold_goes_to_wagle_list() -> None:
     payload = build_request(candidatePlaces=[build_place(1, 2.5)])
 
     body = post_score(payload).json()
 
     assert body["relaxedList"] == []
-    assert len(body["busyList"]) == 1
+    assert len(body["wagleList"]) == 1
 
 
 def test_empty_candidates_returns_empty_lists() -> None:
@@ -94,7 +94,7 @@ def test_empty_candidates_returns_empty_lists() -> None:
 
     body = response.json()
     assert body["relaxedList"] == []
-    assert body["busyList"] == []
+    assert body["wagleList"] == []
 
 
 def test_same_request_returns_same_scores() -> None:
