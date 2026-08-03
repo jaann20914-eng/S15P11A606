@@ -4,16 +4,20 @@ import { searchMockPlaces } from '@/mocks/place';
 import type { PlaceSearchItem, PlaceSearchResponse } from '@/types/place';
 
 /**
- * 좌표 주변 장소 검색 — `GET /api/v1/places/search`
+ * 좌표 주변 장소 검색 — `GET /api/v1/places/search` (인증 필요)
  *
- * 인증이 필요 없는 공개 경로다(서버 `SecurityConfig`의 `/api/v1/places/**`).
+ * 쓰임이 둘이고 반경만 다르다.
+ * - **핀 등록**: `radius`를 보내지 않는다. 서버가 50m로 고정해 "지금 서 있는 자리"의 장소만
+ *   준다. 등록 요청의 촬영 좌표도 그 안에 들어와야 하므로 이 반경이 곧 등록 가능 범위다
+ * - **검색바**: 가려는 곳을 찾는 자리라 50m로는 대부분 빈 결과가 된다. 호출부가 넓은 반경을
+ *   직접 넘긴다(`WIDE_PLACE_SEARCH_RADIUS_M`)
  *
- * `radius`를 보내지 않으면 서버가 50m를 쓴다. 그 값은 핀 등록용이라 검색바처럼 넓게 찾아야
- * 하는 곳에서는 호출부가 직접 넘긴다(`WIDE_PLACE_SEARCH_RADIUS_M`).
+ * 검색어는 앞뒤 공백을 지운 뒤 2자 이상일 때만, 입력이 멈추고 700ms 뒤에 부른다.
+ * 두 조건 모두 호출부(`usePlaceSearch`)가 지킨다.
  *
  * 결과는 `distanceMeters` 오름차순이며, 없으면 빈 배열이다.
  *
- * 오류 코드: `INVALID_PLACE_SEARCH_QUERY` `EXTERNAL_PLACE_API_ERROR`
+ * 오류 코드: `INVALID_PLACE_SEARCH_QUERY` `UNAUTHORIZED`
  * `EXTERNAL_PLACE_API_UNAVAILABLE`(재시도 가능).
  */
 function requestPlaceSearch(

@@ -9,6 +9,8 @@ import { pinCreateStyles as s } from '../styles';
 export interface PlaceFieldProps {
   place: PinDraftPlace | null;
   onSelect: (place: PinDraftPlace | null) => void;
+  /** 촬영 자리에서 멀어 선택이 취소된 장소 이름. 없으면 null. */
+  droppedPlaceName?: string | null;
 }
 
 /**
@@ -16,8 +18,11 @@ export interface PlaceFieldProps {
  *
  * 키워드를 입력하면 반경 50m 안의 장소를 찾아 가까운 순으로 보여주고, 고르면 그 장소만 남긴다.
  * 결과가 많아도 화면이 밀리지 않도록 목록 안에서 스크롤한다.
+ *
+ * 고른 뒤 자리를 옮겨 촬영하면 선택이 취소된다. 그 이유를 여기서 알려 준다 — 등록 버튼을
+ * 누른 뒤에 서버가 거절해서 알게 되면 이미 늦다.
  */
-export function PlaceField({ place, onSelect }: PlaceFieldProps) {
+export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFieldProps) {
   const search = usePlaceSearch();
 
   const select = (found: PinDraftPlace) => {
@@ -54,6 +59,13 @@ export function PlaceField({ place, onSelect }: PlaceFieldProps) {
         />
       )}
 
+      {!place && droppedPlaceName !== null && (
+        <Text style={s.placeNotice}>
+          촬영한 자리가 &apos;{droppedPlaceName}&apos;에서 멀어 선택을 지웠어요. 지금 자리의
+          장소를 다시 골라 주세요.
+        </Text>
+      )}
+
       {!place && !tooShort && hasSomethingToShow && (
         <View style={s.placeList}>
           {search.loading ? (
@@ -77,7 +89,8 @@ export function PlaceField({ place, onSelect }: PlaceFieldProps) {
                 <Pressable
                   key={found.kakaoPlaceId}
                   accessibilityRole="button"
-                  onPress={() => select(found)}
+                  // 카카오 검색 결과다. 수정에서 쓰는 내부 장소와 구분해 표시를 남긴다.
+                  onPress={() => select({ source: 'kakao', ...found })}
                   style={s.placeRow}
                 >
                   <View>

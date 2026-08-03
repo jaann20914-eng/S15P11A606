@@ -1,7 +1,9 @@
 package com.yuhan.wagglewaggle.domain.pin.repository;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -9,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface PinRepository extends JpaRepository<Pin, UUID> {
@@ -19,9 +22,67 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     boolean existsByOriginalVideoKey(String originalVideoKey);
 
     /**
+     * 상세 조회 가능한 단일 핀을 조회한다(핀 상세용).
+     * 조회 가능 = 요청 pinId 일치 AND videoStatus = ACTIVE AND 삭제되지 않음(deletedAt IS NULL)
+     *            AND 아직 만료되지 않음(expiresAt이 현재 시각 이후).
+     * 조건을 하나라도 충족하지 못하면 빈 결과이며, 호출부는 실제 상태와 무관하게 PIN_NOT_FOUND로 처리한다.
+     * 작성자(닉네임·뷰 각도)와 장소(내부 ID·카카오 ID·장소명·좌표)를 함께 쓰므로
+     * member·place를 fetch join 하여 N+1을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            JOIN FETCH p.place
+            WHERE p.id = :pinId
+              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.deletedAt IS NULL
+              AND p.expiresAt > :now
+            """)
+    Optional<Pin> findActivePinDetailById(
+            @Param("pinId") UUID pinId,
+            @Param("now") Instant now
+    );
+
+    /**
      * 특정 회원이 기준 시각 이후 등록한 핀 개수를 센다(일일 등록 제한 확인용).
      */
     long countByMember_IdAndCreatedAtGreaterThanEqual(Long memberId, Instant from);
+
+    /**
+     * 수정 검증용 단일 핀 조회. 삭제·만료·상태와 무관하게 조회한다.
+     * 오류 코드를 정확히 구분(PIN_NOT_FOUND / PIN_UPDATE_FORBIDDEN / PIN_NOT_EDITABLE)하기 위해
+     * 필터링은 서비스에서 수행한다. 작성자 판별(member)과 최종 장소·좌표 계산(place)에 쓰므로
+     * member·place를 fetch join 하여 N+1을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            JOIN FETCH p.place
+            WHERE p.id = :pinId
+            """)
+    Optional<Pin> findByIdWithMemberAndPlace(@Param("pinId") UUID pinId);
+
+    /**
+     * 수정 반영 트랜잭션용 단일 핀 조회(비관적 쓰기 잠금).
+     * 한 Pin에 동시에 두 개의 영상 교체 작업이 생기지 않도록, 이 핀 행을 잠근 채 조회한다.
+     * 동일 Pin에 대한 두 번째 요청은 첫 요청이 커밋될 때까지 대기하므로,
+     * 잠금 이후 진행 중 PENDING 교체 작업 확인이 원자적으로 보장된다.
+     * member·place는 지연 로딩 프록시로 접근하며(식별자만 사용), 잠금 대상은 pins 행으로 한정한다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Pin p WHERE p.id = :pinId")
+    Optional<Pin> findByIdForUpdate(@Param("pinId") UUID pinId);
+
+    /**
+     * 삭제 트랜잭션용 단일 핀 조회(비관적 쓰기 잠금).
+     * deleted_at 조건을 제외한 전용 잠금 조회로, 이미 삭제된 핀도 함께 조회한다
+     * (동일 작성자의 재삭제 요청에서 최초 deleted_at을 유지하고 200 OK를 반환하기 위함).
+     * 삭제 처리와 AI 결과 반영이 동시에 실행돼도 이 잠금으로 pins 행 접근이 직렬화된다.
+     * 작성자 판별에 member 식별자만 사용하므로 member·place는 지연 로딩 프록시로 접근한다.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Pin p WHERE p.id = :pinId")
+    Optional<Pin> findByIdForDelete(@Param("pinId") UUID pinId);
 
     /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.

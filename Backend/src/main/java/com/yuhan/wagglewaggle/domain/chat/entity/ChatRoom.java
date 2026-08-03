@@ -19,22 +19,14 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
 @Getter
 @Entity
 @Table(
         name = "chat_rooms",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_chat_rooms_pin_id_requester_id",
-                        columnNames = {"pin_id", "requester_id"}
-                ),
-                @UniqueConstraint(
-                        name = "uk_chat_rooms_idempotency_key",
-                        columnNames = {"idempotency_key"}
-                )
-        }
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_chat_rooms_pin_id_requester_id",
+                columnNames = {"pin_id", "requester_id"}
+        )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatRoom extends BaseEntity {
@@ -51,20 +43,50 @@ public class ChatRoom extends BaseEntity {
     @JoinColumn(name = "requester_id", nullable = false)
     private Member requester;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recipient_id", nullable = false)
+    private Member recipient;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private ChatRoomStatus status = ChatRoomStatus.ACTIVE;
+    private ChatRoomStatus status = ChatRoomStatus.PENDING;
 
-    @Column(name = "idempotency_key", nullable = false)
-    private UUID idempotencyKey;
-
-    private ChatRoom(Pin pin, Member requester, UUID idempotencyKey) {
+    private ChatRoom(Pin pin, Member requester, Member recipient) {
         this.pin = pin;
         this.requester = requester;
-        this.idempotencyKey = idempotencyKey;
+        this.recipient = recipient;
     }
 
-    public static ChatRoom create(Pin pin, Member requester, UUID idempotencyKey) {
-        return new ChatRoom(pin, requester, idempotencyKey);
+    public static ChatRoom create(Pin pin, Member requester, Member recipient) {
+        return new ChatRoom(pin, requester, recipient);
+    }
+
+    /**
+     * 채팅방을 종료한다. 핀 삭제 등으로 대화가 끝났을 때 호출하며 상태를 LEFT로 전환한다.
+     * 종료 이후에는 기존 정보·메시지 조회만 허용하고 새 메시지는 차단한다.
+     */
+    public void close() {
+        this.status = ChatRoomStatus.LEFT;
+    }
+
+    /**
+     * 요청을 수락한다(PENDING → ACTIVE). PENDING 여부는 호출부에서 행 잠금 후 검증한다.
+     */
+    public void accept() {
+        this.status = ChatRoomStatus.ACTIVE;
+    }
+
+    /**
+     * 요청을 거절한다(PENDING → REFUSED).
+     */
+    public void reject() {
+        this.status = ChatRoomStatus.REFUSED;
+    }
+
+    /**
+     * 요청에서 나간다(PENDING → LEFT).
+     */
+    public void leave() {
+        this.status = ChatRoomStatus.LEFT;
     }
 }

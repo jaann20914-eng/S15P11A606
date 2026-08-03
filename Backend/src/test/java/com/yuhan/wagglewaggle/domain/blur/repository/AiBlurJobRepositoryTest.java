@@ -132,7 +132,7 @@ class AiBlurJobRepositoryTest {
     }
 
     @Test
-    @DisplayName("재발행 대상: 특정 status·created_at 기준으로 오래된 순 조회가 가능하다")
+    @DisplayName("재발행 대상: 특정 status·created_at 기준으로 오래된 순 조회가 가능하다(삭제되지 않은 핀)")
     void findRepublishTargets_byStatusAndCreatedAt() {
         // 오래된 PENDING(재발행 대상)
         AiBlurJob stalePending =
@@ -155,11 +155,101 @@ class AiBlurJobRepositoryTest {
 
         Instant threshold = Instant.now().minus(10, ChronoUnit.MINUTES);
         List<AiBlurJob> targets = aiBlurJobRepository
-                .findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(AiBlurJobStatus.PENDING, threshold);
+                .findRepublishTargetsExcludingDeletedPins(AiBlurJobStatus.PENDING, threshold);
 
         assertThat(targets)
                 .extracting(AiBlurJob::getOriginalVideoKey)
                 .containsExactly("videos/original/stale.mp4");
+    }
+
+    @Test
+    @DisplayName("재발행 대상: 소프트 삭제된 핀의 오래된 PENDING 작업은 제외한다")
+    void findRepublishTargets_excludesDeletedPinJobs() {
+        Instant stale = Instant.now().minus(30, ChronoUnit.MINUTES);
+
+        // 살아있는 핀의 오래된 PENDING(대상)
+        AiBlurJob alive =
+                AiBlurJob.create(pinId, "videos/original/alive.mp4", AiBlurJobType.INITIAL_UPLOAD);
+        aiBlurJobRepository.saveAndFlush(alive);
+        backdateCreatedAt(alive.getRequestId(), stale);
+
+        // 소프트 삭제된 핀의 오래된 PENDING(제외)
+        Member member = em.persist(Member.create("tester2", AgeGroup.TWENTIES, Gender.MALE));
+        Place place = em.persist(Place.create("kakao-2", "삭제된 장소", point(127.03, 37.50)));
+        Pin deletedPin = Pin.create(
+                member, place, CrowdLevel.WAGLE, point(127.03, 37.50),
+                null, null, "videos/original/deleted-pin.mp4", null);
+        deletedPin.softDelete(Instant.now());
+        em.persist(deletedPin);
+        em.flush();
+        AiBlurJob deletedPinJob = AiBlurJob.create(
+                deletedPin.getId(), "videos/original/deleted-job.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(deletedPinJob);
+        backdateCreatedAt(deletedPinJob.getRequestId(), stale);
+
+        em.clear();
+
+        Instant threshold = Instant.now().minus(10, ChronoUnit.MINUTES);
+        List<AiBlurJob> targets = aiBlurJobRepository
+                .findRepublishTargetsExcludingDeletedPins(AiBlurJobStatus.PENDING, threshold);
+
+        assertThat(targets)
+                .extracting(AiBlurJob::getOriginalVideoKey)
+                .containsExactly("videos/original/alive.mp4");
+    }
+
+    @Test
+    @DisplayName("existsByPinIdAndJobTypeAndStatus로 진행 중 영상 교체 작업 존재 여부를 검사한다")
+    void existsByPinIdAndJobTypeAndStatus_works() {
+        // 진행 중(PENDING) 영상 교체 작업
+        aiBlurJobRepository.saveAndFlush(
+                AiBlurJob.create(pinId, "videos/original/replace-pending.mp4", AiBlurJobType.VIDEO_REPLACEMENT));
+
+        // 완료된 교체 작업(상태가 달라 대상 아님)
+        AiBlurJob completed =
+                AiBlurJob.create(pinId, "videos/original/replace-done.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        completed.markCompleted(Instant.now());
+        aiBlurJobRepository.saveAndFlush(completed);
+        em.clear();
+
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                pinId, AiBlurJobType.VIDEO_REPLACEMENT, AiBlurJobStatus.PENDING)).isTrue();
+        // 최초 등록(INITIAL_UPLOAD) PENDING이 있어도 영상 교체 진행 중으로 보지 않는다.
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                pinId, AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING)).isFalse();
+        // 다른 핀에는 진행 중 교체 작업이 없다.
+        assertThat(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(
+                UUID.randomUUID(), AiBlurJobType.VIDEO_REPLACEMENT, AiBlurJobStatus.PENDING)).isFalse();
+    }
+
+    @Test
+    @DisplayName("findFirstByPinIdAndJobTypeOrderByCreatedAtDesc로 최신 영상 교체 작업을 조회한다")
+    void findLatestReplacementJob() {
+        // 과거 교체 작업
+        AiBlurJob older =
+                AiBlurJob.create(pinId, "videos/original/replace-old.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(older);
+        backdateCreatedAt(older.getRequestId(), Instant.now().minus(30, ChronoUnit.MINUTES));
+
+        // 최신 교체 작업
+        AiBlurJob newer =
+                AiBlurJob.create(pinId, "videos/original/replace-new.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
+        aiBlurJobRepository.saveAndFlush(newer);
+        backdateCreatedAt(newer.getRequestId(), Instant.now().minus(5, ChronoUnit.MINUTES));
+
+        // 최초 등록 작업(유형이 달라 대상 아님)
+        aiBlurJobRepository.saveAndFlush(
+                AiBlurJob.create(pinId, "videos/original/initial.mp4", AiBlurJobType.INITIAL_UPLOAD));
+        em.clear();
+
+        AiBlurJob latest = aiBlurJobRepository
+                .findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(pinId, AiBlurJobType.VIDEO_REPLACEMENT)
+                .orElseThrow();
+        assertThat(latest.getRequestId()).isEqualTo(newer.getRequestId());
+
+        // 교체 작업이 없는 다른 핀은 빈 결과
+        assertThat(aiBlurJobRepository.findFirstByPinIdAndJobTypeOrderByCreatedAtDesc(
+                UUID.randomUUID(), AiBlurJobType.VIDEO_REPLACEMENT)).isEmpty();
     }
 
     private Point point(double lng, double lat) {

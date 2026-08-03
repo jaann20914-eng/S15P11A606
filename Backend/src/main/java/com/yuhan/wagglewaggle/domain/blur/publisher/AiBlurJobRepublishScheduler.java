@@ -17,6 +17,8 @@ import java.util.List;
  * 재발행 스케줄러. 일정 시간 이상 PENDING인 AI 블러 작업을 주기적으로 다시 발행한다.
  * 기존 requestId·pinId·originalVideoKey를 그대로 재사용하며(동일 requestId 재발행),
  * 상태나 jobType을 변경하지 않는다. 재발행 대상은 jobType으로 제한하지 않는다.
+ * 단, 소프트 삭제된 핀(deleted_at IS NOT NULL)에 속한 작업은 재발행 대상에서 제외한다
+ * (삭제된 핀의 PENDING INITIAL_UPLOAD·VIDEO_REPLACEMENT 작업을 새로 발행·재발행하지 않는다).
  * 발행 성공 여부를 스키마에 저장하지 않으므로 AI 처리 중인 작업이 중복 발행될 수 있고, 이는 Worker 멱등 처리를 전제로 한다.
  */
 @Slf4j
@@ -37,7 +39,7 @@ public class AiBlurJobRepublishScheduler {
 
         Instant threshold = clock.instant().minus(properties.pendingThreshold());
         List<AiBlurJob> targets = aiBlurJobRepository
-                .findByStatusAndCreatedAtLessThanOrderByCreatedAtAsc(AiBlurJobStatus.PENDING, threshold);
+                .findRepublishTargetsExcludingDeletedPins(AiBlurJobStatus.PENDING, threshold);
         if (targets.isEmpty()) {
             return;
         }

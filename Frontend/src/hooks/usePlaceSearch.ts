@@ -95,6 +95,9 @@ export interface PlaceSearch {
  *
  * 핀 등록(주변에서 고르기)과 홈 검색바(가려는 곳 찾기)가 함께 쓴다. 두 용도는 찾는 범위가
  * 정반대라 반경만 `options.radius`로 달리 준다 — 나머지 동작은 같다.
+ *
+ * 핀 등록은 반경을 주지 않는다. 그러면 서버가 50m로 고정하고, 그 범위가 곧 등록 가능한
+ * 장소의 범위가 된다(등록 요청의 촬영 좌표도 장소에서 50m 이내여야 한다).
  */
 export function usePlaceSearch({
   radius,
@@ -236,7 +239,13 @@ export function usePlaceSearch({
           setSearched(false);
           setLoading(false);
 
-          // 외부 장소 API 장애는 둘 다 잠시 뒤 다시 시도할 값이 있다(502·503).
+          /*
+            외부 장소 API 장애는 잠시 뒤 다시 시도할 값이 있다.
+
+            명세가 정하는 값은 503 `EXTERNAL_PLACE_API_UNAVAILABLE` 하나다. 502
+            `EXTERNAL_PLACE_API_ERROR`는 예전 명세의 값인데, 서버가 아직 그것을 보낼 수도
+            있어 남겨 둔다. 안 오게 되면 이 줄만 지우면 된다.
+          */
           setRetryable(
             cause instanceof ApiError &&
               (cause.code === 'EXTERNAL_PLACE_API_UNAVAILABLE' ||

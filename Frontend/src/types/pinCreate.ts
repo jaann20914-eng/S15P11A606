@@ -1,6 +1,7 @@
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
 import type { PinId, PinCrowdLevel } from '@/types/pin';
 import type { PlaceSearchItem } from '@/types/place';
+import type { Coordinate } from '@/store/useMapStore';
 
 /**
  * 게시글 작성 화면의 진입 유형.
@@ -16,6 +17,14 @@ export interface PinDraftVideo {
   uri: string;
   /** 실제 녹화된 길이(초). 최대 길이를 넘겼는지 확인하는 데 쓴다. */
   durationSeconds: number;
+  /**
+   * 촬영한 자리의 좌표. 등록 요청의 `latitude`·`longitude`가 이 값이다.
+   *
+   * 장소 좌표가 아니라 **찍은 자리**여야 한다. 서버가 둘 사이 거리를 재서 50m를 넘으면
+   * 거절한다(`LOCATION_OUT_OF_RANGE`). 촬영 시점에 위치를 얻지 못했으면 null이고, 그때는
+   * 등록 직전에 다시 읽는다.
+   */
+  coordinate: Coordinate | null;
 }
 
 /** 작성 화면이 들고 있는 입력값 전체. 제출 직전에 요청 본문으로 바뀐다. */
@@ -30,12 +39,52 @@ export interface PinDraft {
 }
 
 /**
- * 장소 검색 결과에서 선택한 항목.
+ * 등록에서 고른 장소. 카카오 검색 결과 그대로다.
  *
- * 카카오 장소이므로 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다.
- * 좌표까지 들고 있어야 등록 요청에 그대로 실을 수 있다.
+ * 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다. 그 장소가 우리 DB에 없을 수 있고,
+ * 등록 시점에 서버가 만들기 때문이다. 좌표까지 들고 있어야 등록 요청에 실을 수 있다.
  */
-export type PinDraftPlace = PlaceSearchItem;
+export interface KakaoDraftPlace extends PlaceSearchItem {
+  source: 'kakao';
+}
+
+/**
+ * 수정에서 고른 장소. 우리 DB에 이미 있는 것이다.
+ *
+ * 수정 API는 **내부 식별자만** 받는다(`placeId`). 그래서 카카오 검색이 아니라 장소 목록
+ * (`GET /api/v1/places`)에서 고른다. 자세한 사정은 `toPinUpdateRequest` 주석에 있다.
+ */
+export interface InternalDraftPlace {
+  source: 'internal';
+  placeId: number;
+  name: string;
+  /** 주소는 상세 응답에 없다. 서버가 저장하지 않아 이름과 좌표만 온다. */
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * 작성 화면이 들고 있는 장소.
+ *
+ * 등록과 수정이 서로 다른 식별자를 쓰기 때문에 갈라 둔다. 어느 쪽인지 모른 채 값을 꺼내
+ * 쓰면, 수정 요청에 카카오 식별자를 실어 보내는 것 같은 실수가 컴파일에서 걸리지 않는다.
+ */
+export type PinDraftPlace = KakaoDraftPlace | InternalDraftPlace;
+
+/**
+ * 아무것도 입력하지 않은 상태.
+ *
+ * 작성 폼의 초기값이자, 수정에서 "불러온 값"을 채울 바탕이다. 두 곳이 같은 것을 써야 비교가
+ * 어긋나지 않는다 — 수정은 시작값과 지금 값을 견줘 바뀐 것만 보낸다.
+ */
+export const EMPTY_PIN_DRAFT: PinDraft = {
+  crowdLevel: 1,
+  video: null,
+  memo: '',
+  tags: [],
+  place: null,
+  detailLocation: '',
+};
 
 /** 영상 최대 길이(초). 이 시간이 지나면 녹화가 자동으로 멈춘다. */
 export const MAX_VIDEO_SECONDS = 5;
@@ -59,19 +108,20 @@ export const MAX_PLACE_DISTANCE_METERS = 50;
 export const VIDEO_CONTENT_TYPE = 'video/mp4';
 
 /**
- * 업로드 한 건에 필요한 정보.
+ * 업로드 한 건에 필요한 정보. `POST /api/v1/pins/upload-url` 응답의 `data`다.
  *
- * Presigned POST 방식이다. 서명이 URL이 아니라 `fields`에 담기므로 `uploadUrl`은 버킷 주소이고
- * 객체 경로는 `fields.key`가 갖는다. 업로드는 `fields`를 그대로 실은 `multipart/form-data`
- * `POST`로 보낸다.
+ * **Presigned PUT 방식이다.** 서명이 URL 자체에 들어 있어 별도의 폼 필드가 없다. 발급 요청에
+ * 실은 것과 같은 `Content-Type`으로 그 URL에 PUT 한 번을 보내면 된다.
  *
- * `fields`의 키 이름과 개수는 서버가 정한다. 프론트는 해석하지 않고 폼에 옮겨 담기만 한다.
- * 등록 API에는 URL이 아니라 `originalVideoKey`만 보낸다.
+ * 등록 API에는 URL이 아니라 `originalVideoKey`만 보낸다. 이 키는 핀 하나에만 쓸 수 있고,
+ * 같은 `uploadUrl`을 다시 쓰지 않는다.
  */
 export interface VideoUploadTicket {
   uploadUrl: string;
+  /** 원본 영상 객체 키. 최대 1024자. 등록 요청에 그대로 넘긴다. */
   originalVideoKey: string;
-  fields: Record<string, string>;
+  /** URL 만료 시각(ISO 8601). 지나면 다시 발급받아야 한다. */
+  expiresAt: string;
 }
 
 /**
@@ -88,10 +138,82 @@ export const STATUS_POLL_INTERVAL_MS = 2_000;
 /** 상태 조회를 포기하는 시점. 이 시간을 넘기면 접수됐다는 안내만 남긴다. */
 export const STATUS_POLL_TIMEOUT_MS = 60_000;
 
-/** `GET /api/v1/pins/{pinId}/status` 응답의 `data`. */
+/**
+ * 영상 교체 작업의 상태. 수정에서 영상을 바꿨을 때만 값이 있다.
+ *
+ * 공개 중인 영상의 상태(`videoStatus`)와 **별개다.** 교체가 도는 동안에도 기존 영상은 계속
+ * 공개되므로 `videoStatus`는 `ACTIVE`로 남는다.
+ *
+ * - `PENDING` AI 처리 중
+ * - `PASS` 통과. 새 영상으로 교체됐다
+ * - `FAIL` 검수 탈락. **기존 영상이 그대로 남는다**
+ * - `FAILED` AI·시스템 오류. 이때도 기존 영상은 그대로다
+ */
+export type VideoReplacementStatus = 'PENDING' | 'PASS' | 'FAIL' | 'FAILED';
+
+/**
+ * `GET /api/v1/pins/{pinId}/status` 응답의 `data`.
+ *
+ * 두 URL은 `ACTIVE`이고 영상이 만료되지 않았을 때만 온다. 그 외 상태에서는 null이다.
+ * 객체 키는 프론트에 오지 않는다 — 서버가 Presigned GET URL로 바꿔 준다.
+ */
 export interface PinStatusResult {
   pinId: PinId;
   videoStatus: PinVideoStatus;
+  /** 얼굴 블러 영상. */
+  videoUrl: string | null;
+  /** 얼굴 블러 썸네일. */
+  thumbnailUrl: string | null;
+  /** 진행 중이거나 마지막으로 끝난 교체 작업. 교체한 적이 없으면 null. */
+  videoReplacementStatus?: VideoReplacementStatus | null;
+}
+
+/**
+ * `PATCH /api/v1/pins/{pinId}` 요청 본문.
+ *
+ * **부분 수정이다.** 보낸 필드만 바뀌고 생략한 필드는 그대로 남는다. 그래서 값을 지우는 것과
+ * 건드리지 않는 것을 구분해야 한다 — `detailLocation`·`memo`는 `null`을 보내면 지워지고,
+ * `tags`는 빈 배열을 보내면 모두 지워진다. 하나도 보내지 않으면 서버가 400으로 막는다.
+ *
+ * 좌표는 둘을 함께 보낸다. 하나만 보내면 거절된다.
+ *
+ * `originalVideoKey`를 실으면 영상 교체가 시작된다. 그 요청의 응답은 202이고, 기존 영상은
+ * 검수가 끝날 때까지 그대로 공개된다.
+ *
+ * 장소 변경(`placeId`)은 **이 화면에서 보내지 않는다.** 서버가 내부 식별자만 받는데 우리 장소
+ * 검색은 카카오 식별자를 주기 때문이다. 자세한 이유는 `toPinUpdateRequest` 주석에 있다.
+ */
+export interface PinUpdateRequest {
+  originalVideoKey?: string;
+  /** 서비스에 이미 있는 내부 장소 식별자. 카카오 식별자가 아니다. */
+  placeId?: number;
+  /** 촬영 좌표. 둘을 함께 보낸다. 최종 장소와 50m 이내여야 한다. */
+  latitude?: number;
+  longitude?: number;
+  /** `null`이면 기존 값을 지운다. */
+  detailLocation?: string | null;
+  crowdLevel?: PinCrowdLevel;
+  /** `null`이면 기존 값을 지운다. */
+  memo?: string | null;
+  /** 빈 배열이면 태그를 모두 지운다. */
+  tags?: string[];
+}
+
+/**
+ * `PATCH /api/v1/pins/{pinId}` 응답의 `data`.
+ *
+ * 일반 정보만 고치면 200, 영상 교체가 끼면 202다. 둘 다 이 모양으로 온다.
+ */
+export interface PinUpdateResult {
+  pinId: PinId;
+  /** 공개 중인 영상의 상태. 교체 중에도 `ACTIVE`를 유지한다. */
+  videoStatus: PinVideoStatus;
+  /** 영상 교체를 요청했을 때만 온다. 접수 시 `PENDING`. */
+  videoReplacementStatus?: VideoReplacementStatus | null;
+  /** 곧바로 반영된 필드. 영상만 바꿨으면 빈 배열이다. */
+  updatedFields: string[];
+  /** 비동기로 처리 중인 필드. 영상 교체면 `originalVideoKey`가 들어온다. */
+  pendingFields?: string[];
 }
 
 /**
@@ -117,13 +239,16 @@ export interface PinCreateRequest {
    */
   kakaoPlaceId: string;
   /**
-   * 선택한 장소의 이름과 주소.
+   * 선택한 장소의 이름과 좌표.
    *
-   * 서버가 등록 시점에 `Place`를 새로 저장한다. 카카오는 식별자로 단건 조회하는 API가 없어
-   * 검색 결과에서 받은 값을 프론트가 그대로 되돌려준다. 필드 이름은 백엔드 확정 전 가정값이다.
+   * 서버가 그 장소를 아직 저장하지 않았을 때 만드는 데 참고한다. **최종값으로 쓰이지는
+   * 않는다** — 서버는 `kakaoPlaceId`로 카카오 장소 API나 기존 `places`에서 다시 확인하고,
+   * 거리 검증도 그 좌표로 한다.
    */
   placeName: string;
-  placeAddress: string;
+  kakaoPlaceLatitude: number;
+  kakaoPlaceLongitude: number;
+  /** 영상을 찍은 자리의 좌표. 장소 좌표와 50m 이내여야 한다. */
   latitude: number;
   longitude: number;
   crowdLevel: PinCrowdLevel;
@@ -133,12 +258,16 @@ export interface PinCreateRequest {
 }
 
 /**
- * 영상 처리 상태. 백엔드 `VideoStatus` enum과 값을 맞춘다.
+ * 영상 처리 상태. 백엔드 `pins.video_status`와 값을 맞춘다.
  *
- * 접수 시 `PENDING`이고 AI 처리를 거쳐 갈린다. `COMPLETED`만 공개된다.
- * `FAILED`는 검수 탈락과 시스템 오류를 함께 담는다.
+ * 접수 시 `PENDING`이고 AI 블러·검수를 거쳐 갈린다.
+ * - `ACTIVE` 통과. 공개되고 이때만 영상·썸네일 URL이 온다
+ * - `REJECTED` 검수 기준 미충족. 자동 재처리는 없고 화면이 재촬영을 안내한다
+ * - `FAILED` AI 또는 시스템 오류
+ *
+ * 셋 중 하나가 오면 폴링을 멈춘다.
  */
-export type PinVideoStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type PinVideoStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'FAILED';
 
 /**
  * `POST /api/v1/pins` 응답의 `data`.

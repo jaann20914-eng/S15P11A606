@@ -111,7 +111,7 @@ const MOCK_PIN_LABELS = [
   '평가 완료',
   '내 핀',
   '결제 시 크레딧 부족',
-  '내 핀 · 삭제 실패',
+  '내 핀 · 삭제 확인',
 ];
 
 function VideoCard({ index = 0 }: { index?: number }) {

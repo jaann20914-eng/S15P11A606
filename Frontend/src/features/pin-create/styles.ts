@@ -218,7 +218,14 @@ export const pinCreateStyles = StyleSheet.create({
   },
   placeName: { ...type.label, color: colors.dark },
   placeAddress: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  /** 수정 화면의 장소 후보 거리. 검색 결과의 거리 표시와 같은 자리다. */
+  placeDistance: { ...type.caption, color: colors.gray400 },
+  /** 수정 진입 시 기존 값을 불러오는 동안·실패했을 때. */
+  formState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.x3, padding: spacing.x6 },
+  formStateText: { ...type.small, textAlign: 'center', color: colors.gray600 },
   placeEmpty: { ...type.caption, color: colors.gray400, padding: spacing.x4 },
+  /** 촬영 자리에서 멀어 선택이 취소됐을 때의 안내. 입력칸 바로 아래에 붙는다. */
+  placeNotice: { ...type.caption, color: colors.danger, marginTop: spacing.x2 },
   /** 검색 중·실패 상태를 목록 자리에 대신 놓는다. */
   placeStatus: { alignItems: 'center', justifyContent: 'center', gap: spacing.x2, padding: spacing.x4 },
   placeRetry: {

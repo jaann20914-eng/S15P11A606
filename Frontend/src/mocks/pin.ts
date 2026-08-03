@@ -11,6 +11,8 @@ import type {
   PinCreateRequest,
   PinCreateResult,
   PinStatusResult,
+  PinUpdateRequest,
+  PinUpdateResult,
   VideoUploadTicket,
 } from '@/types/pinCreate';
 
@@ -52,8 +54,6 @@ const scenarioByPinId: Record<PinId, PinDetailScenario> = {
 /** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
 const INSUFFICIENT_CREDIT_PIN_IDS = new Set([mockPinId(5)]);
 
-/** 삭제 실패 화면을 확인하기 위한 내 핀. 삭제 요청에서 409가 난다. */
-const DELETE_NOT_ALLOWED_PIN_IDS = new Set([mockPinId(6)]);
 
 /**
  * 짧은 번호를 목업 식별자로 맞춘다.
@@ -95,8 +95,10 @@ function createBaseDetail(): PinDetailResponse {
     pinId: mockPinId(1),
     place: {
       placeId: 11,
+      kakaoPlaceId: '1234567891',
       name: '바나프레소 역삼점',
-      address: '서울 광진구 동일로 60길 47 1층 (군자동)',
+      latitude: 37.5556,
+      longitude: 127.0791,
     },
     authorViewAngle: 92,
     authorNickname: '역삼동 익명러',
@@ -298,38 +300,36 @@ let nextMockPinSeed = 100;
 /** 등록에 이미 쓴 영상 키. 같은 키로 다시 등록하면 409가 난다. */
 const usedVideoKeys = new Set<string>();
 
+/** 발급 URL의 유효 시간. 실제 값은 서버가 정한다. */
+const UPLOAD_URL_TTL_MS = 10 * 60_000;
+
 /** 발급한 업로드 티켓 수. 키를 매번 다르게 만들기 위해서만 쓴다. */
 let issuedUploadCount = 0;
 
 /**
- * Presigned POST 발급 목업.
+ * 업로드 정보 발급 목업.
  *
  * 실제 서명을 만들 수 없으므로 업로드는 `videoUploadTask`가 흉내낸다.
- * 키 형식은 명세 예시를 따른다.
+ * 키 형식과 응답 필드는 명세를 따른다 — Presigned PUT이라 폼 필드가 없다.
  */
 export async function issueMockVideoUpload(
   contentType: string,
-  contentLength: number,
+  fileSize: number,
 ): Promise<VideoUploadTicket> {
   await delay(MOCK_LATENCY_MS);
 
   if (!contentType) {
-    throw new ApiError(400, 'INVALID_REQUEST', '업로드 요청이 올바르지 않습니다.');
+    throw new ApiError(400, 'INVALID_UPLOAD_REQUEST', '영상 업로드 정보 발급 요청이 올바르지 않습니다.');
   }
 
   const serial = ++issuedUploadCount;
-  const originalVideoKey = `pins/original/1/mock-${serial}-${contentLength}.mp4`;
+  const originalVideoKey = `pins/original/1/mock-${serial}-${fileSize}.mp4`;
 
   return {
-    // Presigned POST라 URL은 버킷 주소만이고 객체 경로는 fields.key가 갖는다.
-    uploadUrl: 'https://storage.example.com',
+    // Presigned PUT이라 서명이 URL 안에 있다. 목업은 형태만 흉내낸다.
+    uploadUrl: `https://storage.example.com/${originalVideoKey}?X-Amz-Signature=mock`,
     originalVideoKey,
-    fields: {
-      key: originalVideoKey,
-      policy: 'mock-policy',
-      'x-amz-algorithm': 'AWS4-HMAC-SHA256',
-      'x-amz-signature': 'mock-signature',
-    },
+    expiresAt: new Date(Date.now() + UPLOAD_URL_TTL_MS).toISOString(),
   };
 }
 
@@ -345,7 +345,18 @@ export async function issueMockVideoUpload(
 export async function createMockPin(body: PinCreateRequest): Promise<PinCreateResult> {
   await delay(MOCK_LATENCY_MS);
 
-  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName || !body.placeAddress) {
+  if (!body.originalVideoKey || !body.kakaoPlaceId || !body.placeName) {
+    throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
+  }
+
+  // 좌표 네 개는 모두 필수다. 하나라도 없으면 서버가 거리 검증을 할 수 없다.
+  const coordinates = [
+    body.latitude,
+    body.longitude,
+    body.kakaoPlaceLatitude,
+    body.kakaoPlaceLongitude,
+  ];
+  if (coordinates.some((value) => !Number.isFinite(value))) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
 
@@ -396,10 +407,107 @@ export async function fetchMockPinVideoStatus(pinId: PinId): Promise<PinStatusRe
 
   const polls = (statusPollCountByPinId.get(pinId) ?? 0) + 1;
   statusPollCountByPinId.set(pinId, polls);
+  const settled = polls >= POLLS_UNTIL_COMPLETED;
+
+  /*
+    영상 교체가 걸려 있으면 그쪽을 답한다.
+
+    교체 중에도 공개 중인 영상은 그대로이므로 `videoStatus`는 계속 `ACTIVE`다. 새 영상의
+    진행은 `videoReplacementStatus`로만 드러난다 — 두 값을 헷갈리면 화면이 "처리 중"에서
+    영영 벗어나지 못한다.
+  */
+  if (replacingPinIds.has(pinId)) {
+    if (settled) replacingPinIds.delete(pinId);
+
+    return {
+      pinId,
+      videoStatus: 'ACTIVE',
+      videoUrl: null,
+      thumbnailUrl: null,
+      videoReplacementStatus: settled ? 'PASS' : 'PENDING',
+    };
+  }
 
   return {
     pinId,
-    videoStatus: polls >= POLLS_UNTIL_COMPLETED ? 'COMPLETED' : 'PENDING',
+    videoStatus: settled ? 'ACTIVE' : 'PENDING',
+    // 실제로는 ACTIVE일 때만 Presigned GET URL이 온다. 목업은 줄 것이 없어 비워 둔다.
+    videoUrl: null,
+    thumbnailUrl: null,
+    videoReplacementStatus: null,
+  };
+}
+
+/** 영상 교체가 진행 중인 핀. 상태 조회가 이 집합을 보고 교체 상태를 답한다. */
+const replacingPinIds = new Set<PinId>();
+
+/**
+ * 핀 수정 목업.
+ *
+ * 부분 수정이라 **보낸 필드만** 반영된 것으로 답한다. 영상 키가 실리면 교체 작업이 시작된
+ * 것으로 보고 202에 해당하는 결과를 준다.
+ *
+ * 화면에서 오류를 확인하는 법: 상세 위치에 아래 문구를 넣는다.
+ * `권한없음` → 403, `수정불가` → 409 상태 오류, `교체중` → 409 교체 진행 중,
+ * `범위밖` → 422 위치 초과.
+ */
+export async function updateMockPin(
+  pinId: PinId,
+  body: PinUpdateRequest,
+): Promise<PinUpdateResult> {
+  pinId = canonicalMockPinId(pinId);
+
+  await delay(MOCK_LATENCY_MS);
+
+  if (resolvePinDetailScenario(pinId) === 'notFound') {
+    throw new ApiError(404, 'PIN_NOT_FOUND', '수정할 핀을 찾을 수 없습니다.');
+  }
+
+  const fields = Object.keys(body);
+  if (fields.length === 0) {
+    throw new ApiError(400, 'INVALID_PIN_UPDATE_REQUEST', '핀 수정 요청이 올바르지 않습니다.');
+  }
+
+  const hint = body.detailLocation ?? '';
+
+  if (hint.includes('권한없음')) {
+    throw new ApiError(403, 'PIN_UPDATE_FORBIDDEN', '해당 핀을 수정할 권한이 없습니다.');
+  }
+
+  if (hint.includes('수정불가')) {
+    throw new ApiError(409, 'PIN_NOT_EDITABLE', '수정할 수 없는 상태의 핀입니다.');
+  }
+
+  if (hint.includes('교체중')) {
+    throw new ApiError(409, 'PIN_UPDATE_IN_PROGRESS', '이미 영상 교체 작업이 진행 중입니다.');
+  }
+
+  if (hint.includes('범위밖')) {
+    throw new ApiError(422, 'LOCATION_OUT_OF_RANGE', '선택한 장소와 촬영 위치가 너무 멉니다.');
+  }
+
+  const replacing = body.originalVideoKey !== undefined;
+  if (replacing) {
+    // 같은 영상을 두 번 쓰는 것은 등록과 같은 이유로 막는다.
+    if (usedVideoKeys.has(body.originalVideoKey!)) {
+      throw new ApiError(409, 'VIDEO_ALREADY_REGISTERED', '이미 사용된 영상입니다.');
+    }
+    usedVideoKeys.add(body.originalVideoKey!);
+
+    replacingPinIds.add(pinId);
+    statusPollCountByPinId.delete(pinId);
+  }
+
+  // 영상 키는 즉시 반영되는 값이 아니라 비동기 처리 대상이다.
+  const updatedFields = fields.filter((field) => field !== 'originalVideoKey');
+
+  return {
+    pinId,
+    videoStatus: 'ACTIVE',
+    updatedFields,
+    ...(replacing
+      ? { videoReplacementStatus: 'PENDING' as const, pendingFields: ['originalVideoKey'] }
+      : {}),
   };
 }
 
@@ -408,7 +516,11 @@ const deleteResultsByPinId = new Map<PinId, PinDeleteResult>();
 
 /**
  * 삭제 목업.
- * 권한 없음·삭제 불가 상태·재요청 멱등성을 실제 서버와 같은 코드로 재현한다.
+ *
+ * 권한 없음과 재요청 멱등성을 실제 서버와 같은 코드로 재현한다. 상태 때문에 막히는 경우는
+ * 없다 — 명세상 `PENDING`·`ACTIVE`·`REJECTED`·`FAILED` 어디서든 지울 수 있다.
+ *
+ * 재요청은 처음 결과를 그대로 돌려준다. `deletedAt`도 그때 값이다.
  */
 export async function deleteMockPin(pinId: PinId): Promise<PinDeleteResult> {
   // 짧은 번호로 들어와도 표·집합과 같은 키로 맞춘다.
@@ -427,10 +539,6 @@ export async function deleteMockPin(pinId: PinId): Promise<PinDeleteResult> {
 
   if (scenario !== 'owner') {
     throw new ApiError(403, 'PIN_DELETE_FORBIDDEN', '핀을 삭제할 권한이 없습니다.');
-  }
-
-  if (DELETE_NOT_ALLOWED_PIN_IDS.has(pinId)) {
-    throw new ApiError(409, 'PIN_DELETE_NOT_ALLOWED', '현재 상태에서는 핀을 삭제할 수 없습니다.');
   }
 
   const result: PinDeleteResult = {

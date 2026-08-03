@@ -7,6 +7,7 @@ import {
 } from 'expo-camera';
 import { MAX_VIDEO_SECONDS } from '@/types/pinCreate';
 import type { PinDraftVideo } from '@/types/pinCreate';
+import { readCurrentCoordinate } from '@/utils/location';
 
 export type CaptureState = 'idle' | 'recording' | 'done';
 
@@ -93,14 +94,31 @@ export function useVideoCapture(onCaptured: (video: PinDraftVideo | null) => voi
     setState('recording');
     onCaptured(null);
 
+    /*
+      찍는 동안 위치를 함께 읽는다.
+
+      등록 요청의 촬영 좌표가 이 값이다. 나중에(등록 직전에) 읽어도 되지만, 그사이 사용자가
+      자리를 옮기면 "찍은 자리"가 아니게 된다. 서버가 장소와 50m 이내인지 검증하므로 이
+      차이가 등록 성공 여부를 가른다.
+
+      실패해도 촬영은 그대로 끝낸다. 좌표는 등록 직전에 다시 시도한다.
+    */
+    const coordinate = readCurrentCoordinate().then((result) =>
+      'coordinate' in result ? result.coordinate : null,
+    );
+
     camera
       .recordAsync({ maxDuration: MAX_VIDEO_SECONDS })
-      .then((result) => {
+      .then(async (result) => {
         if (recordingId.current !== id) return;
 
         setState(result?.uri ? 'done' : 'idle');
         if (result?.uri) {
-          onCaptured({ uri: result.uri, durationSeconds: MAX_VIDEO_SECONDS });
+          onCaptured({
+            uri: result.uri,
+            durationSeconds: MAX_VIDEO_SECONDS,
+            coordinate: await coordinate,
+          });
         }
       })
       .catch(() => {

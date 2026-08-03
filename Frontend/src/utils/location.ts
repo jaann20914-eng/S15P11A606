@@ -95,6 +95,32 @@ export interface ReadCoordinateOptions {
  * 새 측위보다 **캐시된 위치를 먼저** 본다. 즉시 돌아오고, 지도를 옮기거나 주변을 찾는
  * 용도로는 정확도가 충분하다. 새 측위는 실외에서도 몇 초가 걸린다.
  */
+/** 지구 반지름(m). 두 좌표 사이 거리를 재는 데 쓴다. */
+const EARTH_RADIUS_M = 6_371_000;
+
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+/**
+ * 두 좌표 사이의 직선 거리(m).
+ *
+ * 하버사인 공식이다. 수백 미터 범위에서는 오차가 사실상 없고, 우리가 재는 거리(50m 안팎)에는
+ * 충분하다. 서버도 같은 기준으로 거리를 재므로 판정이 크게 어긋나지 않는다.
+ */
+export function distanceBetween(from: Coordinate, to: Coordinate): number {
+  const deltaLatitude = toRadians(to.latitude - from.latitude);
+  const deltaLongitude = toRadians(to.longitude - from.longitude);
+
+  const a =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(toRadians(from.latitude)) *
+      Math.cos(toRadians(to.latitude)) *
+      Math.sin(deltaLongitude / 2) ** 2;
+
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 export async function readCurrentCoordinate({
   requestPermission = false,
 }: ReadCoordinateOptions = {}): Promise<LocationResult> {

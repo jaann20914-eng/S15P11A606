@@ -1,21 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
+import { colors } from '@/constants/theme';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
 import { MemoField } from '@/features/pin-create/components/MemoField';
 import { PinCreateHeader } from '@/features/pin-create/components/PinCreateHeader';
+import { PlaceEditField } from '@/features/pin-create/components/PlaceEditField';
 import { PlaceField } from '@/features/pin-create/components/PlaceField';
 import { PublishingOverlay } from '@/features/pin-create/components/PublishingOverlay';
 import { TagField } from '@/features/pin-create/components/TagField';
+import { useEditablePin } from '@/features/pin-create/hooks/useEditablePin';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
 import { pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
+import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
+import type { PinDraft } from '@/types/pinCreate';
 
 /**
  * 게시글 작성 · 수정 화면.
@@ -28,7 +33,24 @@ import { usePinPublishStore } from '@/store/usePinPublishStore';
  */
 export default function PinCreateScreen() {
   const { mode, copy } = usePinCreateMode();
-  const form = usePinCreateForm();
+
+  /*
+    수정이면 기존 값을 먼저 불러온다. 부분 수정이라 무엇이 바뀌었는지 알아야 하고,
+    그 판단 기준이 이 값이다. 생성이면 불러올 것이 없다.
+  */
+  const editable = useEditablePin(mode.type === 'edit' ? mode.pinId : null);
+  const initialDraft = useMemo<PinDraft>(
+    () => ({ ...EMPTY_PIN_DRAFT, ...(editable.initial ?? {}) }),
+    [editable.initial],
+  );
+
+  const form = usePinCreateForm(editable.initial ?? undefined);
+
+  /** 원래 등록돼 있던 장소. 수정에서 다른 장소를 찾을 기준이 된다. */
+  const originPlace = initialDraft.place?.source === 'internal' ? initialDraft.place : null;
+
+  /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
+  const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const tabBarHeight = useAppTabBarHeight();
   const [focused, setFocused] = useState(false);
 
@@ -37,6 +59,7 @@ export default function PinCreateScreen() {
   const publishedPinId = usePinPublishStore((state) => state.pinId);
   const error = usePinPublishStore((state) => state.error);
   const publish = usePinPublishStore((state) => state.publish);
+  const edit = usePinPublishStore((state) => state.edit);
   const cancelPublish = usePinPublishStore((state) => state.cancel);
   const dismissError = usePinPublishStore((state) => state.dismissError);
   const resetPublish = usePinPublishStore((state) => state.reset);
@@ -56,6 +79,15 @@ export default function PinCreateScreen() {
   );
 
   const submit = () => {
+    if (mode.type === 'edit') {
+      /*
+        수정은 영상이 필수가 아니다. 기존 영상은 서버에 있고, 다시 찍었을 때만 교체된다.
+        장소도 이미 정해져 있으므로 확인하지 않는다.
+      */
+      edit(mode.pinId, initialDraft, form.draft);
+      return;
+    }
+
     if (!form.draft.video) {
       Alert.alert('영상을 촬영해 주세요', '갤러리 영상은 등록할 수 없고 실시간 촬영이 필요해요.');
       return;
@@ -66,12 +98,6 @@ export default function PinCreateScreen() {
       return;
     }
 
-    if (mode.type === 'edit') {
-      // 수정 API는 아직 명세가 없다. 등록과 다른 엔드포인트를 쓰므로 여기서 갈린다.
-      Alert.alert('수정은 아직 준비 중이에요');
-      return;
-    }
-
     publish(form.draft);
   };
 
@@ -79,8 +105,9 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!error) return;
 
-    Alert.alert('영상핀을 등록하지 못했어요', error, [{ text: '확인', onPress: dismissError }]);
-  }, [error, dismissError]);
+    const title = mode.type === 'edit' ? '영상핀을 수정하지 못했어요' : '영상핀을 등록하지 못했어요';
+    Alert.alert(title, error, [{ text: '확인', onPress: dismissError }]);
+  }, [error, dismissError, mode.type]);
 
   /**
    * AI 처리까지 끝나면 등록한 핀으로 보낸다.
@@ -103,7 +130,17 @@ export default function PinCreateScreen() {
       <View style={s.screen}>
         <PinCreateHeader title={copy.title} />
 
-        {!focused ? null : phase !== 'idle' ? (
+        {!focused ? null : notReadyToEdit ? (
+          /* 수정 진입 — 기존 값을 불러오는 동안에는 폼을 보여주지 않는다. 빈 칸이 잠깐 보이면
+             사용자가 값이 지워진 것으로 읽는다. */
+          <View style={s.formState}>
+            {editable.loading ? (
+              <ActivityIndicator color={colors.gray400} />
+            ) : (
+              <Text style={s.formStateText}>{editable.error}</Text>
+            )}
+          </View>
+        ) : phase !== 'idle' ? (
           <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
         ) : (
           <ScrollView
@@ -119,7 +156,16 @@ export default function PinCreateScreen() {
 
             <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
 
-            <PlaceField place={form.draft.place} onSelect={form.setPlace} />
+            {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
+            {mode.type === 'edit' ? (
+              <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
+            ) : (
+              <PlaceField
+                place={form.draft.place}
+                onSelect={form.setPlace}
+                droppedPlaceName={form.droppedPlaceName}
+              />
+            )}
 
             <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
 
