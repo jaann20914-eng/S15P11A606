@@ -187,9 +187,51 @@ const mockRooms: ChatRoomListItem[] = [
     lastMessageAt: null,
     hasUnread: false,
   },
+  /*
+    아래부터는 남의 글에 내가 요청한 대화다(요청한 대화 탭).
+    상태를 네 가지 모두 넣어 그 탭에서도 줄 모양을 전부 확인할 수 있게 한다.
+  */
+  {
+    roomId: 16,
+    status: 'ACTIVE',
+    pinId: mockPinId(1),
+    placeName: '스타벅스 역삼1점',
+    otherUserNickname: '창가석 지킴이',
+    otherUserViewTemperature: 300,
+    lastMessage: '지금은 두 자리 남았어요. 오래 안 걸릴 것 같아요',
+    lastMessageAt: minutesAgo(1),
+    hasUnread: true,
+  },
+  {
+    roomId: 17,
+    status: 'PENDING',
+    pinId: mockPinId(3),
+    placeName: '멀티캠퍼스 역삼 스터디카페 2층 라운지',
+    otherUserNickname: '밤샘하는 개발자입니다',
+    otherUserViewTemperature: 92,
+    lastMessage: '안녕하세요, 아직도 사람 많은가요??',
+    lastMessageAt: minutesAgo(8),
+    hasUnread: false,
+  },
+  {
+    roomId: 18,
+    status: 'LEFT',
+    pinId: mockPinId(5),
+    placeName: '한강진역 2번 출구',
+    otherUserNickname: '퇴근길',
+    otherUserViewTemperature: 130,
+    lastMessage: '답변 감사합니다~',
+    lastMessageAt: minutesAgo(1500),
+    hasUnread: false,
+  },
 ];
 
-/** 받은 요청에서 먼저 고르는 게시글. 위 방 목록의 핀과 같은 것을 쓴다. */
+/**
+ * 받은 요청에서 먼저 고르는 게시글. 위 방 목록의 핀과 같은 것을 쓴다.
+ *
+ * 한 줄은 장소명과 주소를 일부러 길게 두었다. 줄이 잘리는지 화면에서 확인해야 하는데, 짧은
+ * 값만 있으면 그 경우가 드러나지 않는다.
+ */
 const mockChatPins: ChatPinListItem[] = [
   {
     pinId: mockPinId(4),
@@ -200,8 +242,8 @@ const mockChatPins: ChatPinListItem[] = [
   {
     pinId: mockPinId(6),
     createdAt: minutesAgo(220),
-    placeName: '성수 카페거리',
-    placeAddress: '서울 성동구 연무장길 45',
+    placeName: '성수 카페거리 로스터리 앤 베이커리 본점',
+    placeAddress: '서울 성동구 연무장길 45 성수동2가 273-13 지하 1층',
   },
 ];
 
