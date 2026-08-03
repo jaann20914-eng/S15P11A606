@@ -68,7 +68,18 @@ export function ChatRoomRow({
           <Text numberOfLines={1} style={s.rowTitle}>
             {room.placeName} · {room.otherUserNickname}
           </Text>
-          <Text style={[s.statusText, statusStyle(room.status)]}>{labelByStatus[room.status]}</Text>
+          {/*
+            수락 · 거절이 붙는 줄에는 상태 글자를 두지 않는다.
+
+            버튼이 있다는 것 자체가 "아직 답하지 않았다"는 뜻이라 `대기중`은 같은 말을 두 번 하는
+            셈이다. 게다가 제목(장소 · 닉네임)이 길 때 그 글자가 폭을 먹어 이름이 더 잘린다.
+
+            버튼이 없는 곳에서는 그대로 보여준다. 요청한 대화 탭의 `대기중`은 상대의 응답을
+            기다리는 상태이고 내가 할 일이 없어서, 글자로 알려 주지 않으면 알 방법이 없다.
+          */}
+          {!showDecisions && (
+            <Text style={[s.statusText, statusStyle(room.status)]}>{labelByStatus[room.status]}</Text>
+          )}
           {room.hasUnread && <View style={s.unread} />}
         </View>
 
