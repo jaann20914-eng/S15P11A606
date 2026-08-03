@@ -1,3 +1,5 @@
+import type { ChatRoomStatus } from './chat';
+
 /**
  * 채팅 실시간 이벤트 타입.
  *
@@ -15,9 +17,6 @@ export type SocketStatus =
   | 'connected'
   /** 끊긴 뒤 다시 붙기를 기다리는 중. */
   | 'reconnecting';
-
-/** 채팅방 상태. 목록과 방 화면이 함께 쓴다. */
-export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'REFUSED' | 'LEFT';
 
 /** 안전 경고 사유. */
 export type WarningReasonCode =
