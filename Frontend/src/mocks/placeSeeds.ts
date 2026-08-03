@@ -17,7 +17,8 @@ export interface MockPinSeed {
   viewAngle: number;
   /** 올린 지 몇 분 지났는지. 고정 시각을 박으면 "2분 전"이 시간이 지나며 틀려진다. */
   minutesAgo: number;
-  memo: string;
+  /** 공개 메모. 등록 때 선택 입력이라 **없는 핀도 있다**(서버가 null을 준다). */
+  memo: string | null;
   tags: string[];
   /** 장소 좌표에서 얼마나 떨어져 있는지. 지도에 핀을 흩어 놓는 데 쓴다. */
   latitudeOffset: number;
@@ -158,7 +159,9 @@ function buildPins(placeId: number, count: number): MockPinSeed[] {
     nickname: index === 0 ? REPRESENTATIVE_NICKNAME : people[index - 1],
     // 90~360도, 10도 단위. 링 이미지가 그 간격으로 있다.
     viewAngle: 90 + Math.floor(random() * 28) * 10,
-    memo: stories[index],
+    // 셋째 핀마다 메모를 비운다. 서버가 null을 주는 경우를 목업에서도 만나야 화면이 그때
+    // 깨지는지 시연 단계에서 알 수 있다.
+    memo: index % 3 === 2 ? null : stories[index],
     tags: pickMany(mockTagVocabulary, 2 + Math.floor(random() * 2), random),
     latitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,
     longitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,

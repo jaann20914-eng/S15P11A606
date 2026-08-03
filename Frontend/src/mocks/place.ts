@@ -82,6 +82,43 @@ const places: PlaceSearchItem[] = [
     longitude: 127.0742,
     distanceMeters: 49,
   },
+  /*
+    아래 넷은 **장소 시드에 실제로 있는 곳**이다(`SEED_PLACE_ID_BY_KAKAO_ID`). 검색해서 고르면
+    핀과 요일 통계가 있는 장소로 이어지므로, 시연할 때 검색부터 상세까지 끊기지 않는다.
+    좌표도 시드와 같게 두어 지도가 엉뚱한 자리로 가지 않는다.
+  */
+  {
+    kakaoPlaceId: '5234567890',
+    name: '성수 연무장길',
+    address: '서울 성동구 연무장길',
+    latitude: 37.5427,
+    longitude: 127.0559,
+    distanceMeters: 120,
+  },
+  {
+    kakaoPlaceId: '5234567891',
+    name: '연무장길 팝업존',
+    address: '서울 성동구 연무장길 24',
+    latitude: 37.5412,
+    longitude: 127.0552,
+    distanceMeters: 260,
+  },
+  {
+    kakaoPlaceId: '5234567892',
+    name: '서울숲 산책로',
+    address: '서울 성동구 뚝섬로 273',
+    latitude: 37.5444,
+    longitude: 127.0374,
+    distanceMeters: 1580,
+  },
+  {
+    kakaoPlaceId: '5234567893',
+    name: '건대 커먼그라운드',
+    address: '서울 광진구 아차산로 200',
+    latitude: 37.541,
+    longitude: 127.0665,
+    distanceMeters: 980,
+  },
 ];
 
 /** 외부 장소 API 장애 화면을 확인하기 위한 검색어. */
@@ -248,8 +285,13 @@ export async function fetchMockPlaceDetail(placeId: number): Promise<PlaceDetail
  * 표에 없는 검색 결과는 전부 미등록 장소로 답한다.
  */
 const SEED_PLACE_ID_BY_KAKAO_ID: Record<string, number> = {
-  // 바나프레소 역삼1점 → 시드 11번(바나프레소 역삼점)
+  // 바나프레소 역삼1점 → 시드 11번. 등록된 장소지만 핀이 0개인 경우를 볼 수 있다.
   '1234567890': 11,
+  // 아래 넷은 핀과 요일 통계가 모두 있는 장소다. 시연은 이쪽으로 하면 화면이 다 찬다.
+  '5234567890': 1,
+  '5234567891': 5,
+  '5234567892': 2,
+  '5234567893': 7,
 };
 
 /**
@@ -303,11 +345,12 @@ const mockRecentSearches: RecentSearch[] = [
     createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
   },
   {
+    // 핀과 통계가 다 있는 장소. 눌러 보면 상세가 꽉 찬 화면으로 이어진다.
     searchId: 2,
     type: 'PLACE',
-    keyword: '바나프레소 역삼1점',
-    placeId: 11,
-    kakaoPlaceId: '1234567890',
+    keyword: '성수 연무장길',
+    placeId: 1,
+    kakaoPlaceId: '5234567890',
     createdAt: new Date(Date.now() - 3 * 60 * 60_000).toISOString(),
   },
   {

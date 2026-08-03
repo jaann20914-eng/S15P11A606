@@ -90,7 +90,13 @@ export interface PlacePinCard {
   viewAngle: number;
   /** ISO 8601. */
   createdAt: string;
-  memo: string;
+  /**
+   * 공개 메모. **없을 수 있다.**
+   *
+   * 핀을 등록할 때 메모는 선택이고(요구사항 VIDPIN-04) DB 열도 nullable이라(`Pin.memo`)
+   * 서버가 `null`을 준다. 목업은 늘 채워서 주기 때문에 목업만 보면 드러나지 않는다.
+   */
+  memo: string | null;
   /** 썸네일 주소. 받지 못했으면 null이고 화면은 자리만 비워 둔다. */
   thumbnailUrl: string | null;
   /** 없으면 빈 배열. */

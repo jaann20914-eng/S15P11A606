@@ -36,8 +36,13 @@ const MEMO_PREVIEW_LENGTH = 82;
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 
 export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
-  const folded = pin.memo.length > MEMO_PREVIEW_LENGTH;
-  const memo = folded ? `${pin.memo.slice(0, MEMO_PREVIEW_LENGTH).trimEnd()}... ` : pin.memo;
+  /*
+    메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
+    없이 등록된 핀이 목록에 하나만 있어도 카드가 아니라 화면 전체가 죽었다.
+  */
+  const body = pin.memo ?? '';
+  const folded = body.length > MEMO_PREVIEW_LENGTH;
+  const memo = folded ? `${body.slice(0, MEMO_PREVIEW_LENGTH).trimEnd()}... ` : body;
 
   return (
     <Pressable
@@ -66,10 +71,13 @@ export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
         )}
 
         <View style={s.copy}>
-          <Text style={s.memo}>
-            {memo}
-            {folded && <Text style={s.more}>더보기</Text>}
-          </Text>
+          {/* 메모가 없으면 빈 줄을 만들지 않는다. 태그만 있는 카드도 있다. */}
+          {memo.length > 0 && (
+            <Text style={s.memo}>
+              {memo}
+              {folded && <Text style={s.more}>더보기</Text>}
+            </Text>
+          )}
 
           {pin.tags.length > 0 && (
             <View style={s.tags}>
