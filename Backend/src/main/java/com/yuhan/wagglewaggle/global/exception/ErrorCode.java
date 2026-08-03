@@ -123,6 +123,10 @@ public enum ErrorCode {
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "읽음 처리할 메시지를 찾을 수 없습니다."),
     CHAT_READ_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "메시지 읽음 처리 중 오류가 발생했습니다."),
 
+    // Chat Messages History (메시지 이력 조회)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)·CHAT_ROOM_ACCESS_DENIED(403)는 위/아래 정의를 재사용한다.
+    CHAT_MESSAGES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 메시지 이력 조회 중 오류가 발생했습니다."),
+
     // Chat Request Decision
     INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
     CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
