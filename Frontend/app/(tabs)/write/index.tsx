@@ -172,9 +172,28 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!focused || phase !== 'done' || publishedPinId === null) return;
 
-    resetPublish();
-    router.replace(`/pin/${publishedPinId}`);
-  }, [focused, phase, publishedPinId, resetPublish]);
+    /*
+      끝난 것을 알리고 나서 넘어간다.
+
+      바로 상세로 밀어 넣으면 화면만 바뀌어서, 영상이 올라갔는지 이 화면이 그냥 닫힌 것인지
+      알 수 없다. 올리는 데 수십 초가 걸리는 흐름이라 끝났다는 말이 있어야 한다.
+
+      스토어는 확인을 누른 뒤에 비운다. 먼저 비우면 이 효과가 한 번 더 돌면서 안내가 두 번 뜬다.
+    */
+    Alert.alert(
+      mode.type === 'edit' ? '영상핀을 수정했어요' : '영상핀을 등록했어요',
+      '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
+      [
+        {
+          text: '확인',
+          onPress: () => {
+            resetPublish();
+            router.replace(`/pin/${publishedPinId}`);
+          },
+        },
+      ],
+    );
+  }, [focused, phase, publishedPinId, resetPublish, mode.type]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>

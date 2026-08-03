@@ -57,4 +57,9 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
               AND (cr.requester.id = :memberId OR cr.recipient.id = :memberId)
             """)
     boolean existsByIdAndParticipant(@Param("roomId") Long roomId, @Param("memberId") Long memberId);
+
+    /**
+     * 지정 상태의 채팅방을 모두 조회한다(AI 2차 분석 배치 스케줄러의 ACTIVE 방 순회용).
+     */
+    List<ChatRoom> findAllByStatus(ChatRoomStatus status);
 }

@@ -240,6 +240,18 @@ function useChatRequest(
           return;
         }
 
+        /*
+          크레딧 부족은 눌러 본 뒤에야 알 수 있다.
+
+          상세 조회의 `canRequestChat`은 구매 여부·소유자·핀 상태·중복 요청만 본다. 잔액은
+          그 안에 없어서 버튼이 열려 있는 채로 거절당한다. 서버 문구만 그대로 보이면 무엇을
+          해야 하는지 알 수 없어 필요한 양을 적어 준다.
+        */
+        if (cause instanceof ApiError && cause.code === 'INSUFFICIENT_CREDIT') {
+          setError('크레딧이 부족해요. 채팅을 요청하려면 5크레딧이 필요해요');
+          return;
+        }
+
         setError(cause instanceof Error ? cause.message : '채팅을 요청하지 못했어요');
       });
   }, [pinId, onDetailChange]);

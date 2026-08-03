@@ -1,5 +1,5 @@
 import { ApiError } from '@/api/client';
-import type { ChatRequestResult, PinChatLeaveResult } from '@/types/chat';
+import type { ChatDecision, ChatDecisionResult, ChatRequestResult, PinChatLeaveResult } from '@/types/chat';
 import {
   MOCK_LATENCY_MS,
   canonicalMockPinId,
@@ -50,7 +50,31 @@ export async function createMockChatRequest(pinId: PinId): Promise<ChatRequestRe
   const roomId = nextMockRoomId++;
   chatRoomIdByPinId.set(pinId, roomId);
 
-  return { roomId, pinId, status: 'PENDING', createdAt: new Date().toISOString() };
+  return { roomId, pinId };
+}
+
+/** 이번 세션에서 이미 응답한 방. 두 번째 응답은 409를 준다. */
+const decidedRoomIds = new Set<number>();
+
+/**
+ * 채팅 요청 응답 목업.
+ *
+ * 받은 요청 목록이 아직 목업이라 방 번호를 검증할 근거가 없다. 그래서 "없는 방"은 재현하지
+ * 않고, 화면이 반드시 다뤄야 하는 "이미 처리된 요청"만 실제 서버와 같은 코드로 낸다.
+ */
+export async function decideMockChatRequest(
+  roomId: number,
+  decision: ChatDecision,
+): Promise<ChatDecisionResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  if (decidedRoomIds.has(roomId)) {
+    throw new ApiError(409, 'CHAT_REQUEST_ALREADY_DECIDED', '이미 처리된 채팅 요청입니다.');
+  }
+
+  decidedRoomIds.add(roomId);
+
+  return { roomId, status: decision === 'ACCEPT' ? 'ACCEPTED' : decision === 'REJECT' ? 'REJECTED' : 'LEFT' };
 }
 
 /** 이번 세션에서 이미 나간 핀. 두 번째 요청은 빈 배열을 준다. */
