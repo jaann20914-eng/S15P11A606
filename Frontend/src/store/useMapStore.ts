@@ -1,5 +1,6 @@
 import { createStore } from './createStore';
 import type { CrowdFilter } from '@/constants/crowdLevels';
+import type { MapBoundsQuery } from '@/types/place';
 
 export interface Coordinate {
   latitude: number;
@@ -59,6 +60,21 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   toggleCrowdFilter: () => set({ crowdFilter: get().crowdFilter === 'relaxed' ? 'wagle' : 'relaxed' }),
   selectPlace: (selectedPlaceId) => set({ selectedPlaceId }),
 }));
+
+/**
+ * 지도 경계를 서버가 받는 쿼리 모양으로 편다.
+ *
+ * 장소 목록과 태그 검색이 모두 이 네 값을 평평하게 받는다. 화면마다 손으로 풀어 쓰면 위도와
+ * 경도를 바꿔 넣어도 컴파일에서 걸리지 않아(둘 다 number) 조용히 빈 결과가 된다.
+ */
+export function toBoundsQuery({ southWest, northEast }: MapBounds): MapBoundsQuery {
+  return {
+    southWestLatitude: southWest.latitude,
+    southWestLongitude: southWest.longitude,
+    northEastLatitude: northEast.latitude,
+    northEastLongitude: northEast.longitude,
+  };
+}
 
 /** bounds를 `/places` 쿼리 문자열 형식으로 변환한다. */
 export function serializeBounds(bounds: MapBounds): string {
