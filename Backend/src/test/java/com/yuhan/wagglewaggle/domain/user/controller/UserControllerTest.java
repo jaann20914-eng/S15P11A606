@@ -1,5 +1,9 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
+import com.yuhan.wagglewaggle.domain.credit.dto.CreditTransactionItem;
+import com.yuhan.wagglewaggle.domain.credit.dto.CreditTransactionListResponse;
+import com.yuhan.wagglewaggle.domain.credit.entity.CreditTransactionType;
+import com.yuhan.wagglewaggle.domain.credit.service.CreditTransactionService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
@@ -55,6 +59,7 @@ class UserControllerTest {
     private UserService userService;
     private UserProfileService userProfileService;
     private TodayPinService todayPinService;
+    private CreditTransactionService creditTransactionService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -62,8 +67,9 @@ class UserControllerTest {
         userService = Mockito.mock(UserService.class);
         userProfileService = Mockito.mock(UserProfileService.class);
         todayPinService = Mockito.mock(TodayPinService.class);
+        creditTransactionService = Mockito.mock(CreditTransactionService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new UserController(userService, userProfileService, todayPinService))
+                        new UserController(userService, userProfileService, todayPinService, creditTransactionService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
@@ -282,6 +288,87 @@ class UserControllerTest {
                 .willThrow(new CustomException(ErrorCode.USER_NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/users/me/pins/today"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("크레딧 내역 조회 성공 시 200과 응답 형식을 반환하고 필터·페이지 조건을 서비스에 전달한다")
+    void 크레딧내역_200() throws Exception {
+        CreditTransactionItem item = new CreditTransactionItem(
+                1L, CreditTransactionType.VIDEO_VIEWED, -3, 12, "영상 핀 열람",
+                Instant.parse("2026-07-23T03:00:00Z"));
+        given(creditTransactionService.getMyCreditTransactions(
+                eq(MEMBER_ID), eq("SPENT"), eq("WEEK"), eq("c123"), eq("10")))
+                .willReturn(new CreditTransactionListResponse(12, List.of(item), null));
+
+        mockMvc.perform(get("/api/v1/users/me/credits/transactions")
+                        .param("type", "SPENT")
+                        .param("period", "WEEK")
+                        .param("cursor", "c123")
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("크레딧 내역 조회가 완료되었습니다."))
+                .andExpect(jsonPath("$.data.balance").value(12))
+                .andExpect(jsonPath("$.data.items[0].transactionId").value(1))
+                .andExpect(jsonPath("$.data.items[0].type").value("VIDEO_VIEWED"))
+                .andExpect(jsonPath("$.data.items[0].amount").value(-3))
+                .andExpect(jsonPath("$.data.items[0].balanceAfter").value(12))
+                .andExpect(jsonPath("$.data.items[0].description").value("영상 핀 열람"))
+                .andExpect(jsonPath("$.data.items[0].createdAt").value("2026-07-23T03:00:00Z"))
+                .andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+
+        verify(creditTransactionService).getMyCreditTransactions(MEMBER_ID, "SPENT", "WEEK", "c123", "10");
+    }
+
+    @Test
+    @DisplayName("파라미터 없이 호출하면 서비스에 모두 null을 전달한다")
+    void 크레딧내역_파라미터생략() throws Exception {
+        given(creditTransactionService.getMyCreditTransactions(eq(MEMBER_ID), any(), any(), any(), any()))
+                .willReturn(new CreditTransactionListResponse(0, List.of(), null));
+
+        mockMvc.perform(get("/api/v1/users/me/credits/transactions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isArray())
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+
+        verify(creditTransactionService).getMyCreditTransactions(MEMBER_ID, null, null, null, null);
+    }
+
+    @Test
+    @DisplayName("필터 값이 올바르지 않으면 400과 INVALID_CREDIT_FILTER 코드를 반환한다")
+    void 크레딧내역_필터오류_400() throws Exception {
+        given(creditTransactionService.getMyCreditTransactions(eq(MEMBER_ID), any(), any(), any(), any()))
+                .willThrow(new CustomException(ErrorCode.INVALID_CREDIT_FILTER));
+
+        mockMvc.perform(get("/api/v1/users/me/credits/transactions").param("type", "WRONG"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("INVALID_CREDIT_FILTER"));
+    }
+
+    @Test
+    @DisplayName("페이지 조건이 올바르지 않으면 400과 INVALID_PAGINATION 코드를 반환한다")
+    void 크레딧내역_페이지조건오류_400() throws Exception {
+        given(creditTransactionService.getMyCreditTransactions(eq(MEMBER_ID), any(), any(), any(), any()))
+                .willThrow(new CustomException(ErrorCode.INVALID_PAGINATION));
+
+        mockMvc.perform(get("/api/v1/users/me/credits/transactions").param("limit", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("INVALID_PAGINATION"));
+    }
+
+    @Test
+    @DisplayName("사용자를 찾을 수 없으면 404와 USER_NOT_FOUND 코드를 반환한다")
+    void 크레딧내역_사용자없음_404() throws Exception {
+        given(creditTransactionService.getMyCreditTransactions(eq(MEMBER_ID), any(), any(), any(), any()))
+                .willThrow(new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/users/me/credits/transactions"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.statusCode").value(404))
                 .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
