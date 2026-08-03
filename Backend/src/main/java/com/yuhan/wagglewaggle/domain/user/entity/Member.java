@@ -82,6 +82,14 @@ public class Member extends BaseEntity {
     }
 
     /**
+     * 닉네임을 변경한다. 호출부에서 형식 검증·소문자 정규화·중복 검사를 마친 값을 전달한다.
+     * 단일 컬럼 UNIQUE(uq_member_nickname)는 저장 시점(flush)에 최종 보장된다.
+     */
+    public void updateNickname(String normalizedNickname) {
+        this.nickname = normalizedNickname;
+    }
+
+    /**
      * 크레딧을 지급(양수)하거나 차감(음수)하고 갱신된 잔액을 반환한다.
      * 잔액은 0 미만이 될 수 없다(credit_balance CHECK 정합성 유지).
      */
