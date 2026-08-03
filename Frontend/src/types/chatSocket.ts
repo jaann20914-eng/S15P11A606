@@ -1,4 +1,4 @@
-import type { ChatRoomStatus } from './chat';
+import type { ChatRoomStatus, WarningReasonCode } from './chat';
 
 /**
  * 채팅 실시간 이벤트 타입.
@@ -18,12 +18,10 @@ export type SocketStatus =
   /** 끊긴 뒤 다시 붙기를 기다리는 중. */
   | 'reconnecting';
 
-/** 안전 경고 사유. */
-export type WarningReasonCode =
-  | 'EXTERNAL_MESSENGER_INDUCEMENT'
-  | 'FRAUD_SCAM'
-  | 'ILLEGAL_GOODS_TRADE'
-  | 'ETC_SUSPICIOUS';
+/*
+  안전 경고 사유(`WarningReasonCode`)는 `types/chat.ts`에 둔다. 이력 조회 응답과 이 이벤트가
+  같은 값을 쓰므로 한곳에만 있어야 한다 — 두 벌이 되면 한쪽만 고치는 일이 생긴다.
+*/
 
 /** 채팅방 이벤트의 공통 껍데기(`/topic/chat/rooms/{roomId}`). */
 interface ChatRoomEventBase<TType extends string, TData> {

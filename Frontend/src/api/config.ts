@@ -18,7 +18,9 @@ export const usesMockApi = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true' || !a
 export type ApiModule =
   | 'chat/decision'
   | 'chat/leave'
+  | 'chat/messages'
   | 'chat/pins'
+  | 'chat/read'
   | 'chat/request'
   | 'chat/rooms'
   | 'pin/create'
@@ -115,6 +117,15 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   */
   'chat/rooms': true,
   'chat/pins': true,
+  /*
+    메시지 이력(GET /chat/rooms/{roomId}/messages)도 아직 없다(2026-08-04, dev 확인).
+    ChatController에는 요청 · 응답 · 읽음 갱신 세 개뿐이다.
+
+    읽음 갱신(PATCH /chat/rooms/{roomId}/read)은 들어와 실서버로 연결했다. 다만 이력이 목업인
+    동안 보내는 messageId는 목업의 것이라 서버에서 CHAT_MESSAGE_NOT_FOUND(404)가 온다 —
+    실패 로그가 그렇게 찍히면 이 조합 때문이지 읽음 API 자체의 문제가 아니다.
+  */
+  'chat/messages': true,
 
   // GET·PATCH /api/v1/users/me 가 아직 없다.
   'user/me': true,

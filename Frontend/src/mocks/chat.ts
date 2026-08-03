@@ -2,9 +2,14 @@ import { ApiError } from '@/api/client';
 import type {
   ChatDecision,
   ChatDecisionResult,
+  ChatMessage,
+  ChatMessageSender,
   ChatPinListItem,
+  ChatReadResult,
   ChatRequestResult,
+  ChatRoomHistory,
   ChatRoomListItem,
+  ChatWarning,
   CursorPage,
   CursorQuery,
   PinChatLeaveResult,
@@ -304,4 +309,151 @@ export async function listMockChatPins(query: CursorQuery): Promise<CursorPage<C
   await delay(MOCK_LATENCY_MS);
 
   return takePage(mockChatPins, query);
+}
+
+/**
+ * 채팅방 이력 목업.
+ *
+ * 방 정보는 목록 목업(`mockRooms`)에서 가져오고 메시지만 여기서 만든다. 목록에서 본 장소·상대와
+ * 방에 들어가서 보는 헤더가 어긋나면 화면을 확인할 수 없기 때문이다.
+ *
+ * 상태별로 다르게 둔다 — 대기 중인 방은 요청자가 보낸 첫 마디만 있고(아직 답이 없는 상태),
+ * 진행 중인 방은 주고받은 대화가 있고, 거절·종료된 방은 지난 대화만 남는다.
+ */
+const mockMessagesByRoom = new Map<number, ChatMessage[]>();
+
+/** 이 방에서 다음에 쓸 메시지 id. 서버처럼 방마다 이어지는 번호를 준다. */
+let nextMockMessageId = 500;
+
+function mockMessage(
+  sender: ChatMessageSender,
+  content: string,
+  minutes: number,
+  maskedContent?: string,
+): ChatMessage {
+  return {
+    messageId: nextMockMessageId++,
+    sender,
+    content,
+    // 마스킹 대상이 없으면 원본과 같다. 화면은 언제나 이쪽을 그린다.
+    maskedContent: maskedContent ?? content,
+    createdAt: minutesAgo(minutes),
+  };
+}
+
+/** 상태에 맞는 첫 이력을 만든다. 한 번 만들면 세션 동안 그 방의 대화로 남는다. */
+function seedMockMessages(room: ChatRoomListItem): ChatMessage[] {
+  if (room.status === 'PENDING') {
+    return [mockMessage('SELF', '안녕하세요, 지금도 자리 여유 있을까요?', 12)];
+  }
+
+  if (room.status === 'ACTIVE') {
+    return [
+      mockMessage('SELF', '안녕하세요, 지금도 자리 여유 있을까요?', 42),
+      mockMessage('OTHER', '네 아직 창가 쪽은 비어 있어요', 40),
+      mockMessage(
+        'OTHER',
+        '입구 쪽은 웨이팅이 조금 있는데 2층은 한산해요. 올라가시면 바로 앉으실 수 있을 거예요',
+        38,
+      ),
+      // 1차 필터가 걸린 예. 화면에 그려지는 것은 가려진 쪽이다.
+      mockMessage('SELF', '와 진짜 개좋네요 감사합니다', 35, '와 진짜 **좋네요 감사합니다'),
+    ];
+  }
+
+  return [
+    mockMessage('SELF', '혹시 지금 웨이팅 어느 정도인가요?', 1400),
+    mockMessage('OTHER', '지금은 자리가 없어서 어려울 것 같아요', 1395),
+  ];
+}
+
+/**
+ * 안전 경고 목업.
+ *
+ * 11번 방에만 둔다. 경고가 있는 방과 없는 방을 나란히 두어야, 들어올 때마다 뜨는 안내가 경고가
+ * 있는 방에서만 뜨는지 확인할 수 있다.
+ */
+const mockWarningsByRoom = new Map<number, ChatWarning[]>([
+  [
+    11,
+    [
+      {
+        messageId: 9001,
+        reasonCode: 'FRAUD_SCAM',
+        content:
+          '사기 위험이 의심되는 대화가 감지되었습니다. 계좌이체, 선입금, 외부 결제 요청에는 응하지 말고 거래 정보를 다시 확인해 주세요.',
+        createdAt: minutesAgo(36),
+      },
+    ],
+  ],
+]);
+
+/** 읽음 위치. 방마다 가장 큰 값만 남긴다(서버처럼 되돌리지 않는다). */
+const mockLastReadByRoom = new Map<number, number>();
+
+function findMockRoom(roomId: number): ChatRoomListItem {
+  const room = mockRooms.find((item) => item.roomId === roomId);
+
+  if (room === undefined) {
+    throw new ApiError(404, 'CHAT_ROOM_NOT_FOUND', '채팅방을 찾을 수 없습니다.');
+  }
+
+  return room;
+}
+
+/** 채팅 메시지·경고 이력. 방 정보까지 한 번에 준다. */
+export async function fetchMockChatHistory(roomId: number): Promise<ChatRoomHistory> {
+  await delay(MOCK_LATENCY_MS);
+
+  const room = findMockRoom(roomId);
+
+  if (!mockMessagesByRoom.has(roomId)) {
+    mockMessagesByRoom.set(roomId, seedMockMessages(room));
+  }
+
+  return {
+    status: room.status,
+    placeName: room.placeName,
+    address: '서울 강남구 테헤란로 123 1층 (역삼동)',
+    otherUserViewAngle: room.otherUserViewTemperature,
+    otherUserNickname: room.otherUserNickname,
+    messages: mockMessagesByRoom.get(roomId) ?? [],
+    warnings: mockWarningsByRoom.get(roomId) ?? [],
+  };
+}
+
+/**
+ * 목업에서 보낸 메시지를 이력에 남긴다.
+ *
+ * 실서버에서는 보낸 것이 소켓으로 되돌아와 화면에 붙는다. 목업에는 그 왕복이 없으므로 여기서
+ * 서버가 할 일(id 발급·마스킹·저장)을 대신한다. 그래야 방을 나갔다 들어와도 보낸 말이 남는다.
+ */
+export function appendMockChatMessage(roomId: number, content: string): ChatMessage {
+  const room = findMockRoom(roomId);
+  const messages = mockMessagesByRoom.get(roomId) ?? seedMockMessages(room);
+  const created = mockMessage('SELF', content, 0, maskMockProfanity(content));
+
+  mockMessagesByRoom.set(roomId, [...messages, created]);
+
+  return created;
+}
+
+/** 1차 욕설 필터 흉내. 서버가 어떤 사전을 쓰는지는 모르니 확인용으로 몇 개만 둔다. */
+function maskMockProfanity(content: string): string {
+  return content.replace(/개|씨발|병신/g, (matched) => '*'.repeat(matched.length));
+}
+
+/** 읽음 위치 갱신. 큰 값만 저장하고, 작은 값이 와도 오류 없이 저장된 값을 준다. */
+export async function updateMockChatRead(
+  roomId: number,
+  lastReadMessageId: number,
+): Promise<ChatReadResult> {
+  await delay(MOCK_LATENCY_MS);
+
+  findMockRoom(roomId);
+
+  const stored = Math.max(mockLastReadByRoom.get(roomId) ?? 0, lastReadMessageId);
+  mockLastReadByRoom.set(roomId, stored);
+
+  return { roomId, lastReadMessageId: stored };
 }

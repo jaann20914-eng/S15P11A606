@@ -104,3 +104,84 @@ export type PinChatLeaveResult = {
   leftChatRoomIds: number[];
   leftAt: string;
 };
+
+/**
+ * 안전 경고 사유.
+ *
+ * 이력 조회(`warnings[].reasonCode`)와 소켓 경고 이벤트가 같은 값을 쓴다. 화면은 이 값으로
+ * 분기하지 않고 서버가 준 문구(`content`)를 그대로 보여준다 — 서버가 사유를 추가해도 화면은
+ * 그대로 동작한다. 그래도 값을 적어 두는 것은 어떤 사유가 있는지 알아야 목업을 만들 수
+ * 있고, 나중에 사유별로 아이콘을 붙일 여지를 남기기 위해서다.
+ */
+export type WarningReasonCode =
+  | 'EXTERNAL_MESSENGER_INDUCEMENT'
+  | 'FRAUD_SCAM'
+  | 'ILLEGAL_GOODS_TRADE'
+  | 'ETC_SUSPICIOUS';
+
+/**
+ * 메시지를 누가 보냈는지.
+ *
+ * 이력 조회는 서버가 이 값으로 내려준다(현재 사용자 기준). 소켓 이벤트는 `senderId`(숫자)로
+ * 오므로 화면에서 이 값으로 바꿔 쓴다.
+ */
+export type ChatMessageSender = 'SELF' | 'OTHER';
+
+/**
+ * 채팅 메시지 한 건.
+ *
+ * `content`는 원본이고 `maskedContent`는 1차 욕설 필터가 적용된 화면용이다. 마스킹 대상이
+ * 없으면 두 값이 같다. **화면에는 언제나 `maskedContent`를 쓴다** — 원본은 신고 등 뒷처리를
+ * 위해 함께 온다.
+ */
+export type ChatMessage = {
+  messageId: number;
+  sender: ChatMessageSender;
+  content: string;
+  maskedContent: string;
+  createdAt: string;
+};
+
+/**
+ * 안전 경고 한 건.
+ *
+ * 위험 확정이나 제재가 아니다. 경고가 와도 원본 메시지는 지우지 않는다.
+ *
+ * `messageId`는 경고 자체의 식별자다(메시지 id가 아니다). 이름이 헷갈리지만 명세가 그렇다.
+ */
+export type ChatWarning = {
+  messageId: number;
+  reasonCode: WarningReasonCode;
+  content: string;
+  createdAt: string;
+};
+
+/**
+ * 채팅방 이력 조회 `data`.
+ *
+ * 방 정보(상태·장소·상대)와 메시지·경고를 한 번에 준다. 화면이 헤더를 그리려고 목록을 다시
+ * 뒤질 필요가 없고, 목록을 거치지 않고 바로 들어온 경우에도 헤더가 채워진다.
+ */
+export type ChatRoomHistory = {
+  status: ChatRoomStatus;
+  placeName: string;
+  address: string;
+  /** 상대의 공개 뷰 온도(각도). */
+  otherUserViewAngle: number;
+  otherUserNickname: string;
+  /** 생성 시각 오름차순. 없으면 빈 배열. */
+  messages: ChatMessage[];
+  /** 생성 시각 오름차순. 없으면 빈 배열. */
+  warnings: ChatWarning[];
+};
+
+/**
+ * 읽음 위치 갱신 결과 `data`.
+ *
+ * 갱신 뒤 서버에 저장된 값이다. 보낸 값보다 작거나 같으면 서버가 그대로 둔 값이 온다 —
+ * 되돌리지 않기 때문이다(멱등).
+ */
+export type ChatReadResult = {
+  roomId: number;
+  lastReadMessageId: number;
+};
