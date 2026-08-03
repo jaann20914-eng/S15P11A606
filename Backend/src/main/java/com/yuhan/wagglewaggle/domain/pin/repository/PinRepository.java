@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.pin.repository;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -229,5 +230,55 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     long countActiveVideoPinsByServiceDate(
             @Param("memberId") Long memberId,
             @Param("serviceDate") LocalDate serviceDate
+    );
+
+    // ===== 오늘 등록 핀 목록(커서 페이지네이션) =====
+    // 오늘 범위 = [start, end) (서비스 날짜 KST 04시 ~ 다음 서비스 날짜 KST 04시), 기준은 createdAt.
+    // 대상 = 현재 사용자가 등록한 핀 중 소프트 삭제되지 않은 핀 전부(PENDING·ACTIVE·REJECTED·FAILED 포함,
+    //        만료 여부 무관). 장소명·주소 노출에 place를 쓰므로 fetch join으로 N+1을 방지한다(ToOne).
+    // 정렬 = createdAt DESC, id DESC. limit+1건을 조회해 다음 페이지 존재 여부를 판단한다(nextCursor 발급용).
+
+    /**
+     * 오늘 등록 핀의 첫 페이지를 조회한다(커서 없음).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.place
+            WHERE p.member.id = :memberId
+              AND p.deletedAt IS NULL
+              AND p.createdAt >= :start
+              AND p.createdAt < :end
+            ORDER BY p.createdAt DESC, p.id DESC
+            """)
+    List<Pin> findTodayPinsFirstPage(
+            @Param("memberId") Long memberId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            Pageable pageable
+    );
+
+    /**
+     * 오늘 등록 핀의 커서 이후 페이지를 조회한다.
+     * 정렬(createdAt DESC, id DESC)과 동일한 타이브레이커로, 커서보다 "뒤"에 오는 핀만 조회한다:
+     * createdAt이 더 이르거나, createdAt이 같으면 id가 더 작은 핀.
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.place
+            WHERE p.member.id = :memberId
+              AND p.deletedAt IS NULL
+              AND p.createdAt >= :start
+              AND p.createdAt < :end
+              AND ( p.createdAt < :cursorCreatedAt
+                 OR (p.createdAt = :cursorCreatedAt AND p.id < :cursorId) )
+            ORDER BY p.createdAt DESC, p.id DESC
+            """)
+    List<Pin> findTodayPinsAfterCursor(
+            @Param("memberId") Long memberId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("cursorCreatedAt") Instant cursorCreatedAt,
+            @Param("cursorId") UUID cursorId,
+            Pageable pageable
     );
 }
