@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,10 +9,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -29,6 +30,9 @@ import { pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
 import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
 import type { PinDraft } from '@/types/pinCreate';
+
+/** 키보드가 다 올라오기를 기다리는 시간(ms). 이보다 일찍 옮기면 줄어들기 전 높이로 계산된다. */
+const KEYBOARD_SETTLE_MS = 180;
 
 /**
  * 게시글 작성 · 수정 화면.
@@ -60,6 +64,31 @@ export default function PinCreateScreen() {
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const [focused, setFocused] = useState(false);
+
+  /*
+    입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
+
+    키보드가 올라오면 보이는 높이가 줄어드는데, 스크롤 위치는 그대로라 아래쪽 칸은 키보드
+    뒤로 들어가 무엇을 치는지 보이지 않는다. 칸이 내용 안에서 어디에 있는지 미리 재 두고,
+    누른 순간 그 자리로 옮긴다.
+  */
+  const scrollRef = useRef<ScrollView>(null);
+  const fieldTops = useRef<Record<string, number>>({});
+
+  const rememberTop = (key: string) => (event: LayoutChangeEvent) => {
+    fieldTops.current[key] = event.nativeEvent.layout.y;
+  };
+
+  const reveal = (key: string) => () => {
+    const top = fieldTops.current[key];
+
+    if (top === undefined) return;
+
+    // 키보드가 다 올라와 화면이 줄어든 뒤에 옮겨야 실제로 보이는 자리에 놓인다.
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, top - spacing.x4), animated: true });
+    }, KEYBOARD_SETTLE_MS);
+  };
 
   const phase = usePinPublishStore((state) => state.phase);
   const progress = usePinPublishStore((state) => state.progress);
@@ -162,6 +191,7 @@ export default function PinCreateScreen() {
             style={s.form}
           >
             <ScrollView
+              ref={scrollRef}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={s.content}
@@ -170,7 +200,9 @@ export default function PinCreateScreen() {
 
               <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
 
-              <MemoField value={form.draft.memo} onChange={form.setMemo} />
+              <View onLayout={rememberTop('memo')}>
+                <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />
+              </View>
 
               <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
 
@@ -185,7 +217,13 @@ export default function PinCreateScreen() {
                 />
               )}
 
-              <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
+              <View onLayout={rememberTop('detailLocation')}>
+                <DetailLocationField
+                  value={form.draft.detailLocation}
+                  onChange={form.setDetailLocation}
+                  onFocus={reveal('detailLocation')}
+                />
+              </View>
             </ScrollView>
 
             {/*

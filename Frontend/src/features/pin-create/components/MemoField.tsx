@@ -7,6 +7,8 @@ import { pinCreateStyles as s } from '../styles';
 export interface MemoFieldProps {
   value: string;
   onChange: (value: string) => void;
+  /** 키보드가 이 칸을 가리지 않도록 화면이 스크롤을 맞출 때 쓴다. */
+  onFocus?: () => void;
 }
 
 /**
@@ -15,11 +17,12 @@ export interface MemoFieldProps {
  * `maxLength`를 쓰지 않는다. 그 값은 UTF-16 단위로 세어 이모지 하나를 2자로 취급한다.
  * 안내 문구의 "50자"와 실제 입력량을 맞추려면 보이는 글자 단위로 잘라야 한다.
  */
-export function MemoField({ value, onChange }: MemoFieldProps) {
+export function MemoField({ value, onChange, onFocus }: MemoFieldProps) {
   return (
     <TextInput
       value={value}
       onChangeText={(text) => onChange(truncateGraphemes(text, MAX_MEMO_LENGTH))}
+      onFocus={onFocus}
       multiline
       placeholder={`내용 입력 (최대 ${MAX_MEMO_LENGTH}자)`}
       placeholderTextColor={colors.gray400}
