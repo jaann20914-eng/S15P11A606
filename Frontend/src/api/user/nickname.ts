@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { checkMockNickname, updateMockNickname } from '@/mocks/mypage';
 import type { NicknameAvailabilityResponse, NicknameUpdateResponse } from '@/types/user';
+import { traceUser } from './log';
 
 /**
  * 닉네임 중복 확인 — `GET /api/v1/users/nickname-availability`
@@ -32,7 +33,7 @@ export async function getNicknameAvailability(
 }
 
 /**
- * 내 닉네임 수정 — `PATCH /api/v1/users/me`
+ * 내 닉네임 수정 — `PATCH /api/v1/users/me/nickname`
  *
  * 사용자는 액세스 토큰에서 정하므로 식별자를 보내지 않는다.
  *
@@ -46,12 +47,16 @@ export async function getNicknameAvailability(
 function requestNicknameUpdate(nickname: string): Promise<NicknameUpdateResponse> {
   return apiRequest<NicknameUpdateResponse>({
     method: 'PATCH',
-    url: '/api/v1/users/me',
+    url: '/api/v1/users/me/nickname',
     data: { nickname },
   });
 }
 
-export async function updateMyNickname(nickname: string): Promise<NicknameUpdateResponse> {
-  if (usesMock('user/me')) return updateMockNickname(nickname);
-  return requestNicknameUpdate(nickname);
+export function updateMyNickname(nickname: string): Promise<NicknameUpdateResponse> {
+  return traceUser(
+    '닉네임 수정',
+    'user/me',
+    () => (usesMock('user/me') ? updateMockNickname(nickname) : requestNicknameUpdate(nickname)),
+    (result) => ({ 보낸값: nickname, 저장된값: result.nickname }),
+  );
 }

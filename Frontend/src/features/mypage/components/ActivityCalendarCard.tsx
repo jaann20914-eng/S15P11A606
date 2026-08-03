@@ -49,7 +49,7 @@ export function ActivityCalendarCard({
   const stats = [
     { label: '작성한 영상핀', value: `${activity.summary.createdVideoPinCount}개` },
     { label: '획득 크레딧', value: `${activity.summary.earnedCredit}` },
-    { label: '도움된 열람', value: `${activity.summary.helpfulViewCount}회` },
+    { label: '도움됐어요', value: `${activity.summary.helpfulEvaluationCount}회` },
   ];
 
   return (

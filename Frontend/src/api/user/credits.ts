@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockCreditTransactions } from '@/mocks/mypage';
 import type { CreditTransactionsQuery, CreditTransactionsResponse } from '@/types/credit';
+import { traceUser } from './log';
 
 /**
  * 크레딧 내역 조회 — `GET /api/v1/users/me/credits/transactions`
@@ -25,9 +26,21 @@ function requestCreditTransactions(
   });
 }
 
-export async function getCreditTransactions(
+export function getCreditTransactions(
   query: CreditTransactionsQuery,
 ): Promise<CreditTransactionsResponse> {
-  if (usesMock('user/credits')) return fetchMockCreditTransactions(query);
-  return requestCreditTransactions(query);
+  return traceUser(
+    '크레딧 내역',
+    'user/credits',
+    () =>
+      usesMock('user/credits')
+        ? fetchMockCreditTransactions(query)
+        : requestCreditTransactions(query),
+    (page) => ({
+      조건: `${query.type ?? 'all'} · ${query.period ?? '전체'}`,
+      잔액: page.balance,
+      건수: page.items.length,
+      다음커서: page.nextCursor ?? '없음',
+    }),
+  );
 }

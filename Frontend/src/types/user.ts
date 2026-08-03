@@ -20,7 +20,7 @@ export interface MonthlyActivitySummary {
   createdVideoPinCount: number;
   earnedCredit: number;
   /** 내 영상핀이 다른 사용자에게 정상 열람된 횟수. */
-  helpfulViewCount: number;
+  helpfulEvaluationCount: number;
 }
 
 /** 선택한 월의 활동. `days`는 그 달의 모든 날짜를 오름차순으로 담는다. */
@@ -66,7 +66,7 @@ export interface NicknameAvailabilityResponse {
 }
 
 /**
- * `PATCH /api/v1/users/me` 응답의 `data`.
+ * `PATCH /api/v1/users/me/nickname` 응답의 `data`.
  *
  * `nickname`은 저장이 끝난 최종 값이다. 화면에 보여주는 닉네임은 보낸 값이 아니라 이 값으로
  * 갱신한다.

@@ -116,12 +116,12 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   'chat/rooms': true,
   'chat/pins': true,
 
-  // GET·PATCH /api/v1/users/me 가 아직 없다.
-  'user/me': true,
-  // GET /api/v1/users/me/credits/transactions 도 아직 없다. credit 컨트롤러가 없다.
-  'user/credits': true,
-  // GET /api/v1/users/me/pins/today 도 아직 없다.
-  'user/today-pins': true,
+  /*
+    마이페이지 4종(프로필 조회 · 닉네임 수정 · 오늘 핀 · 크레딧 내역)은 2026-08-04에 전부
+    실서버로 연결했다. `UserController`에서 확인했다 —
+    GET /users/me, PATCH /users/me/nickname, GET /users/me/pins/today,
+    GET /users/me/credits/transactions.
+  */
 };
 
 /**
