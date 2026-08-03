@@ -76,6 +76,15 @@ export const chatListStyles = StyleSheet.create({
     borderBottomColor: colors.gray200,
   },
   rowCopy: { flex: 1 },
+  /**
+   * 채팅방 줄의 글 묶음.
+   *
+   * 링(36)의 가운데 높이에 첫 줄이 오도록 내린다. 위로 붙여 두면 링과 제목이 어긋나 보인다.
+   * 첫 줄(14/20)의 중심이 10이므로 8을 내리면 18 — 링의 반지름과 같아진다.
+   *
+   * 아래 여백은 `chatRow`의 것을 그대로 두어, 내려간 만큼 줄만 높아진다.
+   */
+  chatRowCopy: { flex: 1, marginTop: 8 },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   address: { ...type.caption, color: colors.gray400, marginTop: 2 },

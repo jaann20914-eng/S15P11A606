@@ -57,7 +57,7 @@ export function ChatRoomRow({
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.chatRow}>
       <ViewAvatar angle={room.otherUserViewTemperature} size={36} />
 
-      <View style={s.rowCopy}>
+      <View style={s.chatRowCopy}>
         <View style={s.rowTitleLine}>
           <Text numberOfLines={1} style={s.rowTitle}>
             {room.placeName} · {room.otherUserNickname}
