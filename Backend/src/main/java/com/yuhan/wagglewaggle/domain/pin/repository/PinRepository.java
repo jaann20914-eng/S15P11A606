@@ -129,13 +129,15 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
      * 여러 장소의 현재 열람 가능한(활성) 핀을 한 번에 조회한다(추천 응답·AI 후보 집계용).
      * 추천 기능의 표준 활성 조건: videoStatus = ACTIVE AND deletedAt IS NULL AND expiresAt > now.
      * (핀 상세 조회 findActivePinDetailById와 동일한 기준이다.)
-     * 작성자 닉네임·성별·연령대·뷰 각도 사용을 위해 member를 fetch join 하여 N+1을 방지하고,
+     * 작성자 닉네임·성별·연령대·뷰 각도(member)와 장소명·주소·전화번호·카테고리·좌표(place)를 함께 쓰므로
+     * member·place를 fetch join 하여 N+1과 지연 로딩을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
      * 활성화 시각 내림차순(expiresAt = 활성화시각 + 1h이므로 expiresAt DESC)으로 정렬해
      * 대표 핀(첫 번째)과 pinPreviews 순서를 그대로 쓸 수 있게 한다.
      */
     @Query("""
             SELECT p FROM Pin p
             JOIN FETCH p.member
+            JOIN FETCH p.place
             WHERE p.place.id IN :placeIds
               AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
               AND p.deletedAt IS NULL

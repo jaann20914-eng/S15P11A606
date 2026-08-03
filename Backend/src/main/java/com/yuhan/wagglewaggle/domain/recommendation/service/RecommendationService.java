@@ -103,7 +103,7 @@ public class RecommendationService {
         }
 
         Map<Long, List<Pin>> activePinsByPlace = groupActivePinsByPlace(candidateIds, now);
-        Map<Long, Place> placesById = loadPlacesById(candidateIds);
+        Map<Long, Place> placesById = extractPlaces(activePinsByPlace);
         Map<Long, Long> unlockCounts = loadUnlockCounts(candidateIds, now);
 
         List<CandidatePlace> candidates = aiCandidateAssembler.toCandidates(
@@ -146,9 +146,7 @@ public class RecommendationService {
         Map<Long, List<Pin>> activePinsByPlace = distinctPlaceIds.isEmpty()
                 ? Map.of()
                 : groupActivePinsByPlace(distinctPlaceIds, now);
-        Map<Long, Place> placesById = distinctPlaceIds.isEmpty()
-                ? Map.of()
-                : loadPlacesById(distinctPlaceIds);
+        Map<Long, Place> placesById = extractPlaces(activePinsByPlace);
 
         List<PlaceCard> relaxed = responseAssembler.assemble(entry.relaxed(), limit, placesById, activePinsByPlace);
         List<PlaceCard> wagle = responseAssembler.assemble(entry.wagle(), limit, placesById, activePinsByPlace);
@@ -170,9 +168,15 @@ public class RecommendationService {
                         pin -> pin.getPlace().getId(), LinkedHashMap::new, Collectors.toList()));
     }
 
-    private Map<Long, Place> loadPlacesById(List<Long> placeIds) {
-        return placeRepository.findAllById(placeIds).stream()
-                .collect(Collectors.toMap(Place::getId, place -> place));
+    /** 활성 핀에 fetch join된 place를 그대로 뽑아 placeId→Place 맵을 만든다(중복 조회 없음). */
+    private Map<Long, Place> extractPlaces(Map<Long, List<Pin>> activePinsByPlace) {
+        Map<Long, Place> places = new LinkedHashMap<>();
+        activePinsByPlace.forEach((placeId, pins) -> {
+            if (!pins.isEmpty()) {
+                places.put(placeId, pins.get(0).getPlace());
+            }
+        });
+        return places;
     }
 
     private Map<Long, Long> loadUnlockCounts(List<Long> placeIds, Instant now) {

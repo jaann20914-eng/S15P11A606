@@ -125,8 +125,9 @@ class RecommendationQueryJpaTest {
 
         // 활성 2건만, expiresAt(=활성화시각+1h) 내림차순 → newer 먼저
         assertThat(pins).extracting(Pin::getId).containsExactly(newer.getId(), older.getId());
-        // member fetch join 확인
+        // member·place fetch join 확인(지연 로딩 없이 접근 가능)
         assertThat(pins.get(0).getMember().getNickname()).isEqualTo("author");
+        assertThat(pins.get(0).getPlace().getName()).isEqualTo("place");
     }
 
     @Test
