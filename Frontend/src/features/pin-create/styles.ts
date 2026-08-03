@@ -31,6 +31,15 @@ export const pinCreateStyles = StyleSheet.create({
     paddingHorizontal: layout.gutter,
     paddingVertical: spacing.x4,
     backgroundColor: colors.white,
+    /*
+      아주 옅게 띄운다. 그라데이션이 내용을 지우고, 이 그림자가 바를 살짝 떠 보이게 해
+      '화면에 붙은 층'이라는 것을 알린다. 진하면 그라데이션과 겹쳐 띠처럼 보인다.
+    */
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   /** 바 바로 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다. */
   actionFade: { position: 'absolute', left: 0, right: 0, height: 28 },
