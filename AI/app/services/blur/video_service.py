@@ -103,6 +103,10 @@ class VideoService:
             )
         )
 
+        orientation_degrees = capture.get(
+            cv2.CAP_PROP_ORIENTATION_META
+        )
+
         encoder = self._start_output_encoder(
             original_video_path=input_path,
             output_path=output_path,
@@ -223,6 +227,7 @@ class VideoService:
                 fps=fps,
                 width=width,
                 height=height,
+                orientation_degrees=orientation_degrees,
             )
         except Exception:
             self._abort_output_encoder(
@@ -483,22 +488,44 @@ class VideoService:
         fps: float,
         width: int,
         height: int,
+        orientation_degrees: float,
     ) -> None:
         if processed_frame_count == 0:
             raise VideoDecodeError(
                 "No video frames could be decoded"
             )
 
+        orientation = (
+            int(round(orientation_degrees)) % 360
+            if math.isfinite(orientation_degrees)
+            else 0
+        )
+        resolution_matches = (
+            width == input_metadata.width
+            and height == input_metadata.height
+        )
+        rotated_resolution_matches = (
+            orientation in (90, 270)
+            and width == input_metadata.height
+            and height == input_metadata.width
+        )
+
         if (
-            width != input_metadata.width
-            or height != input_metadata.height
+            not (
+                resolution_matches
+                or rotated_resolution_matches
+            )
             or not math.isfinite(fps)
             or fps <= 0
             or abs(fps - input_metadata.fps)
             > max(0.01, input_metadata.fps * 0.001)
         ):
             raise VideoDecodeError(
-                "Input video properties changed or are invalid"
+                "Input video properties changed or are invalid: "
+                f"metadata={input_metadata.width}x"
+                f"{input_metadata.height}@{input_metadata.fps:.6f}, "
+                f"decoded={width}x{height}@{fps:.6f}, "
+                f"rotation={orientation}"
             )
 
         difference = abs(
