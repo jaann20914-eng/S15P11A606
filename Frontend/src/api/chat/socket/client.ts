@@ -122,6 +122,7 @@ function createClient(): Client {
     reconnectDelay: RECONNECT_DELAYS_MS[0],
 
     onConnect: () => {
+      log('연결됨', { 주소: resolveSocketUrl() });
       attempt = 0;
       refreshedForThisConnection = false;
       setStatus('connected');
@@ -142,6 +143,7 @@ function createClient(): Client {
     },
 
     onStompError: (frame) => {
+      log('서버가 거절함', { 본문: frame.body });
       handleErrorFrame(frame.body);
     },
 
@@ -157,6 +159,7 @@ function createClient(): Client {
 
       attempt += 1;
       client?.configure({ reconnectDelay: nextDelay() });
+      log('끊김. 다시 붙는다', { 시도: attempt, 대기ms: nextDelay() });
       setStatus('reconnecting');
     },
   });
@@ -213,7 +216,12 @@ export function retainSocket(): () => void {
     로그인 전에는 열지 않는다. 채팅 탭에 들어올 수 있는 상태라면 대개 로그인돼 있지만,
     세션이 끊긴 직후처럼 어긋나는 순간이 있다. 그때는 붙잡아만 두고 로그인되면 붙는다.
   */
+  if (useAuthStore.getState().accessToken === null) {
+    log('로그인 전이라 열지 않음');
+  }
+
   if (!client.active && useAuthStore.getState().accessToken !== null) {
+    log('연결 시작', { 주소: resolveSocketUrl() });
     attempt = 0;
     client.configure({ reconnectDelay: RECONNECT_DELAYS_MS[0] });
     setStatus('connecting');
