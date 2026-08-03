@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -56,6 +57,9 @@ export default function PinCreateScreen() {
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const [focused, setFocused] = useState(false);
+  /** 아래 고정 영역이 내용 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+
   /*
     키보드가 폼을 덮는 만큼. 폼의 아래 끝과 키보드 윗변을 직접 재서 얻는다.
     탭바 높이를 손으로 빼는 계산은 키보드가 커질 때 어긋난다(`useKeyboardOverlap` 주석).
@@ -190,7 +194,7 @@ export default function PinCreateScreen() {
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={s.content}
+              contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
@@ -239,8 +243,16 @@ export default function PinCreateScreen() {
             {/*
               등록 버튼은 늘 보인다. 예전에는 입력칸 아래에 붙어 있어서 끝까지 스크롤해야
               나타났다 — 다 쓰고도 어디서 등록하는지 못 찾는 자리였다.
+
+              내용 위에 겹쳐 놓고 뒤를 흐리게 해서, 아래에 무엇이 더 있는지 비쳐 보이게 한다.
             */}
-            <View style={s.actionBar}>
+            <View
+              onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
+              style={s.actionBar}
+            >
+              <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
+              <View pointerEvents="none" style={s.actionBarTint} />
+
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
               </Pressable>

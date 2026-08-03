@@ -53,13 +53,23 @@ export const pinDetailStyles = StyleSheet.create({
    * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위쪽에 경계를 둔다. 아래 여백은 떠 있는
    * 탭바 높이만큼 화면에서 넣어 준다.
    */
+  /**
+   * 본문 위에 겹쳐 놓는다. 아래 내용이 이 바를 통과해 비쳐야 유리처럼 보이는데, 나란히 놓으면
+   * 뒤에 아무것도 지나가지 않아 흐릴 것이 없다. 가려지는 만큼은 본문의 아래 여백으로 돌려준다.
+   *
+   * 경계선은 두지 않는다. 흐릿하게 비치는 것 자체가 경계 노릇을 한다.
+   */
   actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
     paddingHorizontal: layout.gutter,
     paddingTop: spacing.x4,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray200,
-    backgroundColor: colors.white,
   },
+  /** 흐림만으로는 뒤 글자가 비쳐 버튼 글씨와 겹친다. 아주 옅은 흰색을 한 겹 더 깐다. */
+  actionBarTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.5)' },
 
   /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
   headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },

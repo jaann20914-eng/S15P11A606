@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
@@ -38,9 +39,15 @@ export function PinDetailBody({
   const uploadedAt = formatRelativeTime(detail.createdAt);
   const tabBarHeight = useAppTabBarHeight();
 
+  /** 아래 고정 영역이 본문 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+
   return (
     <View style={s.body}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
+      >
         <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
 
         <View style={s.detailSheet}>
@@ -95,7 +102,13 @@ export function PinDetailBody({
 
         탭바가 떠 있는 만큼 띄운다. 그러지 않으면 버튼이 탭바 뒤로 들어간다.
       */}
-      <View style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}>
+      <View
+        onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
+        style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}
+      >
+        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={s.actionBarTint} />
+
         {own ? (
           <OwnerFooter onLeave={onLeave} />
         ) : unlocked ? (

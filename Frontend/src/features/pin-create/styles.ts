@@ -10,24 +10,31 @@ export const pinCreateStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1 },
   form: { flex: 1 },
-  /** 아래 고정 영역이 자리를 차지하므로 내용에는 탭바 높이를 더하지 않는다. */
-  content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5, paddingBottom: spacing.x6 },
+  content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5 },
   /**
    * 늘 보이는 등록 버튼 자리.
    *
-   * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위에 경계를 둔다.
+   * 스크롤 내용 **위에 겹쳐** 놓는다. 아래 내용이 이 바를 통과해 비쳐야 유리처럼 보이는데,
+   * 나란히 놓으면 뒤에 아무것도 지나가지 않아 흐릴 것이 없다. 가려지는 만큼은 스크롤 내용의
+   * 아래 여백으로 돌려준다(화면이 이 바 높이를 재서 넣는다).
+   *
+   * 경계선은 두지 않는다. 흐릿하게 비치는 것 자체가 경계 노릇을 하고, 선까지 있으면 유리
+   * 위에 자를 하나 얹은 것처럼 보인다.
    *
    * **탭바 높이를 더하지 않는다.** 이 화면은 탭 네비게이터 안에 있어 화면 영역이 이미 탭바
-   * 위에서 끝난다. 게시글 상세처럼 탭바를 화면 위에 얹는 경우에만 그만큼 띄우면 되고, 여기서
-   * 같이 띄우면 버튼 아래에 탭바 하나만큼의 빈 자리가 더 생긴다.
+   * 위에서 끝난다.
    */
   actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
     paddingHorizontal: layout.gutter,
     paddingVertical: spacing.x4,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray200,
-    backgroundColor: colors.white,
   },
+  /** 흐림만으로는 뒤 글자가 비쳐 버튼 글씨와 겹친다. 아주 옅은 흰색을 한 겹 더 깐다. */
+  actionBarTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.5)' },
 
   /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */
 
