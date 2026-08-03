@@ -26,22 +26,25 @@ export function ChatPinRow({ pin, onOpen }: ChatPinRowProps) {
 
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.postRow}>
-      <View style={s.timePill}>
-        <Text style={s.timePillText}>{formatTimeOfDay(pin.createdAt)}</Text>
-      </View>
+      {/* 시각을 장소 이름과 한 선에 두려고 둘을 한 덩어리로 묶는다. `postBody` 주석 참고. */}
+      <View style={s.postBody}>
+        <View style={s.timePill}>
+          <Text style={s.timePillText}>{formatTimeOfDay(pin.createdAt)}</Text>
+        </View>
 
-      <View style={s.rowCopy}>
-        <Text numberOfLines={1} style={s.rowTitle}>
-          {pin.placeName}
-        </Text>
-        <Text numberOfLines={1} style={s.address}>
-          {street}
-        </Text>
-        {region !== null && (
-          <Text numberOfLines={1} style={s.addressRegion}>
-            {region}
+        <View style={s.rowCopy}>
+          <Text numberOfLines={1} style={s.rowTitle}>
+            {pin.placeName}
           </Text>
-        )}
+          <Text numberOfLines={1} style={s.address}>
+            {street}
+          </Text>
+          {region !== null && (
+            <Text numberOfLines={1} style={s.addressRegion}>
+              {region}
+            </Text>
+          )}
+        </View>
       </View>
 
       <Ionicons name="chevron-forward" size={20} color={colors.gray400} />

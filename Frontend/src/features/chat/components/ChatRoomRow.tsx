@@ -47,7 +47,7 @@ function statusStyle(status: ChatRoomStatus) {
  * **모든 줄의 높이가 같다.** 내용에 따라 높이가 달라지면 목록이 들쭉날쭉해 보이고, 스크롤할 때
  * 어디까지 봤는지 가늠하기 어렵다. 그래서
  * - 메시지 자리는 늘 두 줄만큼 잡아 둔다(한 줄짜리도 같은 높이)
- * - 시각 자리도 늘 잡아 둔다(메시지가 없는 방은 비워 둔다)
+ * - 마지막 줄의 높이도 늘 잡아 둔다(시각이 없는 방은 그 자리를 비워 둔다)
  * - 수락 · 거절은 마지막 줄에서 시각 오른쪽에 놓고, 그 줄 높이를 버튼 높이로 잡아 둔다.
  *   버튼이 없는 줄도 같은 높이라 대기 중인 줄만 높아지지 않는다
  */
@@ -59,6 +59,8 @@ export function ChatRoomRow({
   onDecide,
 }: ChatRoomRowProps) {
   const showDecisions = decidable && room.status === 'PENDING';
+  /** 아직 주고받은 말이 없는 방. 안내 문구가 한 줄이라 아래 간격을 다르게 잡는다. */
+  const empty = room.lastMessage === null;
 
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.chatRow}>
@@ -84,24 +86,43 @@ export function ChatRoomRow({
           {room.hasUnread && <View style={s.unread} />}
         </View>
 
-        <Text
-          numberOfLines={2}
-          style={[s.message, room.lastMessage === null && s.messagePlaceholder]}
-        >
+        <Text numberOfLines={2} style={[s.message, empty && s.messagePlaceholder]}>
           {room.lastMessage ?? emptyMessageByStatus[room.status]}
         </Text>
 
-        <View style={s.timeLine}>
-          <Text style={s.time}>
-            {room.lastMessageAt === null ? '' : formatTimeOfDay(room.lastMessageAt)}
-          </Text>
+        <View style={[s.timeLine, empty && s.timeLineCentered]}>
+          {/*
+            시각이 없으면 글자를 아예 두지 않는다.
+
+            빈 글자를 남겨 두면 폭은 0이어도 그 뒤의 간격은 그대로 남아, 버튼만 오른쪽으로 밀려
+            위 메시지의 왼쪽 끝과 어긋난다. 줄 높이는 `timeLine`이 잡아 두므로 비어도 흔들리지
+            않는다.
+          */}
+          {room.lastMessageAt !== null && (
+            <Text style={s.time}>{formatTimeOfDay(room.lastMessageAt)}</Text>
+          )}
 
           {showDecisions && (
             <View style={s.decisions}>
               {/*
+                거절을 왼쪽, 수락을 오른쪽에 둔다. 오른쪽 끝이 눌러서 넘어가는 자리라, 되돌리기
+                어려운 수락을 그 자리에 둔다.
+
                 줄 전체가 눌리는 영역 안에 있으므로 누름이 위로 새지 않게 막는다. 그러지 않으면
                 수락을 눌러도 방으로 들어가 버린다.
               */}
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onDecide?.('REJECT');
+                }}
+                style={[s.decision, s.reject, busy && s.busy]}
+              >
+                <Text style={s.rejectText}>거절</Text>
+              </Pressable>
+
               <Pressable
                 accessibilityRole="button"
                 disabled={busy}
@@ -116,18 +137,6 @@ export function ChatRoomRow({
                 ) : (
                   <Text style={s.acceptText}>수락</Text>
                 )}
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                disabled={busy}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onDecide?.('REJECT');
-                }}
-                style={[s.decision, s.reject, busy && s.busy]}
-              >
-                <Text style={s.rejectText}>거절</Text>
               </Pressable>
             </View>
           )}

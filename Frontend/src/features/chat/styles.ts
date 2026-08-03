@@ -37,15 +37,16 @@ const ROW_MIN_HEIGHT = 124;
  * 시각과 한 줄을 나눠 쓰므로 그 줄의 높이도 이 값으로 잡아 둔다. 버튼이 없는 줄까지 같은 높이를
  * 두면 대기 중인 줄만 높아지는 일이 없다.
  */
-const DECISION_HEIGHT = 32;
+const DECISION_HEIGHT = 36;
 
 /**
  * 글 묶음을 링 쪽으로 내리는 양.
  *
- * 첫 줄 중심을 링 가운데(지름의 절반)에 맞추면 눈으로는 처져 보인다 — 아래에 글이 두 줄 더
- * 있어 묶음의 무게가 아래쪽에 있기 때문이다. 그래서 절반만 내린다.
+ * 두 중심을 정확히 맞추려면 12를 내려야 하는데(링 절반 24 − 글줄 절반 12) 눈으로는 그만큼이
+ * 처져 보인다 — 아래에 글이 두 줄 더 있어 묶음의 무게가 아래쪽에 있기 때문이다. 그래서 조금 덜
+ * 내려 첫 줄이 링 가운데보다 살짝 위에 놓이게 둔다.
  */
-const AVATAR_TITLE_OFFSET = Math.round((AVATAR_SIZE / 2 - type.label.lineHeight / 2) / 2);
+const AVATAR_TITLE_OFFSET = 7;
 
 export const chatListStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
@@ -54,7 +55,7 @@ export const chatListStyles = StyleSheet.create({
   /* 탭 */
   tabs: { height: 52, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.gray200 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  tabText: { ...type.label, color: colors.gray400, paddingBottom: spacing.x3 },
+  tabText: { ...type.body, color: colors.gray400, paddingBottom: spacing.x3 },
   tabTextActive: { color: colors.dark, fontWeight: '600' },
   tabLine: { height: 3, width: '100%', backgroundColor: 'transparent' },
   tabLineActive: { backgroundColor: colors.dark },
@@ -96,11 +97,25 @@ export const chatListStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
+  /**
+   * 시각 · 글을 한 덩어리로 묶는다.
+   *
+   * 줄 안에서는 이 덩어리가 가운데에 놓이고, 덩어리 안에서는 시각이 위로 붙는다. 그래야 시각이
+   * 장소 이름과 한 선에 놓인다 — 줄 자체에 맡기면 시각은 주소까지 포함한 높이의 가운데로 내려간다.
+   */
+  postBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
   timePill: {
     width: 68,
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    /*
+      알약의 윗면을 장소 이름 줄의 윗면에 맞춘다.
+
+      묶음 안에서 둘 다 위로 붙어 있으니 따로 내리거나 올리지 않는다. 예전에 반 칸씩 손대던
+      값들은 이름 · 주소 간격이 좁아 눈대중으로 맞추던 것이라, 지금 구조에서는 어긋남만 만든다.
+    */
+    marginTop: 0,
     borderRadius: radius.pill,
     backgroundColor: colors.gray100,
   },
@@ -113,13 +128,13 @@ export const chatListStyles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.x3,
     /*
-      위아래 여백을 같게 둔다.
+      아래 여백을 위보다 좁게 둔다.
 
-      마지막 줄(시각 · 수락 · 거절)이 글과 아래 선의 가운데에 놓여야 한다. 아래만 좁히면 버튼이
-      선에 붙어 다음 줄의 것처럼 읽힌다.
+      위는 앞 줄과 떼어 놓는 자리라 그대로 두고, 아래는 시각 바로 다음이라 좁혀도 답답하지 않다.
+      세 층이 쌓인 줄이라 여백까지 넉넉하면 목록이 길어 보인다.
     */
     paddingTop: spacing.x2,
-    paddingBottom: spacing.x2,
+    paddingBottom: spacing.x1,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
@@ -127,18 +142,21 @@ export const chatListStyles = StyleSheet.create({
   /**
    * 채팅방 줄의 글 묶음.
    *
-   * 위로 딱 붙여 두면 링과 제목이 어긋나 보여 조금 내린다.
+   * 첫 줄(장소 · 닉네임)이 링 가운데에 놓이도록 `AVATAR_TITLE_OFFSET`만큼 내린다. 위로 딱 붙여
+   * 두면 링과 제목이 어긋나 보인다.
    *
-   * 계산으로는 8을 내려야 첫 줄 중심(10)이 링 가운데(18)와 맞는다. 그런데 눈으로는 그만큼이
-   * 처져 보인다 — 아래에 글이 두 줄 더 있어 묶음 전체의 무게가 아래쪽에 있기 때문이다.
-   * 그래서 절반만 내려 첫 줄이 링 가운데보다 조금 위에 놓이게 둔다.
-   *
-   * 아래 여백은 `chatRow`의 것을 그대로 두어, 내려간 만큼 줄만 높아진다.
+   * 내려간 만큼 줄이 높아지므로, 그만큼은 제목 · 메시지 사이 간격에서 덜어 왔다.
    */
   chatRowCopy: { flex: 1, marginTop: AVATAR_TITLE_OFFSET, paddingRight: TRUNCATION_INSET },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
-  rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
-  address: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  rowTitle: { ...type.body, flexShrink: 1, color: colors.dark, fontWeight: '600' },
+  /**
+   * 장소 이름 아래의 주소.
+   *
+   * 이름에 딱 붙여 두면 세 줄이 한 덩어리로 뭉쳐 보인다. 한 칸 떼어 이름을 먼저 읽히게 한다.
+   * 글 묶음(60 남짓)이 줄 최소 높이보다 낮아, 이만큼 벌려도 줄은 높아지지 않는다.
+   */
+  address: { ...type.caption, color: colors.gray400, marginTop: spacing.x2 },
   /** 주소 끝의 괄호(법정동). 도로명에 딸린 값이라 붙여 두고 같은 크기로 쓴다. */
   addressRegion: { ...type.caption, color: colors.gray400 },
   /**
@@ -152,15 +170,21 @@ export const chatListStyles = StyleSheet.create({
     // 두 줄만큼 늘 자리를 잡아 둔다. 한 줄짜리 메시지에서도 줄 높이가 같아진다.
     minHeight: type.caption.lineHeight * 2,
     color: colors.gray600,
-    marginTop: spacing.x2,
+    // 제목과 한 묶음이라 좁혀도 읽기에 지장이 없다. 글 묶음이 내려간 만큼을 여기서 덜어 온다.
+    marginTop: spacing.x1,
   },
-  /** 메시지가 없을 때 대신 놓는 안내. 실제 대화가 아니므로 한 단계 연하게 둔다. */
-  messagePlaceholder: { color: colors.gray400 },
+  /**
+   * 메시지가 없을 때 대신 놓는 안내. 실제 대화가 아니므로 한 단계 연하게 둔다.
+   *
+   * 이 문구는 늘 한 줄이라 두 줄 자리를 잡아 두지 않는다. 빈 줄을 남기면 아래 시각 · 버튼이
+   * 글에서 그만큼 떨어져, 아래 선 쪽으로 치우쳐 보인다. 줄 높이는 `ROW_MIN_HEIGHT`가 지킨다.
+   */
+  messagePlaceholder: { minHeight: type.caption.lineHeight, color: colors.gray400 },
   /**
    * 마지막 메시지 시각.
    *
-   * 메시지와 아래 선 사이 가운데에 놓인다. 시각은 그 위 대화에 딸린 값이라 선 쪽으로 내려가
-   * 붙어 있으면 다음 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
+   * 위 메시지 쪽에 가깝게 둔다. 시각은 그 대화에 딸린 값이라 선 쪽으로 내려가 붙어 있으면 다음
+   * 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
    */
   time: { ...type.caption, color: colors.gray400 },
   /**
@@ -177,9 +201,22 @@ export const chatListStyles = StyleSheet.create({
     alignItems: 'center',
     // 시각 바로 옆에 붙인다. 양끝으로 벌리면 버튼이 글 묶음에서 떨어져 보인다.
     gap: spacing.x3,
-    // 위 글과의 간격을 줄의 아래 여백과 같게 두어, 이 줄이 글과 선의 가운데에 놓인다.
-    marginTop: spacing.x2,
+    /*
+      위 글에 바로 이어 붙인다.
+
+      줄 높이를 낮게 두는 편이 낫다 — 여백이 넉넉하면 목록이 늘어지고 한 화면에 담기는 줄이
+      줄어든다. 이 줄은 바로 위 메시지에 딸린 것(그 대화의 시각, 그 요청에 답하는 버튼)이라
+      붙어 있어도 읽기에 어색하지 않다.
+    */
+    marginTop: 0,
   },
+  /**
+   * 메시지가 없는 줄의 마지막 줄 간격.
+   *
+   * 두 줄 자리를 잡아 두지 않은 만큼(한 줄) 남은 자리를 위아래로 나눠 갖는다. 그래야 시각 ·
+   * 버튼이 안내 문구와 아래 선의 가운데에 놓인다. 아래쪽은 `ROW_MIN_HEIGHT`가 남긴 여백이 맡는다.
+   */
+  timeLineCentered: { marginTop: 9 },
 
   /* 상태 표시 */
   statusText: { ...type.caption, fontWeight: '600' },
@@ -191,7 +228,7 @@ export const chatListStyles = StyleSheet.create({
   /** 대기 중인 요청에 붙는 수락 · 거절. 마지막 줄에서 시각 오른쪽에 나란히 놓인다. */
   decisions: { flexDirection: 'row', gap: spacing.x2 },
   decision: {
-    width: 64,
+    width: 72,
     height: DECISION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
