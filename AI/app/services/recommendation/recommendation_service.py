@@ -1,9 +1,12 @@
-import hashlib
+import asyncio
 from datetime import UTC, datetime
 
 from app.common.logging import get_logger
+from app.core.config import settings
+from app.pipeline.recommendation.infer import compute_score
+from app.pipeline.recommendation.postprocess import split_into_sections
+from app.pipeline.recommendation.preprocess import to_place_features
 from app.schemas.recommendation import (
-    CandidatePlace,
     ScoredPlace,
     ScoreRequest,
     ScoreResponse,
@@ -11,32 +14,23 @@ from app.schemas.recommendation import (
 
 logger = get_logger(__name__)
 
-# 혼잡도 4단계(1 유유자적 ~ 4 와글와글)의 평균이 이 값 이상이면 "와글"로 본다.
-# 화면 배지가 평균을 반올림해 단계를 정하므로 그 경계(2.5)와 맞춘다.
-CROWD_LEVEL_WAGLE_THRESHOLD = 2.5
 
-_MAX_UINT32 = 0xFFFFFFFF
+class ScoringTimeoutError(Exception):
+    pass
 
 
-def _mock_score(place_id: int) -> float:
-    """placeId로부터 0.0~1.0 사이의 고정된 값을 만든다. 개인화 로직은 아직 없다."""
-    digest = hashlib.sha256(str(place_id).encode()).digest()
-    return round(int.from_bytes(digest[:4], "big") / _MAX_UINT32, 2)
+def _score_candidates(
+    request: ScoreRequest,
+) -> tuple[list[ScoredPlace], list[ScoredPlace]]:
+    scored_places = [
+        (place, compute_score(to_place_features(request, place)))
+        for place in request.candidatePlaces
+    ]
+
+    return split_into_sections(scored_places)
 
 
-def _to_scored_place(place: CandidatePlace) -> ScoredPlace:
-    return ScoredPlace(
-        placeId=place.placeId,
-        representativePinId=place.representativePinId,
-        score=_mock_score(place.placeId),
-    )
-
-
-def _sort_by_score_desc(places: list[ScoredPlace]) -> list[ScoredPlace]:
-    return sorted(places, key=lambda place: place.score, reverse=True)
-
-
-def score_places(request: ScoreRequest) -> ScoreResponse:
+async def score_places(request: ScoreRequest) -> ScoreResponse:
     logger.info(
         "scoring started | userId=%s requestedAt=%s candidates=%d",
         request.userId,
@@ -53,16 +47,25 @@ def score_places(request: ScoreRequest) -> ScoreResponse:
             lastUpdated=datetime.now(UTC),
         )
 
-    relaxed: list[ScoredPlace] = []
-    wagle: list[ScoredPlace] = []
-
-    for place in request.candidatePlaces:
-        target = wagle if place.crowdLevel >= CROWD_LEVEL_WAGLE_THRESHOLD else relaxed
-        target.append(_to_scored_place(place))
+    try:
+        # 계산은 CPU 바운드라 별도 스레드로 보낸다.
+        # 이벤트 루프를 붙잡으면 제한 시간이 감시되지 않는다.
+        relaxed, wagle = await asyncio.wait_for(
+            asyncio.to_thread(_score_candidates, request),
+            timeout=settings.scoring_timeout_ms / 1000,
+        )
+    except TimeoutError as error:
+        logger.error(
+            "scoring timed out | userId=%s candidates=%d limitMs=%d",
+            request.userId,
+            len(request.candidatePlaces),
+            settings.scoring_timeout_ms,
+        )
+        raise ScoringTimeoutError from error
 
     response = ScoreResponse(
-        relaxedList=_sort_by_score_desc(relaxed),
-        wagleList=_sort_by_score_desc(wagle),
+        relaxedList=relaxed,
+        wagleList=wagle,
         lastUpdated=datetime.now(UTC),
     )
 

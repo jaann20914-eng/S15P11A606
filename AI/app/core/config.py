@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     internal_api_key: str
     log_level: str = "INFO"
 
+    # Recommendation
+    scoring_timeout_ms: int = 2000
+
     # RabbitMQ
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
 

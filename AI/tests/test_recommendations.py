@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
@@ -53,6 +54,10 @@ def build_request(**overrides: Any) -> dict[str, Any]:
 
 def post_score(payload: dict[str, Any]) -> Any:
     return client.post(SCORE_URL, json=payload, headers=AUTH_HEADERS)
+
+
+def score_by_place_id(scored_places: list[dict[str, Any]]) -> dict[int, float]:
+    return {place["placeId"]: place["score"] for place in scored_places}
 
 
 def test_returns_scored_lists() -> None:
@@ -110,12 +115,76 @@ def test_same_request_returns_same_scores() -> None:
 
 def test_scores_are_sorted_in_descending_order() -> None:
     payload = build_request(
-        candidatePlaces=[build_place(place_id) for place_id in range(1, 11)]
+        candidatePlaces=[
+            build_place(place_id, latitude=37.5008 + place_id * 0.002)
+            for place_id in range(1, 11)
+        ]
     )
 
     scores = [place["score"] for place in post_score(payload).json()["relaxedList"]]
 
+    assert len(set(scores)) > 1
     assert scores == sorted(scores, reverse=True)
+
+
+def test_closer_place_scores_higher() -> None:
+    payload = build_request(
+        candidatePlaces=[
+            build_place(1, latitude=37.5008),
+            build_place(2, latitude=37.5300),
+        ]
+    )
+
+    scores = score_by_place_id(post_score(payload).json()["relaxedList"])
+
+    assert scores[1] > scores[2]
+
+
+def test_preferred_category_scores_higher() -> None:
+    payload = build_request(
+        candidatePlaces=[
+            build_place(1, category="CAFE"),
+            build_place(2, category="PARK"),
+        ]
+    )
+
+    scores = score_by_place_id(post_score(payload).json()["relaxedList"])
+
+    assert scores[1] > scores[2]
+
+
+def test_more_unlocked_place_scores_higher() -> None:
+    payload = build_request(
+        candidatePlaces=[
+            build_place(1, unlockCount7d=100),
+            build_place(2, unlockCount7d=0),
+        ]
+    )
+
+    scores = score_by_place_id(post_score(payload).json()["relaxedList"])
+
+    assert scores[1] > scores[2]
+
+
+def test_recently_activated_place_scores_higher() -> None:
+    payload = build_request(
+        candidatePlaces=[
+            build_place(1, lastPinActivatedAt="2026-07-27T08:55:00Z"),
+            build_place(2, lastPinActivatedAt="2026-07-27T08:05:00Z"),
+        ]
+    )
+
+    scores = score_by_place_id(post_score(payload).json()["relaxedList"])
+
+    assert scores[1] > scores[2]
+
+
+def test_each_section_returns_at_most_ten_places() -> None:
+    payload = build_request(
+        candidatePlaces=[build_place(place_id) for place_id in range(1, 13)]
+    )
+
+    assert len(post_score(payload).json()["relaxedList"]) == 10
 
 
 def test_last_updated_includes_timezone() -> None:
@@ -226,17 +295,6 @@ def test_missing_gender_is_rejected() -> None:
     assert "gender" in body["message"]
 
 
-def test_removed_avg_author_trust_field_is_rejected() -> None:
-    payload = build_request(
-        candidatePlaces=[build_place(1, avgAuthorTrust=132.5)]
-    )
-
-    response = post_score(payload)
-
-    assert response.status_code == 400
-    assert response.json()["code"] == "INVALID_REQUEST_PAYLOAD"
-
-
 def test_non_numeric_place_id_is_rejected() -> None:
     payload = build_request(candidatePlaces=[build_place(1, placeId="place_001")])
 
@@ -275,6 +333,16 @@ def test_unknown_field_is_rejected() -> None:
 
     assert response.status_code == 400
     assert response.json()["code"] == "INVALID_REQUEST_PAYLOAD"
+
+
+def test_scoring_timeout_returns_504(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 실제로 2초를 넘기려면 후보가 수만 건 필요해 제한 시간을 0으로 만들어 재현한다.
+    monkeypatch.setattr(settings, "scoring_timeout_ms", 0)
+
+    response = post_score(build_request())
+
+    assert response.status_code == 504
+    assert response.json()["code"] == "SCORING_TIMEOUT"
 
 
 def test_missing_api_key_is_rejected() -> None:
