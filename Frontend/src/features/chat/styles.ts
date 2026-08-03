@@ -32,6 +32,14 @@ export const AVATAR_SIZE = 48;
 const ROW_MIN_HEIGHT = 104;
 
 /**
+ * 수락 · 거절 버튼 높이.
+ *
+ * 시각과 한 줄을 나눠 쓰므로 그 줄의 높이도 이 값으로 잡아 둔다. 버튼이 없는 줄까지 같은 높이를
+ * 두면 대기 중인 줄만 높아지는 일이 없다.
+ */
+const DECISION_HEIGHT = 28;
+
+/**
  * 글 묶음을 링 쪽으로 내리는 양.
  *
  * 첫 줄 중심을 링 가운데(지름의 절반)에 맞추면 눈으로는 처져 보인다 — 아래에 글이 두 줄 더
@@ -154,7 +162,22 @@ export const chatListStyles = StyleSheet.create({
    * 메시지와는 한 칸 떼고, 아래 선에는 가깝게 둔다. 시각은 그 위 대화에 딸린 값이라 선 쪽으로
    * 내려가 붙어 있으면 다음 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
    */
-  time: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
+  time: { ...type.caption, color: colors.gray400 },
+  /**
+   * 시각과 수락 · 거절이 함께 놓이는 마지막 줄.
+   *
+   * 버튼을 줄 오른쪽에 세로로 두면 링 · 글 · 버튼 세 덩어리가 되어 복잡해진다. 시각 옆은 비어
+   * 있는 자리라 버튼을 두기에 알맞다.
+   *
+   * 버튼이 없는 줄도 같은 높이를 잡아 둔다 — 그러지 않으면 대기 중인 줄만 높아진다.
+   */
+  timeLine: {
+    minHeight: DECISION_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.x1,
+  },
 
   /* 상태 표시 */
   statusText: { ...type.caption, fontWeight: '600' },
@@ -163,15 +186,11 @@ export const chatListStyles = StyleSheet.create({
   ended: { color: colors.gray400 },
   unread: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime },
 
-  /**
-   * 대기 중인 요청에 붙는 수락 · 거절.
-   *
-   * 글 아래가 아니라 오른쪽에 세운다. 아래에 붙이면 대기 중인 줄만 높아져 목록이 들쭉날쭉해진다.
-   */
-  decisions: { justifyContent: 'center', gap: spacing.x2 },
+  /** 대기 중인 요청에 붙는 수락 · 거절. 마지막 줄에서 시각 오른쪽에 나란히 놓인다. */
+  decisions: { flexDirection: 'row', gap: spacing.x2 },
   decision: {
-    width: 60,
-    height: 32,
+    width: 56,
+    height: DECISION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
