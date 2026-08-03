@@ -4,20 +4,23 @@
   react-native-svg 없이 같은 모양을 내려고 링을 미리 그려 둔다. 앱에서는 이 그림을 돌리기만
   하면 되므로 네이티브 모듈이 필요 없다.
 
-  시안 값(280pt 기준)을 2배로 그린다.
+  사용법: node scripts/generate-loading-ring.js <출력경로> [지름] [색 구간 비율]
+
+  시안 값을 따른다.
   - strokeWidth = size * 0.045
   - radius = size / 2 - strokeWidth
-  - 78%는 색이 있는 구간, 22%는 빈 구간, 양 끝은 둥글게
+  - 색이 있는 구간의 비율은 인자로 받는다. 나머지는 비고 양 끝은 둥글게 처리한다.
   - 그라데이션: 왼쪽 위 → 오른쪽 아래
 */
 const fs = require('fs');
 const zlib = require('zlib');
 
-const SCALE = 2;
-const SIZE = 280 * SCALE;
-const STROKE = 280 * 0.045 * SCALE;
+const SIZE = Number(process.argv[3] ?? 320);
+const STROKE = SIZE * 0.045;
 const RADIUS = SIZE / 2 - STROKE;
-const DASH_RATIO = 0.78;
+
+/** 색이 있는 구간의 비율. 이 값만 바꿔 길이가 다른 장면을 여러 장 뽑는다. */
+const DASH_RATIO = Number(process.argv[4] ?? 0.78);
 
 /** 시안의 세 정지점. offset, 색, 불투명도. */
 const STOPS = [

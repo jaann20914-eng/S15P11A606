@@ -291,7 +291,9 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: '#FBFCF8',
   },
   loader: { alignItems: 'center', justifyContent: 'center' },
-  loaderRing: { position: 'absolute', resizeMode: 'contain' },
+  /** 도는 판. 길이가 다른 링 그림들이 이 안에 겹쳐 있다. */
+  loaderRing: { position: 'absolute' },
+  loaderRingFrame: { position: 'absolute', resizeMode: 'contain' },
   /**
    * 링 안쪽의 흰 원.
    *
