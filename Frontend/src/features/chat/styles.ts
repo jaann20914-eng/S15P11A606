@@ -21,7 +21,7 @@ const TRUNCATION_INSET = 8;
  * 줄에서 가장 먼저 눈에 들어오는 것이라 36으로는 작았다. 글 묶음(제목 · 메시지 두 줄 · 시각)이
  * 90 남짓이므로 그보다 작게 두어야 줄 높이를 늘리지 않는다.
  */
-export const AVATAR_SIZE = 44;
+export const AVATAR_SIZE = 48;
 
 /**
  * 글 묶음을 링 쪽으로 내리는 양.
