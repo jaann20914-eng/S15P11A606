@@ -61,7 +61,13 @@ export interface PlacesQuery {
   southWestLongitude: number;
   northEastLatitude: number;
   northEastLongitude: number;
-  /** 생략하면 혼잡도와 관계없이 조회한다. */
+  /**
+   * 생략하면 혼잡도와 관계없이 조회한다.
+   *
+   * **서버에서는 필수 파라미터다.** 여기서 선택인 것은 호출부 편의이고, 빈 값을 채워 보내는
+   * 일은 `api/place/list.ts`가 맡는다(`NO_FILTER`). 값을 지정하면 평균 혼잡도가 없는 장소
+   * — 활성 핀이 없는 장소 — 가 응답에서 빠진다.
+   */
   filter?: CrowdFilter;
 }
 
