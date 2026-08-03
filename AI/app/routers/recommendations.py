@@ -22,7 +22,8 @@ router = APIRouter(
         400: {"model": ErrorResponse},
         401: {"model": ErrorResponse},
         500: {"model": ErrorResponse},
+        504: {"model": ErrorResponse},
     },
 )
 async def score_recommendations(request: ScoreRequest) -> ScoreResponse:
-    return score_places(request)
+    return await score_places(request)
