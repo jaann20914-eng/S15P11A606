@@ -175,7 +175,8 @@ export const chatListStyles = StyleSheet.create({
     minHeight: DECISION_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // 시각 바로 옆에 붙인다. 양끝으로 벌리면 버튼이 글 묶음에서 떨어져 보인다.
+    gap: spacing.x3,
     marginTop: spacing.x1,
   },
 
