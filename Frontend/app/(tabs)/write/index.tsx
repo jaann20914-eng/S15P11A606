@@ -198,9 +198,11 @@ export default function PinCreateScreen() {
             키보드가 덮는 만큼 아래를 비워 둔다.
 
             이 앱은 화면 끝까지 그리는 방식이라 키보드가 올라와도 창이 줄지 않는다. 그냥 두면
-            아래쪽 입력칸과 고정된 등록 버튼이 키보드 뒤에 그대로 남는다. 키보드 높이만큼
-            여백을 주면 그 위 영역에서만 배치돼, 버튼은 키보드 바로 위로 올라오고 스크롤도
-            보이는 범위 안에서 움직인다.
+            아래쪽 입력칸이 키보드 뒤에 그대로 남는다. 여백을 주면 스크롤이 보이는 범위 안에서만
+            움직인다.
+
+            **아래 고정 영역은 이 여백으로 올라가지 않는다.** 절대 배치라 여백 안쪽이 아니라
+            바깥 끝에 붙는다. 그래서 바와 그라데이션은 덮이는 높이만큼 직접 띄운다.
           */
           <View ref={formRef} style={[s.form, { paddingBottom: keyboardOverlap }]}>
             <ScrollView
@@ -264,12 +266,12 @@ export default function PinCreateScreen() {
               pointerEvents="none"
               colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
               locations={FADE_STOPS}
-              style={[s.actionFade, { bottom: actionBarHeight - ACTION_FADE_DROP }]}
+              style={[s.actionFade, { bottom: keyboardOverlap + actionBarHeight - ACTION_FADE_DROP }]}
             />
 
             <View
               onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
-              style={s.actionBar}
+              style={[s.actionBar, { bottom: keyboardOverlap }]}
             >
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
