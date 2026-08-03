@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -12,14 +12,13 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
+import { CrowdChart, PlacePinCard } from '@/components/place';
+import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useMapStore } from '@/store/useMapStore';
-import { usesMockApi } from '@/api/config';
-import { places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /** 손잡이 영역 높이. `s.handleArea`와 같은 값을 스냅 계산에서도 쓴다. */
@@ -33,124 +32,6 @@ const SHEET_HANDLE_HEIGHT = 28;
 const ESTIMATED_INFO_HEIGHT = 104;
 const ESTIMATED_VIDEO_HEIGHT = 216;
 
-const chartValues = [64, 52, 30, 42, 53, 38, 68];
-const days = ['월', '화', '수', '목', '금', '토', '일'];
-
-function CrowdChart() {
-  const { width } = useWindowDimensions();
-  const plotWidth = Math.min(width - 106, 292);
-  const plotHeight = 82;
-  const step = plotWidth / 6;
-  return (
-    <View style={s.chartCard}>
-      <Text style={s.chartTitle}>요일별 혼잡도</Text>
-      <View style={s.chartBody}>
-        <View style={s.axisLabels}>
-          <Text style={s.axisText}>붐빔</Text>
-          <Text style={s.axisText}>여유</Text>
-        </View>
-        <View style={[s.chartArea, { width: plotWidth, height: plotHeight }]}>
-          <View style={[s.gridLine, { top: 8 }]} />
-          <View style={[s.gridLine, s.middleLine, { top: plotHeight / 2 }]} />
-          <View style={[s.gridLine, { top: plotHeight - 2 }]} />
-          <LinearGradient
-            colors={['rgba(196,230,0,.24)', 'rgba(196,230,0,.02)']}
-            style={[s.chartFill, { top: 25 }]}
-          />
-          {chartValues.slice(0, -1).map((value, index) => {
-            const next = chartValues[index + 1];
-            const dx = step;
-            const dy = next - value;
-            const length = Math.sqrt(dx * dx + dy * dy);
-            const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-            return (
-              <View
-                key={`line-${index}`}
-                style={[
-                  s.lineSegment,
-                  { left: index * step, top: value, width: length, transform: [{ rotate: `${angle}deg` }] },
-                ]}
-              />
-            );
-          })}
-          {chartValues.map((value, index) => (
-            <View
-              key={index}
-              style={[
-                s.chartDot,
-                index === 2 && s.chartDotActive,
-                { left: index * step - 5, top: value - 5 },
-              ]}
-            />
-          ))}
-          <View style={[s.chartTooltip, { left: step * 2 - 23, top: 0 }]}>
-            <Text style={s.tooltipText}>붐빔</Text>
-          </View>
-        </View>
-      </View>
-      <View style={s.dayRow}>
-        {days.map((day) => (
-          <View key={day} style={[s.dayChip, day === '수' && s.dayChipActive]}>
-            <Text style={[s.dayText, day === '수' && s.dayTextActive]}>{day}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-/**
- * 목업 핀 번호별 상황.
- *
- * 실기에서는 주소를 직접 칠 수 없어 목록에서 눌러 들어가야 한다. 어느 카드가 어떤 화면인지
- * 알 수 있도록 목업 모드에서만 표시한다. 서버가 붙으면 사라진다.
- */
-const MOCK_PIN_LABELS = [
-  '결제 전',
-  '열람 완료',
-  '평가 완료',
-  '내 핀',
-  '결제 시 크레딧 부족',
-  '내 핀 · 삭제 확인',
-];
-
-function VideoCard({ index = 0 }: { index?: number }) {
-  return (
-    <Pressable onPress={() => router.push(`/pin/${index + 1}`)} style={s.videoCard}>
-      <View style={s.authorRow}>
-        <View style={s.viewRing} accessibilityLabel="뷰 각도 92도">
-          <Text style={s.viewRingText}>92°</Text>
-        </View>
-        <View style={s.authorCopy}>
-          <Text style={s.authorName}>도장깨기 준호</Text>
-          <Text style={s.time}>2분 전</Text>
-        </View>
-      </View>
-      <View style={s.videoBody}>
-        <View style={[s.thumbnail, index === 1 && { backgroundColor: '#C9E5E0' }]}>
-          <Ionicons name="videocam-outline" size={25} color="rgba(59,56,56,0.55)" />
-        </View>
-        <View style={s.memoWrap}>
-          <Text numberOfLines={5} style={s.memo}>
-            저희 곧 카페 나갈건데, 창가 자리 앉으실 분 있으실까요? 3시 30분까지 채팅주시면 자리 전달해드릴 수
-            있을 것 같습니다.
-            {usesMockApi && MOCK_PIN_LABELS[index] ? ` (${index + 1}. ${MOCK_PIN_LABELS[index]})` : ''}
-          </Text>
-          <View style={s.tags}>
-            {['#카페', '#감성', '#강남맛집'].map((tag) => (
-              <View key={tag} style={s.tag}>
-                <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
-                  {tag}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
 export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const { height } = useWindowDimensions();
@@ -159,14 +40,17 @@ export default function Place() {
   const myLocation = useCurrentLocation();
   const navBarHeight = useAppTabBarHeight();
 
-  /**
-   * 백엔드 연동 전이라 목업 장소를 기준으로 삼는다.
-   *
-   * 예전에는 이 화면이 자기 지도를 띄우고 SDK의 장소 검색으로 주소·연락처를 채웠다. 지도를
-   * 없애면서 그 경로도 사라졌다. 원래 출처는 `GET /api/v1/places`이고, 그 응답
-   * (`PlaceListItem`)에 `address`와 `phone`이 이미 있다 — 연동되면 여기서 받아 쓴다.
-   */
-  const mockPlace = places.find((item) => item.id === placeId) ?? places[0];
+  /*
+    장소 기본정보 · 활성 핀 카드 · 요일별 혼잡 통계를 한 번에 받는다.
+
+    경로 파라미터는 문자열이라 숫자로 바꿔 넘긴다. 숫자로 읽히지 않으면 조회하지 않고 바로
+    안내를 띄운다 — NaN을 그대로 보내면 서버가 400으로 답할 뿐 원인이 드러나지 않는다.
+  */
+  const numericPlaceId = Number(placeId);
+  const { detail, loading, error } = usePlaceDetail(Number.isInteger(numericPlaceId) ? numericPlaceId : null);
+  const place = detail?.place ?? null;
+  const pins = detail?.pins ?? [];
+
   /*
     3단계 높이를 정하는 값. 시트 움직임은 useBottomSheet이 맡는다.
 
@@ -194,15 +78,15 @@ export default function Place() {
   const { level, moveTo, sheetY } = sheet;
 
   /*
-    이 화면에 들어오면 아래 깔린 홈 지도를 이 장소로 옮긴다.
-    지도를 새로 만들지 않으므로 재로드도, 전환 연출도 없다.
+    지도를 여기서 옮기지 않는다.
+
+    예전에는 들어오면서 목업 좌표로 아래 깔린 홈 지도를 옮겼다. 이제 홈이 카드를 누른 그
+    시점에 이미 그 장소로 옮기고 축척까지 맞춘 뒤 이 화면을 띄우므로, 여기서 또 옮기면 같은
+    자리로 한 번 더 끌려가는 셈이다.
+
+    장소 상세 응답에는 좌표가 없어서(`PlaceSummary`) 옮기려면 목록 API를 한 번 더 불러야
+    한다. 홈을 거치지 않고 이 주소로 바로 들어오는 경로가 생기면 그때 붙인다.
   */
-  useEffect(() => {
-    focusOn({
-      coordinate: { latitude: mockPlace.latitude, longitude: mockPlace.longitude },
-      name: mockPlace.name,
-    });
-  }, [focusOn, mockPlace.latitude, mockPlace.longitude, mockPlace.name]);
 
   /**
    * 현재 위치로 이동. 이 화면에는 지도가 없으므로 **아래 깔린 홈 지도**에 요청한다.
@@ -285,13 +169,34 @@ export default function Place() {
             style={s.placeInfo}
             onLayout={(event) => setInfoHeight(Math.round(event.nativeEvent.layout.height))}
           >
-            <Text style={s.placeName}>{mockPlace.name}</Text>
-            <Text style={s.placeAddress}>{mockPlace.address}</Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.gray600} />
+            ) : place !== null ? (
+              <>
+                <Text style={s.placeName}>{place.name}</Text>
+                {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
+                {place.phone !== null && place.phone.length > 0 && (
+                  <Text style={s.placeMeta}>{place.phone}</Text>
+                )}
+                {place.address.length > 0 && <Text style={s.placeAddress}>{place.address}</Text>}
+              </>
+            ) : (
+              <Text accessibilityRole="alert" style={s.placeAddress}>
+                {error ?? '장소 정보를 불러오지 못했어요.'}
+              </Text>
+            )}
           </View>
 
-          {level === 2 && <CrowdChart />}
+          {/*
+            요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
 
-          {level > 0 && (
+            `surface`를 켜 그래프가 자기 카드를 그리게 한다. 이 화면에서는 장소 정보·영상핀과
+            나란히 놓이는 한 장이라 배경이 있어야 통일감이 산다. 추천 상세는 이미 카드 안에
+            넣으므로 켜지 않는다.
+          */}
+          {level === 2 && detail !== null && <CrowdChart stats={detail.weeklyCrowdStats} surface />}
+
+          {level > 0 && pins.length > 0 && (
             <View style={s.videoSection}>
               {/*
                 제목과 첫 카드를 함께 잰다. "기본" 단계에서 축소보다 더 보여야 하는 높이가
@@ -305,17 +210,29 @@ export default function Place() {
                   <Text style={s.sectionTitle}>실시간 영상핀</Text>
                   <Text style={s.sectionMeta}>최근 등록순</Text>
                 </View>
-                <VideoCard />
+                <PlacePinCard pin={pins[0]} onPress={() => router.push(`/pin/${pins[0].pinId}`)} />
               </View>
 
               {/*
-                목업에서는 여섯 가지 상황을 모두 눌러볼 수 있게 카드를 다 그린다.
-                실기에서는 주소를 직접 칠 수 없어 목록이 유일한 진입 경로다.
+                나머지는 시트를 끝까지 올렸을 때만 그린다. 접힌 상태에서는 어차피 보이지 않는데
+                미리 그리면 카드 수만큼 첫 렌더가 느려진다.
               */}
-              {usesMockApi
-                ? MOCK_PIN_LABELS.slice(1).map((label, index) => <VideoCard key={label} index={index + 1} />)
-                : level === 2 && <VideoCard index={1} />}
+              {level === 2 &&
+                pins
+                  .slice(1)
+                  .map((pin) => (
+                    <PlacePinCard
+                      key={pin.pinId}
+                      pin={pin}
+                      onPress={() => router.push(`/pin/${pin.pinId}`)}
+                    />
+                  ))}
             </View>
+          )}
+
+          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
+          {level > 0 && !loading && detail !== null && pins.length === 0 && (
+            <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
           )}
         </ScrollView>
       </Animated.View>
@@ -389,152 +306,9 @@ const s = StyleSheet.create({
   placeName: { ...type.h3, fontWeight: '700', color: colors.dark },
   placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
-  placeNotice: { ...type.caption, color: colors.gray400, marginTop: spacing.x2 },
-  chartCard: { padding: spacing.x4, borderRadius: radius.card, backgroundColor: colors.white },
-  chartTitle: { ...type.label, fontWeight: '600', color: colors.dark, marginBottom: spacing.x3 },
-  chartBody: { flexDirection: 'row', alignItems: 'stretch' },
-  axisLabels: { width: 30, justifyContent: 'space-between', paddingVertical: 2 },
-  axisText: { fontSize: 10, lineHeight: 14, color: colors.gray400 },
-  chartArea: { position: 'relative', overflow: 'visible' },
-  gridLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: colors.gray100 },
-  middleLine: {
-    height: 0,
-    borderTopWidth: 1,
-    borderStyle: 'dashed',
-    borderTopColor: colors.gray200,
-    backgroundColor: 'transparent',
-  },
-  chartFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  lineSegment: {
-    position: 'absolute',
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.lime,
-    transformOrigin: 'left center' as any,
-  },
-  chartDot: {
-    position: 'absolute',
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    borderWidth: 3,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
-  chartDotActive: {
-    width: 15,
-    height: 15,
-    marginLeft: -2,
-    marginTop: -2,
-    borderWidth: 2,
-    borderColor: colors.white,
-    backgroundColor: colors.lime,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.16,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  chartTooltip: {
-    position: 'absolute',
-    minWidth: 48,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.dark,
-  },
-  tooltipText: { fontSize: 10, lineHeight: 14, fontWeight: '600', color: colors.white },
-  dayRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.x3, paddingLeft: 30 },
-  dayChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.gray200,
-  },
-  dayChipActive: { borderColor: colors.lime, backgroundColor: colors.lime },
-  dayText: { fontSize: 14, lineHeight: 20, fontWeight: '500', color: colors.dark },
-  dayTextActive: { color: colors.dark, fontWeight: '700' },
+  emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
   videoSection: { gap: spacing.x3 },
   sectionHead: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { ...type.title, color: colors.dark },
   sectionMeta: { ...type.caption, color: colors.gray600 },
-  videoCard: {
-    padding: spacing.x4,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.gray200,
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    ...shadow,
-  },
-  authorRow: { flexDirection: 'row', alignItems: 'center' },
-  viewRing: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
-  viewRingText: { fontSize: 11, lineHeight: 15, fontWeight: '500', color: colors.gray600 },
-  authorCopy: { marginLeft: spacing.x2 },
-  authorName: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.dark },
-  time: { fontSize: 12, lineHeight: 18, letterSpacing: 0.1, fontWeight: '400', color: colors.gray400 },
-  videoBody: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.x2, marginTop: spacing.x3 },
-  thumbnail: {
-    width: 128,
-    minHeight: 112,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#94D8D4',
-  },
-  memoWrap: { flex: 1, minWidth: 0 },
-  memo: { fontSize: 14, lineHeight: 21, letterSpacing: 0, fontWeight: '400', color: colors.gray600 },
-  tags: { flexDirection: 'row', gap: spacing.x1, marginTop: spacing.x2, overflow: 'hidden' },
-  tag: {
-    maxWidth: '45%',
-    height: 28,
-    flexShrink: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.x2,
-    borderRadius: radius.pill,
-    backgroundColor: colors.limeSoft,
-  },
-  tagText: { ...type.caption, flexShrink: 1, color: colors.gray600 },
-  bottomNav: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 72,
-    flexDirection: 'row',
-    paddingTop: spacing.x2,
-    paddingBottom: spacing.x2,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray200,
-    backgroundColor: colors.white,
-  },
-  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  navLabel: { ...type.caption, fontSize: 11, lineHeight: 16, color: colors.gray400, fontWeight: '600' },
-  navLabelActive: { color: colors.dark },
-  captureButton: {
-    width: 58,
-    height: 58,
-    marginTop: -29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 19,
-    borderWidth: 3,
-    borderColor: colors.white,
-    backgroundColor: '#D9ED76',
-    ...shadow,
-  },
-  captureLabel: { marginTop: spacing.x2 },
 });
