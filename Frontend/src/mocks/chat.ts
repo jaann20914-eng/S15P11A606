@@ -2,7 +2,6 @@ import { ApiError } from '@/api/client';
 import type {
   ChatDecision,
   ChatDecisionResult,
-  ChatDirection,
   ChatPinListItem,
   ChatRequestResult,
   ChatRoomListItem,
@@ -229,52 +228,36 @@ function takePage<TItem>(items: TItem[], { cursor, limit }: CursorQuery): Cursor
 }
 
 /**
- * 방향에 따라 보여줄 방을 고른다.
+ * 내가 쓴 글의 방인지.
  *
- * 목업 사용자는 4·6번 핀의 주인이다(핀 목업의 `owner` 시나리오). 그러니 그 핀에 달린 방은
- * "요청받은 대화"이고, 남의 핀에 달린 방은 "내가 요청한 대화"다.
- *
- * 보낸 요청에는 대기 중이 없다 — 요청하면 곧 방이 열리고, 상대가 거절하면 목록에서 상태로만
- * 남는다. 실제 서버 규칙(`sent`는 ACTIVE·종료만)과 같게 두려는 것이다.
+ * 목업 사용자는 4·6번 핀의 주인이다(핀 목업의 `owner` 시나리오). 그 핀에 달린 방은 "요청받은
+ * 대화"이고, 남의 핀에 달린 방은 "내가 요청한 대화"다.
  */
-function roomsForDirection(direction: ChatDirection): ChatRoomListItem[] {
-  const ownPinIds = new Set([mockPinId(4), mockPinId(6)]);
+const OWN_PIN_IDS = new Set([mockPinId(4), mockPinId(6)]);
 
-  return mockRooms.filter((room) =>
-    direction === 'received' ? ownPinIds.has(room.pinId) : !ownPinIds.has(room.pinId),
-  );
-}
-
-export async function listMockChatRooms(
-  direction: ChatDirection,
-  query: CursorQuery,
-): Promise<CursorPage<ChatRoomListItem>> {
+/** 내가 요청한 대화. 남의 글에 달린 방만 보인다. */
+export async function listMockChatRooms(query: CursorQuery): Promise<CursorPage<ChatRoomListItem>> {
   await delay(MOCK_LATENCY_MS);
 
-  return takePage(roomsForDirection(direction), query);
+  return takePage(mockRooms.filter((room) => !OWN_PIN_IDS.has(room.pinId)), query);
 }
 
+/** 내 글 하나에 달린 방들. 여기서 수락·거절을 한다. */
 export async function listMockPinChatRooms(
   pinId: PinId,
-  direction: ChatDirection,
   query: CursorQuery,
 ): Promise<CursorPage<ChatRoomListItem>> {
   await delay(MOCK_LATENCY_MS);
 
   const canonical = canonicalMockPinId(pinId);
-  const rooms = roomsForDirection(direction).filter((room) => room.pinId === canonical);
+  const rooms = mockRooms.filter((room) => room.pinId === canonical);
 
   return takePage(rooms, query);
 }
 
-export async function listMockChatPins(
-  direction: ChatDirection,
-  query: CursorQuery,
-): Promise<CursorPage<ChatPinListItem>> {
+/** 요청이 온 내 글들. 요청받은 대화 탭의 첫 화면이 쓴다. */
+export async function listMockChatPins(query: CursorQuery): Promise<CursorPage<ChatPinListItem>> {
   await delay(MOCK_LATENCY_MS);
 
-  // 보낸 요청 쪽은 게시글을 거치지 않지만, 서버가 방향을 받으므로 목업도 같은 규칙을 지킨다.
-  const pins = direction === 'received' ? mockChatPins : [];
-
-  return takePage(pins, query);
+  return takePage(mockChatPins, query);
 }

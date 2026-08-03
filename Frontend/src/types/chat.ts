@@ -40,15 +40,6 @@ export type ChatDecisionResult = {
 };
 
 /**
- * 목록을 어느 쪽에서 보는지.
- *
- * `sent`는 내가 요청한 대화, `received`는 내가 요청받은 대화다. 명세의 필드 표에는 빠져 있지만
- * 규칙과 오류 코드(`INVALID_CHAT_ROOM_DIRECTION`·`INVALID_CHAT_PIN_DIRECTION`)가 이 값을
- * 전제로 하므로 필수로 보낸다.
- */
-export type ChatDirection = 'sent' | 'received';
-
-/**
  * 커서 방식 목록.
  *
  * 페이지 번호가 아니라 "다음 시작점"을 받는다. 목록이 실시간으로 갱신되는 화면이라, 번호
