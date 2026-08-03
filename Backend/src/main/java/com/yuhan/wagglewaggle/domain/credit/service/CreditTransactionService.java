@@ -71,13 +71,16 @@ public class CreditTransactionService {
                     .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
             // 다음 페이지 존재 여부 판단을 위해 limit + 1건을 조회한다.
+            // 값 파라미터는 항상 컬럼 비교에만 두고, 조건 적용 여부는 apply* 플래그로 켜고 끈다(PostgreSQL 타입 추론 이슈 회피).
             Pageable pageable = PageRequest.of(0, limit + 1);
+            Integer minChangeAmount = typeFilter.getMinChangeAmount();
+            Integer maxChangeAmount = typeFilter.getMaxChangeAmount();
             List<CreditTransaction> transactions = creditTransactionRepository.findHistory(
                     memberId,
-                    typeFilter.getMinChangeAmount(),
-                    typeFilter.getMaxChangeAmount(),
-                    start,
-                    endExclusive,
+                    minChangeAmount != null, minChangeAmount,
+                    maxChangeAmount != null, maxChangeAmount,
+                    start != null, start, endExclusive,
+                    cursor != null,
                     cursor == null ? null : cursor.createdAt(),
                     cursor == null ? null : cursor.id(),
                     pageable);
