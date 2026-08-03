@@ -7,16 +7,19 @@ import { pinCreateStyles as s } from '../styles';
 export interface DetailLocationFieldProps {
   value: string;
   onChange: (value: string) => void;
+  /** 키보드가 이 칸을 가리지 않도록 화면이 스크롤을 맞출 때 쓴다. */
+  onFocus?: () => void;
 }
 
 /** 상세 위치. "1층 창가 자리"처럼 장소 안에서의 위치를 적는 선택 입력이다. */
-export function DetailLocationField({ value, onChange }: DetailLocationFieldProps) {
+export function DetailLocationField({ value, onChange, onFocus }: DetailLocationFieldProps) {
   return (
     <>
       <Text style={s.label}>상세 위치</Text>
       <TextInput
         value={value}
         onChangeText={(text) => onChange(truncateGraphemes(text, MAX_DETAIL_LOCATION_LENGTH))}
+        onFocus={onFocus}
         placeholder="선택 입력"
         placeholderTextColor={colors.gray400}
         style={s.detailInput}

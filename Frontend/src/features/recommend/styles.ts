@@ -38,12 +38,12 @@ export const recommendStyles = StyleSheet.create({
     paddingBottom: spacing.x4,
     backgroundColor: colors.white,
   },
-  kicker: { ...type.caption, color: colors.gray600 },
+  kicker: { ...type.small, color: colors.gray600 },
   titleRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: spacing.x1 },
   title: { ...type.h2, color: colors.dark },
   updateMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.x1, marginLeft: spacing.x2 },
-  updateDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#4A90E2' },
-  updateText: { fontSize: 10, lineHeight: 15, color: colors.gray400 },
+  updateDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4A90E2' },
+  updateText: { ...type.caption, color: colors.gray400 },
   filterToggle: { marginTop: spacing.x2 },
 
   /* 목록 */

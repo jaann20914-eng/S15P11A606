@@ -25,18 +25,7 @@ export const mypageStyles = StyleSheet.create({
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { ...type.label, fontWeight: '600', color: colors.gray600 },
 
-  /* 헤더 — 탭 첫 화면용. 뒤로 가기 대신 설정 버튼이 있다 */
-  rootHeader: {
-    height: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.gutter,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  rootHeaderSide: { width: 44 },
-  rootHeaderTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: colors.gray600 },
+  /** 탭 첫 화면 헤더의 오른쪽 자리. 헤더 자체는 공용 `ScreenHeader`가 그린다. */
   settingButton: {
     width: 36,
     height: 36,
@@ -48,11 +37,12 @@ export const mypageStyles = StyleSheet.create({
 
   /* 뷰 신뢰도 요약 카드 */
   summaryContent: { paddingHorizontal: 18, paddingTop: spacing.x5, paddingBottom: spacing.x6 },
+  /** 아래 활동 카드와 같은 테두리를 쓴다. 시안에서 두 카드는 같은 무게로 놓여 있다. */
   summaryCard: {
     padding: spacing.x4,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#DDECA8',
+    borderColor: colors.gray200,
     backgroundColor: colors.white,
   },
   trustRow: {
@@ -63,31 +53,37 @@ export const mypageStyles = StyleSheet.create({
     paddingHorizontal: spacing.x2,
   },
   trustCopy: { flex: 1 },
-  eyebrow: { fontSize: 12, lineHeight: 18, color: colors.gray400 },
+  eyebrow: { ...type.small, color: colors.gray400 },
   trustValue: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 30,
+    lineHeight: 38,
     fontWeight: '700',
     letterSpacing: -0.5,
-    color: colors.gray600,
+    color: colors.dark,
   },
+  /** 두 줄로 접히는 것을 전제로 한 줄 길이를 잡는다. 카드 폭을 다 쓰면 링과 붙어 보인다. */
   trustHelp: {
-    maxWidth: 210,
-    fontSize: 10,
-    lineHeight: 15,
+    ...type.small,
     color: colors.gray400,
     marginTop: spacing.x1,
   },
-  metrics: {
+  /**
+   * 보유 크레딧과 오늘 영상핀.
+   *
+   * 아래 이 달의 활동과 같은 방식이다 — 선을 긋는 대신 실금만큼 띄워 흰 바탕이 비치게 하고,
+   * 바깥 모서리만 둥글려 한 카드를 갈라 놓은 것처럼 보이게 한다.
+   */
+  metrics: { flexDirection: 'row', gap: 3, marginTop: spacing.x3 },
+  metric: {
+    flex: 1,
     height: 88,
-    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.x3,
-    borderRadius: radius.card,
+    justifyContent: 'center',
     backgroundColor: '#F3F9D5',
   },
-  metric: { flex: 1, alignItems: 'center' },
-  metricLabel: { fontSize: 12, lineHeight: 18, color: colors.gray600 },
+  metricFirst: { borderTopLeftRadius: radius.card, borderBottomLeftRadius: radius.card },
+  metricLast: { borderTopRightRadius: radius.card, borderBottomRightRadius: radius.card },
+  metricLabel: { ...type.small, color: colors.gray600 },
   metricValue: {
     fontSize: 28,
     lineHeight: 36,
@@ -95,42 +91,45 @@ export const mypageStyles = StyleSheet.create({
     color: colors.gray600,
     marginTop: 2,
   },
-  metricDivider: { width: 1, height: 44, backgroundColor: '#AEBB7F' },
 
   /* 활동 달력 카드 */
+  /**
+   * 달력과 이 달의 활동을 위아래로 쌓는다.
+   *
+   * 예전에는 달력을 왼쪽 68%에, 숫자를 오른쪽에 세로로 두었다. 그러면 달력 칸이 작아져 어느
+   * 날에 올렸는지 알아보기 어렵고, 숫자 세 줄은 글줄로 읽혀 눈에 띄지 않았다. 시안대로 달력을
+   * 폭 전체로 넓히고 숫자는 아래에 나란히 놓는다.
+   */
   activityCard: {
-    height: 264,
-    flexDirection: 'row',
     marginTop: spacing.x5,
+    padding: spacing.x4,
     overflow: 'hidden',
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E2ECC0',
-    backgroundColor: '#F5FBDD',
+    borderColor: colors.gray200,
+    backgroundColor: colors.white,
   },
   /** 다른 달을 불러오는 중. 눌린 것이 반영되고 있다는 표시. */
   activityCardLoading: { opacity: 0.55 },
-  calendar: {
-    width: '68%',
-    paddingHorizontal: spacing.x3,
-    paddingTop: spacing.x2,
-    paddingBottom: spacing.x4,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-  },
+  /**
+   * 요일 줄과 칸을 함께 묶은 자리.
+   *
+   * 카드 폭을 다 쓰면 칸이 지나치게 커져 한 달이 화면을 가득 메운다. 시안처럼 가운데에 두고
+   * 폭만 좁힌다. 요일 줄이 같은 폭을 쓰므로 글자와 칸의 열이 어긋나지 않는다.
+   */
+  calendar: { width: '76%', alignSelf: 'center', marginTop: spacing.x3 },
   monthRow: {
     height: 36,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  month: { ...type.title, color: colors.gray600 },
-  weekRow: { flexDirection: 'row', marginTop: spacing.x2 },
+  month: { ...type.title, color: colors.dark },
+  weekRow: { flexDirection: 'row' },
   weekday: {
     width: `${100 / 7}%`,
     textAlign: 'center',
-    fontSize: 10,
-    lineHeight: 15,
+    ...type.caption,
     color: colors.gray600,
   },
   heatmap: { marginTop: spacing.x2 },
@@ -147,15 +146,31 @@ export const mypageStyles = StyleSheet.create({
   cellLow: { backgroundColor: '#EFF8B5' },
   cellMid: { backgroundColor: '#D6ED60' },
   cellHigh: { backgroundColor: colors.lime },
-  monthStats: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.x3 },
-  statsTitle: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: colors.gray600,
-    marginBottom: spacing.x3,
+  /**
+   * 이 달의 활동.
+   *
+   * 세 칸이지만 하나의 카드로 읽혀야 한다. 바깥 모서리만 둥글게 두고 맞닿는 안쪽은 각지게
+   * 두면, 한 덩어리를 살짝 갈라 놓은 모습이 된다. 칸마다 모서리를 다 둥글리면 따로 놓인
+   * 배지 세 개로 보인다. 사이는 실금만큼만 띄운다.
+   */
+  monthStats: { flexDirection: 'row', gap: 3, marginTop: spacing.x5 },
+  monthStat: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.x3,
+    paddingHorizontal: spacing.x2,
+    backgroundColor: '#F3F9D5',
   },
-  statLine: { fontSize: 9, lineHeight: 17, color: colors.gray600 },
+  monthStatFirst: { borderTopLeftRadius: radius.hero, borderBottomLeftRadius: radius.hero },
+  monthStatLast: { borderTopRightRadius: radius.hero, borderBottomRightRadius: radius.hero },
+  monthStatLabel: { ...type.caption, color: colors.gray600 },
+  monthStatValue: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '700',
+    color: colors.gray600,
+    marginTop: spacing.x1,
+  },
 
   /* 메뉴 목록과 로그아웃 */
   sectionTitle: { ...type.title, color: colors.dark, marginTop: spacing.x10, marginBottom: spacing.x2 },
