@@ -139,7 +139,7 @@ const mockRooms: ChatRoomListItem[] = [
     placeName: '바나프레소 역삼점',
     otherUserNickname: '역삼동 익명러',
     otherUserViewTemperature: 268,
-    lastMessage: '2층 창가석 지금도 비어 있나요?',
+    lastMessage: '2층 창가석 지금도 비어 있나요? 30분 안에 도착할 것 같아서 미리 여쭤봐요',
     lastMessageAt: minutesAgo(3),
     hasUnread: true,
   },
@@ -198,7 +198,9 @@ const mockRooms: ChatRoomListItem[] = [
     placeName: '스타벅스 역삼1점',
     otherUserNickname: '창가석 지킴이',
     otherUserViewTemperature: 300,
-    lastMessage: '지금은 두 자리 남았어요. 오래 안 걸릴 것 같아요',
+    // 세 줄을 넘기는 길이. 두 줄에서 줄임표로 끊기는지 확인하려면 이만큼은 있어야 한다.
+    lastMessage:
+      '지금은 창가 쪽으로 두 자리 남아 있어요. 방금 단체로 나가서 곧 더 빌 것 같은데, 혹시 콘센트 있는 자리를 찾으시면 안쪽 벽 쪽이 더 나을 거예요',
     lastMessageAt: minutesAgo(1),
     hasUnread: true,
   },
