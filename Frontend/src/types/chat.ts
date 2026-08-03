@@ -6,8 +6,13 @@ import type { PinId } from './pin';
  * 채팅방 목록·메시지 API를 붙이면 여기에 추가한다.
  */
 
-/** 채팅방 상태. 요청 직후는 `PENDING`이고 작성자가 수락하면 `ACTIVE`가 된다. */
-export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'CLOSED' | 'LEFT';
+/**
+ * 채팅방 상태. 서버의 `chat_room_status_type`과 같은 값이다.
+ *
+ * PENDING(요청 대기) → ACTIVE(수락) 또는 REFUSED(거절), 그 뒤 LEFT(나감).
+ * 한때 `CLOSED`로 적어 두었는데 그런 값은 없다 — 거절은 `REFUSED`, 종료는 `LEFT`다.
+ */
+export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'REFUSED' | 'LEFT';
 
 /**
  * 익명 채팅 요청 응답 `data`.
