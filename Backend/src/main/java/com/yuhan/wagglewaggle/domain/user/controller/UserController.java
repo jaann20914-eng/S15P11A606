@@ -1,5 +1,7 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
+import com.yuhan.wagglewaggle.domain.credit.dto.CreditTransactionListResponse;
+import com.yuhan.wagglewaggle.domain.credit.service.CreditTransactionService;
 import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinListResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
@@ -27,6 +29,7 @@ public class UserController {
     private final UserService userService;
     private final UserProfileService userProfileService;
     private final TodayPinService todayPinService;
+    private final CreditTransactionService creditTransactionService;
 
     /**
      * 닉네임 중복 확인. 인증 없이 호출 가능한 공개 API.
@@ -98,6 +101,29 @@ public class UserController {
         return ApiResponse.success(
                 HttpStatus.OK.value(),
                 "오늘 등록한 영상 핀 목록 조회가 완료되었습니다.",
+                data);
+    }
+
+    /**
+     * 현재 인증 사용자의 크레딧 잔액과 거래 내역을 커서 페이지네이션으로 조회한다(인증 필요).
+     * type·period 필터 위반은 서비스 계층에서 INVALID_CREDIT_FILTER(400),
+     * cursor·limit 형식·범위 위반은 INVALID_PAGINATION(400)으로 처리한다.
+     * 사용자 식별 정보는 액세스 토큰에서 가져온다.
+     */
+    @GetMapping("/me/credits/transactions")
+    public ApiResponse<CreditTransactionListResponse> getMyCreditTransactions(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        CreditTransactionListResponse data =
+                creditTransactionService.getMyCreditTransactions(memberId, type, period, cursor, limit);
+
+        return ApiResponse.success(
+                HttpStatus.OK.value(),
+                "크레딧 내역 조회가 완료되었습니다.",
                 data);
     }
 }
