@@ -80,7 +80,8 @@ export const chatListStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.x3,
-    paddingVertical: spacing.x3,
+    // 아래 선까지의 간격. 세 층이 쌓인 줄이라 여백까지 넉넉하면 목록이 늘어져 보인다.
+    paddingVertical: spacing.x2,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
@@ -107,9 +108,9 @@ export const chatListStyles = StyleSheet.create({
    * 들쭉날쭉해진다.
    */
   message: {
-    ...type.small,
+    ...type.caption,
     // 두 줄만큼 늘 자리를 잡아 둔다. 한 줄짜리 메시지에서도 줄 높이가 같아진다.
-    minHeight: type.small.lineHeight * 2,
+    minHeight: type.caption.lineHeight * 2,
     color: colors.gray600,
     marginTop: spacing.x2,
   },
