@@ -23,6 +23,8 @@ export type ApiModule =
   | 'pin/evaluate'
   | 'pin/remove'
   | 'pin/status'
+  | 'pin/tag-pins'
+  | 'pin/tag-search'
   | 'pin/update'
   | 'pin/unlock'
   | 'pin/videoUpload'
@@ -30,6 +32,8 @@ export type ApiModule =
   | 'place/detail'
   | 'place/list'
   | 'place/search'
+  | 'place/search-confirm'
+  | 'place/search-recent'
   | 'recommend/places'
   | 'user/credits'
   | 'user/me'
@@ -54,10 +58,16 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   /*
     2026-08-01 기준, 백엔드에 컨트롤러가 없는 것들이다.
 
-    있는 것(`PinController`·`PlaceController`·`UserController`에서 확인):
+    있는 것(`PinController`·`PlaceController`·`TagController`·`RecentSearchController`·
+    `UserController`에서 확인):
     - /auth/oauth, /auth/refresh, /onboarding, /users/nickname-availability
-    - /pins/upload-url, POST /pins, /pins/{pinId}/status, /pins/tags/search
+    - /pins/upload-url, POST /pins, /pins/{pinId}/status, /pins/tags/search(GET·POST)
     - /places/search, /places, /places/{placeId}
+    - /places/search/{kakaoPlaceId}, /places/search/recent
+
+    검색 3종(장소 확정·최근 검색기록·태그)은 컨트롤러를 직접 확인하고 아래 표에 넣지 않았다.
+    API 명세 CSV에는 최근 검색기록이 "진행 중"으로 남아 있으나 RecentSearchController가
+    완성돼 있다.
   */
 
   /*

@@ -32,6 +32,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ChatRequestService {
 
+    // 수락 시 요청자에게서 5 크레딧이 빠지므로, 잔액이 이보다 적으면 요청 자체를 막는다.
+    private static final int CHAT_REQUEST_MIN_CREDIT = 5;
+
     private final PinRepository pinRepository;
     private final PinUnlockRepository pinUnlockRepository;
     private final ChatRoomRepository chatRoomRepository;
@@ -44,6 +47,13 @@ public class ChatRequestService {
     @Transactional
     public ChatRequestCreateResponse request(Long memberId, ChatRequestCreateRequest request) {
         UUID pinId = parsePinId(request);
+
+        // 크레딧 잔액이 부족하면 핀 조회 전에 먼저 차단한다(여기서는 차감하지 않고 잔액만 확인한다).
+        Member requester = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_REQUEST_CREATE_FAILED));
+        if (requester.getCreditBalance() < CHAT_REQUEST_MIN_CREDIT) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_CREDIT);
+        }
 
         Pin pin = pinRepository.findActivePinDetailById(pinId, Instant.now())
                 .orElseThrow(() -> new CustomException(ErrorCode.PIN_NOT_FOUND));
@@ -61,7 +71,6 @@ public class ChatRequestService {
             throw new CustomException(ErrorCode.CHAT_REQUEST_ALREADY_EXISTS);
         }
 
-        Member requester = memberRepository.getReferenceById(memberId);
         ChatRoom room = ChatRoom.create(pin, requester, pin.getMember());
 
         ChatRoom saved;

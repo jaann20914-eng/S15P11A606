@@ -139,7 +139,13 @@ export default function Onboarding() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={[s.screen, { paddingHorizontal: screenGutter }]}>
-        <ScreenHeader title={`${step} / 3`} back={step > 1} onBack={() => setStep(step - 1)} />
+        {/* 온보딩은 아래에 진행 막대가 이어져 구분선을 겹치지 않는다. */}
+        <ScreenHeader
+          title={`${step} / 3`}
+          back={step > 1}
+          onBack={() => setStep(step - 1)}
+          divider={false}
+        />
 
         <View style={s.progressTrack}>
           <LinearGradient

@@ -67,6 +67,11 @@ dependencies {
 	// validation (@Valid, GlobalExceptionHandler가 이미 대비)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+	// websocket + STOMP (채팅 실시간 통신)
+	// starter가 서블릿 WebSocket 업그레이드 자동설정 모듈(spring-boot-websocket)을 전이로 포함한다.
+	// (@EnableWebSocketMessageBroker로 STOMP 브로커는 직접 구성한다.)
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
 	// JWT (jjwt 0.12.x)
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

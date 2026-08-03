@@ -56,7 +56,7 @@ class TaggedPinServiceTest {
 
     private static final PinCard SAMPLE_CARD = new PinCard(
             UUID.fromString("00000000-0000-0000-0000-000000000001"),
-            "준호", 92, Instant.parse("2026-07-31T05:00:00Z"),
+            "준호", java.math.BigDecimal.valueOf(92), Instant.parse("2026-07-31T05:00:00Z"),
             "메모", "pins/1/thumb.jpg", false, List.of("카페", "감성"));
 
     @BeforeEach

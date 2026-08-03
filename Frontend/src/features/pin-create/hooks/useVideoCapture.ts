@@ -11,6 +11,21 @@ import { readCurrentCoordinate } from '@/utils/location';
 
 export type CaptureState = 'idle' | 'recording' | 'done';
 
+/**
+ * 실제로 찍힌 길이(초).
+ *
+ * 촬영 결과에는 길이가 담겨 오지 않아 시작 시각으로 재야 한다. 예전에는 최대값을 그대로 넣어,
+ * 2초만 찍어도 결과 화면에 5초로 보였다.
+ *
+ * 내림으로 센다. 화면의 타이머도 같은 방식이라, 사용자가 2를 보고 멈췄는데 결과가 3으로
+ * 적히는 일이 없다. 1초 미만이어도 0초라고 하면 안 찍힌 것처럼 읽혀 1로 올린다.
+ */
+function recordedSeconds(startedAt: number): number {
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+
+  return Math.min(MAX_VIDEO_SECONDS, Math.max(1, elapsed));
+}
+
 export interface VideoCapture {
   /** `CameraView`에 연결할 ref. */
   cameraRef: React.RefObject<CameraView | null>;
@@ -50,6 +65,9 @@ export function useVideoCapture(onCaptured: (video: PinDraftVideo | null) => voi
 
   /** 녹화를 멈춘 뒤 도착한 결과가 새 녹화를 덮지 않도록 확인한다. */
   const recordingId = useRef(0);
+
+  /** 녹화를 시작한 시각. 실제로 몇 초를 찍었는지는 이 값으로만 알 수 있다. */
+  const startedAt = useRef(0);
 
   useEffect(
     () => () => {
@@ -92,6 +110,7 @@ export function useVideoCapture(onCaptured: (video: PinDraftVideo | null) => voi
     recordingId.current = id;
 
     setState('recording');
+    startedAt.current = Date.now();
     onCaptured(null);
 
     /*
@@ -116,7 +135,7 @@ export function useVideoCapture(onCaptured: (video: PinDraftVideo | null) => voi
         if (result?.uri) {
           onCaptured({
             uri: result.uri,
-            durationSeconds: MAX_VIDEO_SECONDS,
+            durationSeconds: recordedSeconds(startedAt.current),
             coordinate: await coordinate,
           });
         }

@@ -52,6 +52,8 @@ class BlurResult(BaseModel):
 
     blurredVideoKey: str | None = None
 
+    thumbnailKey: str | None = None
+
     code: str | None = None
 
     errorCode: str | None = None
@@ -93,16 +95,24 @@ class BlurResult(BaseModel):
                 raise ValueError(
                     "FAILED result cannot have blurredVideoKey."
                 )
+            if self.thumbnailKey is not None:
+                raise ValueError(
+                    "FAILED result cannot have thumbnailKey."
+                )
             return self
 
         if self.finalStatus == "PASS":
             if not self.blurredVideoKey:
                 raise ValueError("PASS requires blurredVideoKey.")
+            if not self.thumbnailKey:
+                raise ValueError("PASS requires thumbnailKey.")
             return self
 
         if self.finalStatus == "FAIL":
             if self.blurredVideoKey is not None:
                 raise ValueError("FAIL cannot have blurredVideoKey.")
+            if self.thumbnailKey is not None:
+                raise ValueError("FAIL cannot have thumbnailKey.")
             if not self.code:
                 raise ValueError("FAIL requires code.")
             return self
@@ -119,7 +129,9 @@ class BlurResult(BaseModel):
             payload.pop("reasonCodes", None)
             payload["finalStatus"] = None
             payload["blurredVideoKey"] = None
+            payload["thumbnailKey"] = None
         elif self.finalStatus == "FAIL":
             payload["blurredVideoKey"] = None
+            payload["thumbnailKey"] = None
 
         return payload

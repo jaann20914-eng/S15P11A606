@@ -5,24 +5,46 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 게시글 작성 화면 전용 스타일.
  * 화면 조각(헤더 · 세그먼트 · 촬영 · 입력 필드 · 등록 로딩)이 모두 여기서 가져다 쓴다.
  */
+/** 사라짐 구간이 바 위로 걸치는 깊이. 이만큼 아래로 내려 겹친다. */
+export const ACTION_FADE_DROP = 16;
+
 export const pinCreateStyles = StyleSheet.create({
   /* 화면 골격 */
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1 },
+  form: { flex: 1 },
   content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5 },
-
-  /* 헤더 */
-  header: {
-    height: layout.headerHeight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.x2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
+  /**
+   * 늘 보이는 등록 버튼 자리.
+   *
+   * 스크롤 내용 **위에 겹쳐** 놓고, 가려지는 만큼은 아래 여백으로 돌려준다(화면이 이 바
+   * 높이를 재서 넣는다).
+   *
+   * 바탕은 불투명한 흰색이다. 뒤가 비치게 두면 입력칸 글씨와 버튼이 겹쳐 어수선하다.
+   * 경계선 대신 위에 짧은 그라데이션(`actionFade`)을 얹어 내용이 사라지며 들어가게 한다.
+   *
+   * **탭바 높이를 더하지 않는다.** 이 화면은 탭 네비게이터 안에 있어 화면 영역이 이미 탭바
+   * 위에서 끝난다.
+   */
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: layout.gutter,
+    paddingVertical: spacing.x4,
+    backgroundColor: colors.white,
   },
-  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { ...type.title, color: colors.dark },
+  /**
+   * 바 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다 — 더 늘리면 위쪽
+   * 내용까지 흐려져 무엇이 적혀 있는지 알 수 없다.
+   *
+   * 바 위쪽으로 조금 내려 걸친다(`ACTION_FADE_DROP`). 딱 맞춰 두면 사라짐이 끝나는 선과
+   * 바가 시작하는 선이 같은 자리에 놓여, 흐려지다 만 것처럼 보인다.
+   */
+  actionFade: { position: 'absolute', left: 0, right: 0, height: 44 },
+
+  /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */
 
   /* 혼잡도 세그먼트 */
   segment: {
@@ -105,7 +127,13 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,.15)',
   },
   recordInner: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.white },
-  recording: { borderRadius: 8, backgroundColor: '#FF2633' },
+  /**
+   * 녹화 중 표시. 둥근 네모로 바뀐다.
+   *
+   * 크기를 함께 줄여야 한다. 같은 38로 두면 네모의 대각선(53)이 테두리 안쪽 지름(44)보다 길어
+   * 모서리가 바깥 원을 뚫고 나온다. 28이면 대각선이 40이라 안쪽에 여유 있게 들어간다.
+   */
+  recording: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#FF2633' },
   recordDone: { backgroundColor: colors.white },
   /** 재촬영 · 전후면 전환처럼 촬영 화면 우측 상단에 얹는 원형 버튼. */
   cameraAction: {
@@ -144,8 +172,9 @@ export const pinCreateStyles = StyleSheet.create({
 
   /* 태그 */
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.x2 },
+  /** 글자(14)와 삭제 아이콘(18)이 들어가려면 30으로는 좁다. */
   tag: {
-    height: 30,
+    height: 34,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x1,
@@ -153,7 +182,7 @@ export const pinCreateStyles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.limeSoft,
   },
-  tagText: { ...type.caption, color: '#81942E' },
+  tagText: { ...type.small, color: '#81942E' },
   tagInputRow: { height: 44, flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x2 },
   tagInput: {
     flex: 1,
@@ -248,18 +277,18 @@ export const pinCreateStyles = StyleSheet.create({
     color: colors.dark,
   },
 
-  /* 등록 버튼 */
+  /* 등록 버튼. 위 여백은 감싸는 고정 영역(`actionBar`)이 준다. */
   submit: {
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.x8,
     borderRadius: radius.lg,
     backgroundColor: colors.lime,
   },
   submitText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
 
   /* 등록 로딩 */
+  /** 배경 영상이 화면을 채운다. 바탕색은 영상이 뜨기 전 한 프레임을 위한 것이다. */
   publishing: {
     flex: 1,
     alignItems: 'center',
@@ -267,36 +296,46 @@ export const pinCreateStyles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#FBFCF8',
   },
-  ambient: { position: 'absolute', width: 300, height: 300, borderRadius: 150, opacity: 0.42 },
-  ambientWarm: { right: -70, top: -30, backgroundColor: '#FFF0DA' },
-  ambientBlue: { left: -90, bottom: 40, backgroundColor: '#E8F7FC' },
-  loaderWrap: { width: 220, height: 220, alignItems: 'center', justifyContent: 'center' },
-  loaderTrack: {
-    position: 'absolute',
-    width: 206,
-    height: 206,
-    borderRadius: 103,
-    borderWidth: 10,
-    borderColor: '#E9F6C8',
-    borderTopColor: '#A7EF31',
-    borderRightColor: '#C4E600',
-  },
-  loaderMask: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#A7EF31',
-    top: -3,
-    left: 84,
-  },
+  loader: { alignItems: 'center', justifyContent: 'center' },
+  /** 도는 판. 길이가 다른 링 그림들이 이 안에 겹쳐 있다. */
+  loaderRing: { position: 'absolute' },
+  loaderRingFrame: { position: 'absolute', resizeMode: 'contain' },
+  /**
+   * 링 안쪽의 흰 원.
+   *
+   * 배경 영상 위에 글자를 그대로 올리면 구체가 지나갈 때 읽기 어려워진다. 링 안쪽을 흰색으로
+   * 채워 글자가 놓일 자리를 만든다.
+   */
   loaderCenter: {
-    width: 176,
-    height: 176,
-    borderRadius: 88,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.x6,
     backgroundColor: colors.white,
+  },
+  /** 본문 앞머리. "AI를 이용하여"처럼 문장을 여는 줄이다. */
+  publishingLead: {
+    ...type.small,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: colors.gray400,
+    marginBottom: spacing.x2,
+  },
+  publishingText: {
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    color: colors.gray600,
+  },
+  /** 알아 둬야 할 것. 본문과 떨어뜨려 한 단계 작게 쓴다. */
+  publishingNote: {
+    ...type.small,
+    lineHeight: 22,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: colors.gray400,
+    marginTop: spacing.x4,
   },
   /** 업로드 퍼센트. 안내 문구 아래에 크게 놓는다. */
   publishingProgress: {
@@ -313,15 +352,7 @@ export const pinCreateStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.white,
   },
   publishingCancelText: { ...type.label, color: colors.gray600, fontWeight: '600' },
-  publishingText: {
-    fontSize: 18,
-    lineHeight: 27,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    textAlign: 'center',
-    color: colors.gray600,
-  },
 });

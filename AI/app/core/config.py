@@ -3,7 +3,7 @@
 # import socket
 # from uuid import uuid4
 #
-# from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # _PROCESS_INSTANCE_UUID = uuid4().hex
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Internal API
     internal_api_key: str
     log_level: str = "INFO"
+
+    # Recommendation
+    scoring_timeout_ms: int = 2000
 
     # RabbitMQ
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
@@ -60,10 +63,35 @@ class Settings(BaseSettings):
 
     # Object Storage
     storage_endpoint_url: str | None = None
-    storage_bucket: str = ""
-    storage_access_key: str = ""
-    storage_secret_key: str = ""
-    storage_region: str = "ap-northeast-2"
+    storage_bucket: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "STORAGE_BUCKET",
+            "AWS_S3_BUCKET",
+            "S3_BUCKET_NAME",
+        ),
+    )
+    storage_access_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "STORAGE_ACCESS_KEY",
+            "AWS_ACCESS_KEY_ID",
+        ),
+    )
+    storage_secret_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "STORAGE_SECRET_KEY",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
+    )
+    storage_region: str = Field(
+        default="ap-northeast-2",
+        validation_alias=AliasChoices(
+            "STORAGE_REGION",
+            "AWS_REGION",
+        ),
+    )
 
     # Redis worker idempotency는 ai_blur_job DB의 UNIQUE 제약으로 대체한다.
     # redis_url: str = "redis://localhost:6379/0"

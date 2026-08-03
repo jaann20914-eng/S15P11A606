@@ -151,7 +151,7 @@ class PlaceDetailServiceTest {
         assertThat(response.pins()).extracting(PinCard::pinId).containsExactly(PIN_1, PIN_2);
         PinCard first = response.pins().get(0);
         assertThat(first.nickname()).isEqualTo("준호");
-        assertThat(first.viewAngle()).isEqualTo(92);
+        assertThat(first.viewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(92));
         assertThat(first.memo()).isEqualTo("창가 자리 있어요");
         assertThat(first.thumbnailKey()).isEqualTo("pins/11/thumb.jpg");
         assertThat(first.isUnlocked()).isTrue();
@@ -274,7 +274,7 @@ class PlaceDetailServiceTest {
 
     private static Member member(String nickname, int viewAngle) {
         Member member = Member.create(nickname, AgeGroup.TWENTIES, Gender.FEMALE);
-        ReflectionTestUtils.setField(member, "viewAngle", viewAngle);
+        ReflectionTestUtils.setField(member, "viewAngle", java.math.BigDecimal.valueOf(viewAngle));
         return member;
     }
 

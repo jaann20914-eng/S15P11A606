@@ -1,12 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockPlaceDetail } from '@/mocks/place';
-import type {
-  PlaceDetail,
-  PlaceDetailResponse,
-  PlacePinCard,
-  PlacePinCardResponse,
-} from '@/types/place';
+import type { PlaceDetail, PlaceDetailResponse, PlacePinCard, PlacePinCardResponse } from '@/types/place';
 
 /**
  * 핀 카드의 썸네일 필드를 하나로 모은다.
@@ -15,7 +10,7 @@ import type {
  * 확정되지 않았다. 둘 다 받아 두고 화면에는 `thumbnailUrl` 하나만 넘긴다. 키로 온다면
  * 저장소 주소를 앞에 붙이는 자리도 여기다.
  */
-function toPinCard({ videoThumbnailUrl, thumbnailKey, ...pin }: PlacePinCardResponse): PlacePinCard {
+export function toPinCard({ videoThumbnailUrl, thumbnailKey, ...pin }: PlacePinCardResponse): PlacePinCard {
   return { ...pin, thumbnailUrl: videoThumbnailUrl ?? thumbnailKey ?? null };
 }
 

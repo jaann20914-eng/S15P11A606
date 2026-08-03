@@ -61,6 +61,10 @@ class PinPersistenceServiceTest {
     private static final double CAPTURE_LNG = 127.030100;
     private static final String KEY = "pins/original/42/11111111-2222-3333-4444-555555555555.mp4";
     private static final UUID PIN_ID = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static final String CATEGORY_GROUP_CODE = "CE7";
+    private static final String CATEGORY_GROUP_NAME = "카페";
+    private static final String PHONE = "02-123-4567";
+    private static final String ADDRESS_NAME = "서울 강남구 역삼동 858";
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -81,7 +85,9 @@ class PinPersistenceServiceTest {
     private ValidatedPinCreation validated(List<String> tags) {
         return new ValidatedPinCreation(
                 MEMBER_ID, KEY, KAKAO_PLACE_ID, PLACE_NAME,
-                PLACE_LAT, PLACE_LNG, CAPTURE_LAT, CAPTURE_LNG,
+                PLACE_LAT, PLACE_LNG,
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, PHONE, ADDRESS_NAME,
+                CAPTURE_LAT, CAPTURE_LNG,
                 "2층 창가", CrowdLevel.WAGLE, "메모", tags);
     }
 
@@ -139,6 +145,10 @@ class PinPersistenceServiceTest {
         assertThat(savedPlace.getName()).isEqualTo(PLACE_NAME);
         assertThat(savedPlace.getLocation().getX()).isEqualTo(PLACE_LNG);
         assertThat(savedPlace.getLocation().getY()).isEqualTo(PLACE_LAT);
+        assertThat(savedPlace.getCategoryGroupCode()).isEqualTo(CATEGORY_GROUP_CODE);
+        assertThat(savedPlace.getCategoryGroupName()).isEqualTo(CATEGORY_GROUP_NAME);
+        assertThat(savedPlace.getPhone()).isEqualTo(PHONE);
+        assertThat(savedPlace.getAddressName()).isEqualTo(ADDRESS_NAME);
     }
 
     @Test

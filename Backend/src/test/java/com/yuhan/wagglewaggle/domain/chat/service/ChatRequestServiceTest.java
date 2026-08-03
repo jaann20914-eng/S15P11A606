@@ -57,6 +57,14 @@ class ChatRequestServiceTest {
         return new ChatRequestCreateRequest(pinId);
     }
 
+    /** 크레딧 게이트를 통과(또는 실패)하도록 요청자 로딩을 준비한다. */
+    private Member givenRequesterWithCredit(int credit) {
+        Member requester = mock(Member.class);
+        given(requester.getCreditBalance()).willReturn(credit);
+        given(memberRepository.findById(REQUESTER_ID)).willReturn(Optional.of(requester));
+        return requester;
+    }
+
     /** 활성·타인·구매·방없음 흐름을 만족하도록 pin/owner mock을 준비한다. */
     private Pin givenActivePinOwnedByOther() {
         Pin pin = mock(Pin.class);
@@ -71,11 +79,11 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("활성·타인 소유·구매 완료·방 없음이면 PENDING 채팅방을 생성하고 roomId·pinId를 반환한다")
     void 유효한_요청이면_채팅방을_생성한다() {
+        givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(true);
         given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, REQUESTER_ID))
                 .willReturn(Optional.empty());
-        given(memberRepository.getReferenceById(REQUESTER_ID)).willReturn(mock(Member.class));
         ChatRoom saved = mock(ChatRoom.class);
         given(saved.getId()).willReturn(1L);
         given(chatRoomRepository.saveAndFlush(any(ChatRoom.class))).willReturn(saved);
@@ -115,6 +123,7 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("활성 핀이 없으면 PIN_NOT_FOUND")
     void 활성핀이_없으면_PIN_NOT_FOUND() {
+        givenRequesterWithCredit(10);
         given(pinRepository.findActivePinDetailById(eq(PIN_ID), any(Instant.class)))
                 .willReturn(Optional.empty());
 
@@ -126,6 +135,7 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("본인 핀에 요청하면 CHAT_REQUEST_FORBIDDEN이며 구매 여부를 확인하지 않는다")
     void 본인핀이면_CHAT_REQUEST_FORBIDDEN() {
+        givenRequesterWithCredit(10);
         Pin pin = mock(Pin.class);
         Member owner = mock(Member.class);
         given(pinRepository.findActivePinDetailById(eq(PIN_ID), any(Instant.class)))
@@ -142,6 +152,7 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("구매하지 않았으면 CHAT_REQUEST_FORBIDDEN")
     void 미구매면_CHAT_REQUEST_FORBIDDEN() {
+        givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(false);
 
@@ -153,6 +164,7 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("이미 채팅방이 존재하면(상태 불문) CHAT_REQUEST_ALREADY_EXISTS")
     void 방이_이미_있으면_CHAT_REQUEST_ALREADY_EXISTS() {
+        givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(true);
         given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, REQUESTER_ID))
@@ -167,11 +179,11 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("저장 시 유니크 제약 위반(동시 요청 레이스)이면 CHAT_REQUEST_ALREADY_EXISTS")
     void 저장중_유니크위반이면_CHAT_REQUEST_ALREADY_EXISTS() {
+        givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(true);
         given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, REQUESTER_ID))
                 .willReturn(Optional.empty());
-        given(memberRepository.getReferenceById(REQUESTER_ID)).willReturn(mock(Member.class));
         given(chatRoomRepository.saveAndFlush(any(ChatRoom.class)))
                 .willThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -183,16 +195,28 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("저장이 그 외 이유로 실패하면 CHAT_REQUEST_CREATE_FAILED")
     void 저장실패면_CHAT_REQUEST_CREATE_FAILED() {
+        givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(true);
         given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, REQUESTER_ID))
                 .willReturn(Optional.empty());
-        given(memberRepository.getReferenceById(REQUESTER_ID)).willReturn(mock(Member.class));
         given(chatRoomRepository.saveAndFlush(any(ChatRoom.class)))
                 .willThrow(new RuntimeException("db down"));
 
         assertThatThrownBy(() -> service.request(REQUESTER_ID, req(PIN_ID.toString())))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CHAT_REQUEST_CREATE_FAILED);
+    }
+
+    @Test
+    @DisplayName("요청자 크레딧이 5 미만이면 INSUFFICIENT_CREDIT이며 핀을 조회하지 않고 방을 생성하지 않는다")
+    void 크레딧이_부족하면_INSUFFICIENT_CREDIT() {
+        givenRequesterWithCredit(4); // < 5
+
+        assertThatThrownBy(() -> service.request(REQUESTER_ID, req(PIN_ID.toString())))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.INSUFFICIENT_CREDIT);
+        verify(pinRepository, never()).findActivePinDetailById(any(), any());
+        verify(chatRoomRepository, never()).saveAndFlush(any());
     }
 }

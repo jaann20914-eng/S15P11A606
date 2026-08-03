@@ -57,6 +57,12 @@ public enum ErrorCode {
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임 형식이 올바르지 않습니다."),
     NICKNAME_AVAILABILITY_CHECK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 중복 확인 중 오류가 발생했습니다."),
 
+    // User Profile
+    // UNAUTHORIZED(401)는 위 Common 정의를 재사용한다.
+    INVALID_YEAR_MONTH(HttpStatus.BAD_REQUEST, "조회 연월이 올바르지 않습니다."),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."),
+    USER_PROFILE_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "내 프로필 및 활동 요약 조회 중 오류가 발생했습니다."),
+
     // Onboarding
     INVALID_ONBOARDING_REQUEST(HttpStatus.BAD_REQUEST, "온보딩 입력값이 올바르지 않습니다."),
     INVALID_ONBOARDING_TOKEN(HttpStatus.UNAUTHORIZED, "온보딩 토큰이 유효하지 않습니다."),
@@ -96,6 +102,14 @@ public enum ErrorCode {
     CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
     CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
 
+    // Chat Request Decision
+    INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
+    CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
+    CHAT_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅 요청을 찾을 수 없습니다."),
+    CHAT_REQUEST_ALREADY_DECIDED(HttpStatus.CONFLICT, "이미 처리된 채팅 요청입니다."),
+    INSUFFICIENT_CREDIT(HttpStatus.CONFLICT, "크레딧 잔액이 부족합니다."),
+    CHAT_REQUEST_DECISION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 응답 처리 중 오류가 발생했습니다."),
+
     // Pin Update
     INVALID_PIN_UPDATE_REQUEST(HttpStatus.BAD_REQUEST, "핀 수정 요청값이 올바르지 않습니다."),
     PIN_UPDATE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 수정할 권한이 없습니다."),
@@ -105,7 +119,37 @@ public enum ErrorCode {
 
     // Pin Delete
     PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
-    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다.");
+    PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다."),
+
+    // WebSocket / Chat Realtime
+    // WebSocket은 REST 공통 응답을 쓰지 않고 STOMP ERROR 프레임/SUBSCRIPTION_FAILED 이벤트에 code만 실어 전달한다.
+    // status는 규약 통일을 위해 유지하되, 실제 전송 본문에는 name()과 message만 사용한다.
+    WEBSOCKET_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "WebSocket 인증에 실패했습니다."),
+    WEBSOCKET_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "WebSocket 인증 토큰이 만료되었습니다."),
+    UNSUPPORTED_STOMP_VERSION(HttpStatus.BAD_REQUEST, "지원하지 않는 STOMP 버전입니다."),
+    WEBSOCKET_CONNECTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "WebSocket 연결 처리 중 오류가 발생했습니다."),
+    INVALID_ROOM_ID(HttpStatus.BAD_REQUEST, "채팅방 ID 형식이 올바르지 않습니다."),
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방을 찾을 수 없습니다."),
+    CHAT_ROOM_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "채팅방 실시간 이벤트를 구독할 권한이 없습니다."),
+    USER_CHANNEL_SUBSCRIPTION_DENIED(HttpStatus.FORBIDDEN, "사용자 전용 채널을 구독할 수 없습니다."),
+    CHAT_ROOM_NOT_ACTIVE(HttpStatus.CONFLICT, "활성 상태가 아닌 채팅방에는 메시지를 보낼 수 없습니다."),
+    CHAT_MESSAGE_SEND_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅방에 메시지를 보낼 권한이 없습니다."),
+    CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
+    CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 내용이 너무 깁니다."),
+
+    // Pin Evaluation
+    INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),
+    PIN_EVALUATION_FORBIDDEN(HttpStatus.FORBIDDEN, "이 핀을 평가할 수 없습니다."),
+    PIN_ALREADY_EVALUATED(HttpStatus.CONFLICT, "이미 평가한 핀입니다."),
+    PIN_EVALUATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 평가 등록 중 오류가 발생했습니다."),
+
+    // Pin Unlock
+    // INSUFFICIENT_CREDIT(409)·PIN_NOT_FOUND(404)·INVALID_PIN_ID(400)·UNAUTHORIZED(401)는 위에서 재사용한다.
+    IDEMPOTENCY_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "멱등성 키가 필요합니다."),
+    INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "멱등성 키 형식이 올바르지 않습니다."),
+    IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키가 다른 요청에 사용되었습니다."),
+    PIN_UNLOCK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 잠금 해제 중 오류가 발생했습니다."),
+    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

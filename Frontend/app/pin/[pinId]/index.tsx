@@ -1,4 +1,5 @@
-import { ActivityIndicator, SafeAreaView, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { AppTabBar, ConfirmModal, ErrorView } from '@/components/common';
@@ -9,16 +10,32 @@ import { PinDetailHeader } from '@/features/pin-detail/components/PinDetailHeade
 import { PinPurchaseModal } from '@/features/pin-detail/components/PinPurchaseModal';
 import { parsePinId, usePinDetail } from '@/features/pin-detail/hooks/usePinDetail';
 import { usePinDetailScreen } from '@/features/pin-detail/hooks/usePinDetailScreen';
+import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
+import { IllustrationProvider } from '@/features/pin-detail/illustrations';
 import { pinDetailStyles as s } from '@/features/pin-detail/styles';
 import { isOwnPin } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
 
 /**
  * 게시글 상세 라우트.
+ *
+ * 3D 장식 영상을 담아 두는 자리(`IllustrationProvider`). 화면에 들어올 때 받지는 않는다 —
+ * 이 화면의 주인공은 현장 영상이라 장식까지 함께 받으면 정작 봐야 할 것이 늦게 뜬다.
+ * 버튼을 누른 순간에 받고, 다 받은 뒤에 시트를 통째로 띄운다.
+ */
+export default function PinDetailRoute() {
+  return (
+    <IllustrationProvider>
+      <PinDetailContent />
+    </IllustrationProvider>
+  );
+}
+
+/**
  * 파라미터를 읽고 상태별 화면을 고르는 조립만 한다.
  * 뷰는 `src/components/pin/detail`, 상호작용 로직은 `usePinDetailScreen`에 있다.
  */
-export default function PinDetailRoute() {
+function PinDetailContent() {
   const { pinId: pinIdParam } = useLocalSearchParams<{ pinId: string }>();
   const pinId = parsePinId(pinIdParam);
   const { status, data, error, errorCode, reload, patchDetail } = usePinDetail(pinId);
@@ -73,7 +90,7 @@ export default function PinDetailRoute() {
 /** 로딩·오류 화면이 공유하는 껍데기. 소유 여부를 모르므로 헤더 우측은 비운다. */
 function PinDetailShell({ children }: { children: React.ReactNode }) {
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <PinDetailHeader hideActions />
       {children}
       <AppTabBar />
@@ -91,30 +108,42 @@ function PinDetailScreen({
   const { menu, purchase, chat, remove, leave, evaluation } = usePinDetailScreen(detail, onDetailChange);
   const isMine = isOwnPin(detail);
 
+  // 시트가 오르내리는 동안 흐림도 함께 짙어지고 옅어진다. 결제와 채팅 요청이 같은 시트를 쓴다.
+  const blurRadius = useBackdropBlur(purchase.open || chat.open);
+
   return (
-    <SafeAreaView style={s.safe}>
-      <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+      {/*
+        아래에서 시트가 올라오면 화면 전체를 흐리게 한다.
 
-      {menu.open && (
-        <OwnerMenu
-          onEdit={menu.edit}
-          onDelete={() => {
-            menu.hide();
-            remove.show();
-          }}
-          onDismiss={menu.hide}
+        `filter`는 스냅샷을 뜨지 않고 뷰의 렌더 노드에 직접 걸리므로 영상까지 함께 흐려진다.
+        `BlurView`는 안드로이드에서 영상 표면을 잡지 못해 이 화면에서는 쓸 수 없다
+        (`PinDetailMedia` 주석 참고). 시트는 이 묶음 밖에 있어 또렷하게 남는다.
+      */}
+      <View style={[s.screenContent, { filter: [{ blur: blurRadius }] }]}>
+        <PinDetailHeader menu={isMine ? { open: menu.open, onToggle: menu.toggle } : undefined} />
+
+        {menu.open && (
+          <OwnerMenu
+            onEdit={menu.edit}
+            onDelete={() => {
+              menu.hide();
+              remove.show();
+            }}
+            onDismiss={menu.hide}
+          />
+        )}
+
+        <PinDetailBody
+          detail={detail}
+          evaluation={evaluation}
+          onRequestChat={chat.show}
+          onRequestPurchase={purchase.show}
+          onLeave={leave.show}
         />
-      )}
 
-      <PinDetailBody
-        detail={detail}
-        evaluation={evaluation}
-        onRequestChat={chat.show}
-        onRequestPurchase={purchase.show}
-        onLeave={leave.show}
-      />
-
-      <AppTabBar />
+        <AppTabBar />
+      </View>
 
       <PinPurchaseModal
         visible={purchase.open}

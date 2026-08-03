@@ -15,6 +15,7 @@ from app.messaging.blur.consumer import get_request_queue
 from app.messaging.blur.publisher import publish_result
 from app.schemas.blur import BlurRequest, BlurResult
 from app.services.blur.face_detector import FaceDetector
+from app.services.blur.thumbnail_service import ThumbnailService
 from app.services.blur.video_service import VideoService
 from app.storage.object_storage import ObjectStorage
 
@@ -29,10 +30,12 @@ class BlurWorker:
         self,
         storage: ObjectStorage | None = None,
         video_service: VideoService | None = None,
+        thumbnail_service: ThumbnailService | None = None,
         # idempotency_store: IdempotencyStore | None = None,
     ) -> None:
         self.storage = storage
         self.video_service = video_service
+        self.thumbnail_service = thumbnail_service
         # Redis 멱등성 저장소를 생성하지 않는다.
         # self.idempotency_store = (
         #     idempotency_store or IdempotencyStore()
@@ -167,7 +170,11 @@ class BlurWorker:
             # Redis heartbeat 취소 및 작업 선점 해제를 사용하지 않는다.
             # await self._cancel_heartbeat(heartbeat)
             # await self._release_claim(request)
-            await message.reject(requeue=False)
+            # Publisher confirm 실패는 한 번 재시도한다. 이미 재전달된
+            # 메시지까지 계속 requeue하면 무한 루프가 되므로 DLQ로 보낸다.
+            await message.reject(
+                requeue=not message.redelivered
+            )
             return
 
         # Redis 리스 확인 및 멱등성 완료 기록을 사용하지 않는다.
@@ -249,15 +256,19 @@ class BlurWorker:
     ) -> BlurResult:
         storage = self.storage or ObjectStorage()
         video_service = self.video_service or VideoService(FaceDetector())
+        thumbnail_service = self.thumbnail_service or ThumbnailService()
         self.storage = storage
         self.video_service = video_service
+        self.thumbnail_service = thumbnail_service
 
-        output_key = self._build_output_key(request)
+        blurred_video_key = self._build_blurred_video_key(request)
+        thumbnail_key = self._build_thumbnail_key(request)
         input_suffix = PurePosixPath(request.originalVideoKey).suffix
 
         with tempfile.TemporaryDirectory(prefix="ai-blur-") as temp_dir:
             input_path = f"{temp_dir}/input{input_suffix}"
             output_path = f"{temp_dir}/output.mp4"
+            thumbnail_path = f"{temp_dir}/thumbnail.webp"
 
             storage.download(request.originalVideoKey, input_path)
             process_result = video_service.process(
@@ -266,18 +277,32 @@ class BlurWorker:
             )
 
             passed = process_result.final_status == "PASS"
-            uploaded_key = (
-                storage.upload(output_path, output_key)
-                if passed
-                else None
-            )
+            uploaded_blurred_video_key: str | None = None
+            uploaded_thumbnail_key: str | None = None
+
+            if passed:
+                thumbnail_service.save_webp(
+                    process_result.thumbnail_frame,
+                    thumbnail_path,
+                )
+                uploaded_thumbnail_key = storage.upload(
+                    thumbnail_path,
+                    thumbnail_key,
+                    content_type="image/webp",
+                )
+                uploaded_blurred_video_key = storage.upload(
+                    output_path,
+                    blurred_video_key,
+                    content_type="video/mp4",
+                )
 
         return BlurResult(
             requestId=request.requestId,
             pinId=request.pinId,
             processingStatus="COMPLETED",
             finalStatus=process_result.final_status,
-            blurredVideoKey=uploaded_key,
+            blurredVideoKey=uploaded_blurred_video_key,
+            thumbnailKey=uploaded_thumbnail_key,
             code=None if passed else "BLUR_VALIDATION_FAILED",
             reasonCodes=process_result.reason_codes,
             detectedFaceCount=process_result.detected_face_count,
@@ -313,10 +338,17 @@ class BlurWorker:
         return data
 
     @staticmethod
-    def _build_output_key(request: BlurRequest) -> str:
+    def _build_blurred_video_key(request: BlurRequest) -> str:
         return (
-            f"blurred-videos/{request.pinId}/"
+            f"pins/blurred/{request.pinId}/"
             f"{request.requestId}.mp4"
+        )
+
+    @staticmethod
+    def _build_thumbnail_key(request: BlurRequest) -> str:
+        return (
+            f"pins/thumbnails/{request.pinId}/"
+            f"{request.requestId}.webp"
         )
 
     @staticmethod
@@ -330,6 +362,7 @@ class BlurWorker:
             processingStatus="FAILED",
             finalStatus=None,
             blurredVideoKey=None,
+            thumbnailKey=None,
             errorCode=error_code,
             completedAt=datetime.now(timezone.utc),
         )

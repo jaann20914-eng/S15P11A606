@@ -3,9 +3,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.common.logging import get_logger
+from app.core.config import settings
 from app.core.security import InternalAuthError
 from app.routers import recommendations
 from app.schemas.recommendation import ErrorResponse
+from app.services.recommendation.recommendation_service import ScoringTimeoutError
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,18 @@ async def handle_internal_auth_error(
         401,
         "UNAUTHORIZED",
         "invalid x-internal-api-key",
+    )
+
+
+@app.exception_handler(ScoringTimeoutError)
+async def handle_scoring_timeout_error(
+    request: Request,
+    exc: ScoringTimeoutError,
+) -> JSONResponse:
+    return _error_response(
+        504,
+        "SCORING_TIMEOUT",
+        f"scoring request exceeded {settings.scoring_timeout_ms}ms",
     )
 
 

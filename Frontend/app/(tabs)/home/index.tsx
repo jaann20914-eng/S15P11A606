@@ -15,8 +15,8 @@ import { BlurView } from 'expo-blur';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
-import { CrowdFilterToggle } from '@/components/common';
-import { useAppTabBarHeight } from '@/components/common';
+import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
+import { CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
@@ -42,6 +42,12 @@ const MY_LOCATION_WAIT_MS = 1500;
  */
 const ESTIMATED_HEADER_HEIGHT = 118;
 const ESTIMATED_CARD_HEIGHT = 208;
+
+/** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
+const ANGLE_PREVIEW_COUNT = 5;
+
+/** 카드의 각도 링 지름. */
+const ANGLE_RING_SIZE = 34;
 
 export default function Home() {
   const { height } = useWindowDimensions();
@@ -135,18 +141,21 @@ export default function Home() {
   );
 
   /**
-   * 상세 화면으로 넘어간다. **고른 카드에 나타나는 `상세 보기` 버튼만** 이 역할을 한다.
+   * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
    *
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
-   * 전환하려면 한 번 고른 뒤 글자로 적힌 버튼을 눌러야 하므로, 지도를 보려던 탭이 화면
-   * 전환으로 이어지는 일이 없다.
+   * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
+   * 이어지는 일이 없다.
    */
-  const openPlace = (placeId: string) => {
-    selectPlace(placeId);
-    router.push(`/place/${placeId}`);
-  };
+  const openPlace = useCallback((placeId: string) => router.push(`/place/${placeId}`), []);
 
-  /** 핀·카드 탭은 상세로 넘어가지 않고 해당 장소를 지도 중앙으로 부드럽게 옮긴다. */
+  /**
+   * 카드나 지도 핀을 눌렀을 때. 상세로 넘어가지 않고 그 장소를 보여주기만 한다.
+   *
+   * 멀리서 보고 있었으면 250m까지 당기고, 화면 밖이면 손으로 쓸어가듯 중앙으로 데려온다.
+   * 이미 그보다 가까이 당겨 둔 상태라면 축척은 그대로 둔다 — 판정은 지도 쪽 `focusPlace`가
+   * 한다. 이 화면은 어디로 갈지만 정하고, 얼마나 당길지는 지도가 정한다.
+   */
   const focusPlace = useCallback(
     (placeId: string) => {
       const place = places.find((item) => item.id === placeId);
@@ -210,10 +219,16 @@ export default function Home() {
     clearFocus();
   }, [clearFocus, focus, mapReady]);
 
-  // 밀린 이동을 실행한다. 이 시점의 coveredHeight는 시트의 최종 높이를 반영하고 있다.
+  /*
+    밀린 이동을 실행한다. 이 시점의 coveredHeight는 시트의 최종 높이를 반영하고 있다.
+
+    `panTo`가 아니라 `focusPlace`를 쓴다. 옮기면서 필요한 만큼 당기는 것까지 지도가 한 번에
+    맡는다 — 여기서 두 명령을 잇달아 보내면 확대가 이동을 끊거나, 끝나면서 방금 옮긴 중심을
+    되돌린다. 이미 250m보다 가까이 보고 있으면 지도가 축척을 그대로 둔다.
+  */
   useEffect(() => {
     if (!mapReady || !pendingPan) return;
-    mapRef.current?.panTo(pendingPan);
+    mapRef.current?.focusPlace(pendingPan, PLACE_FOCUS_MAP_LEVEL);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
 
@@ -256,6 +271,7 @@ export default function Home() {
           // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
+          // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
           onPinPress={focusPlace}
           onMapPress={clearSelection}
           onViewChange={handleViewChange}
@@ -388,36 +404,47 @@ export default function Home() {
                   </Text>
                 </View>
                 {/*
-                  고른 카드에만 상세로 가는 버튼을 글자로 띄운다.
+                  상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
 
-                  예전에는 이 자리에 `>` 아이콘이 있었는데, 목록의 오른쪽 화살표는 "이 항목
-                  열기"로 읽혀서 카드를 누르려는 손이 그쪽을 겨냥했다. 결국 지도만 옮기려는
-                  탭이 화면 전환이 됐다. 글자로 적고 고른 뒤에만 보이면 헷갈릴 여지가 없다.
+                  고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
+                  예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
+                  실제로는 카드와 같은 동작이라 오해를 샀다.
+
+                  글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
+                  표적은 아이콘보다 훨씬 크게 잡는다.
                 */}
-                {place.id === selectedPlaceId ? (
+                {place.id === selectedPlaceId && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`${place.name} 상세 보기`}
-                    hitSlop={8}
+                    hitSlop={16}
                     onPress={() => openPlace(place.id)}
-                    style={s.detailButton}
+                    style={s.detailChevron}
                   >
-                    <Text style={s.detailButtonText}>상세 보기</Text>
+                    <Ionicons name="chevron-forward" size={22} color={colors.dark} />
                   </Pressable>
-                ) : (
-                  // 누르면 무엇이 일어나는지 알리는 표시. 화살표와 달리 이동을 약속하지 않는다.
-                  <Ionicons name="location-outline" size={20} color={colors.gray400} />
                 )}
               </View>
               <View style={s.cardRule} />
-              <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
+              {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
+              <Text style={s.pinUpload}>
+                감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
+              </Text>
+              {/*
+                작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
+                비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
+                같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
+
+                장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
+              */}
               <View style={s.angleRow}>
-                {[320, 90, 270, 90, 180].map((angle, index) => (
-                  <View key={`${place.id}-${index}`} style={s.angleRing}>
-                    <Text style={s.angleText}>{angle}°</Text>
-                  </View>
+                {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
+                  <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
                 ))}
-                <Text style={s.morePins}>+{place.pins}</Text>
+                {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
+                {place.pins > ANGLE_PREVIEW_COUNT && (
+                  <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
+                )}
               </View>
             </Pressable>
           ))}
@@ -521,16 +548,23 @@ const s = StyleSheet.create({
   },
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
   placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
-  detailButton: {
-    minHeight: 34,
-    paddingHorizontal: spacing.x3,
+  // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
+  /**
+   * 꺽새를 담는 칸.
+   *
+   * 높이를 장소명 한 줄(`type.title`의 lineHeight 26)과 같게 두고 가운데 정렬해, 꺽새가
+   * 이름과 같은 높이에 놓인다. 글꼴 크기 설정이 바뀌어도 두 값이 함께 움직인다.
+   *
+   * 글자가 없어 눌리는 넓이는 이 칸이 확보하고, 모자란 만큼은 hitSlop으로 넓힌다.
+   */
+  detailChevron: {
+    width: 32,
+    height: type.title.lineHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.gray100,
+    marginLeft: spacing.x2,
   },
-  detailButtonText: { ...type.caption, color: colors.dark, fontWeight: '600' },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
@@ -539,17 +573,6 @@ const s = StyleSheet.create({
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinUpload: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x3 },
-  angleRing: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
-  angleText: { fontSize: 10, lineHeight: 14, color: colors.gray600 },
   morePins: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
   empty: { alignItems: 'center', paddingVertical: spacing.x10 },
   emptyTitle: { ...type.title, color: colors.dark },

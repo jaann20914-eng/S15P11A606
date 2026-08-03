@@ -25,16 +25,26 @@ pipeline {
         HOST_PORT = '8990'
 
         // Jenkins Global Credentials
-        DB_PASSWORD         = credentials('waggle-db-password')
-        KAKAO_REST_API_KEY  = credentials('waggle-kakao-rest-api-key')
-        KAKAO_CLIENT_SECRET = credentials('waggle-kakao-client-secret')
-        NAVER_CLIENT_ID     = credentials('waggle-naver-client-id')
-        NAVER_CLIENT_SECRET = credentials('waggle-naver-client-secret')
-        JWT_SECRET          = credentials('waggle-jwt-secret')
+        DB_PASSWORD           = credentials('waggle-db-password')
+        KAKAO_REST_API_KEY    = credentials('waggle-kakao-rest-api-key')
+        KAKAO_CLIENT_SECRET   = credentials('waggle-kakao-client-secret')
+        NAVER_CLIENT_ID       = credentials('waggle-naver-client-id')
+        NAVER_CLIENT_SECRET   = credentials('waggle-naver-client-secret')
+        JWT_SECRET            = credentials('waggle-jwt-secret')
+        AWS_ACCESS_KEY_ID     = credentials('waggle-aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('waggle-aws-secret-access-key')
+        RABBITMQ_PASSWORD     = credentials('waggle-rabbitmq-password')
 
         // 비밀값이 아니므로 직접 작성 가능
         KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
         NAVER_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/naver'
+
+        RABBITMQ_HOST     = 'waggle-rabbitmq'
+        RABBITMQ_PORT     = '5672'
+        RABBITMQ_USERNAME = 'waggle'
+
+        AWS_S3_BUCKET = 'waggle-waggle'
+        AWS_REGION    = 'ap-northeast-2'
 
         // 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (Frontend app.json의 scheme와 일치)
         OAUTH_CALLBACK_SCHEME = 'waglewagle'
@@ -125,6 +135,10 @@ pipeline {
                         -e DB_USERNAME="$DB_USER" \
                         -e DB_PASSWORD="$DB_PASSWORD" \
                         -e ES_URIS="$ES_URIS" \
+                        -e RABBITMQ_HOST="$RABBITMQ_HOST" \
+                        -e RABBITMQ_PORT="$RABBITMQ_PORT" \
+                        -e RABBITMQ_USERNAME="$RABBITMQ_USERNAME" \
+                        -e RABBITMQ_PASSWORD="$RABBITMQ_PASSWORD" \
                         -e KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY" \
                         -e KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET" \
                         -e KAKAO_REDIRECT_URI="$KAKAO_REDIRECT_URI" \
@@ -133,6 +147,10 @@ pipeline {
                         -e NAVER_REDIRECT_URI="$NAVER_REDIRECT_URI" \
                         -e OAUTH_CALLBACK_SCHEME="$OAUTH_CALLBACK_SCHEME" \
                         -e JWT_SECRET="$JWT_SECRET" \
+                        -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+                        -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+                        -e AWS_S3_BUCKET="$AWS_S3_BUCKET" \
+                        -e AWS_REGION="$AWS_REGION" \
                         -e SPRING_JPA_OPEN_IN_VIEW="false" \
                         -p "127.0.0.1:${HOST_PORT}:8080" \
                         "$IMAGE_TO_RUN"

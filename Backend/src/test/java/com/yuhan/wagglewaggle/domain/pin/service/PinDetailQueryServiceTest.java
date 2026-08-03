@@ -81,7 +81,7 @@ class PinDetailQueryServiceTest {
     private Pin activePin() {
         Member member = Member.create("author", AgeGroup.TWENTIES, Gender.FEMALE);
         ReflectionTestUtils.setField(member, "id", AUTHOR_ID);
-        ReflectionTestUtils.setField(member, "viewAngle", 120);
+        ReflectionTestUtils.setField(member, "viewAngle", java.math.BigDecimal.valueOf(120));
 
         // 위도=getY, 경도=getX 이므로 좌표는 (경도, 위도) 순으로 생성한다.
         Point placePoint = GF.createPoint(new Coordinate(PLACE_LNG, PLACE_LAT));
@@ -132,7 +132,7 @@ class PinDetailQueryServiceTest {
 
             assertThat(detail.pinId()).isEqualTo(PIN_ID);
             assertThat(detail.authorNickname()).isEqualTo("author");
-            assertThat(detail.authorViewAngle()).isEqualTo(120);
+            assertThat(detail.authorViewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(120));
             assertThat(detail.createdAt()).isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
             assertThat(detail.placeId()).isEqualTo(PLACE_ID);
             assertThat(detail.kakaoPlaceId()).isEqualTo("kakao-1");

@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -40,13 +41,13 @@ public class ViewTransaction extends BaseEntity {
     private ViewTransactionType type;
 
     @Column(name = "change_amount", nullable = false)
-    private int changeAmount;
+    private BigDecimal changeAmount;
 
     @Column(name = "view_after", nullable = false)
-    private int viewAfter;
+    private BigDecimal viewAfter;
 
     private ViewTransaction(Long memberId, ViewTransactionType type, UUID pinId,
-                            int changeAmount, int viewAfter) {
+                            BigDecimal changeAmount, BigDecimal viewAfter) {
         this.memberId = memberId;
         this.type = type;
         this.pinId = pinId;
@@ -55,7 +56,7 @@ public class ViewTransaction extends BaseEntity {
     }
 
     public static ViewTransaction create(Long memberId, ViewTransactionType type, UUID pinId,
-                                         int changeAmount, int viewAfter) {
+                                         BigDecimal changeAmount, BigDecimal viewAfter) {
         return new ViewTransaction(memberId, type, pinId, changeAmount, viewAfter);
     }
 }

@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.pin.dto;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +18,7 @@ import java.util.UUID;
  */
 public record PinDetailResponse(
         UUID pinId,
-        int authorViewAngle,
+        BigDecimal authorViewAngle,
         String authorNickname,
         Instant createdAt,
         PlaceDetail place,

@@ -5,7 +5,7 @@ package com.yuhan.wagglewaggle.domain.onboarding.dto;
  */
 public record OnboardingResponse(
         Long memberId,
-        int viewAngle,
+        java.math.BigDecimal viewAngle,
         int creditBalance,
         boolean onboardingCompleted,
         String accessToken,

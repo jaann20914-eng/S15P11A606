@@ -9,10 +9,12 @@ export interface TagFieldProps {
   tags: string[];
   onAdd: (raw: string) => void;
   onRemove: (tag: string) => void;
+  /** 키보드가 이 칸을 가리지 않도록 화면이 스크롤을 맞출 때 쓴다. */
+  onFocus?: () => void;
 }
 
 /** 태그 입력. 최대 개수에 닿으면 입력창을 잠근다. */
-export function TagField({ tags, onAdd, onRemove }: TagFieldProps) {
+export function TagField({ tags, onAdd, onRemove, onFocus }: TagFieldProps) {
   const [input, setInput] = useState('');
   const full = tags.length >= MAX_TAG_COUNT;
 
@@ -32,7 +34,7 @@ export function TagField({ tags, onAdd, onRemove }: TagFieldProps) {
           <View key={tag} style={s.tag}>
             <Text style={s.tagText}>#{tag}</Text>
             <Pressable accessibilityLabel={`${tag} 태그 삭제`} onPress={() => onRemove(tag)}>
-              <Ionicons name="close" size={14} color="#8A9D37" />
+              <Ionicons name="close" size={18} color="#8A9D37" />
             </Pressable>
           </View>
         ))}
@@ -43,6 +45,7 @@ export function TagField({ tags, onAdd, onRemove }: TagFieldProps) {
           value={input}
           onChangeText={setInput}
           onSubmitEditing={submit}
+          onFocus={onFocus}
           editable={!full}
           placeholder="태그를 입력하세요"
           placeholderTextColor={colors.gray400}

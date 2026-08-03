@@ -1,10 +1,10 @@
 import asyncio
 import logging
 
+from app.core.config import settings
 from app.messaging.blur.topology import declare_blur_topology
 from app.messaging.rabbitmq import rabbitmq
 from app.workers.blur_worker import blur_worker
-from app.core.config import settings
 
 logging.basicConfig(
     level=getattr(

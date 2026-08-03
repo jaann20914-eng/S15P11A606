@@ -1,6 +1,8 @@
 package com.yuhan.wagglewaggle.domain.user.entity;
 
 import com.yuhan.wagglewaggle.global.entity.BaseEntity;
+import com.yuhan.wagglewaggle.global.exception.CustomException;
+import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +16,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -33,7 +36,9 @@ import java.time.Instant;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
 
-    public static final int INITIAL_VIEW_ANGLE = 90;
+    public static final BigDecimal INITIAL_VIEW_ANGLE = BigDecimal.valueOf(90);
+    public static final BigDecimal MIN_VIEW_ANGLE = BigDecimal.valueOf(90);
+    public static final BigDecimal MAX_VIEW_ANGLE = BigDecimal.valueOf(360);
     public static final int INITIAL_CREDIT_BALANCE = 10;
 
     @Id
@@ -52,7 +57,7 @@ public class Member extends BaseEntity {
     private Gender gender;
 
     @Column(name = "view_angle", nullable = false)
-    private int viewAngle;
+    private BigDecimal viewAngle;
 
     @Column(name = "credit_balance", nullable = false)
     private int creditBalance;
@@ -74,5 +79,51 @@ public class Member extends BaseEntity {
      */
     public static Member create(String nickname, AgeGroup ageGroup, Gender gender) {
         return new Member(nickname, ageGroup, gender);
+    }
+
+    /**
+     * 크레딧을 지급(양수)하거나 차감(음수)하고 갱신된 잔액을 반환한다.
+     * 잔액은 0 미만이 될 수 없다(credit_balance CHECK 정합성 유지).
+     */
+    public int addCredit(int amount) {
+        int next = this.creditBalance + amount;
+        if (next < 0) {
+            throw new IllegalStateException("크레딧 잔액은 0 미만이 될 수 없습니다.");
+        }
+        this.creditBalance = next;
+        return this.creditBalance;
+    }
+
+    /**
+     * 작성자 온도(view_angle)를 delta 만큼 변화시키고 갱신된 값을 반환한다.
+     * 허용 범위(90~360)를 벗어나지 않도록 클램프한다(view_angle CHECK 정합성 유지).
+     */
+    public BigDecimal applyViewChange(BigDecimal delta) {
+        BigDecimal next = this.viewAngle.add(delta);
+        if (next.compareTo(MIN_VIEW_ANGLE) < 0) {
+            next = MIN_VIEW_ANGLE;
+        } else if (next.compareTo(MAX_VIEW_ANGLE) > 0) {
+            next = MAX_VIEW_ANGLE;
+        }
+        this.viewAngle = next;
+        return this.viewAngle;
+    }
+
+    /**
+     * 크레딧을 차감한다. 잔액이 부족하면 {@code INSUFFICIENT_CREDIT}로 거래를 막는다.
+     * 호출 전 행 잠금(findByIdForUpdate)으로 동시 변경을 직렬화해야 한다.
+     */
+    public void decreaseCredit(int amount) {
+        if (this.creditBalance < amount) {
+            throw new CustomException(ErrorCode.INSUFFICIENT_CREDIT);
+        }
+        this.creditBalance -= amount;
+    }
+
+    /**
+     * 크레딧을 적립한다. 호출 전 행 잠금(findByIdForUpdate)으로 동시 변경을 직렬화해야 한다.
+     */
+    public void increaseCredit(int amount) {
+        this.creditBalance += amount;
     }
 }

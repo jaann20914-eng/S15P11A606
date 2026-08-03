@@ -128,7 +128,7 @@ class OnboardingServiceTest {
         OnboardingResponse response = onboardingService.complete(HEADER, validRequest());
 
         assertThat(response.memberId()).isEqualTo(1L);
-        assertThat(response.viewAngle()).isEqualTo(90);
+        assertThat(response.viewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(90));
         assertThat(response.creditBalance()).isEqualTo(10);
         assertThat(response.onboardingCompleted()).isTrue();
         assertThat(response.accessToken()).isEqualTo("access-jwt");
