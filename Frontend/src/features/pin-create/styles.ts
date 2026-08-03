@@ -5,6 +5,9 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 게시글 작성 화면 전용 스타일.
  * 화면 조각(헤더 · 세그먼트 · 촬영 · 입력 필드 · 등록 로딩)이 모두 여기서 가져다 쓴다.
  */
+/** 사라짐 구간이 바 위로 걸치는 깊이. 이만큼 아래로 내려 겹친다. */
+export const ACTION_FADE_DROP = 10;
+
 export const pinCreateStyles = StyleSheet.create({
   /* 화면 골격 */
   safe: { flex: 1, backgroundColor: colors.white },
@@ -32,7 +35,12 @@ export const pinCreateStyles = StyleSheet.create({
     paddingVertical: spacing.x4,
     backgroundColor: colors.white,
   },
-  /** 바 바로 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다. */
+  /**
+   * 바 바로 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다.
+   *
+   * 바 위쪽으로 조금 내려 걸친다(`ACTION_FADE_DROP`). 딱 맞춰 두면 사라짐이 끝나는 선과
+   * 바가 시작하는 선이 같은 자리에 놓여, 흐려지다 만 것처럼 보인다.
+   */
   actionFade: { position: 'absolute', left: 0, right: 0, height: 28 },
 
   /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */

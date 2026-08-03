@@ -19,7 +19,7 @@ import { TagField } from '@/features/pin-create/components/TagField';
 import { useEditablePin } from '@/features/pin-create/hooks/useEditablePin';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
-import { pinCreateStyles as s } from '@/features/pin-create/styles';
+import { ACTION_FADE_DROP, pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
 import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
 import type { PinDraft } from '@/types/pinCreate';
@@ -253,7 +253,7 @@ export default function PinCreateScreen() {
             <LinearGradient
               pointerEvents="none"
               colors={[FADE_TRANSPARENT, colors.white]}
-              style={[s.actionFade, { bottom: actionBarHeight }]}
+              style={[s.actionFade, { bottom: actionBarHeight - ACTION_FADE_DROP }]}
             />
 
             <View

@@ -9,7 +9,7 @@ import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinRating } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
-import { pinDetailStyles as s } from '../styles';
+import { ACTION_FADE_DROP, pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
 import { IllustrationVideo } from './IllustrationVideo';
 import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
@@ -113,7 +113,7 @@ export function PinDetailBody({
       <LinearGradient
         pointerEvents="none"
         colors={[FADE_TRANSPARENT, colors.white]}
-        style={[s.actionFade, { bottom: actionBarHeight }]}
+        style={[s.actionFade, { bottom: actionBarHeight - ACTION_FADE_DROP }]}
       />
 
       <View
