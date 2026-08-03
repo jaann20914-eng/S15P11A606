@@ -16,8 +16,7 @@ import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
-import { CrowdFilterToggle } from '@/components/common';
-import { useAppTabBarHeight } from '@/components/common';
+import { CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
@@ -43,6 +42,12 @@ const MY_LOCATION_WAIT_MS = 1500;
  */
 const ESTIMATED_HEADER_HEIGHT = 118;
 const ESTIMATED_CARD_HEIGHT = 208;
+
+/** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
+const ANGLE_PREVIEW_COUNT = 5;
+
+/** 카드의 각도 링 지름. */
+const ANGLE_RING_SIZE = 34;
 
 export default function Home() {
   const { height } = useWindowDimensions();
@@ -421,14 +426,25 @@ export default function Home() {
                 )}
               </View>
               <View style={s.cardRule} />
-              <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
+              {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
+              <Text style={s.pinUpload}>
+                감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
+              </Text>
+              {/*
+                작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
+                비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
+                같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
+
+                장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
+              */}
               <View style={s.angleRow}>
-                {[320, 90, 270, 90, 180].map((angle, index) => (
-                  <View key={`${place.id}-${index}`} style={s.angleRing}>
-                    <Text style={s.angleText}>{angle}°</Text>
-                  </View>
+                {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
+                  <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
                 ))}
-                <Text style={s.morePins}>+{place.pins}</Text>
+                {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
+                {place.pins > ANGLE_PREVIEW_COUNT && (
+                  <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
+                )}
               </View>
             </Pressable>
           ))}
@@ -557,17 +573,6 @@ const s = StyleSheet.create({
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinUpload: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x3 },
-  angleRing: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.lime,
-    backgroundColor: colors.white,
-  },
-  angleText: { fontSize: 10, lineHeight: 14, color: colors.gray600 },
   morePins: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
   empty: { alignItems: 'center', paddingVertical: spacing.x10 },
   emptyTitle: { ...type.title, color: colors.dark },

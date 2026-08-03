@@ -9,6 +9,13 @@ type MockPlace = {
   /** 최근 1시간 유효 핀의 평균 혼잡 단계 (1~4) */
   crowdLevel: CrowdLevelValue;
   pins: number;
+  /**
+   * 카드에 링으로 보여줄 작성자들의 뷰 각도. 최대 5개만 그리고 나머지는 `+n`으로 적는다.
+   *
+   * 실제 연동 시 `/places` 응답의 `activePins[].viewAngle`로 그대로 대체된다.
+   * 값이 제각각이어야 링 채움 비율이 달라 보인다 — 같은 각도만 넣으면 링이 아무 정보를 주지 않는다.
+   */
+  angles: number[];
   distance: string;
   tag: string;
   /** 지도 핀 좌표 (WGS84). 실제 연동 시 `/places` 응답의 좌표로 대체한다. */
@@ -23,6 +30,7 @@ export const places: MockPlace[] = [
     address: '서울 성동구 연무장길',
     crowdLevel: 1,
     pins: 8,
+    angles: [320, 90, 250, 140, 200],
     distance: '620m',
     tag: '팝업 · 카페',
     latitude: 37.5427,
@@ -34,6 +42,7 @@ export const places: MockPlace[] = [
     address: '서울 성동구 뚝섬로 273',
     crowdLevel: 2,
     pins: 12,
+    angles: [110, 360, 90, 270, 180],
     distance: '1.2km',
     tag: '공원 · 산책',
     latitude: 37.5444,
@@ -45,6 +54,7 @@ export const places: MockPlace[] = [
     address: '서울 광진구 능동로 216',
     crowdLevel: 4,
     pins: 5,
+    angles: [90, 230, 160, 300],
     distance: '2.8km',
     tag: '공원 · 피크닉',
     latitude: 37.5497,
