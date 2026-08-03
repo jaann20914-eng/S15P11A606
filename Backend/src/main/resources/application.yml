@@ -82,6 +82,14 @@ chat:
     strategy: ${CHAT_PROFANITY_STRATEGY:dictionary}
 
 ai:
+  recommendation:
+    # AI 추천점수 API(POST /api/v1/internal/recommendations/score) 호출 설정.
+    base-url: ${AI_RECOMMENDATION_BASE_URL:http://localhost:8000}
+    # Back↔AI 내부 통신 공유 비밀키(x-internal-api-key). AI의 INTERNAL_API_KEY와 동일해야 한다.
+    internal-api-key: ${INTERNAL_API_KEY:}
+    connect-timeout-ms: ${AI_RECOMMENDATION_CONNECT_TIMEOUT_MS:2000}
+    # 응답 제한 시간 2초. 초과 시 AI_RECOMMENDATION_FAILED.
+    read-timeout-ms: ${AI_RECOMMENDATION_READ_TIMEOUT_MS:2000}
   blur:
     republish:
       # 실패·장기 PENDING 작업 재발행 스케줄러 설정.
