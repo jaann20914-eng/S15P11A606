@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { listMockChatPins } from '@/mocks/chat';
 import type { ChatDirection, ChatPinListItem, CursorPage, CursorQuery } from '@/types/chat';
+import { fetchAllPages } from './paging';
 
 /**
  * 채팅이 걸린 게시글 목록 — `GET /api/v1/chat/pins`
@@ -25,9 +26,11 @@ function requestChatPins(
   });
 }
 
-export function getChatPins(
-  direction: ChatDirection = 'received',
-  query: CursorQuery = {},
-): Promise<CursorPage<ChatPinListItem>> {
+function loadChatPins(direction: ChatDirection, query: CursorQuery) {
   return usesMock('chat/pins') ? listMockChatPins(direction, query) : requestChatPins(direction, query);
+}
+
+/** 채팅이 걸린 게시글 전체. 무한 스크롤을 두지 않기로 해서 커서를 끝까지 따라간다. */
+export function getChatPins(direction: ChatDirection = 'received'): Promise<ChatPinListItem[]> {
+  return fetchAllPages((query) => loadChatPins(direction, query));
 }
