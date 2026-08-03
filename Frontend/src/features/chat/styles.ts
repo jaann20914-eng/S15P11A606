@@ -80,7 +80,8 @@ export const chatListStyles = StyleSheet.create({
   rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   address: { ...type.caption, color: colors.gray400, marginTop: 2 },
   message: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
-  time: { fontSize: 10, lineHeight: 14, color: colors.gray400, marginTop: 2 },
+  /** 마지막 메시지 시각. 10px은 옆 문구에 비해 너무 작아 읽히지 않았다. */
+  time: { ...type.caption, color: colors.gray400, marginTop: 2 },
 
   /* 상태 표시 */
   statusText: { ...type.caption, fontWeight: '600' },
