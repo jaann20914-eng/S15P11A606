@@ -3,7 +3,9 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
+import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
+import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomMemberRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
@@ -40,6 +42,7 @@ class ChatRequestServiceTest {
     @Mock private PinRepository pinRepository;
     @Mock private PinUnlockRepository pinUnlockRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
+    @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
     @Mock private MemberRepository memberRepository;
 
     private ChatRequestService service;
@@ -50,7 +53,8 @@ class ChatRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChatRequestService(pinRepository, pinUnlockRepository, chatRoomRepository, memberRepository);
+        service = new ChatRequestService(
+                pinRepository, pinUnlockRepository, chatRoomRepository, chatRoomMemberRepository, memberRepository);
     }
 
     private ChatRequestCreateRequest req(String pinId) {
@@ -77,7 +81,7 @@ class ChatRequestServiceTest {
     }
 
     @Test
-    @DisplayName("활성·타인 소유·구매 완료·방 없음이면 PENDING 채팅방을 생성하고 roomId·pinId를 반환한다")
+    @DisplayName("활성·타인 소유·구매 완료·방 없음이면 PENDING 채팅방과 요청자 멤버 행을 생성하고 roomId·pinId를 반환한다")
     void 유효한_요청이면_채팅방을_생성한다() {
         givenRequesterWithCredit(10);
         givenActivePinOwnedByOther();
@@ -93,6 +97,8 @@ class ChatRequestServiceTest {
         assertThat(response.roomId()).isEqualTo(1L);
         assertThat(response.pinId()).isEqualTo(PIN_ID);
         verify(chatRoomRepository).saveAndFlush(any(ChatRoom.class));
+        // 수락 전에도 요청자가 전송할 수 있도록 요청자 멤버 행을 미리 생성한다.
+        verify(chatRoomMemberRepository).save(any(ChatRoomMember.class));
     }
 
     @Test
@@ -101,7 +107,8 @@ class ChatRequestServiceTest {
         assertThatThrownBy(() -> service.request(REQUESTER_ID, req(null)))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_PIN_ID);
-        verifyNoInteractions(pinRepository, pinUnlockRepository, chatRoomRepository, memberRepository);
+        verifyNoInteractions(pinRepository, pinUnlockRepository, chatRoomRepository,
+                chatRoomMemberRepository, memberRepository);
     }
 
     @Test

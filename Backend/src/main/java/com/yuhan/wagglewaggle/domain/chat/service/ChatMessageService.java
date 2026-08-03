@@ -57,7 +57,12 @@ public class ChatMessageService {
 
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-        if (room.getStatus() != ChatRoomStatus.ACTIVE) {
+        // ACTIVE 방은 참여자 누구나 전송할 수 있고, 수락 전(PENDING) 방은 요청자만 전송할 수 있다.
+        // 그 외 상태(REFUSED/LEFT)이거나 PENDING에서 수신자가 시도하면 전송을 거부한다.
+        boolean sendable = room.getStatus() == ChatRoomStatus.ACTIVE
+                || (room.getStatus() == ChatRoomStatus.PENDING
+                        && room.getRequester().getId().equals(senderId));
+        if (!sendable) {
             throw new CustomException(ErrorCode.CHAT_ROOM_NOT_ACTIVE);
         }
 

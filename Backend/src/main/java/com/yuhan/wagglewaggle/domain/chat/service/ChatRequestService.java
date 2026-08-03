@@ -3,6 +3,8 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
+import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
+import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomMemberRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
@@ -38,6 +40,7 @@ public class ChatRequestService {
     private final PinRepository pinRepository;
     private final PinUnlockRepository pinUnlockRepository;
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final MemberRepository memberRepository;
 
     /**
@@ -84,6 +87,10 @@ public class ChatRequestService {
             log.error("채팅 요청 저장 실패 (memberId={}, pinId={})", memberId, pinId, e);
             throw new CustomException(ErrorCode.CHAT_REQUEST_CREATE_FAILED);
         }
+
+        // 수락 전(PENDING)에도 요청자가 채팅을 보낼 수 있으므로 요청자의 참여 멤버 행을 미리 생성한다.
+        // 수락자(recipient)의 멤버 행은 수락 시점(ChatDecisionService.accept)에 생성한다.
+        chatRoomMemberRepository.save(ChatRoomMember.create(saved, requester));
 
         return new ChatRequestCreateResponse(saved.getId(), pinId);
     }

@@ -18,4 +18,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      * AI 2차 분석 배치의 "미분석 구간"(방별 max end_message_id 이후) 수집에 사용한다.
      */
     List<ChatMessage> findByChatRoomIdAndIdGreaterThanOrderByIdAsc(Long roomId, Long afterId);
+
+    /**
+     * 주어진 메시지 id가 해당 채팅방에 속하는지 여부를 조회한다.
+     * 읽음 위치 갱신 시 {@code lastReadMessageId}가 요청한 방의 메시지인지 검증하는 데 사용한다.
+     */
+    boolean existsByIdAndChatRoom_Id(Long messageId, Long roomId);
 }

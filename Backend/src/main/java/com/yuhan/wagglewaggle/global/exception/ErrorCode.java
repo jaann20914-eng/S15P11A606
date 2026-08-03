@@ -116,6 +116,13 @@ public enum ErrorCode {
     CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
     CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
 
+    // Chat Read (읽음 위치 갱신)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)는 아래 WebSocket 섹션 정의를 재사용한다.
+    INVALID_MESSAGE_ID(HttpStatus.BAD_REQUEST, "메시지 ID 형식이 올바르지 않습니다."),
+    CHAT_ROOM_ACCESS_DENIED(HttpStatus.FORBIDDEN, "채팅방에 접근할 권한이 없습니다."),
+    CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "읽음 처리할 메시지를 찾을 수 없습니다."),
+    CHAT_READ_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "메시지 읽음 처리 중 오류가 발생했습니다."),
+
     // Chat Request Decision
     INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
     CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
