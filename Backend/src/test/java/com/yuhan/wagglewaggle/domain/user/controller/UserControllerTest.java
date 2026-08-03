@@ -8,6 +8,9 @@ import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.ActivitySummary;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.DailyActivity;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.MonthlyActivity;
+import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinItem;
+import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinListResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.service.UserProfileService;
 import com.yuhan.wagglewaggle.domain.user.service.UserService;
@@ -28,11 +31,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -212,6 +218,70 @@ class UserControllerTest {
         mockMvc.perform(patch("/api/v1/users/me/nickname")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"새와글러\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.statusCode").value(404))
+                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("오늘 등록 핀 목록 조회 성공 시 200과 응답 형식을 반환하고 cursor·limit을 서비스에 전달한다")
+    void 오늘핀_200() throws Exception {
+        UUID pinId = UUID.fromString("15ab5bf8-3395-4ab8-9904-c49e20a01234");
+        TodayPinItem item = new TodayPinItem(
+                pinId, 1L, "카페 A", "서울 광진구 동일로60길 47 1층 (군자동)",
+                TodayPinStatus.PROCESSING, Instant.parse("2026-08-03T01:30:00Z"));
+        given(todayPinService.getMyTodayPins(eq(MEMBER_ID), eq("c123"), eq("10")))
+                .willReturn(new TodayPinListResponse(List.of(item), null));
+
+        mockMvc.perform(get("/api/v1/users/me/pins/today")
+                        .param("cursor", "c123")
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statusCode").value(200))
+                .andExpect(jsonPath("$.message").value("오늘 등록한 영상 핀 목록 조회가 완료되었습니다."))
+                .andExpect(jsonPath("$.data.items[0].pinId").value("15ab5bf8-3395-4ab8-9904-c49e20a01234"))
+                .andExpect(jsonPath("$.data.items[0].placeId").value(1))
+                .andExpect(jsonPath("$.data.items[0].placeName").value("카페 A"))
+                .andExpect(jsonPath("$.data.items[0].placeAddress").value("서울 광진구 동일로60길 47 1층 (군자동)"))
+                .andExpect(jsonPath("$.data.items[0].status").value("PROCESSING"))
+                .andExpect(jsonPath("$.data.items[0].createdAt").value("2026-08-03T01:30:00Z"))
+                .andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+
+        verify(todayPinService).getMyTodayPins(MEMBER_ID, "c123", "10");
+    }
+
+    @Test
+    @DisplayName("결과가 없으면 200과 빈 배열을 반환한다")
+    void 오늘핀_빈목록_200() throws Exception {
+        given(todayPinService.getMyTodayPins(eq(MEMBER_ID), any(), any()))
+                .willReturn(new TodayPinListResponse(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/users/me/pins/today"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items").isArray())
+                .andExpect(jsonPath("$.data.items").isEmpty())
+                .andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+    }
+
+    @Test
+    @DisplayName("페이지 조건이 올바르지 않으면 400과 INVALID_PAGINATION 코드를 반환한다")
+    void 오늘핀_페이지조건오류_400() throws Exception {
+        given(todayPinService.getMyTodayPins(eq(MEMBER_ID), any(), any()))
+                .willThrow(new CustomException(ErrorCode.INVALID_PAGINATION));
+
+        mockMvc.perform(get("/api/v1/users/me/pins/today").param("limit", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.statusCode").value(400))
+                .andExpect(jsonPath("$.error.code").value("INVALID_PAGINATION"));
+    }
+
+    @Test
+    @DisplayName("사용자를 찾을 수 없으면 404와 USER_NOT_FOUND 코드를 반환한다")
+    void 오늘핀_사용자없음_404() throws Exception {
+        given(todayPinService.getMyTodayPins(eq(MEMBER_ID), any(), any()))
+                .willThrow(new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        mockMvc.perform(get("/api/v1/users/me/pins/today"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.statusCode").value(404))
                 .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
