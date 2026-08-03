@@ -131,9 +131,9 @@ export const pinCreateStyles = StyleSheet.create({
    * 녹화 중 표시. 둥근 네모로 바뀐다.
    *
    * 크기를 함께 줄여야 한다. 같은 38로 두면 네모의 대각선(53)이 테두리 안쪽 지름(44)보다 길어
-   * 모서리가 바깥 원을 뚫고 나온다.
+   * 모서리가 바깥 원을 뚫고 나온다. 28이면 대각선이 40이라 안쪽에 여유 있게 들어간다.
    */
-  recording: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#FF2633' },
+  recording: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#FF2633' },
   recordDone: { backgroundColor: colors.white },
   /** 재촬영 · 전후면 전환처럼 촬영 화면 우측 상단에 얹는 원형 버튼. */
   cameraAction: {
