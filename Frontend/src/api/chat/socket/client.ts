@@ -10,6 +10,35 @@ import { HEARTBEAT_MS, RECONNECT_DELAYS_MS, STOMP_VERSION, canUseSocket, resolve
 
 const log = createDevLogger('chat-socket');
 
+/** 브라우저·서버가 합의하는 STOMP 하위 프로토콜. 버전을 하나만 제안하므로 값도 하나다. */
+const STOMP_SUBPROTOCOLS = [`v${STOMP_VERSION.replace('.', '')}.stomp`];
+
+/** 로그에 토큰이 그대로 남지 않도록 지운다. */
+function redactToken(line: string): string {
+  return line.replace(/(Authorization:Bearer )\S+/g, '$1<가림>');
+}
+
+/**
+ * 소켓이 실제로 무엇을 받는지 남긴다. 개발 중에만 붙인다.
+ *
+ * 라이브러리가 조용히 멈추는 경우를 가르기 위한 것이다 — 서버가 답을 안 보낸 것인지,
+ * 답은 왔는데 해석하지 못한 것인지는 이 자리에서만 구분된다.
+ */
+function listenForDiagnostics(socket: WebSocket): void {
+  socket.addEventListener('open', () => log('소켓 열림', { 합의된프로토콜: socket.protocol }));
+  socket.addEventListener('message', (event) => {
+    const data: unknown = (event as MessageEvent).data;
+
+    log('소켓 수신', {
+      형식: typeof data,
+      내용: typeof data === 'string' ? data.split('\n')[0] : String(data),
+    });
+  });
+  socket.addEventListener('close', (event) => {
+    log('소켓 닫힘', { code: (event as CloseEvent).code, reason: (event as CloseEvent).reason });
+  });
+}
+
 /**
  * 채팅 STOMP 연결.
  *
@@ -101,9 +130,23 @@ function createClient(): Client {
       갱신은 스토어가 한 번만 나가도록 묶어 두므로(RTR), 여기서 불러도 REST 요청과 겹쳐
       리프레시 토큰이 두 번 쓰이는 일은 없다.
     */
-    /* 개발 중에는 프레임을 그대로 남긴다. 어디서 멈췄는지는 이것 없이 알기 어렵다. */
-    debug: (line) => log('stomp', { 줄: line }),
+    /*
+      개발 중에는 프레임을 남긴다. 어디서 멈췄는지는 이것 없이 알기 어렵다.
+      **토큰은 지우고 남긴다** — 로그는 캡처로 옮겨 다니므로 그대로 두면 세션이 새어 나간다.
+    */
+    debug: (line) => log('stomp', { 줄: redactToken(line) }),
     onWebSocketError: (event) => log('소켓 오류', { 내용: String(event?.message ?? event) }),
+    /*
+      소켓을 직접 만들어 오가는 것을 따로 듣는다.
+      라이브러리가 `on*` 자리를 차지하므로 겹치지 않는 `addEventListener`로 붙인다.
+    */
+    webSocketFactory: () => {
+      const socket = new WebSocket(resolveSocketUrl(), STOMP_SUBPROTOCOLS);
+
+      if (__DEV__) listenForDiagnostics(socket);
+
+      return socket;
+    },
     beforeConnect: async () => {
       const { accessToken, refreshAccessToken } = useAuthStore.getState();
 
