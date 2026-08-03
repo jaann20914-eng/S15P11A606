@@ -2,14 +2,18 @@ package com.yuhan.wagglewaggle.domain.chat.controller;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadRequest;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadResponse;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatDecisionService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatReadService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatRequestService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,6 +28,7 @@ public class ChatController {
 
     private final ChatRequestService chatRequestService;
     private final ChatDecisionService chatDecisionService;
+    private final ChatReadService chatReadService;
 
     /**
      * 채팅 요청을 생성한다. 구매 완료한 타인 소유의 활성 핀에 대해 PENDING 채팅방을 만든다.
@@ -52,5 +57,19 @@ public class ChatController {
     ) {
         ChatDecisionResponse data = chatDecisionService.decide(memberId, roomId, request);
         return ApiResponse.success(HttpStatus.OK.value(), "채팅 요청 응답이 처리되었습니다.", data);
+    }
+
+    /**
+     * 채팅방 읽음 위치를 갱신한다. 현재 사용자가 화면에서 마지막으로 확인한 메시지 id를 받아
+     * 기존보다 큰 경우에만 갱신하며(단조·멱등), 갱신 후 저장된 last_read_message_id를 반환한다.
+     */
+    @PatchMapping("/rooms/{roomId}/read")
+    public ApiResponse<ChatReadResponse> read(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long roomId,
+            @RequestBody(required = false) ChatReadRequest request
+    ) {
+        ChatReadResponse data = chatReadService.updateLastRead(memberId, roomId, request);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅방 읽음 위치가 갱신되었습니다.", data);
     }
 }
