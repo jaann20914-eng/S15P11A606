@@ -15,6 +15,22 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  */
 const TRUNCATION_INSET = 8;
 
+/**
+ * 상대의 뷰 각도 링 지름.
+ *
+ * 줄에서 가장 먼저 눈에 들어오는 것이라 36으로는 작았다. 글 묶음(제목 · 메시지 두 줄 · 시각)이
+ * 90 남짓이므로 그보다 작게 두어야 줄 높이를 늘리지 않는다.
+ */
+export const AVATAR_SIZE = 44;
+
+/**
+ * 글 묶음을 링 쪽으로 내리는 양.
+ *
+ * 첫 줄 중심을 링 가운데(지름의 절반)에 맞추면 눈으로는 처져 보인다 — 아래에 글이 두 줄 더
+ * 있어 묶음의 무게가 아래쪽에 있기 때문이다. 그래서 절반만 내린다.
+ */
+const AVATAR_TITLE_OFFSET = Math.round((AVATAR_SIZE / 2 - type.label.lineHeight / 2) / 2);
+
 export const chatListStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1, paddingHorizontal: layout.gutter },
@@ -103,7 +119,7 @@ export const chatListStyles = StyleSheet.create({
    *
    * 아래 여백은 `chatRow`의 것을 그대로 두어, 내려간 만큼 줄만 높아진다.
    */
-  chatRowCopy: { flex: 1, marginTop: 4, paddingRight: TRUNCATION_INSET },
+  chatRowCopy: { flex: 1, marginTop: AVATAR_TITLE_OFFSET, paddingRight: TRUNCATION_INSET },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   address: { ...type.caption, color: colors.gray400, marginTop: 2 },

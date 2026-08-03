@@ -3,7 +3,7 @@ import { ViewAvatar } from '@/components/common';
 import { colors } from '@/constants/theme';
 import type { ChatDecision, ChatRoomListItem, ChatRoomStatus } from '@/types/chat';
 import { formatTimeOfDay } from '@/utils/datetime';
-import { chatListStyles as s } from '../styles';
+import { AVATAR_SIZE, chatListStyles as s } from '../styles';
 
 export interface ChatRoomRowProps {
   room: ChatRoomListItem;
@@ -61,7 +61,7 @@ export function ChatRoomRow({
 
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.chatRow}>
-      <ViewAvatar angle={room.otherUserViewTemperature} size={36} />
+      <ViewAvatar angle={room.otherUserViewTemperature} size={AVATAR_SIZE} />
 
       <View style={s.chatRowCopy}>
         <View style={s.rowTitleLine}>
