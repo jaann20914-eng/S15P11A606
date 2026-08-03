@@ -56,6 +56,7 @@ public enum ErrorCode {
     // User
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임 형식이 올바르지 않습니다."),
     NICKNAME_AVAILABILITY_CHECK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 중복 확인 중 오류가 발생했습니다."),
+    NICKNAME_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 수정 중 오류가 발생했습니다."),
 
     // User Profile
     // UNAUTHORIZED(401)는 위 Common 정의를 재사용한다.
