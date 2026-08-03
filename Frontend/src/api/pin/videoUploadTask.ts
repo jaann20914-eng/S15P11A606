@@ -28,6 +28,32 @@ function logUpload(step: string, detail?: Record<string, unknown>): void {
 }
 
 /**
+ * 업로드 주소에 닿을 수 있는지 미리 두드려 본다. 개발 중 진단용이며 결과를 기다리지 않는다.
+ *
+ * 업로드 실패가 "이름을 못 찾음"으로 끝날 때, 그것이 기기 전체의 문제인지 업로드 모듈만의
+ * 문제인지 구분이 안 된다. `fetch`(OkHttp)와 `createUploadTask`는 같은 기기에서도 서로 다른
+ * 경로로 나가므로, 둘 중 어디까지 되는지 보면 원인이 좁혀진다.
+ *
+ * 서명이 붙은 주소를 그대로 GET하면 서명 불일치로 403이 오지만, **응답이 왔다는 것 자체가
+ * 이름을 찾았다는 뜻**이라 그것만으로 충분하다.
+ */
+async function checkHostReachable(uploadUrl: string): Promise<void> {
+  if (!__DEV__) return;
+
+  const origin = uploadUrl.split('?')[0];
+
+  try {
+    const response = await fetch(origin, { method: 'GET' });
+
+    logUpload('주소 확인', { 응답: response.status, 결과: '이름 찾음' });
+  } catch (cause) {
+    logUpload('주소 확인 실패', {
+      내용: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
+}
+
+/**
  * 촬영 파일의 크기(바이트).
  *
  * 발급 요청에 싣는다. 서버는 이 값이 **양수가 아니면 400(`INVALID_UPLOAD_REQUEST`)** 으로
@@ -79,6 +105,8 @@ export function startVideoUpload(
   );
 
   logUpload('업로드 시작', { url: ticket.uploadUrl.split('?')[0], contentType: VIDEO_CONTENT_TYPE });
+
+  void checkHostReachable(ticket.uploadUrl);
 
   const completed = task.uploadAsync().then((result) => {
     // 취소하면 결과가 없다. 그 경우는 호출부가 취소로 알고 있으므로 조용히 끝낸다.
