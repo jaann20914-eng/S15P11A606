@@ -8,6 +8,7 @@ import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.ActivitySummary;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.DailyActivity;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse.MonthlyActivity;
+import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.service.UserProfileService;
 import com.yuhan.wagglewaggle.domain.user.service.UserService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
@@ -47,13 +48,16 @@ class UserControllerTest {
 
     private UserService userService;
     private UserProfileService userProfileService;
+    private TodayPinService todayPinService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         userService = Mockito.mock(UserService.class);
         userProfileService = Mockito.mock(UserProfileService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new UserController(userService, userProfileService))
+        todayPinService = Mockito.mock(TodayPinService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(
+                        new UserController(userService, userProfileService, todayPinService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();

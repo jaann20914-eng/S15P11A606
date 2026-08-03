@@ -1,5 +1,7 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
+import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinListResponse;
+import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
@@ -24,6 +26,7 @@ public class UserController {
 
     private final UserService userService;
     private final UserProfileService userProfileService;
+    private final TodayPinService todayPinService;
 
     /**
      * 닉네임 중복 확인. 인증 없이 호출 가능한 공개 API.
@@ -76,6 +79,25 @@ public class UserController {
         return ApiResponse.success(
                 HttpStatus.OK.value(),
                 "닉네임이 수정되었습니다.",
+                data);
+    }
+
+    /**
+     * 현재 인증 사용자가 오늘 등록한 영상 핀 목록을 커서 페이지네이션으로 조회한다(인증 필요).
+     * cursor·limit 형식·범위 위반은 서비스 계층에서 INVALID_PAGINATION(400)으로 처리한다.
+     * 사용자 식별 정보는 액세스 토큰에서 가져온다.
+     */
+    @GetMapping("/me/pins/today")
+    public ApiResponse<TodayPinListResponse> getMyTodayPins(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        TodayPinListResponse data = todayPinService.getMyTodayPins(memberId, cursor, limit);
+
+        return ApiResponse.success(
+                HttpStatus.OK.value(),
+                "오늘 등록한 영상 핀 목록 조회가 완료되었습니다.",
                 data);
     }
 }
