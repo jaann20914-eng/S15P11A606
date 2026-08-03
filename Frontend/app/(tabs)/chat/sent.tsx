@@ -1,107 +1,96 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+
 import { ScreenHeader } from '@/components/common';
-import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { colors } from '@/constants/theme';
+import { ChatListState } from '@/features/chat/components/ChatListState';
+import { ChatPinRow } from '@/features/chat/components/ChatPinRow';
+import { ChatRoomRow } from '@/features/chat/components/ChatRoomRow';
+import { useChatDecision, usePinLeave } from '@/features/chat/hooks/useChatDecision';
+import { useChatPins, useMyChatRooms, usePinChatRooms } from '@/features/chat/hooks/useChatLists';
+import { chatListStyles as s } from '@/features/chat/styles';
+import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
+import { formatTimeOfDay } from '@/utils/datetime';
 
 type Tab = '요청한 대화' | '요청받은 대화';
-type ChatState = '대기' | '채팅중' | '종료';
 
-const myPosts = [
-  {
-    id: 'post-1',
-    time: '14:00',
-    place: '바나프레소 역삼점',
-    address: '서울 광진구 동일로 60길 47 1층 (군자동)',
-  },
-  {
-    id: 'post-2',
-    time: '13:00',
-    place: '바나프레소 역삼점',
-    address: '서울 광진구 동일로 60길 47 1층 (군자동)',
-  },
-  {
-    id: 'post-3',
-    time: '12:00',
-    place: '바나프레소 역삼점',
-    address: '서울 광진구 동일로 60길 47 1층 (군자동)',
-  },
-  {
-    id: 'post-4',
-    time: '11:00',
-    place: '바나프레소 역삼점',
-    address: '서울 광진구 동일로 60길 47 1층 (군자동)',
-  },
-];
+const TABS: Tab[] = ['요청한 대화', '요청받은 대화'];
 
-const receivedRows: { id: string; postId: string; person: string; state: ChatState; message: string }[] = [
-  {
-    id: 'received-pending',
-    postId: 'post-1',
-    person: '금쥐',
-    state: '대기',
-    message: '안녕하세요, 아직도 사람 많은가요??',
-  },
-  {
-    id: 'received-active',
-    postId: 'post-1',
-    person: '카페 탐험가',
-    state: '채팅중',
-    message: '답변 감사합니다~',
-  },
-  {
-    id: 'received-ended',
-    postId: 'post-1',
-    person: '코코',
-    state: '종료',
-    message: '안녕하세요, 아직도 사람 많은가요??',
-  },
-];
-
-const requestedRows: { id: string; place: string; person: string; state: ChatState; message: string }[] = [
-  {
-    id: 'requested-pending',
-    place: '스타벅스 역삼1점',
-    person: '버거킹님',
-    state: '대기',
-    message: '상대방의 수락을 기다리고 있어요',
-  },
-  {
-    id: 'requested-active',
-    place: '스타벅스 역삼1점',
-    person: '아이스크림님',
-    state: '채팅중',
-    message: '답변 감사합니다',
-  },
-  {
-    id: 'requested-ended',
-    place: '스타벅스 역삼1점',
-    person: '카페 탐험가',
-    state: '종료',
-    message: '종료된 대화입니다',
-  },
-];
-
+/**
+ * 채팅 목록 화면.
+ *
+ * 세 목록이 한 화면에 있다.
+ * - 요청한 대화: 내가 남의 글에 요청해 만들어진 방들(`GET /chat/rooms`)
+ * - 요청받은 대화: 요청이 온 내 게시글(`GET /chat/pins`) → 고르면 그 글의 방들(`GET /chat/rooms/{pinId}`)
+ *
+ * 받은 요청을 게시글로 한 번 묶는 이유는, 방만 늘어놓으면 어느 글 이야기인지 알 수 없기
+ * 때문이다. 수락 · 거절과 "떠났어요"도 글 단위로 판단하는 일이라 그 화면에 둔다.
+ *
+ * 라우트가 `sent`와 `received` 둘이지만 화면은 하나다(`received.tsx`가 이 파일을 내보낸다).
+ * 탭 전환이 곧 목록 전환이라 화면을 갈라 둘 이유가 없다.
+ */
 export default function Chat() {
-  const [tab, setTab] = useState<Tab>('요청받은 대화');
+  const [tab, setTab] = useState<Tab>('요청한 대화');
   const [query, setQuery] = useState('');
-  const [selectedPost, setSelectedPost] = useState<(typeof myPosts)[number] | null>(null);
+  const [selectedPin, setSelectedPin] = useState<ChatPinListItem | null>(null);
 
-  const requested = useMemo(
-    () => requestedRows.filter((row) => `${row.place}${row.person}`.includes(query)),
-    [query],
+  const myRooms = useMyChatRooms();
+  const pins = useChatPins();
+  const pinRooms = usePinChatRooms(selectedPin?.pinId ?? null);
+
+  const decision = useChatDecision(pinRooms.reload);
+  const leave = usePinLeave(selectedPin?.pinId ?? null, pinRooms.reload);
+
+  // 처리 결과는 그 자리에서 알린다. 목록만 조용히 바뀌면 눌린 것인지 알 수 없다.
+  useEffect(() => {
+    if (decision.error === null) return;
+
+    Alert.alert('요청을 처리하지 못했어요', decision.error, [
+      { text: '확인', onPress: decision.dismissError },
+    ]);
+  }, [decision.error, decision.dismissError]);
+
+  useEffect(() => {
+    if (leave.error === null) return;
+
+    Alert.alert('채팅방을 종료하지 못했어요', leave.error, [
+      { text: '확인', onPress: leave.dismissError },
+    ]);
+  }, [leave.error, leave.dismissError]);
+
+  const filteredMyRooms = useMemo(() => filterRooms(myRooms.items, query), [myRooms.items, query]);
+  const filteredPinRooms = useMemo(
+    () => filterRooms(pinRooms.items, query),
+    [pinRooms.items, query],
   );
-  const received = useMemo(
-    () => receivedRows.filter((row) => row.postId === selectedPost?.id && row.person.includes(query)),
-    [query, selectedPost],
+  const filteredPins = useMemo(
+    () => pins.items.filter((pin) => `${pin.placeName}${pin.placeAddress}`.includes(query)),
+    [pins.items, query],
   );
 
-  const openRoom = (id: string, role: 'owner' | 'requester', state: ChatState) => {
-    router.push({ pathname: '/chat-room/[roomId]', params: { roomId: id, role, state } });
+  const openRoom = (room: ChatRoomListItem) => {
+    router.push({
+      pathname: '/chat-room/[roomId]',
+      params: { roomId: String(room.roomId), role: selectedPin ? 'owner' : 'requester' },
+    });
   };
+
+  const confirmLeave = () => {
+    Alert.alert(
+      '이 게시글의 대화를 모두 끝낼까요?',
+      '연결된 채팅방이 모두 종료돼요. 지난 대화는 그대로 남습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '떠났어요', style: 'destructive', onPress: leave.leave },
+      ],
+    );
+  };
+
+  /** 게시글을 고른 상태에서는 그 글의 방 목록만 보여준다. */
+  const inPin = selectedPin !== null;
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -111,16 +100,25 @@ export default function Chat() {
           게시글 하나를 고른 화면에서는 탭이 사라지므로 구분선을 그린다.
         */}
         <ScreenHeader
-          title={selectedPost ? selectedPost.place : '채팅방'}
-          back={selectedPost !== null}
-          onBack={() => setSelectedPost(null)}
-          divider={selectedPost !== null}
+          title={inPin ? selectedPin.placeName : '채팅방'}
+          back={inPin}
+          onBack={() => setSelectedPin(null)}
+          divider={inPin}
         />
 
-        {!selectedPost && (
+        {!inPin && (
           <View style={s.tabs}>
-            {(['요청한 대화', '요청받은 대화'] as Tab[]).map((item) => (
-              <Pressable key={item} onPress={() => setTab(item)} style={s.tab}>
+            {TABS.map((item) => (
+              <Pressable
+                key={item}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: tab === item }}
+                onPress={() => {
+                  setTab(item);
+                  setQuery('');
+                }}
+                style={s.tab}
+              >
                 <Text style={[s.tabText, tab === item && s.tabTextActive]}>{item}</Text>
                 <View style={[s.tabLine, tab === item && s.tabLineActive]} />
               </Pressable>
@@ -140,100 +138,80 @@ export default function Chat() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.list}>
-          {tab === '요청받은 대화' &&
-            !selectedPost &&
-            myPosts.map((post) => (
-              <Pressable
-                key={post.id}
-                onPress={() => {
-                  setSelectedPost(post);
-                  setQuery('');
-                }}
-                style={s.postRow}
-              >
-                <View style={s.timePill}>
-                  <Text style={s.timePillText}>{post.time}</Text>
-                </View>
-                <View style={s.rowCopy}>
-                  <Text style={s.rowTitle}>{post.place}</Text>
-                  <Text style={s.address}>{post.address}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
-              </Pressable>
-            ))}
+          {inPin ? (
+            <>
+              <ChatListState
+                loading={pinRooms.loading}
+                error={pinRooms.error}
+                isEmpty={filteredPinRooms.length === 0}
+                emptyText={
+                  query === '' ? '아직 이 게시글에 온 대화가 없어요' : '검색 결과가 없어요'
+                }
+                onRetry={pinRooms.reload}
+              />
 
-          {tab === '요청받은 대화' &&
-            selectedPost &&
-            received.map((row) => (
-              <Pressable key={row.id} onPress={() => openRoom(row.id, 'owner', row.state)} style={s.chatRow}>
-                <View style={s.viewRing}>
-                  <Text style={s.viewText}>92°</Text>
-                </View>
-                <View style={s.rowCopy}>
-                  <View style={s.rowTitleLine}>
-                    <Text numberOfLines={1} style={s.rowTitle}>
-                      스타벅스 역삼1점 · {row.person}
-                    </Text>
-                    <Text
-                      style={[
-                        s.state,
-                        row.state === '대기' && s.pending,
-                        row.state === '채팅중' && s.active,
-                        row.state === '종료' && s.ended,
-                      ]}
-                    >
-                      {row.state}
-                    </Text>
-                    {row.state === '대기' && <View style={s.unread} />}
-                  </View>
-                  <Text style={s.address}>14:02 작성 · 대화가 진행 중이에요</Text>
-                  <Text numberOfLines={1} style={s.message}>
-                    {row.message}
-                  </Text>
-                  <Text style={s.requestTime}>14:08 요청</Text>
-                </View>
-              </Pressable>
-            ))}
+              {filteredPinRooms.map((room) => (
+                <ChatRoomRow
+                  key={room.roomId}
+                  room={room}
+                  decidable
+                  busy={decision.busyRoomId === room.roomId}
+                  onOpen={() => openRoom(room)}
+                  onDecide={(value) => decision.decide(room.roomId, value)}
+                />
+              ))}
+            </>
+          ) : tab === '요청한 대화' ? (
+            <>
+              <ChatListState
+                loading={myRooms.loading}
+                error={myRooms.error}
+                isEmpty={filteredMyRooms.length === 0}
+                emptyText={query === '' ? '아직 요청한 대화가 없어요' : '검색 결과가 없어요'}
+                onRetry={myRooms.reload}
+              />
 
-          {tab === '요청한 대화' &&
-            requested.map((row) => (
-              <Pressable
-                key={row.id}
-                onPress={() => openRoom(row.id, 'requester', row.state)}
-                style={s.chatRow}
-              >
-                <View style={s.viewRing}>
-                  <Text style={s.viewText}>92°</Text>
-                </View>
-                <View style={s.rowCopy}>
-                  <View style={s.rowTitleLine}>
-                    <Text numberOfLines={1} style={s.rowTitle}>
-                      {row.place} · {row.person}
-                    </Text>
-                    <Text
-                      style={[
-                        s.state,
-                        row.state === '대기' && s.pending,
-                        row.state === '채팅중' && s.active,
-                        row.state === '종료' && s.ended,
-                      ]}
-                    >
-                      {row.state}
-                    </Text>
-                  </View>
-                  <Text numberOfLines={1} style={s.message}>
-                    {row.message}
-                  </Text>
-                  <Text style={s.requestTime}>14:08</Text>
-                </View>
-              </Pressable>
-            ))}
+              {filteredMyRooms.map((room) => (
+                <ChatRoomRow key={room.roomId} room={room} onOpen={() => openRoom(room)} />
+              ))}
+            </>
+          ) : (
+            <>
+              <ChatListState
+                loading={pins.loading}
+                error={pins.error}
+                isEmpty={filteredPins.length === 0}
+                emptyText={query === '' ? '아직 요청받은 대화가 없어요' : '검색 결과가 없어요'}
+                onRetry={pins.reload}
+              />
+
+              {filteredPins.map((pin) => (
+                <ChatPinRow
+                  key={pin.pinId}
+                  pin={pin}
+                  onOpen={() => {
+                    setSelectedPin(pin);
+                    setQuery('');
+                  }}
+                />
+              ))}
+            </>
+          )}
         </ScrollView>
 
-        {selectedPost && (
+        {/*
+          이미 전부 끝난 게시글에는 버튼을 두지 않는다. 눌러도 바뀔 것이 없고, 서버도 빈 결과로
+          성공을 돌려주므로 아무 일도 일어나지 않은 것처럼 보인다.
+        */}
+        {inPin && pinRooms.items.some((room) => room.status !== 'LEFT') && (
           <View style={s.leaveArea}>
             <Text style={s.leaveHint}>모든 답변을 종료합니다</Text>
-            <Pressable style={s.leaveButton}>
+            <Pressable
+              accessibilityRole="button"
+              disabled={leave.busy}
+              onPress={confirmLeave}
+              style={[s.leaveButton, leave.busy && s.leaveButtonBusy]}
+            >
               <Text style={s.leaveText}>떠났어요</Text>
             </Pressable>
           </View>
@@ -243,85 +221,9 @@ export default function Chat() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
-  screen: { flex: 1, paddingHorizontal: layout.gutter },
-  pageHeader: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  pageTitle: { ...type.title, color: colors.dark },
-  tabs: { height: 52, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.gray200 },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  tabText: { ...type.label, color: colors.gray400, paddingBottom: spacing.x3 },
-  tabTextActive: { color: colors.dark, fontWeight: '600' },
-  tabLine: { height: 3, width: '100%', backgroundColor: 'transparent' },
-  tabLineActive: { backgroundColor: colors.dark },
-  search: {
-    height: 48,
-    marginVertical: spacing.x3,
-    paddingHorizontal: spacing.x3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.x2,
-    borderRadius: radius.md,
-    backgroundColor: colors.gray100,
-  },
-  input: { ...type.body, flex: 1, color: colors.dark },
-  list: { paddingBottom: spacing.x6 },
-  postRow: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.x3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  timePill: {
-    width: 68,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.gray100,
-  },
-  timePillText: { ...type.label, color: colors.gray600 },
-  chatRow: {
-    minHeight: 100,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.x3,
-    paddingVertical: spacing.x3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray200,
-  },
-  viewRing: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.lime,
-  },
-  viewText: { fontSize: 10, lineHeight: 14, color: colors.gray600 },
-  rowCopy: { flex: 1 },
-  rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
-  rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
-  address: { ...type.caption, color: colors.gray400, marginTop: 2 },
-  message: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
-  requestTime: { fontSize: 10, lineHeight: 14, color: colors.gray400, marginTop: 2 },
-  state: { ...type.caption, fontWeight: '600' },
-  pending: { color: '#FF7580' },
-  active: { color: colors.success },
-  ended: { color: colors.gray400 },
-  unread: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime },
-  leaveArea: { paddingTop: spacing.x3, paddingBottom: spacing.x2 },
-  leaveHint: { ...type.caption, color: colors.gray400, marginBottom: spacing.x2 },
-  leaveButton: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.dark,
-  },
-  leaveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#D9ED76' },
-});
+/** 장소와 상대 닉네임으로 걸러낸다. 서버에 다시 묻지 않는다. */
+function filterRooms(rooms: ChatRoomListItem[], query: string): ChatRoomListItem[] {
+  if (query === '') return rooms;
+
+  return rooms.filter((room) => `${room.placeName}${room.otherUserNickname}`.includes(query));
+}

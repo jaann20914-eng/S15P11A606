@@ -1,5 +1,6 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
+import { traceChat } from './log';
 import { leaveMockPinChats } from '@/mocks/chat';
 import type { PinChatLeaveResult } from '@/types/chat';
 import type { PinId } from '@/types/pin';
@@ -25,5 +26,10 @@ function requestLeavePinChats(pinId: PinId): Promise<PinChatLeaveResult> {
 }
 
 export function leavePinChats(pinId: PinId): Promise<PinChatLeaveResult> {
-  return usesMock('chat/leave') ? leaveMockPinChats(pinId) : requestLeavePinChats(pinId);
+  return traceChat(
+    '핀 떠났어요',
+    'chat/leave',
+    () => (usesMock('chat/leave') ? leaveMockPinChats(pinId) : requestLeavePinChats(pinId)),
+    (result) => ({ pinId: result.pinId, 종료된방: result.leftChatRoomIds.length }),
+  );
 }
