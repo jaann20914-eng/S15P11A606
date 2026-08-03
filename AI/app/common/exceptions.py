@@ -14,6 +14,10 @@ class VideoEncodeError(AIServiceError):
     error_code = "VIDEO_ENCODE_FAILED"
 
 
+class ThumbnailGenerationError(AIServiceError):
+    error_code = "THUMBNAIL_GENERATION_FAILED"
+
+
 class ModelExecutionError(AIServiceError):
     error_code = "MODEL_EXECUTION_FAILED"
 

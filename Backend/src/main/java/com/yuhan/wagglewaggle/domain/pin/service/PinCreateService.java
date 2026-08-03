@@ -59,6 +59,11 @@ public class PinCreateService {
     private static final int MAX_PLACE_NAME_LENGTH = 100;
     private static final int MAX_DETAIL_LOCATION_LENGTH = 100;
     private static final int MAX_MEMO_LENGTH = 50;
+    // 카카오 장소 부가 정보 컬럼 길이(places 스키마와 일치)
+    private static final int MAX_CATEGORY_GROUP_CODE_LENGTH = 10;
+    private static final int MAX_CATEGORY_GROUP_NAME_LENGTH = 50;
+    private static final int MAX_PHONE_LENGTH = 50;
+    private static final int MAX_ADDRESS_NAME_LENGTH = 255;
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final double EARTH_RADIUS_METERS = 6_371_000.0;
@@ -141,6 +146,10 @@ public class PinCreateService {
                 place.name(),
                 place.latitude(),
                 place.longitude(),
+                normalizeOptional(request.categoryGroupCode()),
+                normalizeOptional(request.categoryGroupName()),
+                normalizeOptional(request.phone()),
+                normalizeOptional(request.addressName()),
                 request.latitude(),
                 request.longitude(),
                 request.detailLocation(),
@@ -150,6 +159,11 @@ public class PinCreateService {
         );
     }
 
+    /** NOT NULL 컬럼에 저장하므로 null 은 빈 문자열로, 값이 있으면 앞뒤 공백만 제거한다. */
+    private String normalizeOptional(String value) {
+        return (value == null) ? "" : value.trim();
+    }
+
     private void validateFields(PinCreateRequest r) {
         boolean invalid = isBlank(r.originalVideoKey()) || r.originalVideoKey().length() > MAX_ORIGINAL_VIDEO_KEY_LENGTH
                 || isBlank(r.kakaoPlaceId()) || r.kakaoPlaceId().length() > MAX_KAKAO_PLACE_ID_LENGTH
@@ -157,10 +171,19 @@ public class PinCreateService {
                 || !isValidLatitude(r.kakaoPlaceLatitude()) || !isValidLongitude(r.kakaoPlaceLongitude())
                 || !isValidLatitude(r.latitude()) || !isValidLongitude(r.longitude())
                 || (r.detailLocation() != null && r.detailLocation().length() > MAX_DETAIL_LOCATION_LENGTH)
-                || (r.memo() != null && r.memo().length() > MAX_MEMO_LENGTH);
+                || (r.memo() != null && r.memo().length() > MAX_MEMO_LENGTH)
+                || exceedsLength(r.categoryGroupCode(), MAX_CATEGORY_GROUP_CODE_LENGTH)
+                || exceedsLength(r.categoryGroupName(), MAX_CATEGORY_GROUP_NAME_LENGTH)
+                || exceedsLength(r.phone(), MAX_PHONE_LENGTH)
+                || exceedsLength(r.addressName(), MAX_ADDRESS_NAME_LENGTH);
         if (invalid) {
             throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
+    }
+
+    /** 카카오 부가 정보는 선택값이라 null 은 허용하되, 값이 있으면 컬럼 길이를 넘지 않아야 한다. */
+    private boolean exceedsLength(String value, int maxLength) {
+        return value != null && value.length() > maxLength;
     }
 
     private CrowdLevel parseCrowdLevel(String rawCrowdLevel) {
