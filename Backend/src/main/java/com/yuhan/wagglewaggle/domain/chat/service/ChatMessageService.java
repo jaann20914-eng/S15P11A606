@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageSendRequest;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatMessage;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
+import com.yuhan.wagglewaggle.domain.chat.filter.ProfanityFilter;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatMessageRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
@@ -41,6 +42,7 @@ public class ChatMessageService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ProfanityFilter profanityFilter;
     private final SimpMessagingTemplate messagingTemplate;
     private final Clock clock;
 
@@ -63,8 +65,9 @@ public class ChatMessageService {
         // 별도 회원 조회 없이 FK만 세팅한다(참여자가 아니면 발신 거부).
         Member sender = resolveSender(room, senderId);
 
-        // Step 1에서는 필터를 적용하지 않아 maskedContent = content(원문)로 이벤트에 싣는다.
-        ChatMessage message = ChatMessage.create(room, sender, clientMessageId, content);
+        // 저장 직전 1차 욕설 필터를 적용한다. 욕설이 없으면 maskedContent = content(원문)이다.
+        String maskedContent = profanityFilter.mask(content);
+        ChatMessage message = ChatMessage.create(room, sender, clientMessageId, content, maskedContent);
 
         ChatMessage saved;
         try {
@@ -81,7 +84,7 @@ public class ChatMessageService {
                 saved.getId(),
                 senderId,
                 saved.getContent(),
-                saved.getContent(),
+                saved.getMaskedContent(),
                 saved.getCreatedAt(),
                 Instant.now(clock));
         messagingTemplate.convertAndSend(CHAT_ROOM_TOPIC_PREFIX + roomId, event);

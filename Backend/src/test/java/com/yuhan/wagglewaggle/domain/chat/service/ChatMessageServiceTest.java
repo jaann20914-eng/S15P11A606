@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageSendRequest;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatMessage;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
+import com.yuhan.wagglewaggle.domain.chat.filter.ProfanityFilter;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatMessageRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,6 +42,7 @@ class ChatMessageServiceTest {
 
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatMessageRepository chatMessageRepository;
+    @Mock private ProfanityFilter profanityFilter;
     @Mock private SimpMessagingTemplate messagingTemplate;
 
     private ChatMessageService service;
@@ -55,7 +58,8 @@ class ChatMessageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChatMessageService(chatRoomRepository, chatMessageRepository, messagingTemplate, clock);
+        service = new ChatMessageService(
+                chatRoomRepository, chatMessageRepository, profanityFilter, messagingTemplate, clock);
     }
 
     private ChatMessageSendRequest req(String content) {
@@ -84,9 +88,11 @@ class ChatMessageServiceTest {
     @DisplayName("참여자가 ACTIVE 방에 정상 전송하면 메시지를 저장하고 방 토픽에 브로드캐스트한다")
     void 정상_전송이면_저장하고_브로드캐스트한다() {
         givenActiveRoom(true, false); // 발신자 == 요청자 → 수신자 분기까지 가지 않음
+        given(profanityFilter.mask("안녕하세요")).willReturn("안녕하세요");
         ChatMessage saved = mock(ChatMessage.class);
         given(saved.getId()).willReturn(500L);
         given(saved.getContent()).willReturn("안녕하세요");
+        given(saved.getMaskedContent()).willReturn("안녕하세요");
         given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
         given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
 
@@ -94,6 +100,35 @@ class ChatMessageServiceTest {
 
         verify(chatMessageRepository).saveAndFlush(any(ChatMessage.class));
         verify(messagingTemplate).convertAndSend(eq(TOPIC), any(ChatMessageCreatedEvent.class));
+    }
+
+    @Test
+    @DisplayName("욕설이 포함되면 마스킹된 maskedContent로 저장하고 이벤트에도 마스킹 결과를 싣는다")
+    void 욕설이_있으면_마스킹해서_저장하고_브로드캐스트한다() {
+        givenActiveRoom(true, false);
+        String origin = "야 시발 안녕";
+        String masked = "야 ** 안녕";
+        given(profanityFilter.mask(origin)).willReturn(masked);
+        ChatMessage saved = mock(ChatMessage.class);
+        given(saved.getId()).willReturn(501L);
+        given(saved.getContent()).willReturn(origin);
+        given(saved.getMaskedContent()).willReturn(masked);
+        given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
+        given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
+
+        service.send(REQUESTER_ID, ROOM_ID, req(origin));
+
+        // 저장되는 엔티티에 원문과 마스킹 결과가 각각 담기는지 확인한다.
+        ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(chatMessageRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getContent()).isEqualTo(origin);
+        assertThat(captor.getValue().getMaskedContent()).isEqualTo(masked);
+
+        // 브로드캐스트 이벤트에도 content(원문)와 maskedContent(마스킹)가 함께 실린다.
+        ArgumentCaptor<ChatMessageCreatedEvent> eventCaptor = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
+        verify(messagingTemplate).convertAndSend(eq(TOPIC), eventCaptor.capture());
+        assertThat(eventCaptor.getValue().data().content()).isEqualTo(origin);
+        assertThat(eventCaptor.getValue().data().maskedContent()).isEqualTo(masked);
     }
 
     @Test
@@ -169,6 +204,7 @@ class ChatMessageServiceTest {
     @DisplayName("동일 client_message_id 중복 전송은 유니크 위반을 멱등 처리해 재브로드캐스트하지 않는다")
     void 중복_전송이면_재브로드캐스트하지_않는다() {
         givenActiveRoom(true, false);
+        given(profanityFilter.mask("hi")).willReturn("hi");
         given(chatMessageRepository.saveAndFlush(any(ChatMessage.class)))
                 .willThrow(new DataIntegrityViolationException("duplicate"));
 
