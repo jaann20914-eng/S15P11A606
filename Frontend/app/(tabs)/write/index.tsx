@@ -4,9 +4,8 @@ import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
-import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
-import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -57,17 +56,12 @@ export default function PinCreateScreen() {
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const [focused, setFocused] = useState(false);
-  const keyboardHeight = useKeyboardHeight();
-  const tabBarHeight = useAppTabBarHeight();
-
   /*
-    키보드가 이 화면을 덮는 높이.
-
-    키보드 높이는 창 맨 아래를 기준으로 재는데, 그 아래에는 탭바가 깔려 있다. 그 값을 그대로
-    쓰면 탭바 높이만큼 더 밀려 버튼 아래에 빈 자리가 생긴다. 실제로 이 화면을 덮는 만큼만
-    비운다.
+    키보드가 폼을 덮는 만큼. 폼의 아래 끝과 키보드 윗변을 직접 재서 얻는다.
+    탭바 높이를 손으로 빼는 계산은 키보드가 커질 때 어긋난다(`useKeyboardOverlap` 주석).
   */
-  const keyboardOverlap = Math.max(0, keyboardHeight - tabBarHeight);
+  const formRef = useRef<View>(null);
+  const keyboardOverlap = useKeyboardOverlap(formRef);
 
   /*
     입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
@@ -191,7 +185,7 @@ export default function PinCreateScreen() {
             여백을 주면 그 위 영역에서만 배치돼, 버튼은 키보드 바로 위로 올라오고 스크롤도
             보이는 범위 안에서 움직인다.
           */
-          <View style={[s.form, { paddingBottom: keyboardOverlap }]}>
+          <View ref={formRef} style={[s.form, { paddingBottom: keyboardOverlap }]}>
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
