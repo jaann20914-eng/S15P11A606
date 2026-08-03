@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
@@ -182,5 +183,51 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,
             @Param("wrap") boolean wrap
+    );
+
+    // ===== 내 프로필·활동 요약(월간 활동/오늘) 집계 =====
+    // 집계 대상: 본인의 ACTIVE·미삭제 영상핀 중 정상 등록 완료된 핀.
+    // 정상 등록 완료 시점 = expires_at - 1h. 서비스 날짜 경계 = Asia/Seoul 매일 04시(전날의 서비스 날짜).
+    // 두 보정을 합쳐 (expires_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '5 hour'(= -1h 완료 -4h 경계)를
+    // 날짜로 잘라 서비스 날짜로 삼는다(KST는 DST가 없어 AT TIME ZONE 전/후 고정 오프셋 감산이 동일하다).
+    // PENDING·REJECTED·FAILED·소프트 삭제·expires_at 미설정 핀은 집계하지 않는다.
+
+    /**
+     * 선택 월(서비스 날짜 기준 [startDate, endDateExclusive))의 서비스 날짜별 영상핀 수를 집계한다.
+     * 활동이 있는 날짜만 행으로 반환되며, 없는 날짜 0 채움과 합계 계산은 서비스에서 수행한다.
+     */
+    @Query(value = """
+            SELECT ((p.expires_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '5 hour')::date AS "serviceDate",
+                   COUNT(*) AS "videoPinCount"
+            FROM pins p
+            WHERE p.member_id = :memberId
+              AND p.video_status = 'ACTIVE'
+              AND p.deleted_at IS NULL
+              AND p.expires_at IS NOT NULL
+              AND ((p.expires_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '5 hour')::date >= :startDate
+              AND ((p.expires_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '5 hour')::date <  :endDateExclusive
+            GROUP BY 1
+            """, nativeQuery = true)
+    List<DailyPinCountRow> findDailyActiveVideoPinCounts(
+            @Param("memberId") Long memberId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDateExclusive") LocalDate endDateExclusive
+    );
+
+    /**
+     * 특정 서비스 날짜(보통 오늘)에 정상 등록 완료된 본인의 ACTIVE 영상핀 수를 센다(todayVideoPinCount용).
+     */
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM pins p
+            WHERE p.member_id = :memberId
+              AND p.video_status = 'ACTIVE'
+              AND p.deleted_at IS NULL
+              AND p.expires_at IS NOT NULL
+              AND ((p.expires_at AT TIME ZONE 'Asia/Seoul') - INTERVAL '5 hour')::date = :serviceDate
+            """, nativeQuery = true)
+    long countActiveVideoPinsByServiceDate(
+            @Param("memberId") Long memberId,
+            @Param("serviceDate") LocalDate serviceDate
     );
 }

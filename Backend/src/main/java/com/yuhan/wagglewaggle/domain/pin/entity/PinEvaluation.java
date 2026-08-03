@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.pin.entity;
 
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
+import com.yuhan.wagglewaggle.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,7 +28,7 @@ import lombok.NoArgsConstructor;
         )
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PinEvaluation {
+public class PinEvaluation extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
