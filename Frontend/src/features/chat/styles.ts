@@ -29,7 +29,7 @@ export const AVATAR_SIZE = 48;
  * 게시글 줄과 채팅방 줄이 같은 값을 쓴다. 탭을 옮길 때 줄 높이가 달라지면 같은 목록이 아닌 것처럼
  * 보인다. 채팅방 줄(제목 · 메시지 두 줄 · 시각)이 자연히 갖는 높이에 맞췄다.
  */
-const ROW_MIN_HEIGHT = 104;
+const ROW_MIN_HEIGHT = 124;
 
 /**
  * 수락 · 거절 버튼 높이.
@@ -37,7 +37,7 @@ const ROW_MIN_HEIGHT = 104;
  * 시각과 한 줄을 나눠 쓰므로 그 줄의 높이도 이 값으로 잡아 둔다. 버튼이 없는 줄까지 같은 높이를
  * 두면 대기 중인 줄만 높아지는 일이 없다.
  */
-const DECISION_HEIGHT = 28;
+const DECISION_HEIGHT = 32;
 
 /**
  * 글 묶음을 링 쪽으로 내리는 양.
@@ -113,13 +113,13 @@ export const chatListStyles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.x3,
     /*
-      위아래 여백을 따로 둔다.
+      위아래 여백을 같게 둔다.
 
-      위는 앞 줄과 떨어뜨리는 자리라 그대로 두고, 아래는 시각 바로 다음이라 좁혀도 답답하지
-      않다. 세 층이 쌓인 줄이어서 여백까지 넉넉하면 목록이 늘어져 보인다.
+      마지막 줄(시각 · 수락 · 거절)이 글과 아래 선의 가운데에 놓여야 한다. 아래만 좁히면 버튼이
+      선에 붙어 다음 줄의 것처럼 읽힌다.
     */
     paddingTop: spacing.x2,
-    paddingBottom: spacing.x1,
+    paddingBottom: spacing.x2,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
@@ -159,8 +159,8 @@ export const chatListStyles = StyleSheet.create({
   /**
    * 마지막 메시지 시각.
    *
-   * 메시지와는 한 칸 떼고, 아래 선에는 가깝게 둔다. 시각은 그 위 대화에 딸린 값이라 선 쪽으로
-   * 내려가 붙어 있으면 다음 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
+   * 메시지와 아래 선 사이 가운데에 놓인다. 시각은 그 위 대화에 딸린 값이라 선 쪽으로 내려가
+   * 붙어 있으면 다음 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
    */
   time: { ...type.caption, color: colors.gray400 },
   /**
@@ -177,7 +177,8 @@ export const chatListStyles = StyleSheet.create({
     alignItems: 'center',
     // 시각 바로 옆에 붙인다. 양끝으로 벌리면 버튼이 글 묶음에서 떨어져 보인다.
     gap: spacing.x3,
-    marginTop: spacing.x1,
+    // 위 글과의 간격을 줄의 아래 여백과 같게 두어, 이 줄이 글과 선의 가운데에 놓인다.
+    marginTop: spacing.x2,
   },
 
   /* 상태 표시 */
@@ -190,11 +191,12 @@ export const chatListStyles = StyleSheet.create({
   /** 대기 중인 요청에 붙는 수락 · 거절. 마지막 줄에서 시각 오른쪽에 나란히 놓인다. */
   decisions: { flexDirection: 'row', gap: spacing.x2 },
   decision: {
-    width: 56,
+    width: 64,
     height: DECISION_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
+    // 많이 둥글리면 글자보다 모양이 먼저 보인다. 살짝만 깎는다.
+    borderRadius: radius.sm,
   },
   accept: { backgroundColor: colors.lime },
   acceptText: { ...type.caption, color: colors.dark, fontWeight: '600' },
