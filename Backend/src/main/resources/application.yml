@@ -51,6 +51,11 @@ app:
     # 웹 OAuth 콜백을 앱으로 되돌릴 커스텀 스킴 (app.json의 scheme와 일치)
     callback-scheme: ${OAUTH_CALLBACK_SCHEME}
 
+internal:
+  api:
+    # 내부 시스템(AI Worker)이 /api/v1/internal/** 호출 시 보내는 X-Internal-Secret 값.
+    secret: ${INTERNAL_API_SECRET}
+
 jwt:
   secret: ${JWT_SECRET}
   issuer: wagglewaggle

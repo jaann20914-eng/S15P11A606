@@ -17,6 +17,9 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 
+    // Internal API (AI Worker 등 내부 시스템 콜백)
+    INTERNAL_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "내부 API 인증에 실패했습니다."),
+
     // Place
     INVALID_PLACE_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "장소 검색 조건이 올바르지 않습니다."),
     EXTERNAL_PLACE_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 장소 검색 API 오류가 발생했습니다."),
@@ -137,6 +140,10 @@ public enum ErrorCode {
     CHAT_MESSAGE_SEND_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅방에 메시지를 보낼 권한이 없습니다."),
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 내용이 너무 깁니다."),
+
+    // AI Chat Pattern Result (AI Worker 콜백)
+    AI_CHAT_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "AI 채팅 분석 작업을 찾을 수 없습니다."),
+    INVALID_CHAT_PATTERN_RESULT(HttpStatus.BAD_REQUEST, "패턴 분석 결과 형식이 올바르지 않습니다."),
 
     // Pin Evaluation
     INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),

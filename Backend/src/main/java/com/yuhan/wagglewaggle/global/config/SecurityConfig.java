@@ -3,8 +3,11 @@ package com.yuhan.wagglewaggle.global.config;
 import com.yuhan.wagglewaggle.domain.auth.jwt.JwtAuthenticationFilter;
 import com.yuhan.wagglewaggle.domain.auth.jwt.JwtProvider;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
+import com.yuhan.wagglewaggle.global.properties.InternalApiProperties;
+import com.yuhan.wagglewaggle.global.security.InternalSecretAuthFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -22,11 +25,14 @@ import java.nio.charset.StandardCharsets;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(InternalApiProperties.class)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
             "/api/v1/auth/**",
+            // 내부 시스템(AI Worker) 전용 콜백. JWT 대신 X-Internal-Secret 헤더로 InternalSecretAuthFilter가 검증한다.
+            "/api/v1/internal/**",
             // 닉네임 중복 확인은 온보딩·닉네임 수정 전에 신원 없이 호출하므로 공개한다.
             // (/api/v1/users/** 전체가 아니라 이 엔드포인트만 연다.)
             "/api/v1/users/nickname-availability",
@@ -40,6 +46,7 @@ public class SecurityConfig {
     };
 
     private final JwtProvider jwtProvider;
+    private final InternalApiProperties internalApiProperties;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -57,7 +64,10 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint())
                         .accessDeniedHandler(accessDeniedHandler()))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider),
-                        UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class)
+                // 내부 콜백은 JWT 인증 전에 공유 시크릿으로 먼저 가린다.
+                .addFilterBefore(new InternalSecretAuthFilter(internalApiProperties.secret()),
+                        JwtAuthenticationFilter.class);
 
         return http.build();
     }
