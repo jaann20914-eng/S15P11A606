@@ -4,7 +4,11 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { SocketStatus } from '@/types/chatSocket';
 import { isTokenExpired } from '@/utils/accessToken';
+import { createDevLogger } from '@/utils/devLog';
+import { USER_ERRORS_QUEUE, USER_ERRORS_SUBSCRIPTION_ID } from './destinations';
 import { HEARTBEAT_MS, RECONNECT_DELAYS_MS, STOMP_VERSION, canUseSocket, resolveSocketUrl } from './config';
+
+const log = createDevLogger('chat-socket');
 
 /**
  * 채팅 STOMP 연결.
@@ -121,6 +125,14 @@ function createClient(): Client {
       attempt = 0;
       refreshedForThisConnection = false;
       setStatus('connected');
+
+      /*
+        오류 큐를 가장 먼저 구독한다.
+
+        구독이 거절되면 서버는 연결을 끊지 않고 이 큐로만 알려 준다. 방을 구독한 뒤에 이 큐를
+        열면 그사이 온 거절을 놓쳐, 화면에서는 "이벤트가 오지 않는다"로만 보인다.
+      */
+      watchSubscriptionErrors();
 
       // 이전 세션의 구독은 함께 끊겼다. 살아 있다고 표시된 것도 지우고 새로 신청한다.
       registrations.forEach((registration) => {
@@ -271,6 +283,18 @@ export function publish(destination: string, body: unknown): boolean {
   });
 
   return true;
+}
+
+/**
+ * 구독 거절을 듣는다. 연결될 때마다 다시 건다.
+ *
+ * 화면이 따로 걸지 않아도 개발 중에는 무엇이 왜 막혔는지 남는다. 화면에서 다뤄야 하는 거절은
+ * `useSubscriptionErrors`로 같은 큐를 한 번 더 구독하면 된다 — 구독 식별자가 달라 겹치지 않는다.
+ */
+function watchSubscriptionErrors(): void {
+  subscribeDestination(`${USER_ERRORS_SUBSCRIPTION_ID}-log`, USER_ERRORS_QUEUE, (body) => {
+    log('구독 거절', { 본문: body });
+  });
 }
 
 /** 감시를 걸었는지. 소켓을 처음 쓸 때 한 번만 건다. */

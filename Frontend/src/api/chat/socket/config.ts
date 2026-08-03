@@ -3,10 +3,10 @@ import { apiBaseUrl } from '@/constants/env';
 /**
  * WebSocket 핸드셰이크 경로.
  *
- * 명세의 표에는 `/ws`로 적혀 있지만 실제 배포는 게이트웨이 필터 때문에 `/api/v1/chat` 아래에
- * 두기로 했다. 둘이 갈리면 여기만 고친다.
+ * 서버가 `registerStompEndpoints`에 등록한 값과 같아야 한다(`WebSocketConfig`). 한때
+ * `/api/v1/chat/ws`로 이야기됐지만 구현은 `/ws`로 들어왔다.
  */
-const SOCKET_PATH = '/api/v1/chat/ws';
+const SOCKET_PATH = '/ws';
 
 /** 서버가 요구하는 STOMP 버전. 다른 값을 보내면 `UNSUPPORTED_STOMP_VERSION`으로 끊긴다. */
 export const STOMP_VERSION = '1.2';
