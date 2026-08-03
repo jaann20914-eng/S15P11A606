@@ -62,6 +62,7 @@ public class PinCreateService {
     // 카카오 장소 부가 정보 컬럼 길이(places 스키마와 일치)
     private static final int MAX_CATEGORY_GROUP_CODE_LENGTH = 10;
     private static final int MAX_CATEGORY_GROUP_NAME_LENGTH = 50;
+    private static final int MAX_CATEGORY_NAME_LENGTH = 255;
     private static final int MAX_PHONE_LENGTH = 50;
     private static final int MAX_ADDRESS_NAME_LENGTH = 255;
 
@@ -148,6 +149,7 @@ public class PinCreateService {
                 place.longitude(),
                 normalizeOptional(request.categoryGroupCode()),
                 normalizeOptional(request.categoryGroupName()),
+                normalizeNullable(request.categoryName()),
                 normalizeOptional(request.phone()),
                 normalizeOptional(request.addressName()),
                 request.latitude(),
@@ -164,6 +166,15 @@ public class PinCreateService {
         return (value == null) ? "" : value.trim();
     }
 
+    /** NULL 허용 컬럼에 저장하므로 공백만 제거하고, 값이 없으면(null·빈문자) null 로 둔다. */
+    private String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
     private void validateFields(PinCreateRequest r) {
         boolean invalid = isBlank(r.originalVideoKey()) || r.originalVideoKey().length() > MAX_ORIGINAL_VIDEO_KEY_LENGTH
                 || isBlank(r.kakaoPlaceId()) || r.kakaoPlaceId().length() > MAX_KAKAO_PLACE_ID_LENGTH
@@ -174,6 +185,7 @@ public class PinCreateService {
                 || (r.memo() != null && r.memo().length() > MAX_MEMO_LENGTH)
                 || exceedsLength(r.categoryGroupCode(), MAX_CATEGORY_GROUP_CODE_LENGTH)
                 || exceedsLength(r.categoryGroupName(), MAX_CATEGORY_GROUP_NAME_LENGTH)
+                || exceedsLength(r.categoryName(), MAX_CATEGORY_NAME_LENGTH)
                 || exceedsLength(r.phone(), MAX_PHONE_LENGTH)
                 || exceedsLength(r.addressName(), MAX_ADDRESS_NAME_LENGTH);
         if (invalid) {

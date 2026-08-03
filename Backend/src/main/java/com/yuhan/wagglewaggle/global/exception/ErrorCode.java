@@ -174,7 +174,14 @@ public enum ErrorCode {
     INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "멱등성 키 형식이 올바르지 않습니다."),
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키가 다른 요청에 사용되었습니다."),
     PIN_UNLOCK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 잠금 해제 중 오류가 발생했습니다."),
-    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다.");
+    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다."),
+
+    // Recommendation
+    // UNAUTHORIZED(401)는 위에서 재사용한다.
+    INVALID_LOCATION(HttpStatus.BAD_REQUEST, "위치 정보가 올바르지 않습니다."),
+    LOCATION_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "추천에 사용할 위치 정보가 없습니다."),
+    RECOMMENDATION_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "추천 조회 중 오류가 발생했습니다."),
+    AI_RECOMMENDATION_FAILED(HttpStatus.BAD_GATEWAY, "개인화 추천 계산에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

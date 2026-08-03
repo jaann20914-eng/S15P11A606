@@ -107,7 +107,7 @@ class PinCreateServiceTest {
         return new PinCreateRequest(
                 key, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,          // Front가 보낸 참고 좌표(신뢰하지 않음)
-                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, PHONE, ADDRESS_NAME,
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, null, PHONE, ADDRESS_NAME,
                 captureLat, captureLng,
                 "2층 창가", crowdLevel, "메모", tags);
     }
@@ -135,7 +135,7 @@ class PinCreateServiceTest {
         PinCreateRequest request = new PinCreateRequest(
                 VALID_KEY, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,
-                null, null, null, null,
+                null, null, null, null, null,
                 PLACE_LAT, PLACE_LNG,
                 "2층 창가", "WAGLE", "메모", null);
 

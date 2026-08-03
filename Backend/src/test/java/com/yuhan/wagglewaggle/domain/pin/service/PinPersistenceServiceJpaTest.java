@@ -81,7 +81,7 @@ class PinPersistenceServiceJpaTest {
         ValidatedPinCreation validated = new ValidatedPinCreation(
                 member.getId(), KEY, KAKAO_PLACE_ID, "테스트 장소",
                 PLACE_LAT, PLACE_LNG,
-                "CE7", "카페", "02-123-4567", "서울 강남구 역삼동 858",
+                "CE7", "카페", "음식점 > 카페", "02-123-4567", "서울 강남구 역삼동 858",
                 PLACE_LAT + 0.0001, PLACE_LNG + 0.0001,
                 "2층 창가", CrowdLevel.WAGLE, "메모", List.of("카페", "조용함"));
 

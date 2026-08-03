@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.global.config;
 
+import com.yuhan.wagglewaggle.global.properties.AiRecommendationProperties;
 import com.yuhan.wagglewaggle.global.properties.AppOAuthProperties;
 import com.yuhan.wagglewaggle.global.properties.JwtProperties;
 import com.yuhan.wagglewaggle.global.properties.KakaoOAuthProperties;
@@ -19,9 +20,23 @@ import java.time.Duration;
         JwtProperties.class,
         KakaoOAuthProperties.class,
         NaverOAuthProperties.class,
-        AppOAuthProperties.class
+        AppOAuthProperties.class,
+        AiRecommendationProperties.class
 })
 public class RestClientConfig {
+
+    @Bean
+    public RestClient aiRecommendationRestClient(AiRecommendationProperties aiRecommendationProperties) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(aiRecommendationProperties.connectTimeoutMs()));
+        requestFactory.setReadTimeout(Duration.ofMillis(aiRecommendationProperties.readTimeoutMs()));
+
+        return RestClient.builder()
+                .baseUrl(aiRecommendationProperties.baseUrl())
+                .defaultHeader("x-internal-api-key", aiRecommendationProperties.internalApiKey())
+                .requestFactory(requestFactory)
+                .build();
+    }
 
     @Bean
     public RestClient kakaoRestClient(KakaoProperties kakaoProperties) {
