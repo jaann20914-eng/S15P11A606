@@ -80,8 +80,14 @@ export const chatListStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.x3,
-    // 아래 선까지의 간격. 세 층이 쌓인 줄이라 여백까지 넉넉하면 목록이 늘어져 보인다.
-    paddingVertical: spacing.x2,
+    /*
+      위아래 여백을 따로 둔다.
+
+      위는 앞 줄과 떨어뜨리는 자리라 그대로 두고, 아래는 시각 바로 다음이라 좁혀도 답답하지
+      않다. 세 층이 쌓인 줄이어서 여백까지 넉넉하면 목록이 늘어져 보인다.
+    */
+    paddingTop: spacing.x2,
+    paddingBottom: spacing.x1,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
@@ -116,8 +122,13 @@ export const chatListStyles = StyleSheet.create({
   },
   /** 메시지가 없을 때 대신 놓는 안내. 실제 대화가 아니므로 한 단계 연하게 둔다. */
   messagePlaceholder: { color: colors.gray400 },
-  /** 마지막 메시지 시각. 10px은 옆 문구에 비해 너무 작아 읽히지 않았다. */
-  time: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  /**
+   * 마지막 메시지 시각.
+   *
+   * 메시지와는 한 칸 떼고, 아래 선에는 가깝게 둔다. 시각은 그 위 대화에 딸린 값이라 선 쪽으로
+   * 내려가 붙어 있으면 다음 줄의 것처럼 읽힌다. 선까지의 간격은 `chatRow`의 아래 여백이 맡는다.
+   */
+  time: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
 
   /* 상태 표시 */
   statusText: { ...type.caption, fontWeight: '600' },
