@@ -282,6 +282,7 @@ export const pinCreateStyles = StyleSheet.create({
   submitText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
 
   /* 등록 로딩 */
+  /** 배경 영상이 화면을 채운다. 바탕색은 영상이 뜨기 전 한 프레임을 위한 것이다. */
   publishing: {
     flex: 1,
     alignItems: 'center',
@@ -289,36 +290,44 @@ export const pinCreateStyles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#FBFCF8',
   },
-  ambient: { position: 'absolute', width: 300, height: 300, borderRadius: 150, opacity: 0.42 },
-  ambientWarm: { right: -70, top: -30, backgroundColor: '#FFF0DA' },
-  ambientBlue: { left: -90, bottom: 40, backgroundColor: '#E8F7FC' },
-  loaderWrap: { width: 220, height: 220, alignItems: 'center', justifyContent: 'center' },
-  loaderTrack: {
-    position: 'absolute',
-    width: 206,
-    height: 206,
-    borderRadius: 103,
-    borderWidth: 10,
-    borderColor: '#E9F6C8',
-    borderTopColor: '#A7EF31',
-    borderRightColor: '#C4E600',
-  },
-  loaderMask: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#A7EF31',
-    top: -3,
-    left: 84,
-  },
+  loader: { alignItems: 'center', justifyContent: 'center' },
+  loaderRing: { position: 'absolute', resizeMode: 'contain' },
+  /**
+   * 링 안쪽의 흰 원.
+   *
+   * 배경 영상 위에 글자를 그대로 올리면 구체가 지나갈 때 읽기 어려워진다. 링 안쪽을 흰색으로
+   * 채워 글자가 놓일 자리를 만든다.
+   */
   loaderCenter: {
-    width: 176,
-    height: 176,
-    borderRadius: 88,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.x6,
     backgroundColor: colors.white,
+  },
+  /** 본문 앞머리. "AI를 이용하여"처럼 문장을 여는 줄이다. */
+  publishingLead: {
+    ...type.small,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: colors.gray400,
+    marginBottom: spacing.x2,
+  },
+  publishingText: {
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    color: colors.gray600,
+  },
+  /** 알아 둬야 할 것. 본문과 떨어뜨려 한 단계 작게 쓴다. */
+  publishingNote: {
+    ...type.small,
+    lineHeight: 22,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: colors.gray400,
+    marginTop: spacing.x4,
   },
   /** 업로드 퍼센트. 안내 문구 아래에 크게 놓는다. */
   publishingProgress: {
@@ -335,15 +344,7 @@ export const pinCreateStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.white,
   },
   publishingCancelText: { ...type.label, color: colors.gray600, fontWeight: '600' },
-  publishingText: {
-    fontSize: 18,
-    lineHeight: 27,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    textAlign: 'center',
-    color: colors.gray600,
-  },
 });
