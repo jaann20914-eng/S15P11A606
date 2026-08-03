@@ -90,3 +90,9 @@ ai:
       interval-ms: ${AI_BLUR_REPUBLISH_INTERVAL_MS:60000}
       # 이 시간 이상 PENDING인 작업을 재발행 대상으로 본다. 기본 5분.
       pending-threshold: ${AI_BLUR_REPUBLISH_PENDING_THRESHOLD:PT5M}
+  chat:
+    analysis:
+      # AI 2차 분석 배치 스케줄러 사용 여부.
+      enabled: ${AI_CHAT_ANALYSIS_ENABLED:true}
+      # 방별 미분석 메시지 그룹핑·발행 주기(ms). 기본 30초.
+      interval-ms: ${AI_CHAT_ANALYSIS_INTERVAL_MS:30000}
