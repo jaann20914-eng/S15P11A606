@@ -25,6 +25,8 @@ from app.services.blur.validation_service import (
 class VideoProcessResult:
     final_status: str
 
+    thumbnail_frame: np.ndarray
+
     detected_face_count: int
     validated_face_count: int
 
@@ -119,6 +121,11 @@ class VideoService:
 
         detected_frame_count = 0
         processed_frame_count = 0
+        thumbnail_frame_index = (
+            input_metadata.decoded_frame_count
+            // 2
+        )
+        thumbnail_frame: np.ndarray | None = None
 
         try:
             while True:
@@ -188,6 +195,13 @@ class VideoService:
                     encoder,
                     blurred
                 )
+
+                if (
+                    processed_frame_count
+                    == thumbnail_frame_index
+                ):
+                    thumbnail_frame = blurred.copy()
+
                 processed_frame_count += 1
 
         except Exception:
@@ -258,10 +272,17 @@ class VideoService:
         if detected > 0 and validated == 0:
             reasons.add("NO_FACE_VALIDATED")
 
+        if thumbnail_frame is None:
+            raise VideoDecodeError(
+                "Could not capture a thumbnail frame"
+            )
+
         final_status = "PASS" if not reasons else "FAIL"
 
         return VideoProcessResult(
             final_status=final_status,
+
+            thumbnail_frame=thumbnail_frame,
 
             detected_face_count=detected,
             validated_face_count=validated,

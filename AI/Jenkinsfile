@@ -30,6 +30,11 @@ pipeline {
 
         //Jenkins Credentials에 RabbitMQ URL을 Secret Text로 등록
         RABBITMQ_URL = credentials('waggle-ai-rabbitmq-url')
+
+        AWS_ACCESS_KEY_ID = credentials('waggle-aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('waggle-aws-secret-access-key')
+        AWS_S3_BUCKET = "waggle-waggle"
+        AWS_REGION = 'ap-northeast-2'
     }
 
     stages {
@@ -122,6 +127,10 @@ pipeline {
                         -e INTERNAL_API_KEY="$INTERNAL_API_KEY" \
                         -e LOG_LEVEL="$LOG_LEVEL" \
                         -e RABBITMQ_URL="$RABBITMQ_URL" \
+                        -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+                        -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+                        -e AWS_S3_BUCKET="$AWS_S3_BUCKET" \
+                        -e AWS_REGION="$AWS_REGION" \
                         -v "$MODEL_VOLUME:/home/waggle/.insightface/models" \
                         "$IMAGE_TO_RUN" \
                         python /app/worker.py
