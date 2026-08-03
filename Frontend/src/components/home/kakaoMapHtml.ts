@@ -595,14 +595,19 @@ export function buildKakaoMapHtml({
     /**
      * 한 장소를 화면 중앙으로 데려오고, 필요하면 그만큼 당겨 본다.
      *
-     * **미는 것이 먼저다.** 순서를 뒤집으면 두 가지가 망가진다.
+     * **미는 것이 먼저다.** 이유가 둘이다.
      * - 당긴 뒤에 밀면 같은 거리가 화면 몇 배로 늘어난다. centerOn은 화면 20개를 넘게
      *   가로지르면 애니메이션을 포기하고 순간이동하므로, 쓸어가는 느낌이 사라진다.
-     * - 확대 애니메이션은 시작 시점의 중심을 붙잡고 있다가 끝나며 되돌린다. 방금 옮긴
-     *   자리가 취소된다.
+     * - 확대는 시작 시점의 중심을 그대로 유지한다. 그래서 밀어서 자리를 잡아 둔 뒤에 당겨야
+     *   그 자리가 결과로 남는다. 반대로 하면 확대가 끝나며 옮기기 전 자리로 되돌아간다.
      *
-     * 확대는 애니메이션 없이 한 번에 한다. 애니메이션을 켜면 언제 끝나는지 알 수 없어,
-     * 그 뒤에 해야 하는 중심 보정 시점을 잡을 수 없다.
+     * **확대는 애니메이션으로 한다.** 여러 단계를 한 번에 뛰면 타일 묶음이 통째로 바뀌어
+     * 화면이 비었다가 다시 채워진다. 애니메이션은 있던 타일을 늘려 가며 새 타일을 받으므로
+     * 두 손가락으로 벌리는 것처럼 이어진다.
+     *
+     * 그런데 애니메이션은 언제 끝나는지 알 수 없어 끝난 뒤에 중심을 보정할 수가 없다. 그래서
+     * **보정을 확대 전에 미리 반영한다** — 아래 shrink 참고. 확대는 중심을 그대로 두므로,
+     * 미리 맞춰 둔 자리가 그대로 결과가 된다.
      *
      * targetLevel보다 이미 더 당겨져 있으면 축척은 건드리지 않는다. 사용자가 자기 손으로
      * 더 가까이 본 것을 되돌리지 않는다.
@@ -611,20 +616,31 @@ export function buildKakaoMapHtml({
       if (!map) return;
 
       var target = new kakao.maps.LatLng(lat, lng);
-      var zoomOut = typeof targetLevel === 'number' && map.getLevel() > targetLevel;
+      var currentLevel = map.getLevel();
+      var needsZoom = typeof targetLevel === 'number' && currentLevel > targetLevel;
 
-      if (!zoomOut) {
+      if (!needsZoom) {
         centerOn(target, liftPx, true);
         return;
       }
 
-      centerOn(target, liftPx, true, function () {
-        map.setLevel(targetLevel);
+      /*
+        한 단계 당길 때마다 픽셀당 거리가 절반이 된다. 그래서 확대가 끝난 뒤 liftPx만큼
+        떨어져 보이게 하려면, 지금은 그 거리를 2^(단계 차)로 나눈 만큼만 올려 두면 된다.
+
+        확대 폭이 아주 크면 지금 기준으로는 1픽셀도 안 되는 값이 되어 보정이 무뎌진다.
+        목록에서 고르는 실제 폭(두세 단계)에서는 수십 픽셀이라 문제되지 않는다.
+      */
+      var shrink = Math.pow(2, currentLevel - targetLevel);
+
+      centerOn(target, (liftPx || 0) / shrink, true, function () {
+        // 확대는 중심을 유지한다. 방금 맞춘 자리가 그대로 남는다.
+        map.setLevel(targetLevel, { animate: true });
         /*
-          중심 보정(liftPx)은 픽셀 기준이라 축척이 바뀌면 다른 좌표를 가리킨다.
-          당긴 뒤 한 번 더 맞춰야 마커가 시트에 가리지 않는 자리에 남는다.
+          바뀐 축척을 곧바로 알린다. 애니메이션이 끝나며 지도가 idle을 한 번 더 보내지만,
+          그것만 믿으면 알림이 오지 않았을 때 화면 쪽이 여전히 "덜 당겨진 상태"로 알고 있어
+          같은 카드를 눌러도 상세로 넘어가지 못한다.
         */
-        centerOn(target, liftPx, false);
         sendIdle();
       });
     },

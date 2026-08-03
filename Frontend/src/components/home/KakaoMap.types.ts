@@ -81,7 +81,8 @@ export interface KakaoMapHandle {
    * 장소 하나를 들여다본다. 중앙으로 부드럽게 옮기고, 더 멀리 보고 있었다면 `targetLevel`까지
    * 당긴다. 이미 그보다 가까이 보고 있으면 축척은 건드리지 않는다.
    *
-   * 미는 것이 먼저다 — 이유는 `kakaoMapHtml.ts`의 `focusPlace`에 적어 두었다.
+   * 옮기는 것과 당기는 것 모두 이어지는 움직임으로 보인다. 순서와 중심 보정을 왜 그렇게
+   * 처리하는지는 `kakaoMapHtml.ts`의 `focusPlace`에 적어 두었다.
    */
   focusPlace: (coordinate: Coordinate, targetLevel: number) => void;
   /** 장소명으로 검색해 그 위치로 이동한다. 결과는 `onPlaceResolved`로 온다. */
