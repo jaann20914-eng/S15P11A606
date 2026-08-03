@@ -1,19 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
+import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -64,6 +56,7 @@ export default function PinCreateScreen() {
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const [focused, setFocused] = useState(false);
+  const keyboardHeight = useKeyboardHeight();
 
   /*
     입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
@@ -180,16 +173,14 @@ export default function PinCreateScreen() {
           <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
         ) : (
           /*
-            키보드가 올라오면 화면을 그만큼 밀어 올린다.
+            키보드가 덮는 만큼 아래를 비워 둔다.
 
-            그러지 않으면 아래쪽 입력칸(상세 위치)이 키보드에 가려 무엇을 치는지 보이지 않고,
-            아래 고정된 등록 버튼도 키보드 뒤로 들어간다. 안드로이드는 창 자체가 줄어들어
-            이것만으로 충분하고, iOS는 아래 여백을 키보드 높이만큼 넣어 같은 결과를 만든다.
+            이 앱은 화면 끝까지 그리는 방식이라 키보드가 올라와도 창이 줄지 않는다. 그냥 두면
+            아래쪽 입력칸과 고정된 등록 버튼이 키보드 뒤에 그대로 남는다. 키보드 높이만큼
+            여백을 주면 그 위 영역에서만 배치돼, 버튼은 키보드 바로 위로 올라오고 스크롤도
+            보이는 범위 안에서 움직인다.
           */
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={s.form}
-          >
+          <View style={[s.form, { paddingBottom: keyboardHeight }]}>
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
@@ -204,18 +195,32 @@ export default function PinCreateScreen() {
                 <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />
               </View>
 
-              <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
+              <View onLayout={rememberTop('tag')}>
+                <TagField
+                  tags={form.draft.tags}
+                  onAdd={form.addTag}
+                  onRemove={form.removeTag}
+                  onFocus={reveal('tag')}
+                />
+              </View>
 
               {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
-              {mode.type === 'edit' ? (
-                <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
-              ) : (
-                <PlaceField
-                  place={form.draft.place}
-                  onSelect={form.setPlace}
-                  droppedPlaceName={form.droppedPlaceName}
-                />
-              )}
+              <View onLayout={rememberTop('place')}>
+                {mode.type === 'edit' ? (
+                  <PlaceEditField
+                    place={form.draft.place}
+                    onSelect={form.setPlace}
+                    origin={originPlace}
+                  />
+                ) : (
+                  <PlaceField
+                    place={form.draft.place}
+                    onSelect={form.setPlace}
+                    droppedPlaceName={form.droppedPlaceName}
+                    onFocus={reveal('place')}
+                  />
+                )}
+              </View>
 
               <View onLayout={rememberTop('detailLocation')}>
                 <DetailLocationField
@@ -235,7 +240,7 @@ export default function PinCreateScreen() {
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
               </Pressable>
             </View>
-          </KeyboardAvoidingView>
+          </View>
         )}
       </View>
     </SafeAreaView>

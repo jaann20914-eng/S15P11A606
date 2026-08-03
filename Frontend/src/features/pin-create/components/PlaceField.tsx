@@ -11,6 +11,8 @@ export interface PlaceFieldProps {
   onSelect: (place: PinDraftPlace | null) => void;
   /** 촬영 자리에서 멀어 선택이 취소된 장소 이름. 없으면 null. */
   droppedPlaceName?: string | null;
+  /** 키보드가 이 칸을 가리지 않도록 화면이 스크롤을 맞출 때 쓴다. */
+  onFocus?: () => void;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface PlaceFieldProps {
  * 고른 뒤 자리를 옮겨 촬영하면 선택이 취소된다. 그 이유를 여기서 알려 준다 — 등록 버튼을
  * 누른 뒤에 서버가 거절해서 알게 되면 이미 늦다.
  */
-export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFieldProps) {
+export function PlaceField({ place, onSelect, droppedPlaceName = null, onFocus }: PlaceFieldProps) {
   const search = usePlaceSearch();
 
   const select = (found: PinDraftPlace) => {
@@ -53,6 +55,7 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
         <TextInput
           value={search.keyword}
           onChangeText={search.setKeyword}
+          onFocus={onFocus}
           placeholder="현재 계신 장소를 입력하세요"
           placeholderTextColor={colors.gray400}
           style={s.placeInput}
