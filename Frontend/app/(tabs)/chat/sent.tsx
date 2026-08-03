@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScreenHeader } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { ChatListState } from '@/features/chat/components/ChatListState';
+import { ChatPinRow } from '@/features/chat/components/ChatPinRow';
 import { ChatRoomRow } from '@/features/chat/components/ChatRoomRow';
 import { useChatDecision, usePinLeave } from '@/features/chat/hooks/useChatDecision';
 import { useChatPins, useMyChatRooms, usePinChatRooms } from '@/features/chat/hooks/useChatLists';
@@ -185,28 +186,14 @@ export default function Chat() {
               />
 
               {filteredPins.map((pin) => (
-                <Pressable
+                <ChatPinRow
                   key={pin.pinId}
-                  accessibilityRole="button"
-                  onPress={() => {
+                  pin={pin}
+                  onOpen={() => {
                     setSelectedPin(pin);
                     setQuery('');
                   }}
-                  style={s.postRow}
-                >
-                  <View style={s.timePill}>
-                    <Text style={s.timePillText}>{formatTimeOfDay(pin.createdAt)}</Text>
-                  </View>
-                  <View style={s.rowCopy}>
-                    <Text numberOfLines={1} style={s.rowTitle}>
-                      {pin.placeName}
-                    </Text>
-                    <Text numberOfLines={1} style={s.address}>
-                      {pin.placeAddress}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
-                </Pressable>
+                />
               ))}
             </>
           )}

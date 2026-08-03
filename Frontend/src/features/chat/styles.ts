@@ -24,6 +24,14 @@ const TRUNCATION_INSET = 8;
 export const AVATAR_SIZE = 48;
 
 /**
+ * 목록 한 줄의 최소 높이.
+ *
+ * 게시글 줄과 채팅방 줄이 같은 값을 쓴다. 탭을 옮길 때 줄 높이가 달라지면 같은 목록이 아닌 것처럼
+ * 보인다. 채팅방 줄(제목 · 메시지 두 줄 · 시각)이 자연히 갖는 높이에 맞췄다.
+ */
+const ROW_MIN_HEIGHT = 104;
+
+/**
  * 글 묶음을 링 쪽으로 내리는 양.
  *
  * 첫 줄 중심을 링 가운데(지름의 절반)에 맞추면 눈으로는 처져 보인다 — 아래에 글이 두 줄 더
@@ -73,7 +81,7 @@ export const chatListStyles = StyleSheet.create({
 
   /* 게시글 줄(요청받은 대화 첫 화면) */
   postRow: {
-    minHeight: 76,
+    minHeight: ROW_MIN_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x3,
@@ -92,7 +100,7 @@ export const chatListStyles = StyleSheet.create({
 
   /* 채팅방 줄 */
   chatRow: {
-    minHeight: 100,
+    minHeight: ROW_MIN_HEIGHT,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.x3,
