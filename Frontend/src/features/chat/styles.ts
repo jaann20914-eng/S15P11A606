@@ -106,7 +106,13 @@ export const chatListStyles = StyleSheet.create({
    * 한 줄로 자르면 무슨 이야기인지 짐작하기 어렵고, 세 줄이 되면 줄마다 높이가 달라져 목록이
    * 들쭉날쭉해진다.
    */
-  message: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
+  message: {
+    ...type.small,
+    // 두 줄만큼 늘 자리를 잡아 둔다. 한 줄짜리 메시지에서도 줄 높이가 같아진다.
+    minHeight: type.small.lineHeight * 2,
+    color: colors.gray600,
+    marginTop: spacing.x2,
+  },
   /** 메시지가 없을 때 대신 놓는 안내. 실제 대화가 아니므로 한 단계 연하게 둔다. */
   messagePlaceholder: { color: colors.gray400 },
   /** 마지막 메시지 시각. 10px은 옆 문구에 비해 너무 작아 읽히지 않았다. */
@@ -119,14 +125,17 @@ export const chatListStyles = StyleSheet.create({
   ended: { color: colors.gray400 },
   unread: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime },
 
-  /* 대기 중인 요청에 붙는 수락 · 거절 */
-  decisions: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x3 },
+  /**
+   * 대기 중인 요청에 붙는 수락 · 거절.
+   *
+   * 글 아래가 아니라 오른쪽에 세운다. 아래에 붙이면 대기 중인 줄만 높아져 목록이 들쭉날쭉해진다.
+   */
+  decisions: { justifyContent: 'center', gap: spacing.x2 },
   decision: {
-    minWidth: 72,
-    height: 36,
+    width: 60,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.x3,
     borderRadius: radius.md,
   },
   accept: { backgroundColor: colors.lime },
