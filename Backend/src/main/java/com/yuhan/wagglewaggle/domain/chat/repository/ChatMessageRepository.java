@@ -24,4 +24,9 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      * 읽음 위치 갱신 시 {@code lastReadMessageId}가 요청한 방의 메시지인지 검증하는 데 사용한다.
      */
     boolean existsByIdAndChatRoom_Id(Long messageId, Long roomId);
+
+    /**
+     * 특정 채팅방의 전체 메시지를 id 오름차순(=생성 순서)으로 조회한다(메시지 이력 조회용).
+     */
+    List<ChatMessage> findByChatRoom_IdOrderByIdAsc(Long roomId);
 }
