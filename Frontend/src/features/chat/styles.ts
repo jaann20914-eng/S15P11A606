@@ -6,6 +6,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  *
  * 요청한 대화 · 요청받은 대화(게시글 → 방 목록)가 한 화면을 나눠 쓴다.
  */
+/**
+ * 줄임표가 끝나는 자리를 화면 오른쪽에서 이만큼 안으로 들인다.
+ *
+ * 목록마다 오른쪽에 붙는 것이 다르다 — 게시글 줄에는 화살표가 있고 채팅방 줄에는 없다. 글이
+ * 저마다의 끝까지 차면 줄임표가 줄마다 다른 자리에서 끝나 목록이 어수선해 보인다. 같은 값을
+ * 두어 어느 줄에서 잘려도 오른쪽 여백이 같아 보이게 한다.
+ */
+const TRUNCATION_INSET = 8;
+
 export const chatListStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1, paddingHorizontal: layout.gutter },
@@ -75,7 +84,7 @@ export const chatListStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,
   },
-  rowCopy: { flex: 1 },
+  rowCopy: { flex: 1, paddingRight: TRUNCATION_INSET },
   /**
    * 채팅방 줄의 글 묶음.
    *
@@ -87,11 +96,19 @@ export const chatListStyles = StyleSheet.create({
    *
    * 아래 여백은 `chatRow`의 것을 그대로 두어, 내려간 만큼 줄만 높아진다.
    */
-  chatRowCopy: { flex: 1, marginTop: 4 },
+  chatRowCopy: { flex: 1, marginTop: 4, paddingRight: TRUNCATION_INSET },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.label, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   address: { ...type.caption, color: colors.gray400, marginTop: 2 },
+  /**
+   * 마지막 메시지. 두 줄까지 보여주고 넘치면 줄임표로 끝낸다.
+   *
+   * 한 줄로 자르면 무슨 이야기인지 짐작하기 어렵고, 세 줄이 되면 줄마다 높이가 달라져 목록이
+   * 들쭉날쭉해진다.
+   */
   message: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
+  /** 메시지가 없을 때 대신 놓는 안내. 실제 대화가 아니므로 한 단계 연하게 둔다. */
+  messagePlaceholder: { color: colors.gray400 },
   /** 마지막 메시지 시각. 10px은 옆 문구에 비해 너무 작아 읽히지 않았다. */
   time: { ...type.caption, color: colors.gray400, marginTop: 2 },
 

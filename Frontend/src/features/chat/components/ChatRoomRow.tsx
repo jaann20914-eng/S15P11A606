@@ -66,7 +66,10 @@ export function ChatRoomRow({
           {room.hasUnread && <View style={s.unread} />}
         </View>
 
-        <Text numberOfLines={1} style={s.message}>
+        <Text
+          numberOfLines={2}
+          style={[s.message, room.lastMessage === null && s.messagePlaceholder]}
+        >
           {room.lastMessage ?? emptyMessageByStatus[room.status]}
         </Text>
 
