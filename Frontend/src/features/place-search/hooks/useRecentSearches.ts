@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getRecentSearches } from '@/api/place/recentSearches';
+import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { RecentSearch } from '@/types/place';
+
+const log = createDevLogger('recent-search');
 
 /** 오류 코드별 안내. */
 const messageByCode: Record<string, string> = {
@@ -41,14 +44,35 @@ export function useRecentSearches(): RecentSearchesState {
     setLoading(true);
     setError(null);
 
+    const startedAt = Date.now();
+    log('요청', { 재현: toRequestLine('GET', '/api/v1/places/search/recent') });
+
     getRecentSearches()
       .then((recent) => {
         if (!active) return;
+
+        log('응답', {
+          건수: recent.length,
+          소요: `${Date.now() - startedAt}ms`,
+          // 두 유형이 섞여 오는지 확인한다. 한쪽만 오면 이력 저장이 한 갈래만 되는 것이다.
+          유형: `PLACE ${recent.filter((item) => item.type === 'PLACE').length} · TAG ${
+            recent.filter((item) => item.type === 'TAG').length
+          }`,
+        });
+
         setItems(recent);
         setLoading(false);
       })
       .catch((cause: unknown) => {
         if (!active) return;
+
+        log('실패', {
+          code: cause instanceof ApiError ? cause.code : 'unknown',
+          statusCode: cause instanceof ApiError ? cause.statusCode : undefined,
+          message: cause instanceof Error ? cause.message : String(cause),
+          소요: `${Date.now() - startedAt}ms`,
+        });
+
         setItems([]);
         setLoading(false);
         setError(

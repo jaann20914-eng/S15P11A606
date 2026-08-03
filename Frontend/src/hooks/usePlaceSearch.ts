@@ -5,6 +5,7 @@ import { readCurrentCoordinate } from '@/utils/location';
 import { MIN_PLACE_QUERY_LENGTH, PLACE_SEARCH_DEBOUNCE_MS } from '@/types/place';
 import type { PlaceSearchItem, PlaceSearchOptions } from '@/types/place';
 import type { Coordinate } from '@/store/useMapStore';
+import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { LocationFailure } from '@/utils/location';
 
 /**
@@ -19,11 +20,7 @@ const LOCATION_MESSAGE: Record<LocationFailure, string> = {
   failed: '현재 위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
-/** 개발 중 검색이 어디서 끊겼는지 터미널에서 따라갈 수 있게 한다. */
-function logSearch(step: string, detail?: Record<string, unknown>): void {
-  if (!__DEV__) return;
-  console.log(`[place-search] ${step}`, detail ?? '');
-}
+const log = createDevLogger('place-search');
 
 /** 서버에 나가는 값 그대로. 로그와 실제 요청이 어긋나지 않게 한곳에서 만든다. */
 interface SearchRequest {
@@ -39,15 +36,8 @@ interface SearchRequest {
  * 로그에 파라미터를 흩어 적으면 읽는 사람이 다시 조립해야 한다. 원인이 서버에 있을 때
  * 가장 빨리 확인하는 방법은 같은 요청을 직접 쏘는 것이므로 완성된 형태로 남긴다.
  */
-function toRequestPath({ q, latitude, longitude, radius }: SearchRequest): string {
-  const params = new URLSearchParams({
-    q,
-    latitude: String(latitude),
-    longitude: String(longitude),
-  });
-  if (radius !== undefined) params.set('radius', String(radius));
-
-  return `GET /api/v1/places/search?${params.toString()}`;
+function toRequestPath(request: SearchRequest): string {
+  return toRequestLine('GET', '/api/v1/places/search', { ...request });
 }
 
 /**
@@ -178,7 +168,7 @@ export function usePlaceSearch({
             */
             const fallback = fallbackRef.current;
             if (!fallback) {
-              logSearch('중단 — 좌표 없음', { failure: located.failure, 대체좌표: '없음' });
+              log('중단 — 좌표 없음', { failure: located.failure, 대체좌표: '없음' });
               setLoading(false);
               setError(LOCATION_MESSAGE[located.failure]);
               // 권한·위치 서비스는 사용자가 설정을 바꿔야 하므로 그 자리의 재시도로는 풀리지 않는다.
@@ -196,7 +186,7 @@ export function usePlaceSearch({
           const request: SearchRequest = { q: query, ...coordinate, radius };
           sent = request;
 
-          logSearch('요청', {
+          log('요청', {
             radius: radius ?? '보내지 않음(서버 기본 50m)',
             좌표출처: source,
             요청: toRequestPath(request),
@@ -207,7 +197,7 @@ export function usePlaceSearch({
         .then((found) => {
           if (latestRequest.current !== requestId || found === null) return;
 
-          logSearch('응답', {
+          log('응답', {
             건수: found.length,
             소요: `${Date.now() - startedAt}ms`,
             거리범위:
@@ -226,7 +216,7 @@ export function usePlaceSearch({
         .catch((cause: unknown) => {
           if (latestRequest.current !== requestId) return;
 
-          logSearch('실패', {
+          log('실패', {
             code: cause instanceof ApiError ? cause.code : 'unknown',
             statusCode: cause instanceof ApiError ? cause.statusCode : undefined,
             message: cause instanceof Error ? cause.message : String(cause),

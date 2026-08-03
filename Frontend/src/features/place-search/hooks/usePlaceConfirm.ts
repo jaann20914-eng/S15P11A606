@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { confirmPlaceSearch } from '@/api/place/searchConfirm';
 import { useMapStore } from '@/store/useMapStore';
+import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { Coordinate } from '@/store/useMapStore';
 
 /** 오류 코드별 안내. */
@@ -15,11 +16,7 @@ const messageByCode: Record<string, string> = {
   PLACE_DETAIL_FETCH_FAILED: '장소 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
-/** 개발 중 확정 단계가 어디서 끊겼는지 따라갈 수 있게 한다. */
-function logConfirm(step: string, detail?: Record<string, unknown>): void {
-  if (!__DEV__) return;
-  console.log(`[place-confirm] ${step}`, detail ?? '');
-}
+const log = createDevLogger('place-confirm');
 
 export interface PlaceConfirmState {
   /** 요청이 도는 동안 어떤 항목을 눌렀는지(`kakaoPlaceId`). 그 줄만 표시를 바꾼다. */
@@ -60,29 +57,47 @@ export function usePlaceConfirm(): PlaceConfirmState {
     (kakaoPlaceId: string, placeName: string, coordinate?: Coordinate) => {
       setPendingId(kakaoPlaceId);
       setNotice(null);
-      logConfirm('요청', { kakaoPlaceId, placeName });
+
+      const startedAt = Date.now();
+      log('요청', {
+        재현: toRequestLine('POST', `/api/v1/places/search/${kakaoPlaceId}`),
+        본문: { placeName },
+        지도이동: coordinate === undefined ? '좌표 없음(기록에서 고름)' : '고른 항목의 좌표 사용',
+      });
 
       confirmPlaceSearch(kakaoPlaceId, placeName)
-        .then(({ place, pins }) => {
+        .then(({ place, pins, weeklyCrowdStats }) => {
           setPendingId(null);
-          logConfirm('응답', { placeId: place.placeId ?? '없음(미등록 장소)', 핀: pins.length });
+          log('응답', {
+            placeId: place.placeId ?? '없음(미등록 장소)',
+            이름: place.name,
+            핀: pins.length,
+            통계요일: weeklyCrowdStats.length,
+            소요: `${Date.now() - startedAt}ms`,
+            // 메모 없는 핀이 실제로 오는지. 예전에 이걸 못 다뤄 목록이 죽었다.
+            메모없는핀: pins.filter((pin) => pin.memo === null).length,
+          });
 
           // 좌표는 확정 응답에 없다. 고른 검색 결과가 가지고 있던 값을 그대로 쓴다.
           if (coordinate) focusOn({ coordinate, name: place.name });
 
           if (place.placeId === null) {
+            log('멈춤 — 미등록 장소', { 이름: place.name });
             setNotice(`'${place.name}'에는 아직 등록된 영상핀이 없어요.`);
             return;
           }
 
+          log('이동', { 경로: `/place/${place.placeId}` });
           router.back();
           router.push(`/place/${place.placeId}`);
         })
         .catch((cause: unknown) => {
           setPendingId(null);
-          logConfirm('실패', {
+          log('실패', {
             code: cause instanceof ApiError ? cause.code : 'unknown',
+            statusCode: cause instanceof ApiError ? cause.statusCode : undefined,
             message: cause instanceof Error ? cause.message : String(cause),
+            소요: `${Date.now() - startedAt}ms`,
           });
           setNotice(
             cause instanceof ApiError

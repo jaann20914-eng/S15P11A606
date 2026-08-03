@@ -7,6 +7,7 @@ import { ApiError } from '@/api/client';
 import { searchPinsByTag } from '@/api/pin/tagSearch';
 import { PlacePinCard } from '@/components/place';
 import { toBoundsQuery, useMapStore } from '@/store/useMapStore';
+import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -17,6 +18,8 @@ const messageByCode: Record<string, string> = {
   UNAUTHORIZED: '로그인이 필요해요.',
   TAGGED_PINS_FETCH_FAILED: '영상핀을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
+
+const log = createDevLogger('tag-confirm');
 
 /**
  * 태그 검색 결과 — `POST /api/v1/pins/tags/search`
@@ -57,17 +60,39 @@ export default function TagSearchResult() {
 
     const current = boundsRef.current;
     if (current === null) {
+      log('중단 — 지도 범위 없음', { tag });
       setLoading(false);
       setError('지도가 준비된 뒤에 태그를 검색할 수 있어요.');
       return;
     }
 
-    searchPinsByTag(tag, toBoundsQuery(current))
+    const query = toBoundsQuery(current);
+    const startedAt = Date.now();
+    log('요청', { 재현: toRequestLine('POST', '/api/v1/pins/tags/search', { tag, ...query }) });
+
+    searchPinsByTag(tag, query)
       .then((found) => {
+        log('응답', {
+          tag,
+          건수: found.length,
+          소요: `${Date.now() - startedAt}ms`,
+          // 자동완성과 달리 이쪽은 DB를 읽는다. 0건이면 이 지도 범위에 그 태그의 활성 핀이 없다.
+          비고: found.length === 0 ? '0건 — 이 지도 범위에 해당 태그의 활성 핀이 없다' : undefined,
+          메모없는핀: found.filter((pin) => pin.memo === null).length,
+        });
+
         setPins(found);
         setLoading(false);
       })
       .catch((cause: unknown) => {
+        log('실패', {
+          tag,
+          code: cause instanceof ApiError ? cause.code : 'unknown',
+          statusCode: cause instanceof ApiError ? cause.statusCode : undefined,
+          message: cause instanceof Error ? cause.message : String(cause),
+          소요: `${Date.now() - startedAt}ms`,
+        });
+
         setLoading(false);
         setError(
           cause instanceof ApiError

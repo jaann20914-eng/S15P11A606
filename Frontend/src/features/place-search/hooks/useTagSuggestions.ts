@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { ApiError } from '@/api/client';
 import { getTagSuggestions } from '@/api/pin/tagSearch';
 import { MIN_PLACE_QUERY_LENGTH, PLACE_SEARCH_DEBOUNCE_MS } from '@/types/place';
+import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { MapBoundsQuery, TagSuggestion } from '@/types/place';
 
-/** 개발 중 태그 추천이 어디서 끊겼는지 터미널에서 따라갈 수 있게 한다. */
-function logTags(step: string, detail?: Record<string, unknown>): void {
-  if (!__DEV__) return;
-  console.log(`[tag-search] ${step}`, detail ?? '');
-}
+const log = createDevLogger('tag-suggest');
 
 export interface TagSuggestionsState {
   results: TagSuggestion[];
@@ -63,17 +61,30 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       const currentBounds = boundsRef.current;
 
       if (currentBounds === null) {
-        logTags('건너뜀 — 지도 범위 없음', { query });
+        log('건너뜀 — 지도 범위 없음', { query });
         setResults([]);
         setLoading(false);
         return;
       }
 
+      const startedAt = Date.now();
+      log('요청', {
+        재현: toRequestLine('GET', '/api/v1/pins/tags/search', { q: query, ...currentBounds }),
+      });
+
       getTagSuggestions(query, currentBounds)
         .then((tags) => {
           if (latestRequest.current !== requestId) return;
 
-          logTags('응답', { query, 건수: tags.length, 태그: tags.map((tag) => tag.name) });
+          log('응답', {
+            query,
+            건수: tags.length,
+            소요: `${Date.now() - startedAt}ms`,
+            태그: tags.map((tag) => tag.name),
+            // 0건이 이 원인인지 한눈에 보이게 적어 둔다. 서버 색인이 비어 있으면 늘 0건이다.
+            비고: tags.length === 0 ? '0건 — 서버 태그 색인이 비어 있을 수 있다' : undefined,
+          });
+
           setResults(tags);
           setLoading(false);
         })
@@ -81,10 +92,14 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
           if (latestRequest.current !== requestId) return;
 
           // 장소 결과까지 막지 않는다. 태그 칸만 비운 채 넘어간다.
-          logTags('실패', {
+          log('실패', {
             query,
+            code: cause instanceof ApiError ? cause.code : 'unknown',
+            statusCode: cause instanceof ApiError ? cause.statusCode : undefined,
             message: cause instanceof Error ? cause.message : String(cause),
+            소요: `${Date.now() - startedAt}ms`,
           });
+
           setResults([]);
           setLoading(false);
         });
