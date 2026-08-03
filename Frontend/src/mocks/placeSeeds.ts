@@ -17,7 +17,8 @@ export interface MockPinSeed {
   viewAngle: number;
   /** 올린 지 몇 분 지났는지. 고정 시각을 박으면 "2분 전"이 시간이 지나며 틀려진다. */
   minutesAgo: number;
-  memo: string;
+  /** 공개 메모. 등록 때 선택 입력이라 **없는 핀도 있다**(서버가 null을 준다). */
+  memo: string | null;
   tags: string[];
   /** 장소 좌표에서 얼마나 떨어져 있는지. 지도에 핀을 흩어 놓는 데 쓴다. */
   latitudeOffset: number;
@@ -98,7 +99,13 @@ const memos = [
   '입장 줄이 건물 밖까지 이어집니다. 30분은 잡으셔야 할 것 같아요.',
 ];
 
-const tags = [
+/**
+ * 핀에 붙는 태그 어휘.
+ *
+ * 태그 검색 목업이 이 목록을 그대로 쓴다. 따로 두면 자동완성이 제안한 태그가 정작 어느
+ * 핀에도 없어, 고르는 순간 항상 빈 결과가 된다.
+ */
+export const mockTagVocabulary = [
   '카페',
   '감성',
   '가성비맛집',
@@ -152,8 +159,10 @@ function buildPins(placeId: number, count: number): MockPinSeed[] {
     nickname: index === 0 ? REPRESENTATIVE_NICKNAME : people[index - 1],
     // 90~360도, 10도 단위. 링 이미지가 그 간격으로 있다.
     viewAngle: 90 + Math.floor(random() * 28) * 10,
-    memo: stories[index],
-    tags: pickMany(tags, 2 + Math.floor(random() * 2), random),
+    // 셋째 핀마다 메모를 비운다. 서버가 null을 주는 경우를 목업에서도 만나야 화면이 그때
+    // 깨지는지 시연 단계에서 알 수 있다.
+    memo: index % 3 === 2 ? null : stories[index],
+    tags: pickMany(mockTagVocabulary, 2 + Math.floor(random() * 2), random),
     latitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,
     longitudeOffset: (random() - 0.5) * PIN_SCATTER_DEGREES,
     // 최신순으로 늘어놓는다. 목록이 등록 시각 내림차순이라 뒤로 갈수록 오래된 것이 온다.

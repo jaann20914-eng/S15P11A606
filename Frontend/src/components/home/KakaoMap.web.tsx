@@ -92,6 +92,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     () => ({
       panTo: ({ latitude, longitude }, options) =>
         send('panTo', latitude, longitude, Math.round(insetRef.current / 2), options?.animate ?? true),
+      focusPlace: ({ latitude, longitude }, targetLevel) =>
+        send('focusPlace', latitude, longitude, targetLevel, Math.round(insetRef.current / 2)),
       searchPlace: (keyword: string) => send('searchPlace', keyword, Math.round(insetRef.current / 2)),
       setLevel: (level: number) => send('setLevel', level),
       fitPlaces: () => send('fitPlaces', insetRef.current),
