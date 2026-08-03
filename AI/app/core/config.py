@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Recommendation
     scoring_timeout_ms: int = 2000
 
+    # Chat risk callback
+    back_base_url: str = "http://localhost:8080"
+    chat_callback_timeout_seconds: float = 3.0
+    chat_callback_max_retries: int = 2
+
     # RabbitMQ
     rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
 
