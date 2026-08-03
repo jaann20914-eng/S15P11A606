@@ -64,6 +64,11 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다."),
     USER_PROFILE_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "내 프로필 및 활동 요약 조회 중 오류가 발생했습니다."),
 
+    // My Today Pins
+    // UNAUTHORIZED(401)·USER_NOT_FOUND(404)는 위 정의를 재사용한다.
+    INVALID_PAGINATION(HttpStatus.BAD_REQUEST, "페이지 조회 조건이 올바르지 않습니다."),
+    TODAY_PINS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "오늘 등록한 영상 핀 목록 조회 중 오류가 발생했습니다."),
+
     // Onboarding
     INVALID_ONBOARDING_REQUEST(HttpStatus.BAD_REQUEST, "온보딩 입력값이 올바르지 않습니다."),
     INVALID_ONBOARDING_TOKEN(HttpStatus.UNAUTHORIZED, "온보딩 토큰이 유효하지 않습니다."),
