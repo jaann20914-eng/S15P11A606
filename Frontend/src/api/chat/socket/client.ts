@@ -167,6 +167,18 @@ function createClient(): Client {
 
       client?.configure({ connectHeaders: { Authorization: `Bearer ${token ?? ''}` } });
     },
+    /*
+      프레임을 글자가 아니라 바이트로 주고받는다. **리액트 네이티브에서는 이게 필수다.**
+
+      STOMP 프레임은 끝에 NUL(`\0`)을 붙여 끝을 알리는데, 리액트 네이티브의 WebSocket은
+      문자열을 네이티브로 넘기는 과정에서 이 문자를 잘라낸다. 서버는 프레임이 아직 안 끝났다고
+      보고 계속 기다리고, 앱은 응답이 오지 않아 멈춘 것처럼 보인다 — 오류도 나지 않는다.
+      바이트로 보내면 잘릴 일이 없다.
+
+      받는 쪽도 같은 이유로 NUL이 빠져 올 수 있어 없으면 채워서 해석한다.
+    */
+    forceBinaryWSFrames: true,
+    appendMissingNULLonIncoming: true,
     heartbeatIncoming: HEARTBEAT_MS,
     heartbeatOutgoing: HEARTBEAT_MS,
     /*
