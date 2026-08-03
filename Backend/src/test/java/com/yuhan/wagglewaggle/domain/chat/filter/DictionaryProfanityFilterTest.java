@@ -7,16 +7,16 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 욕설 필터 마스킹 단위 테스트. 실제 앱 내부 사전(chat/profanity-words.txt)을 로딩해 검증한다.
+ * 사전 기반 욕설 필터 마스킹 단위 테스트. 실제 앱 내부 사전(chat/profanity-words.txt)을 로딩해 검증한다.
  * (사전에 포함된 토큰: 시발, 병신, fuck 등)
  */
-class ProfanityFilterTest {
+class DictionaryProfanityFilterTest {
 
-    private ProfanityFilter filter;
+    private DictionaryProfanityFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new ProfanityFilter();
+        filter = new DictionaryProfanityFilter();
     }
 
     @Test

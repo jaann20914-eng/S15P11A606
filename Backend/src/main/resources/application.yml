@@ -74,6 +74,13 @@ pin:
     # 값이 합의되면 DAILY_PIN_LIMIT 환경변수 또는 이 설정으로 양수를 지정한다.
     daily-limit: ${DAILY_PIN_LIMIT:0}
 
+chat:
+  profanity:
+    # 1차 욕설 필터 전략. 기본은 dictionary(사전 부분일치, DictionaryProfanityFilter).
+    # 추후 LDNOOBW 목록 + Aho-Corasick + 정규화 구현체(예: aho-corasick)를 추가하면
+    # 이 값만 바꿔 교체한다(ChatMessageService 등 기존 코드는 수정 불필요).
+    strategy: ${CHAT_PROFANITY_STRATEGY:dictionary}
+
 ai:
   blur:
     republish:
