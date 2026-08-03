@@ -40,6 +40,67 @@ export type ChatDecisionResult = {
 };
 
 /**
+ * 목록을 어느 쪽에서 보는지.
+ *
+ * `sent`는 내가 요청한 대화, `received`는 내가 요청받은 대화다. 명세의 필드 표에는 빠져 있지만
+ * 규칙과 오류 코드(`INVALID_CHAT_ROOM_DIRECTION`·`INVALID_CHAT_PIN_DIRECTION`)가 이 값을
+ * 전제로 하므로 필수로 보낸다.
+ */
+export type ChatDirection = 'sent' | 'received';
+
+/**
+ * 커서 방식 목록.
+ *
+ * 페이지 번호가 아니라 "다음 시작점"을 받는다. 목록이 실시간으로 갱신되는 화면이라, 번호
+ * 방식이면 앞쪽에 새 항목이 끼어들 때 다음 페이지에서 같은 항목을 다시 받는다.
+ */
+export type CursorPage<TItem> = {
+  items: TItem[];
+  /** 다음 페이지가 없으면 null. */
+  nextCursor: string | null;
+};
+
+/** 목록 조회에 함께 보내는 값. 둘 다 선택이며 없으면 서버 기본값을 쓴다. */
+export type CursorQuery = {
+  cursor?: string;
+  limit?: number;
+};
+
+/**
+ * 채팅방 목록의 한 줄.
+ *
+ * 내 채팅방 목록과 특정 핀의 채팅방 목록이 같은 모양을 쓴다.
+ */
+export type ChatRoomListItem = {
+  roomId: number;
+  status: ChatRoomStatus;
+  pinId: PinId;
+  placeName: string;
+  /** 익명 정책이 적용된 상대 표시명. */
+  otherUserNickname: string;
+  /** 상대의 공개 뷰 온도. 프로필 링에 쓰는 값과 같은 척도다. */
+  otherUserViewTemperature: number;
+  /** 메시지가 아직 없으면 null. */
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  /** 안 읽은 메시지가 있는지. 받는 사람 기준으로 계산된 값이다. */
+  hasUnread: boolean;
+};
+
+/**
+ * 받은 요청에서 먼저 고르는 게시글 한 줄.
+ *
+ * 요청이 여러 개 와도 핀은 한 번만 나온다. 핀을 고르면 그 핀의 채팅방 목록으로 들어간다.
+ */
+export type ChatPinListItem = {
+  pinId: PinId;
+  /** 핀을 등록한 시각. 목록은 이 값의 내림차순이다. */
+  createdAt: string;
+  placeName: string;
+  placeAddress: string;
+};
+
+/**
  * "핀 떠났어요" 응답 `data`.
  *
  * 핀에 연결된 모든 채팅방(`PENDING`·`ACTIVE`·`CLOSED`)을 `LEFT`로 바꾼 결과다.

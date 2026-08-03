@@ -18,7 +18,9 @@ export const usesMockApi = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true' || !a
 export type ApiModule =
   | 'chat/decision'
   | 'chat/leave'
+  | 'chat/pins'
   | 'chat/request'
+  | 'chat/rooms'
   | 'pin/create'
   | 'pin/detail'
   | 'pin/evaluate'
@@ -104,6 +106,9 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     핀 떠났어요(POST /chat/pins/{pinId}/rooms/leave)만 아직 컨트롤러가 없다.
   */
   'chat/leave': true,
+  // 목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
+  'chat/rooms': true,
+  'chat/pins': true,
 
   // GET·PATCH /api/v1/users/me 가 아직 없다.
   'user/me': true,
