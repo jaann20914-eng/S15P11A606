@@ -137,6 +137,16 @@ public class Pin extends BaseEntity {
         this.videoStatus = VideoStatus.FAILED;
     }
 
+    // ===== 제보자 현장 체류 상태 =====
+
+    /**
+     * 제보자가 현장을 떠났음을 반영한다(publisher_status → LEFT). 이미 LEFT인 핀은 그대로 유지한다(멱등).
+     * videoStatus·영상 키·deleted_at은 변경하지 않는다.
+     */
+    public void markPublisherLeft() {
+        this.publisherStatus = PublisherStatus.LEFT;
+    }
+
     // ===== 일반 정보 수정(PATCH) 반영 메서드 =====
     // 영상 관련 필드(originalVideoKey·blurredVideoKey·thumbnailKey·videoStatus·expiresAt)는
     // 이 메서드들로 바꾸지 않는다. 영상 교체는 AiBlurJob 접수 후 결과 반영 단계에서 처리한다.
