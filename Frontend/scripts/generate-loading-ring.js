@@ -10,7 +10,7 @@
   - strokeWidth = size * 0.045
   - radius = size / 2 - strokeWidth
   - 색이 있는 구간의 비율은 인자로 받는다. 나머지는 비고 양 끝은 둥글게 처리한다.
-  - 그라데이션은 호를 따라 흐른다. 머리(12시에서 시작하는 쪽)가 가장 진하다.
+  - 그라데이션은 호를 따라 흐른다. 12시에서 시작하는 머리가 가장 진하고 왼쪽으로 갈수록 옅다.
 */
 const fs = require('fs');
 const zlib = require('zlib');
@@ -53,7 +53,12 @@ function gradientAt(t) {
   return { rgb: STOPS[0].rgb, alpha: STOPS[0].alpha };
 }
 
-/** 12시 방향에서 시작해 시계 방향으로 그린다. 호가 짧을 때 맨 위에 놓이도록. */
+/**
+ * 12시 방향에서 시작해 **반시계 방향**으로 그린다.
+ *
+ * 호가 짧을 때 맨 위에 놓이게 하려고 12시에서 시작한다. 뻗어 나가는 쪽을 왼쪽으로 잡으면
+ * 진한 머리가 오른쪽에, 옅은 꼬리가 왼쪽에 남는다.
+ */
 const START_ANGLE = -Math.PI / 2;
 
 /** 색이 있는 구간이 차지하는 각도. */
@@ -73,7 +78,7 @@ function sampleArc(x, y) {
   const half = STROKE / 2;
 
   if (Math.abs(distance - RADIUS) <= half) {
-    let travelled = Math.atan2(cy, cx) - START_ANGLE;
+    let travelled = START_ANGLE - Math.atan2(cy, cx);
     while (travelled < 0) travelled += Math.PI * 2;
 
     if (travelled <= SPAN) return travelled / SPAN;
@@ -82,7 +87,7 @@ function sampleArc(x, y) {
   // 양 끝의 둥근 마개. 머리 쪽은 0, 꼬리 쪽은 1로 친다.
   for (const [angle, t] of [
     [START_ANGLE, 0],
-    [START_ANGLE + SPAN, 1],
+    [START_ANGLE - SPAN, 1],
   ]) {
     const ex = Math.cos(angle) * RADIUS;
     const ey = Math.sin(angle) * RADIUS;
