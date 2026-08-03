@@ -1,10 +1,20 @@
 import { ApiError } from '@/api/client';
-import type { ChatDecision, ChatDecisionResult, ChatRequestResult, PinChatLeaveResult } from '@/types/chat';
+import type {
+  ChatDecision,
+  ChatDecisionResult,
+  ChatPinListItem,
+  ChatRequestResult,
+  ChatRoomListItem,
+  CursorPage,
+  CursorQuery,
+  PinChatLeaveResult,
+} from '@/types/chat';
 import {
   MOCK_LATENCY_MS,
   canonicalMockPinId,
   delay,
   isMockPinUnlocked,
+  mockPinId,
   resolvePinDetailScenario,
 } from './pin';
 import type { PinId } from '@/types/pin';
@@ -110,4 +120,188 @@ export async function leaveMockPinChats(pinId: PinId): Promise<PinChatLeaveResul
     leftChatRoomIds: alreadyLeft ? [] : [7],
     leftAt: new Date().toISOString(),
   };
+}
+
+/**
+ * 채팅방 목록 목업.
+ *
+ * 실제 서버가 없어 화면 흐름만 확인할 수 있게 고정 데이터를 둔다. 상태가 골고루 섞여 있어야
+ * 화면이 상태별로 다르게 그려지는지 확인할 수 있으므로, 대기·진행·거절·종료를 모두 넣는다.
+ *
+ * `pinId`는 핀 목업의 식별자를 그대로 쓴다. 목록에서 방으로 들어간 뒤 그 핀의 상세를 열어도
+ * 같은 핀으로 이어지게 하려는 것이다.
+ */
+const mockRooms: ChatRoomListItem[] = [
+  {
+    roomId: 11,
+    status: 'ACTIVE',
+    pinId: mockPinId(4),
+    placeName: '바나프레소 역삼점',
+    otherUserNickname: '역삼동 익명러',
+    otherUserViewTemperature: 268,
+    lastMessage: '2층 창가석 지금도 비어 있나요? 30분 안에 도착할 것 같아서 미리 여쭤봐요',
+    lastMessageAt: minutesAgo(3),
+    hasUnread: true,
+  },
+  {
+    roomId: 12,
+    status: 'PENDING',
+    pinId: mockPinId(4),
+    placeName: '바나프레소 역삼점',
+    otherUserNickname: '조용한 산책자',
+    otherUserViewTemperature: 92,
+    lastMessage: null,
+    lastMessageAt: null,
+    hasUnread: false,
+  },
+  {
+    roomId: 13,
+    status: 'ACTIVE',
+    pinId: mockPinId(6),
+    placeName: '성수 카페거리',
+    otherUserNickname: '느긋한 오후',
+    otherUserViewTemperature: 154,
+    lastMessage: '알려주셔서 감사해요!',
+    lastMessageAt: minutesAgo(52),
+    hasUnread: false,
+  },
+  {
+    roomId: 14,
+    status: 'LEFT',
+    pinId: mockPinId(6),
+    placeName: '성수 카페거리',
+    otherUserNickname: '지나가던 사람',
+    otherUserViewTemperature: 100,
+    lastMessage: '자리 옮겼어요',
+    lastMessageAt: minutesAgo(180),
+    hasUnread: false,
+  },
+  {
+    roomId: 15,
+    status: 'REFUSED',
+    pinId: mockPinId(2),
+    placeName: '뚝섬한강공원',
+    otherUserNickname: '한강 러너',
+    otherUserViewTemperature: 210,
+    lastMessage: null,
+    lastMessageAt: null,
+    hasUnread: false,
+  },
+  /*
+    아래부터는 남의 글에 내가 요청한 대화다(요청한 대화 탭).
+    상태를 네 가지 모두 넣어 그 탭에서도 줄 모양을 전부 확인할 수 있게 한다.
+  */
+  {
+    roomId: 16,
+    status: 'ACTIVE',
+    pinId: mockPinId(1),
+    placeName: '스타벅스 역삼1점',
+    otherUserNickname: '창가석 지킴이',
+    otherUserViewTemperature: 300,
+    // 세 줄을 넘기는 길이. 두 줄에서 줄임표로 끊기는지 확인하려면 이만큼은 있어야 한다.
+    lastMessage:
+      '지금은 창가 쪽으로 두 자리 남아 있어요. 방금 단체로 나가서 곧 더 빌 것 같은데, 혹시 콘센트 있는 자리를 찾으시면 안쪽 벽 쪽이 더 나을 거예요',
+    lastMessageAt: minutesAgo(1),
+    hasUnread: true,
+  },
+  {
+    roomId: 17,
+    status: 'PENDING',
+    pinId: mockPinId(3),
+    placeName: '멀티캠퍼스 역삼 스터디카페 2층 라운지',
+    otherUserNickname: '밤샘하는 개발자입니다',
+    otherUserViewTemperature: 92,
+    lastMessage: '안녕하세요, 아직도 사람 많은가요??',
+    lastMessageAt: minutesAgo(8),
+    hasUnread: false,
+  },
+  {
+    roomId: 18,
+    status: 'LEFT',
+    pinId: mockPinId(5),
+    placeName: '한강진역 2번 출구',
+    otherUserNickname: '퇴근길',
+    otherUserViewTemperature: 130,
+    lastMessage: '답변 감사합니다~',
+    lastMessageAt: minutesAgo(1500),
+    hasUnread: false,
+  },
+];
+
+/**
+ * 받은 요청에서 먼저 고르는 게시글. 위 방 목록의 핀과 같은 것을 쓴다.
+ *
+ * 한 줄은 장소명과 주소를 일부러 길게 두었다. 줄이 잘리는지 화면에서 확인해야 하는데, 짧은
+ * 값만 있으면 그 경우가 드러나지 않는다.
+ */
+const mockChatPins: ChatPinListItem[] = [
+  {
+    pinId: mockPinId(4),
+    createdAt: minutesAgo(40),
+    placeName: '바나프레소 역삼점',
+    placeAddress: '서울 강남구 테헤란로 123 1층 (역삼동)',
+  },
+  {
+    pinId: mockPinId(6),
+    createdAt: minutesAgo(220),
+    placeName: '성수 카페거리 로스터리 앤 베이커리 본점',
+    placeAddress: '서울 성동구 연무장길 45 성수동2가 273-13 지하 1층 (성수동2가)',
+  },
+];
+
+/** 몇 분 전 시각. 화면의 상대 시간 표기를 확인하려면 고정 문자열보다 이게 낫다. */
+function minutesAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString();
+}
+
+/**
+ * 커서 한 장을 떼어 준다.
+ *
+ * 커서는 "다음에 시작할 위치"를 그대로 담는다. 실제 서버는 정렬 기준 값을 인코딩하지만,
+ * 목업에서 확인할 것은 다음 장을 이어 붙이는 화면 동작이라 위치만으로 충분하다.
+ */
+function takePage<TItem>(items: TItem[], { cursor, limit }: CursorQuery): CursorPage<TItem> {
+  const start = cursor === undefined ? 0 : Number(cursor);
+  const size = limit ?? 20;
+  const end = start + size;
+
+  return {
+    items: items.slice(start, end),
+    nextCursor: end < items.length ? String(end) : null,
+  };
+}
+
+/**
+ * 내가 쓴 글의 방인지.
+ *
+ * 목업 사용자는 4·6번 핀의 주인이다(핀 목업의 `owner` 시나리오). 그 핀에 달린 방은 "요청받은
+ * 대화"이고, 남의 핀에 달린 방은 "내가 요청한 대화"다.
+ */
+const OWN_PIN_IDS = new Set([mockPinId(4), mockPinId(6)]);
+
+/** 내가 요청한 대화. 남의 글에 달린 방만 보인다. */
+export async function listMockChatRooms(query: CursorQuery): Promise<CursorPage<ChatRoomListItem>> {
+  await delay(MOCK_LATENCY_MS);
+
+  return takePage(mockRooms.filter((room) => !OWN_PIN_IDS.has(room.pinId)), query);
+}
+
+/** 내 글 하나에 달린 방들. 여기서 수락·거절을 한다. */
+export async function listMockPinChatRooms(
+  pinId: PinId,
+  query: CursorQuery,
+): Promise<CursorPage<ChatRoomListItem>> {
+  await delay(MOCK_LATENCY_MS);
+
+  const canonical = canonicalMockPinId(pinId);
+  const rooms = mockRooms.filter((room) => room.pinId === canonical);
+
+  return takePage(rooms, query);
+}
+
+/** 요청이 온 내 글들. 요청받은 대화 탭의 첫 화면이 쓴다. */
+export async function listMockChatPins(query: CursorQuery): Promise<CursorPage<ChatPinListItem>> {
+  await delay(MOCK_LATENCY_MS);
+
+  return takePage(mockChatPins, query);
 }

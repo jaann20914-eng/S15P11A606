@@ -85,7 +85,7 @@ class ChatDecisionServiceTest {
     }
 
     @Test
-    @DisplayName("ACCEPT면 요청자 -5·수락자 +5 크레딧을 이동하고 거래 2건·멤버 2건을 생성한 뒤 ACTIVE로 전이하며 ACCEPTED를 반환한다")
+    @DisplayName("ACCEPT면 요청자 -5·수락자 +5 크레딧을 이동하고 거래 2건·수락자 멤버 1건을 생성한 뒤 ACTIVE로 전이하며 ACCEPTED를 반환한다")
     void ACCEPT면_크레딧을_이동하고_수락한다() {
         Member requester = member(REQUESTER_ID, 10);
         Member recipient = member(RECIPIENT_ID, 3);
@@ -106,8 +106,8 @@ class ChatDecisionServiceTest {
         assertThat(recipient.getCreditBalance()).isEqualTo(8);
         // 상태 전이
         verify(room).accept();
-        // 멤버 2건 생성
-        verify(chatRoomMemberRepository, times(2)).save(any(ChatRoomMember.class));
+        // 요청자 멤버 행은 방 생성 시점에 이미 만들어졌으므로 수락 시에는 수락자 멤버 1건만 생성한다.
+        verify(chatRoomMemberRepository, times(1)).save(any(ChatRoomMember.class));
 
         // 거래 2건: 요청자 SENT(-5, after=5), 수락자 RECEIVED(+5, after=8)
         ArgumentCaptor<CreditTransaction> captor = ArgumentCaptor.forClass(CreditTransaction.class);

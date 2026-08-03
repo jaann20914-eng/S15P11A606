@@ -17,6 +17,9 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 
+    // Internal API (AI Worker 등 내부 시스템 콜백)
+    INTERNAL_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "내부 API 인증에 실패했습니다."),
+
     // Place
     INVALID_PLACE_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "장소 검색 조건이 올바르지 않습니다."),
     EXTERNAL_PLACE_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 장소 검색 API 오류가 발생했습니다."),
@@ -113,6 +116,17 @@ public enum ErrorCode {
     CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
     CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
 
+    // Chat Read (읽음 위치 갱신)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)는 아래 WebSocket 섹션 정의를 재사용한다.
+    INVALID_MESSAGE_ID(HttpStatus.BAD_REQUEST, "메시지 ID 형식이 올바르지 않습니다."),
+    CHAT_ROOM_ACCESS_DENIED(HttpStatus.FORBIDDEN, "채팅방에 접근할 권한이 없습니다."),
+    CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "읽음 처리할 메시지를 찾을 수 없습니다."),
+    CHAT_READ_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "메시지 읽음 처리 중 오류가 발생했습니다."),
+
+    // Chat Messages History (메시지 이력 조회)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)·CHAT_ROOM_ACCESS_DENIED(403)는 위/아래 정의를 재사용한다.
+    CHAT_MESSAGES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 메시지 이력 조회 중 오류가 발생했습니다."),
+
     // Chat Request Decision
     INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
     CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
@@ -148,6 +162,10 @@ public enum ErrorCode {
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 내용이 너무 깁니다."),
 
+    // AI Chat Pattern Result (AI Worker 콜백)
+    AI_CHAT_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "AI 채팅 분석 작업을 찾을 수 없습니다."),
+    INVALID_CHAT_PATTERN_RESULT(HttpStatus.BAD_REQUEST, "패턴 분석 결과 형식이 올바르지 않습니다."),
+
     // Pin Evaluation
     INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),
     PIN_EVALUATION_FORBIDDEN(HttpStatus.FORBIDDEN, "이 핀을 평가할 수 없습니다."),
@@ -160,7 +178,14 @@ public enum ErrorCode {
     INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "멱등성 키 형식이 올바르지 않습니다."),
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키가 다른 요청에 사용되었습니다."),
     PIN_UNLOCK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 잠금 해제 중 오류가 발생했습니다."),
-    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다.");
+    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다."),
+
+    // Recommendation
+    // UNAUTHORIZED(401)는 위에서 재사용한다.
+    INVALID_LOCATION(HttpStatus.BAD_REQUEST, "위치 정보가 올바르지 않습니다."),
+    LOCATION_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "추천에 사용할 위치 정보가 없습니다."),
+    RECOMMENDATION_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "추천 조회 중 오류가 발생했습니다."),
+    AI_RECOMMENDATION_FAILED(HttpStatus.BAD_GATEWAY, "개인화 추천 계산에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

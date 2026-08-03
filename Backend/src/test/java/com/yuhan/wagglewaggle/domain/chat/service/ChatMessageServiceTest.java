@@ -144,11 +144,51 @@ class ChatMessageServiceTest {
     }
 
     @Test
-    @DisplayName("ACTIVE가 아닌 방이면 CHAT_ROOM_NOT_ACTIVE이며 저장하지 않는다")
-    void 활성_상태가_아니면_CHAT_ROOM_NOT_ACTIVE() {
+    @DisplayName("PENDING 방에 요청자가 보내면(수락 전) 메시지를 저장하고 방 토픽에 브로드캐스트한다")
+    void PENDING방에_요청자가_보내면_전송한다() {
         ChatRoom room = mock(ChatRoom.class);
         given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
         given(room.getStatus()).willReturn(ChatRoomStatus.PENDING);
+        Member requester = mock(Member.class);
+        given(requester.getId()).willReturn(REQUESTER_ID);
+        given(room.getRequester()).willReturn(requester);
+        given(profanityFilter.mask("hi")).willReturn("hi");
+        ChatMessage saved = mock(ChatMessage.class);
+        given(saved.getId()).willReturn(502L);
+        given(saved.getContent()).willReturn("hi");
+        given(saved.getMaskedContent()).willReturn("hi");
+        given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
+        given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
+
+        service.send(REQUESTER_ID, ROOM_ID, req("hi"));
+
+        verify(chatMessageRepository).saveAndFlush(any(ChatMessage.class));
+        verify(messagingTemplate).convertAndSend(eq(TOPIC), any(ChatMessageCreatedEvent.class));
+    }
+
+    @Test
+    @DisplayName("PENDING 방에 수신자가 보내면(수락 전) CHAT_ROOM_NOT_ACTIVE이며 저장하지 않는다")
+    void PENDING방에_수신자가_보내면_CHAT_ROOM_NOT_ACTIVE() {
+        ChatRoom room = mock(ChatRoom.class);
+        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+        given(room.getStatus()).willReturn(ChatRoomStatus.PENDING);
+        Member requester = mock(Member.class);
+        given(requester.getId()).willReturn(REQUESTER_ID);
+        given(room.getRequester()).willReturn(requester);
+
+        assertThatThrownBy(() -> service.send(RECIPIENT_ID, ROOM_ID, req("hi")))
+                .isInstanceOf(CustomException.class)
+                .extracting("errorCode").isEqualTo(ErrorCode.CHAT_ROOM_NOT_ACTIVE);
+        verify(chatMessageRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(messagingTemplate);
+    }
+
+    @Test
+    @DisplayName("종료된(LEFT) 방이면 참여자여도 CHAT_ROOM_NOT_ACTIVE이며 저장하지 않는다")
+    void 종료된_방이면_CHAT_ROOM_NOT_ACTIVE() {
+        ChatRoom room = mock(ChatRoom.class);
+        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+        given(room.getStatus()).willReturn(ChatRoomStatus.LEFT);
 
         assertThatThrownBy(() -> service.send(REQUESTER_ID, ROOM_ID, req("hi")))
                 .isInstanceOf(CustomException.class)

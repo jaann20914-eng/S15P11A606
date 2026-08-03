@@ -67,6 +67,11 @@ dependencies {
 	// validation (@Valid, GlobalExceptionHandler가 이미 대비)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+	// caching (Caffeine + Spring Cache 추상화; 추천/GPS 인메모리 캐시)
+	// 단일 인스턴스 배포라 인메모리로 충분하며, 스케일아웃 시 CacheManager 빈 교체로 Redis 전환한다.
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+
 	// websocket + STOMP (채팅 실시간 통신)
 	// starter가 서블릿 WebSocket 업그레이드 자동설정 모듈(spring-boot-websocket)을 전이로 포함한다.
 	// (@EnableWebSocketMessageBroker로 STOMP 브로커는 직접 구성한다.)

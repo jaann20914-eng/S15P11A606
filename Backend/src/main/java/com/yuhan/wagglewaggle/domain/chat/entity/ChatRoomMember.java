@@ -52,4 +52,18 @@ public class ChatRoomMember extends BaseEntity {
     public static ChatRoomMember create(ChatRoom chatRoom, Member member) {
         return new ChatRoomMember(chatRoom, member);
     }
+
+    /**
+     * 읽음 위치를 단조 증가로 갱신한다. 기존 값이 없거나 전달된 id가 더 클 때만 갱신하며,
+     * 같거나 더 작은 id는 무시한다(읽음 위치를 되돌리지 않음).
+     *
+     * @return 실제로 값이 갱신되면 {@code true}, 무시되면 {@code false}
+     */
+    public boolean markRead(Long messageId) {
+        if (lastReadMessageId != null && messageId <= lastReadMessageId) {
+            return false;
+        }
+        this.lastReadMessageId = messageId;
+        return true;
+    }
 }

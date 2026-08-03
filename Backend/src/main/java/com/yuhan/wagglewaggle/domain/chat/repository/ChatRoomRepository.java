@@ -62,4 +62,18 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
      * 지정 상태의 채팅방을 모두 조회한다(AI 2차 분석 배치 스케줄러의 ACTIVE 방 순회용).
      */
     List<ChatRoom> findAllByStatus(ChatRoomStatus status);
+
+    /**
+     * 메시지 이력 조회에 필요한 방·핀·장소·참여자를 한 번에 로드한다(fetch join으로 N+1 방지).
+     * 상대방 닉네임·온도와 핀의 장소명·주소를 응답에 담기 위해 requester/recipient/pin/place를 함께 가져온다.
+     */
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            JOIN FETCH cr.pin p
+            JOIN FETCH p.place
+            JOIN FETCH cr.requester
+            JOIN FETCH cr.recipient
+            WHERE cr.id = :roomId
+            """)
+    Optional<ChatRoom> findDetailById(@Param("roomId") Long roomId);
 }
