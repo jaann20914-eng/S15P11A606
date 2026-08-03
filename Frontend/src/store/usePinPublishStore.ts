@@ -209,6 +209,7 @@ async function waitForCompletion(
     set({ videoStatus });
 
     if (videoStatus === 'ACTIVE') {
+      logPublish('등록 완료', { pinId });
       set({ phase: 'done' });
       return;
     }
@@ -268,6 +269,7 @@ async function waitForReplacement(
     logPublish('교체 상태', { videoReplacementStatus: videoReplacementStatus ?? '없음' });
 
     if (videoReplacementStatus === 'PASS') {
+      logPublish('영상 교체 완료', { pinId });
       set({ phase: 'done' });
       return;
     }
