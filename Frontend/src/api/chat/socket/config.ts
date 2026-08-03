@@ -3,10 +3,12 @@ import { apiBaseUrl } from '@/constants/env';
 /**
  * WebSocket 핸드셰이크 경로.
  *
- * 서버가 `registerStompEndpoints`에 등록한 값과 같아야 한다(`WebSocketConfig`). 한때
- * `/api/v1/chat/ws`로 이야기됐지만 구현은 `/ws`로 들어왔다.
+ * 서버가 `registerStompEndpoints`에 등록한 값과 같아야 한다(`WebSocketConfig`).
+ *
+ * `/api` 아래에 둔다. nginx가 그 경로만 백엔드로 넘기고 있어서, 밖에 두면 요청이 서버에
+ * 닿지도 않는다.
  */
-const SOCKET_PATH = '/ws';
+const SOCKET_PATH = '/api/ws';
 
 /** 서버가 요구하는 STOMP 버전. 다른 값을 보내면 `UNSUPPORTED_STOMP_VERSION`으로 끊긴다. */
 export const STOMP_VERSION = '1.2';
