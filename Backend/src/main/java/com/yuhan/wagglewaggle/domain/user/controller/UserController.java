@@ -1,6 +1,8 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
+import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
+import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
 import com.yuhan.wagglewaggle.domain.user.service.UserProfileService;
 import com.yuhan.wagglewaggle.domain.user.service.UserService;
@@ -9,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -54,6 +58,24 @@ public class UserController {
         return ApiResponse.success(
                 HttpStatus.OK.value(),
                 "내 프로필 및 활동 요약 조회가 완료되었습니다.",
+                data);
+    }
+
+    /**
+     * 현재 인증 사용자의 닉네임을 수정한다(인증 필요).
+     * 형식·길이·금칙어·중복 등 유효성은 Front의 사전 확인 여부와 무관하게 서비스 계층에서 다시 검증한다.
+     * 사용자 식별 정보는 액세스 토큰에서 가져온다.
+     */
+    @PatchMapping("/me/nickname")
+    public ApiResponse<NicknameUpdateResponse> updateNickname(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody(required = false) NicknameUpdateRequest request
+    ) {
+        NicknameUpdateResponse data = userService.updateNickname(memberId, request);
+
+        return ApiResponse.success(
+                HttpStatus.OK.value(),
+                "닉네임이 수정되었습니다.",
                 data);
     }
 }

@@ -3,8 +3,57 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.common.exceptions import VideoEncodeError
-from app.services.blur.video_service import VideoService
+from app.common.exceptions import VideoDecodeError, VideoEncodeError
+from app.services.blur.video_service import (
+    VideoMetadata,
+    VideoService,
+)
+
+
+def test_validate_processed_video_accepts_auto_rotated_dimensions(
+) -> None:
+    metadata = VideoMetadata(
+        width=1280,
+        height=720,
+        fps=30.0,
+        duration_seconds=3.0,
+        declared_frame_count=90,
+        decoded_frame_count=90,
+    )
+
+    VideoService._validate_processed_video(
+        input_metadata=metadata,
+        processed_frame_count=90,
+        fps=30.0,
+        width=720,
+        height=1280,
+        orientation_degrees=90.0,
+    )
+
+
+def test_validate_processed_video_rejects_swapped_dimensions_without_rotation(
+) -> None:
+    metadata = VideoMetadata(
+        width=1280,
+        height=720,
+        fps=30.0,
+        duration_seconds=3.0,
+        declared_frame_count=90,
+        decoded_frame_count=90,
+    )
+
+    with pytest.raises(
+        VideoDecodeError,
+        match="Input video properties changed",
+    ):
+        VideoService._validate_processed_video(
+            input_metadata=metadata,
+            processed_frame_count=90,
+            fps=30.0,
+            width=720,
+            height=1280,
+            orientation_degrees=0.0,
+        )
 
 
 @patch("app.services.blur.video_service.subprocess.Popen")
