@@ -1,4 +1,4 @@
-import { crowdPalette } from './theme';
+import { crowdPalette, crowdTextPalette } from './theme';
 
 /**
  * 혼잡도 4단계 (공통DESIGN §4.2).
@@ -6,6 +6,9 @@ import { crowdPalette } from './theme';
  *
  * `level`(1~4)은 API 명세의 `crowdLevel` 값과 일치하고, `key`는 서버 enum과 이름을 맞췄다.
  * 링/게이지는 그라데이션이 아니라 `fill` 구간 단위로 채운다.
+ *
+ * `color`는 칩·링을 **채우는** 파스텔이고, `textColor`는 같은 단계를 **글자로 쓸 때**의 농도다.
+ * 흰 배경에서 파스텔로 글자를 쓰면 읽히지 않아 둘을 나눠 둔다(요일별 혼잡도 그래프가 쓴다).
  */
 export const crowdLevels = [
   {
@@ -14,6 +17,7 @@ export const crowdLevels = [
     label: '유유자적',
     group: 'RELAXED',
     color: crowdPalette.quiet,
+    textColor: crowdTextPalette.quiet,
     fill: { from: 0, to: 30 },
   },
   {
@@ -22,6 +26,7 @@ export const crowdLevels = [
     label: '여유',
     group: 'RELAXED',
     color: crowdPalette.notCrowded,
+    textColor: crowdTextPalette.notCrowded,
     fill: { from: 30, to: 50 },
   },
   {
@@ -30,6 +35,7 @@ export const crowdLevels = [
     label: '와글',
     group: 'WAGLE',
     color: crowdPalette.crowded,
+    textColor: crowdTextPalette.crowded,
     fill: { from: 50, to: 80 },
   },
   {
@@ -38,6 +44,7 @@ export const crowdLevels = [
     label: '와글와글',
     group: 'WAGLE',
     color: crowdPalette.veryCrowded,
+    textColor: crowdTextPalette.veryCrowded,
     fill: { from: 80, to: 100 },
   },
 ] as const;

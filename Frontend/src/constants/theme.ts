@@ -46,6 +46,17 @@ const palette = {
   crowdCrowded: '#F3C8A4',
   crowdVeryCrowded: '#E58883',
 
+  /*
+    혼잡도 4단계를 **글자로 쓸 때**의 농도.
+
+    위 네 값은 칩·링을 채우는 파스텔이라 흰 배경에서 글자로 쓰면 읽히지 않는다. 같은 두 계열
+    (라임·자몽)을 유지하면서 단계가 올라갈수록 진해지도록 옮긴 값이다.
+    `crowdNotCrowdedText`는 이미 있는 `limeText`와 같은 농도라 따로 두지 않는다.
+  */
+  crowdQuietText: '#6E8200',
+  crowdCrowdedText: '#F4767F',
+  crowdVeryCrowdedText: '#D63F4A',
+
   /** 내 위치 마커 (공통DESIGN §4.3) */
   locationMe: '#4C9AFF',
 
@@ -64,6 +75,19 @@ export const crowdPalette = {
   veryCrowded: palette.crowdVeryCrowded,
   /** 프로필 뷰 포인트 링의 "미채움/미인증" 구간 배경 (혼잡도 값이 아니다) */
   unfilled: palette.coralSoft,
+} as const;
+
+/**
+ * 혼잡도 4단계를 글자로 쓸 때의 색.
+ *
+ * `crowdPalette`(칩·링을 채우는 파스텔)와 짝이다. 계열은 같고 농도만 다르다 —
+ * 여유 계열은 라임, 와글 계열은 자몽이며 단계가 올라갈수록 진해진다.
+ */
+export const crowdTextPalette = {
+  quiet: palette.crowdQuietText,
+  notCrowded: palette.limeText,
+  crowded: palette.crowdCrowdedText,
+  veryCrowded: palette.crowdVeryCrowdedText,
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -286,6 +310,14 @@ export const colors = {
   success: palette.success,
   sky: palette.sky,
   limeSoft: palette.limeSoft,
+  /**
+   * 와글(붐빔) 계열의 옅은 배경. `limeSoft`와 짝이다.
+   *
+   * 혼잡도 필터가 여유/와글 두 계열로 갈리므로(§4.3) 옅은 배경도 두 짝이 필요하다.
+   * 라임 쪽만 있어 와글 쪽은 `semantic.dangerSurface`(같은 색이지만 "위험" 뜻)를 끌어다 쓰는
+   * 일이 생겼다. 혼잡도 맥락에서는 이 이름을 쓴다.
+   */
+  coralSoft: palette.coralSoft,
   /** 중앙 영상핀 버튼 등 라임 계열 컨트롤 배경 (DESIGN_GUIDE 10.6). */
   limeControl: palette.limeControl,
   kakao: palette.kakao,

@@ -35,6 +35,18 @@ const MEMO_PREVIEW_LENGTH = 82;
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 
+/**
+ * 썸네일 칸의 가로·최소 세로.
+ *
+ * 들어갈 것이 **영상**이라 정사각(128×128)보다 옆으로 누운 편이 원본 화면비에 가깝다.
+ * 세로는 최소값만 두고 옆 글줄이 길면 함께 늘어난다(`alignItems: 'stretch'`).
+ *
+ * 가로를 더 늘리면 옆 메모 칸이 그만큼 좁아져 한 줄에 담기는 글자가 줄어든다. 지금 값이
+ * 메모가 읽히는 선에서 가장 넓게 잡은 것이다.
+ */
+const THUMBNAIL_WIDTH = 152;
+const THUMBNAIL_MIN_HEIGHT = 128;
+
 export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
@@ -103,7 +115,7 @@ const s = StyleSheet.create({
   authorName: { ...type.label, fontWeight: '600', color: colors.dark },
   time: { ...type.caption, color: colors.gray400 },
   body: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.x3, marginTop: spacing.x3 },
-  thumbnail: { width: 128, minHeight: 128, borderRadius: radius.md },
+  thumbnail: { width: THUMBNAIL_WIDTH, minHeight: THUMBNAIL_MIN_HEIGHT, borderRadius: radius.md },
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
   more: { ...type.small, color: colors.gray400 },
