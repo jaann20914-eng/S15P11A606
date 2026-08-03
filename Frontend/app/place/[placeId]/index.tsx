@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,12 +26,40 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
 const SHEET_HANDLE_HEIGHT = 28;
 
 /**
+ * 축소 단계에서 카드 아래 여백을 이만큼 줄인다.
+ *
+ * 축소 높이에는 탭바에 가려지지 않도록 `navBarHeight`(탭바 72 + 시스템 제스처 영역)를
+ * 더한다. 그런데 실기기(갤럭시 노트20, 3버튼 내비게이션)에서는 그만큼이 **카드와 탭바 사이
+ * 빈 공간으로 그대로 남았다** — 시스템 내비게이션 영역은 이미 탭바가 자기 `paddingBottom`으로
+ * 처리하므로 여기서 또 비워 둘 이유가 없다.
+ *
+ * 시트는 화면 전체를 덮는 상자를 내려 쓰기 때문에 축소 높이를 줄이면 그만큼 카드가 탭바에
+ * 가까워진다. **더 붙이거나 떼려면 이 숫자 하나만 고치면 된다.**
+ */
+const COLLAPSED_GAP_TRIM = spacing.x10;
+
+/**
  * 측정이 오기 전에 쓰는 어림값.
  *
  * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다.
  */
-const ESTIMATED_INFO_HEIGHT = 104;
+const ESTIMATED_INFO_BODY_HEIGHT = 84;
 const ESTIMATED_VIDEO_HEIGHT = 216;
+
+/**
+ * 장소 카드의 안쪽 여백.
+ *
+ * `CrowdChart`가 자기 배경을 그리지 않을 때 **감싸는 카드의 여백이 이 값이어야 한다** —
+ * 선을 그릴 폭을 그 전제로 계산한다(`CrowdChart`의 `CARD_PADDING`·`PLOT_INSET`).
+ */
+const INFO_CARD_PADDING = spacing.x5;
+
+/** 혼잡도 그래프가 펼쳐지는 데 걸리는 시간(ms). 접히는 쪽은 조금 빠르게 끝낸다. */
+const CHART_REVEAL_MS = 320;
+const CHART_HIDE_MS = 180;
+
+/** 펼쳐질 때 그래프가 위에서 내려앉는 거리(px). 카드가 자라는 느낌을 만든다. */
+const CHART_RISE = 12;
 
 export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
@@ -60,13 +89,23 @@ export default function Place() {
 
     이 화면은 탭 그룹 밖이라 `<AppTabBar/>`가 절대 배치로 **화면 위에 겹친다.** 그만큼
     더 올려야 내용이 탭바 뒤로 들어가지 않는다. 홈은 탭바가 레이아웃을 차지해 이 보정이 없다.
+
+    축소 높이는 **장소 정보 글줄만** 재서 카드 여백을 더해 잡는다. 카드 안에 혼잡도 그래프가
+    같이 들어 있으므로(확장 단계에서 펼쳐진다) 카드를 통째로 재면 그래프까지 셈에 들어간다.
   */
-  const [infoHeight, setInfoHeight] = useState(0);
+  const [infoBodyHeight, setInfoBodyHeight] = useState(0);
   const [videoHeight, setVideoHeight] = useState(0);
 
   const sheet = useBottomSheet({
     space: height,
-    collapsed: SHEET_HANDLE_HEIGHT + (infoHeight > 0 ? infoHeight : ESTIMATED_INFO_HEIGHT) + navBarHeight,
+    collapsed: Math.max(
+      0,
+      SHEET_HANDLE_HEIGHT +
+        INFO_CARD_PADDING * 2 +
+        (infoBodyHeight > 0 ? infoBodyHeight : ESTIMATED_INFO_BODY_HEIGHT) +
+        navBarHeight -
+        COLLAPSED_GAP_TRIM,
+    ),
     middleExtra: (videoHeight > 0 ? videoHeight : ESTIMATED_VIDEO_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
@@ -98,6 +137,45 @@ export default function Place() {
     const coordinate = await myLocation.request();
     if (coordinate) focusOn({ coordinate, name: '현재 위치' });
   }, [focusOn, myLocation]);
+
+  /*
+    혼잡도 그래프가 드러나는 모션.
+
+    **높이를 애니메이션하지 않는다.** 예전에는 카드 안쪽 높이를 0에서 제 높이까지 늘렸는데,
+    실기기에서 그래프가 아예 보이지 않았다. 제 높이를 **높이 0으로 잘린 상자 안에서** 재고
+    있었고 그 측정이 0으로 와서, 늘릴 목표가 0에 머물렀기 때문이다. 보이지 않는 것을 재려는
+    구조 자체가 틀렸다.
+
+    게다가 높이는 레이아웃 속성이라 JS 드라이버로 돌려야 하는데, 그동안 시트는 네이티브
+    드라이버 스프링으로 움직인다. 두 애니메이션이 매 프레임 맞물려 단계 전환이 끊겨 보였다.
+
+    그래서 확장 단계에서 그래프를 **평범하게 붙이고**(잘리지 않으니 안 보일 수가 없다),
+    투명도와 위치만 네이티브 드라이버로 얹는다. 카드가 자라는 느낌은 그래프가 위에서
+    내려앉으며 나타나는 것으로 낸다.
+
+    접을 때는 사라지는 것을 다 보여준 뒤에 떼어 낸다. 곧바로 떼면 툭 없어진다.
+  */
+  const chartReveal = useRef(new Animated.Value(0)).current;
+  const [chartMounted, setChartMounted] = useState(false);
+  const expanded = level === 2;
+
+  useEffect(() => {
+    if (expanded) setChartMounted(true);
+
+    const animation = Animated.timing(chartReveal, {
+      toValue: expanded ? 1 : 0,
+      duration: expanded ? CHART_REVEAL_MS : CHART_HIDE_MS,
+      easing: expanded ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
+      useNativeDriver: true,
+    });
+
+    animation.start(({ finished }) => {
+      // 끝까지 접힌 뒤에만 떼어 낸다. 중간에 다시 펼치면 애니메이션이 취소돼 여기 오지 않는다.
+      if (finished && !expanded) setChartMounted(false);
+    });
+
+    return () => animation.stop();
+  }, [chartReveal, expanded]);
 
   return (
     // 배경을 두지 않는다. 아래 깔린 홈 지도가 그대로 보여야 한다.
@@ -135,8 +213,14 @@ export default function Place() {
       </View>
 
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
+        {/*
+          흐림 한 겹만 깐다.
+
+          예전에는 여기에 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
+          `backgroundColor`, 그리고 그 위 `sheetTint`. 겹치는 곳마다 흰 농도가 달라져 시트가
+          **투톤으로 갈려 보였다.** 농도는 흐림 한 겹으로만 정한다.
+        */}
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={s.sheetTint} />
         <View {...sheet.panHandlers}>
           <Pressable
             accessibilityRole="adjustable"
@@ -165,36 +249,64 @@ export default function Place() {
             },
           ]}
         >
-          <View
-            style={s.placeInfo}
-            onLayout={(event) => setInfoHeight(Math.round(event.nativeEvent.layout.height))}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.gray600} />
-            ) : place !== null ? (
-              <>
-                <Text style={s.placeName}>{place.name}</Text>
-                {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
-                {place.phone !== null && place.phone.length > 0 && (
-                  <Text style={s.placeMeta}>{place.phone}</Text>
-                )}
-                {place.address.length > 0 && <Text style={s.placeAddress}>{place.address}</Text>}
-              </>
-            ) : (
-              <Text accessibilityRole="alert" style={s.placeAddress}>
-                {error ?? '장소 정보를 불러오지 못했어요.'}
-              </Text>
+          {/*
+            장소 정보와 요일별 혼잡도가 **한 장의 카드**다.
+
+            예전에는 둘이 각자 카드였다. 같은 질문("이 장소는 어떤 곳인가")에 답하는 정보라
+            한 장으로 묶는 편이 읽기 쉽고, 확장할 때 카드가 자라는 모션도 그래야 성립한다.
+            추천 상세(`RecommendPlaceInfo`)가 이미 같은 구성이라 두 화면 모양도 맞는다.
+          */}
+          <View style={s.infoCard}>
+            <View onLayout={(event) => setInfoBodyHeight(Math.round(event.nativeEvent.layout.height))}>
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.gray600} />
+              ) : place !== null ? (
+                <>
+                  <Text style={s.placeName}>{place.name}</Text>
+                  {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
+                  {place.phone !== null && place.phone.length > 0 && (
+                    <Text style={s.placeMeta}>{place.phone}</Text>
+                  )}
+                  {place.address.length > 0 && <Text style={s.placeAddress}>{place.address}</Text>}
+                </>
+              ) : (
+                <Text accessibilityRole="alert" style={s.placeAddress}>
+                  {error ?? '장소 정보를 불러오지 못했어요.'}
+                </Text>
+              )}
+            </View>
+
+            {/*
+              요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
+
+              `surface`를 켜지 않는다 — 이제 이 카드 안에 들어가므로 자기 배경을 그리면 카드가
+              겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`INFO_CARD_PADDING`)으로
+              맞춰 뒀다.
+
+              **높이를 건드리지 않는다.** 평범하게 자리를 차지하므로 잘려서 안 보일 일이 없다.
+              투명도와 위치만 얹는다(`chartReveal`).
+            */}
+            {chartMounted && detail !== null && (
+              <Animated.View
+                style={[
+                  s.chartReveal,
+                  {
+                    opacity: chartReveal,
+                    transform: [
+                      {
+                        translateY: chartReveal.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-CHART_RISE, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <CrowdChart stats={detail.weeklyCrowdStats} />
+              </Animated.View>
             )}
           </View>
-
-          {/*
-            요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
-
-            `surface`를 켜 그래프가 자기 카드를 그리게 한다. 이 화면에서는 장소 정보·영상핀과
-            나란히 놓이는 한 장이라 배경이 있어야 통일감이 산다. 추천 상세는 이미 카드 안에
-            넣으므로 켜지 않는다.
-          */}
-          {level === 2 && detail !== null && <CrowdChart stats={detail.weeklyCrowdStats} surface />}
 
           {level > 0 && pins.length > 0 && (
             <View style={s.videoSection}>
@@ -208,7 +320,6 @@ export default function Place() {
               >
                 <View style={s.sectionHead}>
                   <Text style={s.sectionTitle}>실시간 영상핀</Text>
-                  <Text style={s.sectionMeta}>최근 등록순</Text>
                 </View>
                 <PlacePinCard pin={pins[0]} onPress={() => router.push(`/pin/${pins[0].pinId}`)} />
               </View>
@@ -264,6 +375,12 @@ const s = StyleSheet.create({
    */
   overlay: { flex: 1, overflow: 'hidden' },
   topControls: { position: 'absolute' },
+  /**
+   * 검색바는 불투명한 흰색이다.
+   *
+   * 반투명(0.92)으로 두면 아래 지도가 배어 나오는데, 지도는 자리마다 색이 달라 **바 안에서
+   * 흰 농도가 갈려 투톤으로 보였다.** 지도 위에 뜬 컨트롤이라 글자를 읽는 것이 먼저다.
+   */
   search: {
     height: 52,
     flexDirection: 'row',
@@ -271,7 +388,7 @@ const s = StyleSheet.create({
     gap: spacing.x3,
     paddingHorizontal: spacing.x4,
     borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: colors.white,
     ...shadow,
   },
   searchText: { ...type.body, flex: 1, color: colors.gray600 },
@@ -286,6 +403,12 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.94)',
     ...shadow,
   },
+  /**
+   * 반투명 시트. 흰 농도는 **흐림 한 겹으로만** 정한다(`BlurView`).
+   *
+   * `backgroundColor`를 두지 않는다. 흐림 위에 흰 반투명을 더 얹으면 겹친 곳만 농도가 올라가
+   * 시트가 투톤으로 갈려 보였다.
+   */
   sheet: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
@@ -294,21 +417,26 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: 'rgba(255,255,255,0.82)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     ...shadow,
   },
-  sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
   handleArea: { height: 40, alignItems: 'center', paddingTop: spacing.x3 },
   handle: { width: 40, height: 4, borderRadius: radius.pill, backgroundColor: 'rgba(59,56,56,0.32)' },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: spacing.x6 },
-  placeInfo: { padding: spacing.x4, borderRadius: radius.lg, backgroundColor: colors.white },
+  /** 장소 정보와 혼잡도 그래프를 함께 담는 한 장. 여백은 그래프가 전제하는 값이다. */
+  infoCard: { padding: INFO_CARD_PADDING, borderRadius: radius.hero, backgroundColor: colors.white },
+  /**
+   * 그래프가 드러나는 자리. 확장 단계에서만 붙는다.
+   *
+   * 높이는 내용이 정한다 — 잘라내지 않는다. 위 여백만 여기서 준다. 예전에는 이 상자의 높이를
+   * 0에서 늘리려다 그래프가 끝내 보이지 않았다.
+   */
+  chartReveal: { marginTop: spacing.x5 },
   placeName: { ...type.h3, fontWeight: '700', color: colors.dark },
   placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
   emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
   videoSection: { gap: spacing.x3 },
-  sectionHead: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHead: { minHeight: 26, flexDirection: 'row', alignItems: 'center' },
   sectionTitle: { ...type.title, color: colors.dark },
-  sectionMeta: { ...type.caption, color: colors.gray600 },
 });
