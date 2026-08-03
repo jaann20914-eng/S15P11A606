@@ -1,14 +1,38 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
-import { colors } from '@/constants/theme';
+import { useAppTabBarHeight } from '@/components/common/AppTabBar';
+import { colors, spacing } from '@/constants/theme';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
-import type { PinDetail } from '@/types/pin';
+import type { PinDetail, PinRating } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
-import { pinDetailStyles as s } from '../styles';
+import { ACTION_FADE_DROP, pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
+import { IllustrationVideo } from './IllustrationVideo';
+import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
+
+/**
+ * 사라짐 그라데이션의 시작 색.
+ *
+ * 를 쓰면 안드로이드에서 검은색이 섞여 회색 띠가 생긴다. 흰색의 알파만 0으로.
+ */
+const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
+
+/**
+ * 사라짐 구간의 중간 색과 멈춤 위치.
+ *
+ * 투명에서 흰색으로 곧게 이으면 아래쪽 절반이 아직 반투명이라, 완전한 흰 바와 만나는 자리에
+ * 단이 진다. 중간에 거의 흰색을 한 번 찍어 절반쯤에서 이미 흰색이 되게 하면 이어지는 곳이
+ * 눈에 띄지 않는다.
+ */
+const FADE_NEAR_WHITE = 'rgba(255,255,255,0.96)';
+const FADE_STOPS = [0, 0.55, 1] as const;
+
+/** 나뭇잎이 다 떨어진 뒤의 모습. 영상의 마지막 프레임을 그대로 뽑아 둔 것이다. */
+const LEAF_SETTLED = require('../../../../assets/images/credit-leaf-settled.png');
 
 export interface PinDetailBodyProps {
   detail: PinDetail;
@@ -29,52 +53,84 @@ export function PinDetailBody({
   const unlocked = isVideoUnlocked(detail);
 
   const showChatAction = !own && unlocked;
-
-  // "2층 창가석 기준 · 40초 전 업로드". 없는 조각은 빠진 채로 조립된다.
   const uploadedAt = formatRelativeTime(detail.createdAt);
-  const metaText = [
-    detail.detailLocation && `${detail.detailLocation} 기준`,
-    uploadedAt && `${uploadedAt} 업로드`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const tabBarHeight = useAppTabBarHeight();
+
+  /** 아래 고정 영역이 본문 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
+  const [actionBarHeight, setActionBarHeight] = useState(0);
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
-      <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
+    <View style={s.body}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
+      >
+        <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
 
-      <View style={s.detailSheet}>
-        <View style={s.authorRow}>
-          <ViewAvatar angle={detail.authorViewAngle} size={40} />
-          <View style={s.authorCopy}>
-            <Text style={s.authorName}>{detail.authorNickname}</Text>
-            {metaText !== '' && <Text style={s.authorMeta}>{metaText}</Text>}
+        <View style={s.detailSheet}>
+          <View style={s.authorRow}>
+            <ViewAvatar angle={detail.authorViewAngle} size={44} />
+            <View style={s.authorCopy}>
+              <Text style={s.authorName}>{detail.authorNickname}</Text>
+              {uploadedAt !== '' && <Text style={s.authorMeta}>{uploadedAt} 업로드</Text>}
+            </View>
+            {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
           </View>
-          {showChatAction && <ChatAction detail={detail} onRequestChat={onRequestChat} />}
+
+          <Text style={s.placeName}>{detail.place.name}</Text>
+
+          {/*
+            상세 위치는 장소명 바로 아래 줄이다. 예전에는 작성자 옆에 업로드 시각과 함께
+            "2층 창가석 기준 · 40초 전 업로드"로 붙어 있었는데, 그건 장소에 대한 설명이라
+            장소명 밑이 맞다. 주소가 있던 자리이기도 하다 — 서버가 주소를 주지 않는다.
+          */}
+          {detail.detailLocation && (
+            <Text style={s.detailLocation}>{detail.detailLocation} 기준</Text>
+          )}
+
+          {/*
+            혼잡 단계는 **열람한 뒤에만** 보여준다. 결제 전에 붙이면 영상을 사지 않고도
+            그 장소가 지금 붐비는지 알 수 있어, 열람할 이유가 사라진다.
+          */}
+          {unlocked && <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />}
+
+          <View style={s.rule} />
+
+          {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
+
+          {detail.tags.length > 0 && (
+            <View style={s.tags}>
+              {detail.tags.map((tag) => (
+                <Text key={tag} style={s.tag}>
+                  #{tag}
+                </Text>
+              ))}
+            </View>
+          )}
         </View>
+      </ScrollView>
 
-        <Text style={s.placeName}>{detail.place.name}</Text>
-        {/*
-          주소는 상세 응답에 없다. 서버가 주소를 저장하지 않아 장소명과 좌표만 준다.
-          상세 위치(층·좌석)는 아래 본문에서 따로 보여준다.
-        */}
+      {/*
+        할 일은 늘 화면에 보인다.
 
-        <CrowdLevelBadge level={detail.crowdLevel} style={s.crowdBadge} />
+        예전에는 본문 끝에 있어서 스크롤을 내려야 나왔다. 처음 쓰는 사람은 영상보기 버튼이
+        있다는 것조차 모른 채 화면을 떠날 수 있었다. 결제·평가·떠났어요는 이 화면에서 할 수
+        있는 유일한 행동이라 아래에 고정한다.
 
-        <View style={s.rule} />
+        탭바가 떠 있는 만큼 띄운다. 그러지 않으면 버튼이 탭바 뒤로 들어간다.
+      */}
+      {/* 내용이 바 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
+        locations={FADE_STOPS}
+        style={[s.actionFade, { bottom: actionBarHeight - ACTION_FADE_DROP }]}
+      />
 
-        {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
-
-        {detail.tags.length > 0 && (
-          <View style={s.tags}>
-            {detail.tags.map((tag) => (
-              <Text key={tag} style={s.tag}>
-                #{tag}
-              </Text>
-            ))}
-          </View>
-        )}
-
+      <View
+        onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
+        style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}
+      >
         {own ? (
           <OwnerFooter onLeave={onLeave} />
         ) : unlocked ? (
@@ -83,7 +139,7 @@ export function PinDetailBody({
           <PurchasePrompt onPress={onRequestPurchase} />
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -109,14 +165,33 @@ function ChatAction({ detail, onRequestChat }: { detail: PinDetail; onRequestCha
   const waiting = detail.chatRequestState === 'PENDING';
   const disabled = waiting || !detail.canRequestChat;
 
+  return <ChatRequestButton disabled={disabled} waiting={waiting} onRequestChat={onRequestChat} />;
+}
+
+/** 시트에 쓸 그림을 받은 뒤에 연다. 받는 동안에는 이 버튼에서 기다린다. */
+function ChatRequestButton({
+  disabled,
+  waiting,
+  onRequestChat,
+}: {
+  disabled: boolean;
+  waiting: boolean;
+  onRequestChat: () => void;
+}) {
+  const { trigger, pending } = useIllustrationCue('chat', onRequestChat);
+
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
-      onPress={onRequestChat}
-      style={[s.chatButton, disabled && s.chatPending]}
+      disabled={disabled || pending}
+      onPress={trigger}
+      style={[s.chatButton, (disabled || pending) && s.chatPending]}
     >
-      <Text style={s.chatText}>{waiting ? '수락 대기' : '채팅 요청'}</Text>
+      {pending ? (
+        <ActivityIndicator color={colors.white} />
+      ) : (
+        <Text style={s.chatText}>{waiting ? '수락 대기' : '채팅 요청'}</Text>
+      )}
     </Pressable>
   );
 }
@@ -139,15 +214,53 @@ function OwnerFooter({ onLeave }: { onLeave: () => void }) {
 }
 
 function PurchasePrompt({ onPress }: { onPress: () => void }) {
+  /*
+    누른 뒤에 시트에 쓸 그림을 받는다. 다 받은 다음에 시트가 완성된 채로 올라오므로,
+    기다리는 곳은 이 버튼 하나로 모인다.
+  */
+  const { trigger, pending } = useIllustrationCue('coin', onPress);
+
   return (
     <View style={s.watchArea}>
       <Text style={s.watchTitle}>현장 영상을 확인할까요?</Text>
       <Text style={s.watchHint}>3크레딧을 사용하면 전체 블러가 해제돼요.</Text>
-      <Pressable accessibilityRole="button" onPress={onPress} style={[s.primaryDark, s.watchButton]}>
-        <Text style={s.primaryDarkText}>영상보기</Text>
+      <Pressable
+        accessibilityRole="button"
+        disabled={pending}
+        onPress={trigger}
+        style={[s.primaryDark, s.watchButton, pending && s.primaryDarkBusy]}
+      >
+        {pending ? (
+          <ActivityIndicator color={colors.lime} />
+        ) : (
+          <Text style={s.primaryDarkText}>영상보기</Text>
+        )}
       </Pressable>
     </View>
   );
+}
+
+/**
+ * 보상 자리의 나뭇잎.
+ *
+ * 방금 받았으면 떨어지는 장면을 한 번 재생하고, 다시 볼 때는 이미 떨어진 모습만 보여준다.
+ * 매번 떨어지면 아무 일도 없었는데 무언가 일어난 것처럼 읽히고 들어올 때마다 시선을 뺏긴다.
+ *
+ * 떨어진 모습은 **영상이 아니라 마지막 프레임 그림**이다. 영상으로 마지막 장면을 세우려면
+ * 붙이고 → 되감고 → 멈추는 과정을 거치는데, 그 사이 첫 프레임이 잠깐 보였다가 끝 프레임으로
+ * 튄다. 어차피 움직이지 않는 화면이라 그림 한 장이면 충분하고, 다시 볼 때는 영상을 받을
+ * 필요조차 없어진다.
+ */
+function RewardLeaf({ animate }: { animate: boolean }) {
+  const loadIllustration = useIllustrationLoader();
+
+  useEffect(() => {
+    if (animate) loadIllustration('leaf');
+  }, [animate, loadIllustration]);
+
+  if (!animate) return <Image source={LEAF_SETTLED} style={s.rewardCoin} />;
+
+  return <IllustrationVideo name="leaf" style={s.rewardCoin} />;
 }
 
 function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluation: EvaluationState }) {
@@ -160,9 +273,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
           {submitted === null ? '평가를 남겼어요' : submitted === 'HELPFUL' ? '유익해요!' : '아쉬워요!'}
         </Text>
         <View style={s.reward}>
-          <View style={s.rewardCoin}>
-            <Ionicons name="leaf" size={24} color="#91A700" />
-          </View>
+          <RewardLeaf animate={submitted !== null} />
           <View>
             <Text style={s.rewardTitle}>
               {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}
@@ -176,6 +287,16 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
 
   const { busy, error, submit } = evaluation;
 
+  /*
+    평가를 누르면 보상 자리에 나뭇잎이 뜬다. 그 그림을 지금부터 받아 둔다 —
+    서버 응답을 기다리는 동안 함께 받으므로 보상이 뜰 때는 대개 준비돼 있다.
+  */
+  const loadIllustration = useIllustrationLoader();
+  const evaluate = (rating: PinRating) => {
+    loadIllustration('leaf');
+    submit(rating);
+  };
+
   return (
     <View style={s.ratingArea}>
       <Text style={s.ratingTitle}>이 영상핀이 유익했나요?</Text>
@@ -185,7 +306,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
         <Pressable
           accessibilityRole="button"
           disabled={busy}
-          onPress={() => submit('HELPFUL')}
+          onPress={() => evaluate('HELPFUL')}
           style={[s.ratingButton, s.helpfulButton, busy && s.ratingButtonBusy]}
         >
           {busy ? <ActivityIndicator color={colors.dark} /> : <Text style={s.helpfulText}>유익해요</Text>}
@@ -193,7 +314,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
         <Pressable
           accessibilityRole="button"
           disabled={busy}
-          onPress={() => submit('NOT_HELPFUL')}
+          onPress={() => evaluate('NOT_HELPFUL')}
           style={[s.ratingButton, s.missButton, busy && s.ratingButtonBusy]}
         >
           <Text style={s.missText}>아쉬워요</Text>

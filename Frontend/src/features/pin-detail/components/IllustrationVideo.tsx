@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
+import { View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { VideoView } from 'expo-video';
-import type { VideoSource } from 'expo-video';
-import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { useIllustration } from '../illustrations';
+import type { IllustrationKey } from '../illustrations';
 
 /**
  * 전체화면 버튼을 내보내지 않는다. 컨트롤을 모두 끈 화면이라 들어갈 수단이 없다.
@@ -11,7 +13,8 @@ import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
 const NO_FULLSCREEN = { enable: false } as const;
 
 export interface IllustrationVideoProps {
-  source: VideoSource;
+  /** 화면에서 미리 받아 둔 영상 중 무엇을 그릴지(`IllustrationProvider`). */
+  name: IllustrationKey;
   style?: StyleProp<ViewStyle>;
   /**
    * 기본값 `cover`.
@@ -23,16 +26,34 @@ export interface IllustrationVideoProps {
 }
 
 /**
- * 모달의 3D 일러스트 자리에 쓰는 장식용 영상.
+ * 3D 일러스트 자리에 쓰는 장식용 영상.
  *
  * 소리 없이 한 번만 재생하고 마지막 프레임에 멈춘다. 반복하면 시선을 계속 끌어
  * 정작 눌러야 하는 버튼에서 주의를 빼앗는다.
  *
- * 모달을 다시 열면 처음부터 재생돼야 하므로 호출부에서 열릴 때만 마운트한다.
- * 조작할 것이 없어 컨트롤은 모두 끈다. 크기는 호출부가 `style`로 정한다.
+ * 플레이어는 화면이 미리 만들어 둔 것을 그대로 쓴다(`useIllustration`). 그래서 마운트하는
+ * 순간 이미 준비돼 있고, 빈 자리가 보였다가 뒤늦게 그림이 채워지는 일이 없다. 대신 같은
+ * 플레이어를 계속 쓰므로 처음부터 보이려면 여기서 되감아야 한다.
  */
-export function IllustrationVideo({ source, style, contentFit = 'cover' }: IllustrationVideoProps) {
-  const player = useAutoplayVideo(source, { loop: false, muted: true });
+export function IllustrationVideo({ name, style, contentFit = 'cover' }: IllustrationVideoProps) {
+  const { player, ready } = useIllustration(name);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    player.currentTime = 0;
+    player.play();
+  }, [player, ready]);
+
+  /*
+    다 받기 전에는 자리만 잡아 둔다.
+
+    덜 받은 영상을 걸면 흰 사각형이 먼저 보였다가 그림이 나중에 채워진다. 배경만 깔린 빈 자리로
+    기다리다가 준비된 뒤에 한 번에 나타나는 편이 덜 어수선하다. 시트는 아예 준비된 뒤에
+    열리므로(`useIllustrationCue`) 이 자리가 보이는 경우는 평가 보상처럼 화면 안에 섞인
+    장식뿐이다.
+  */
+  if (!ready) return <View style={style} />;
 
   return (
     <VideoView

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
-import { useAppTabBarHeight } from '@/components/common/AppTabBar';
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -17,10 +19,26 @@ import { TagField } from '@/features/pin-create/components/TagField';
 import { useEditablePin } from '@/features/pin-create/hooks/useEditablePin';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
-import { pinCreateStyles as s } from '@/features/pin-create/styles';
+import { ACTION_FADE_DROP, pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
 import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
 import type { PinDraft } from '@/types/pinCreate';
+
+/** 사라짐 그라데이션의 시작 색. 안드로이드에서 transparent는 검은색이 섞여 회색 띠가 생긴다. */
+const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
+
+/**
+ * 사라짐 구간의 중간 색과 멈춤 위치.
+ *
+ * 투명에서 흰색으로 곧게 이으면 아래쪽 절반이 아직 반투명이라, 완전한 흰 바와 만나는 자리에
+ * 단이 진다. 중간에 거의 흰색을 한 번 찍어 절반쯤에서 이미 흰색이 되게 하면 이어지는 곳이
+ * 눈에 띄지 않는다.
+ */
+const FADE_NEAR_WHITE = 'rgba(255,255,255,0.96)';
+const FADE_STOPS = [0, 0.55, 1] as const;
+
+/** 키보드가 다 올라오기를 기다리는 시간(ms). 이보다 일찍 옮기면 줄어들기 전 높이로 계산된다. */
+const KEYBOARD_SETTLE_MS = 180;
 
 /**
  * 게시글 작성 · 수정 화면.
@@ -51,8 +69,41 @@ export default function PinCreateScreen() {
 
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
-  const tabBarHeight = useAppTabBarHeight();
   const [focused, setFocused] = useState(false);
+  /** 아래 고정 영역이 내용 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+
+  /*
+    키보드가 폼을 덮는 만큼. 폼의 아래 끝과 키보드 윗변을 직접 재서 얻는다.
+    탭바 높이를 손으로 빼는 계산은 키보드가 커질 때 어긋난다(`useKeyboardOverlap` 주석).
+  */
+  const formRef = useRef<View>(null);
+  const keyboardOverlap = useKeyboardOverlap(formRef);
+
+  /*
+    입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
+
+    키보드가 올라오면 보이는 높이가 줄어드는데, 스크롤 위치는 그대로라 아래쪽 칸은 키보드
+    뒤로 들어가 무엇을 치는지 보이지 않는다. 칸이 내용 안에서 어디에 있는지 미리 재 두고,
+    누른 순간 그 자리로 옮긴다.
+  */
+  const scrollRef = useRef<ScrollView>(null);
+  const fieldTops = useRef<Record<string, number>>({});
+
+  const rememberTop = (key: string) => (event: LayoutChangeEvent) => {
+    fieldTops.current[key] = event.nativeEvent.layout.y;
+  };
+
+  const reveal = (key: string) => () => {
+    const top = fieldTops.current[key];
+
+    if (top === undefined) return;
+
+    // 키보드가 다 올라와 화면이 줄어든 뒤에 옮겨야 실제로 보이는 자리에 놓인다.
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, top - spacing.x4), animated: true });
+    }, KEYBOARD_SETTLE_MS);
+  };
 
   const phase = usePinPublishStore((state) => state.phase);
   const progress = usePinPublishStore((state) => state.progress);
@@ -143,36 +194,90 @@ export default function PinCreateScreen() {
         ) : phase !== 'idle' ? (
           <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
         ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 40 }]}
-          >
-            <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
+          /*
+            키보드가 덮는 만큼 아래를 비워 둔다.
 
-            <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
+            이 앱은 화면 끝까지 그리는 방식이라 키보드가 올라와도 창이 줄지 않는다. 그냥 두면
+            아래쪽 입력칸이 키보드 뒤에 그대로 남는다. 여백을 주면 스크롤이 보이는 범위 안에서만
+            움직인다.
 
-            <MemoField value={form.draft.memo} onChange={form.setMemo} />
+            **아래 고정 영역은 이 여백으로 올라가지 않는다.** 절대 배치라 여백 안쪽이 아니라
+            바깥 끝에 붙는다. 그래서 바와 그라데이션은 덮이는 높이만큼 직접 띄운다.
+          */
+          <View ref={formRef} style={[s.form, { paddingBottom: keyboardOverlap }]}>
+            <ScrollView
+              ref={scrollRef}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
+            >
+              <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
-            <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
+              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
 
-            {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
-            {mode.type === 'edit' ? (
-              <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
-            ) : (
-              <PlaceField
-                place={form.draft.place}
-                onSelect={form.setPlace}
-                droppedPlaceName={form.droppedPlaceName}
-              />
-            )}
+              <View onLayout={rememberTop('memo')}>
+                <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />
+              </View>
 
-            <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
+              <View onLayout={rememberTop('tag')}>
+                <TagField
+                  tags={form.draft.tags}
+                  onAdd={form.addTag}
+                  onRemove={form.removeTag}
+                  onFocus={reveal('tag')}
+                />
+              </View>
 
-            <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
-              <Text style={s.submitText}>{copy.submitLabel}</Text>
-            </Pressable>
-          </ScrollView>
+              {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
+              <View onLayout={rememberTop('place')}>
+                {mode.type === 'edit' ? (
+                  <PlaceEditField
+                    place={form.draft.place}
+                    onSelect={form.setPlace}
+                    origin={originPlace}
+                  />
+                ) : (
+                  <PlaceField
+                    place={form.draft.place}
+                    onSelect={form.setPlace}
+                    droppedPlaceName={form.droppedPlaceName}
+                    onFocus={reveal('place')}
+                  />
+                )}
+              </View>
+
+              <View onLayout={rememberTop('detailLocation')}>
+                <DetailLocationField
+                  value={form.draft.detailLocation}
+                  onChange={form.setDetailLocation}
+                  onFocus={reveal('detailLocation')}
+                />
+              </View>
+            </ScrollView>
+
+            {/*
+              등록 버튼은 늘 보인다. 예전에는 입력칸 아래에 붙어 있어서 끝까지 스크롤해야
+              나타났다 — 다 쓰고도 어디서 등록하는지 못 찾는 자리였다.
+
+              내용 위에 겹쳐 놓고 뒤를 흐리게 해서, 아래에 무엇이 더 있는지 비쳐 보이게 한다.
+            */}
+            {/* 내용이 바 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
+              locations={FADE_STOPS}
+              style={[s.actionFade, { bottom: keyboardOverlap + actionBarHeight - ACTION_FADE_DROP }]}
+            />
+
+            <View
+              onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
+              style={[s.actionBar, { bottom: keyboardOverlap }]}
+            >
+              <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
+                <Text style={s.submitText}>{copy.submitLabel}</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
       </View>
     </SafeAreaView>

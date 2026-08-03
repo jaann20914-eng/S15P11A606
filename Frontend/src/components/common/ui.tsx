@@ -3,27 +3,56 @@ import { Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
+/**
+ * 화면 상단 바. **앱의 모든 헤더가 이것 하나를 쓴다.**
+ *
+ * 예전에는 화면마다 헤더를 따로 그려서 높이는 같아도 제목 크기·굵기·색과 좌우 여백, 아래
+ * 구분선이 제각각이었다. 화면을 옮겨 다니면 제목이 커졌다 작아졌다 했다.
+ *
+ * 기준은 게시글 작성 화면이다 — 높이 56, 제목 18/600 진한 회색, 뒤로 아이콘 24 연한 회색,
+ * 좌우 여백 8, 아래 구분선 1px. 뒤로 가기가 없어도 같은 자리를 비워 두어 제목이 정중앙에 온다.
+ */
 export function ScreenHeader({
   title,
   back,
   right,
   onBack,
+  divider = true,
 }: {
   title: string;
   back?: boolean;
   right?: ReactNode;
   onBack?: () => void;
+  /**
+   * 아래 구분선. 기본은 그린다.
+   *
+   * 배경이 흰색이 아니거나 헤더 바로 아래에 다른 경계가 있는 화면만 끈다.
+   */
+  divider?: boolean;
 }) {
   return (
-    <View style={s.header}>
+    <View style={[s.header, divider && s.headerDivider]}>
+      {/*
+        제목은 양옆 버튼과 나란히 두지 않고 **화면 기준으로 가운데에 고정한다.**
+
+        나란히 두면 좌우 슬롯의 폭 차이만큼 제목이 밀린다. 게시글 상세는 오른쪽이 "신고"
+        (아이콘+글자)라 뒤로 버튼보다 넓어서, 제목이 다른 화면보다 왼쪽에 있었다.
+
+        터치는 통과시킨다. 그러지 않으면 제목이 양옆 버튼 위를 덮어 눌리지 않는다.
+      */}
+      <View pointerEvents="none" style={s.headerTitleSlot}>
+        <Text numberOfLines={1} style={s.headerTitle}>
+          {title}
+        </Text>
+      </View>
+
       {back ? (
         <Pressable accessibilityLabel="뒤로 가기" onPress={onBack} style={s.iconBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.dark} />
+          <Ionicons name="chevron-back" size={24} color={colors.gray400} />
         </Pressable>
       ) : (
         <View style={s.headerGap} />
       )}
-      <Text style={s.headerTitle}>{title}</Text>
       <View style={s.headerRight}>{right}</View>
     </View>
   );
@@ -155,11 +184,31 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.x2,
   },
+  headerDivider: { borderBottomWidth: 1, borderBottomColor: colors.gray200 },
   headerGap: { width: layout.minTouch },
-  headerRight: { minWidth: layout.minTouch, alignItems: 'flex-end' },
-  iconBtn: { width: layout.minTouch, height: layout.minTouch, justifyContent: 'center' },
-  headerTitle: { ...type.title, color: colors.dark },
+  headerRight: { minWidth: layout.minTouch, alignItems: 'flex-end', justifyContent: 'center' },
+  iconBtn: {
+    width: layout.minTouch,
+    height: layout.minTouch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /**
+   * 제목 자리. 양옆 버튼 폭과 무관하게 늘 화면 가운데다.
+   *
+   * 좌우로 버튼 폭(44)만큼 비워 두어 긴 제목이 버튼과 겹치지 않는다.
+   */
+  headerTitleSlot: {
+    position: 'absolute',
+    left: layout.minTouch + spacing.x2,
+    right: layout.minTouch + spacing.x2,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  headerTitle: { ...type.title, textAlign: 'center', color: colors.dark },
   button: {
     minHeight: layout.buttonHeight,
     borderRadius: radius.lg,

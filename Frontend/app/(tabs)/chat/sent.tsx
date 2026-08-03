@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { ScreenHeader } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 type Tab = '요청한 대화' | '요청받은 대화';
@@ -105,17 +106,16 @@ export default function Chat() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
-        <View style={s.pageHeader}>
-          {selectedPost ? (
-            <Pressable onPress={() => setSelectedPost(null)} style={s.back}>
-              <Ionicons name="chevron-back" size={24} color={colors.gray400} />
-            </Pressable>
-          ) : (
-            <View style={s.back} />
-          )}
-          <Text style={s.pageTitle}>{selectedPost ? selectedPost.place : '채팅방'}</Text>
-          <View style={s.back} />
-        </View>
+        {/*
+          목록에서는 아래에 탭 줄이 이어지므로 구분선을 겹치지 않는다.
+          게시글 하나를 고른 화면에서는 탭이 사라지므로 구분선을 그린다.
+        */}
+        <ScreenHeader
+          title={selectedPost ? selectedPost.place : '채팅방'}
+          back={selectedPost !== null}
+          onBack={() => setSelectedPost(null)}
+          divider={selectedPost !== null}
+        />
 
         {!selectedPost && (
           <View style={s.tabs}>
