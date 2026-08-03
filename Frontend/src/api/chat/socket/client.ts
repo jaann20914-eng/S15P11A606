@@ -101,8 +101,17 @@ function createClient(): Client {
       갱신은 스토어가 한 번만 나가도록 묶어 두므로(RTR), 여기서 불러도 REST 요청과 겹쳐
       리프레시 토큰이 두 번 쓰이는 일은 없다.
     */
+    /* 개발 중에는 프레임을 그대로 남긴다. 어디서 멈췄는지는 이것 없이 알기 어렵다. */
+    debug: (line) => log('stomp', { 줄: line }),
+    onWebSocketError: (event) => log('소켓 오류', { 내용: String(event?.message ?? event) }),
     beforeConnect: async () => {
       const { accessToken, refreshAccessToken } = useAuthStore.getState();
+
+      log('CONNECT 준비', {
+        토큰있음: accessToken !== null,
+        만료됨: isTokenExpired(accessToken),
+        TextEncoder: typeof TextEncoder,
+      });
 
       if (isTokenExpired(accessToken)) {
         // 실패하면 스토어가 세션을 정리한다. 그때는 세션 감시가 연결을 거둔다.
@@ -110,6 +119,8 @@ function createClient(): Client {
       }
 
       const token = useAuthStore.getState().accessToken;
+
+      log('CONNECT 보냄', { 토큰있음: token !== null });
 
       client?.configure({ connectHeaders: { Authorization: `Bearer ${token ?? ''}` } });
     },
