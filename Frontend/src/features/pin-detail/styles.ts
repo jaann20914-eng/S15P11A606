@@ -70,17 +70,18 @@ export const pinDetailStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: layout.gutter,
-    paddingTop: spacing.x4,
+    /* 위 여백을 좁혀 사라짐이 문구 가까이까지 내려오게 한다. */
+    paddingTop: spacing.x2,
     backgroundColor: colors.white,
   },
   /**
-   * 바 위에서 내용을 흰색으로 지워 간다. 짧게 잡으면 지워지는 것이 아니라 잘린 것처럼 보여,
-   * 글 두어 줄이 서서히 옅어질 만큼 넉넉히 둔다.
+   * 바 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다 — 더 늘리면 위쪽
+   * 내용까지 흐려져 무엇이 적혀 있는지 알 수 없다.
    *
    * 바 위쪽으로 조금 내려 걸친다(`ACTION_FADE_DROP`). 딱 맞춰 두면 사라짐이 끝나는 선과
    * 바가 시작하는 선이 같은 자리에 놓여, 흐려지다 만 것처럼 보인다.
    */
-  actionFade: { position: 'absolute', left: 0, right: 0, height: 72 },
+  actionFade: { position: 'absolute', left: 0, right: 0, height: 28 },
 
   /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
   headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },
