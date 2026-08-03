@@ -3,6 +3,7 @@ import { usesMock } from '../config';
 import { listMockChatRooms, listMockPinChatRooms } from '@/mocks/chat';
 import type { ChatRoomListItem, CursorPage, CursorQuery } from '@/types/chat';
 import type { PinId } from '@/types/pin';
+import { traceChat } from './log';
 import { fetchAllPages } from './paging';
 
 /**
@@ -60,7 +61,11 @@ function loadChatRooms(query: CursorQuery) {
 
 /** 내가 요청한 채팅방 전체. 무한 스크롤을 두지 않기로 해서 커서를 끝까지 따라간다. */
 export function getChatRooms(): Promise<ChatRoomListItem[]> {
-  return fetchAllPages(loadChatRooms);
+  return traceChat('내 채팅방 목록', 'chat/rooms', () => fetchAllPages(loadChatRooms), (rooms) => ({
+    건수: rooms.length,
+    안읽음: rooms.filter((room) => room.hasUnread).length,
+    상태: rooms.map((room) => room.status).join(', ') || '없음',
+  }));
 }
 
 /**
@@ -92,5 +97,14 @@ function loadPinChatRooms(pinId: PinId, query: CursorQuery) {
 
 /** 이 게시글에 달린 채팅방 전체. */
 export function getPinChatRooms(pinId: PinId): Promise<ChatRoomListItem[]> {
-  return fetchAllPages((query) => loadPinChatRooms(pinId, query));
+  return traceChat(
+    '게시글 채팅방 목록',
+    'chat/rooms',
+    () => fetchAllPages((query) => loadPinChatRooms(pinId, query)),
+    (rooms) => ({
+      pinId,
+      건수: rooms.length,
+      대기중: rooms.filter((room) => room.status === 'PENDING').length,
+    }),
+  );
 }

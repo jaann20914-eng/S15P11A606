@@ -1,5 +1,6 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
+import { traceChat } from './log';
 import { createMockChatRequest } from '@/mocks/chat';
 import type { ChatRequestResult } from '@/types/chat';
 import type { PinId } from '@/types/pin';
@@ -28,5 +29,10 @@ function requestCreateChatRequest(pinId: PinId): Promise<ChatRequestResult> {
 }
 
 export function createChatRequest(pinId: PinId): Promise<ChatRequestResult> {
-  return usesMock('chat/request') ? createMockChatRequest(pinId) : requestCreateChatRequest(pinId);
+  return traceChat(
+    '채팅 요청',
+    'chat/request',
+    () => (usesMock('chat/request') ? createMockChatRequest(pinId) : requestCreateChatRequest(pinId)),
+    (result) => ({ roomId: result.roomId, pinId: result.pinId }),
+  );
 }

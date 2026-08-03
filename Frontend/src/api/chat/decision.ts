@@ -1,5 +1,6 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
+import { traceChat } from './log';
 import { decideMockChatRequest } from '@/mocks/chat';
 import type { ChatDecision, ChatDecisionResult } from '@/types/chat';
 
@@ -28,7 +29,13 @@ function requestDecideChatRequest(roomId: number, decision: ChatDecision): Promi
 }
 
 export function decideChatRequest(roomId: number, decision: ChatDecision): Promise<ChatDecisionResult> {
-  return usesMock('chat/decision')
-    ? decideMockChatRequest(roomId, decision)
-    : requestDecideChatRequest(roomId, decision);
+  return traceChat(
+    `채팅 요청 ${decision}`,
+    'chat/decision',
+    () =>
+      usesMock('chat/decision')
+        ? decideMockChatRequest(roomId, decision)
+        : requestDecideChatRequest(roomId, decision),
+    (result) => ({ roomId: result.roomId, 상태: result.status }),
+  );
 }

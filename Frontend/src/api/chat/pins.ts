@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { listMockChatPins } from '@/mocks/chat';
 import type { ChatPinListItem, CursorPage, CursorQuery } from '@/types/chat';
+import { traceChat } from './log';
 import { fetchAllPages } from './paging';
 
 /**
@@ -28,5 +29,8 @@ function loadChatPins(query: CursorQuery) {
 
 /** 채팅이 걸린 게시글 전체. 무한 스크롤을 두지 않기로 해서 커서를 끝까지 따라간다. */
 export function getChatPins(): Promise<ChatPinListItem[]> {
-  return fetchAllPages(loadChatPins);
+  return traceChat('채팅 게시글 목록', 'chat/pins', () => fetchAllPages(loadChatPins), (pins) => ({
+    건수: pins.length,
+    장소: pins.map((pin) => pin.placeName).join(', ') || '없음',
+  }));
 }
