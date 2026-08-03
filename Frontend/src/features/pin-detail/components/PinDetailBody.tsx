@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
@@ -13,6 +13,13 @@ import { pinDetailStyles as s } from '../styles';
 import { PinDetailMedia } from './PinDetailMedia';
 import { IllustrationVideo } from './IllustrationVideo';
 import { useIllustrationCue, useIllustrationLoader } from '../illustrations';
+
+/**
+ * 사라짐 그라데이션의 시작 색.
+ *
+ * 를 쓰면 안드로이드에서 검은색이 섞여 회색 띠가 생긴다. 흰색의 알파만 0으로.
+ */
+const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
 
 /** 나뭇잎이 다 떨어진 뒤의 모습. 영상의 마지막 프레임을 그대로 뽑아 둔 것이다. */
 const LEAF_SETTLED = require('../../../../assets/images/credit-leaf-settled.png');
@@ -102,13 +109,17 @@ export function PinDetailBody({
 
         탭바가 떠 있는 만큼 띄운다. 그러지 않으면 버튼이 탭바 뒤로 들어간다.
       */}
+      {/* 내용이 바 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[FADE_TRANSPARENT, colors.white]}
+        style={[s.actionFade, { bottom: actionBarHeight }]}
+      />
+
       <View
         onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
         style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}
       >
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
-        <View pointerEvents="none" style={s.actionBarTint} />
-
         {own ? (
           <OwnerFooter onLeave={onLeave} />
         ) : unlocked ? (

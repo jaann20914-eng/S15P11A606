@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -23,6 +23,9 @@ import { pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
 import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
 import type { PinDraft } from '@/types/pinCreate';
+
+/** 사라짐 그라데이션의 시작 색. 안드로이드에서 transparent는 검은색이 섞여 회색 띠가 생긴다. */
+const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
 
 /** 키보드가 다 올라오기를 기다리는 시간(ms). 이보다 일찍 옮기면 줄어들기 전 높이로 계산된다. */
 const KEYBOARD_SETTLE_MS = 180;
@@ -246,13 +249,17 @@ export default function PinCreateScreen() {
 
               내용 위에 겹쳐 놓고 뒤를 흐리게 해서, 아래에 무엇이 더 있는지 비쳐 보이게 한다.
             */}
+            {/* 내용이 바 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[FADE_TRANSPARENT, colors.white]}
+              style={[s.actionFade, { bottom: actionBarHeight }]}
+            />
+
             <View
               onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
               style={s.actionBar}
             >
-              <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
-              <View pointerEvents="none" style={s.actionBarTint} />
-
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
               </Pressable>

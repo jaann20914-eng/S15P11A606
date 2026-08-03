@@ -54,22 +54,24 @@ export const pinDetailStyles = StyleSheet.create({
    * 탭바 높이만큼 화면에서 넣어 준다.
    */
   /**
-   * 본문 위에 겹쳐 놓는다. 아래 내용이 이 바를 통과해 비쳐야 유리처럼 보이는데, 나란히 놓으면
-   * 뒤에 아무것도 지나가지 않아 흐릴 것이 없다. 가려지는 만큼은 본문의 아래 여백으로 돌려준다.
+   * 본문 위에 겹쳐 놓는다. 가려지는 만큼은 본문의 아래 여백으로 돌려준다.
    *
-   * 경계선은 두지 않는다. 흐릿하게 비치는 것 자체가 경계 노릇을 한다.
+   * 바탕은 **불투명한 흰색**이다. 뒤가 비치게 두어 봤더니 본문 글이 버튼·안내 문구와 겹쳐
+   * 읽기 어려웠다. 이 자리에는 눌러야 할 것과 그 설명이 모여 있어 뒤가 보이는 이득보다
+   * 어수선해지는 손해가 크다. 경계선 대신 위에 짧은 그라데이션(`actionFade`)을 얹어
+   * 내용이 사라지며 들어가게 한다.
    */
   actionBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    overflow: 'hidden',
     paddingHorizontal: layout.gutter,
     paddingTop: spacing.x4,
+    backgroundColor: colors.white,
   },
-  /** 흐림만으로는 뒤 글자가 비쳐 버튼 글씨와 겹친다. 아주 옅은 흰색을 한 겹 더 깐다. */
-  actionBarTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.5)' },
+  /** 바 바로 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다. */
+  actionFade: { position: 'absolute', left: 0, right: 0, height: 28 },
 
   /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
   headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },

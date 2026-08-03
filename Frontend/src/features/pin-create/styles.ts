@@ -14,12 +14,11 @@ export const pinCreateStyles = StyleSheet.create({
   /**
    * 늘 보이는 등록 버튼 자리.
    *
-   * 스크롤 내용 **위에 겹쳐** 놓는다. 아래 내용이 이 바를 통과해 비쳐야 유리처럼 보이는데,
-   * 나란히 놓으면 뒤에 아무것도 지나가지 않아 흐릴 것이 없다. 가려지는 만큼은 스크롤 내용의
-   * 아래 여백으로 돌려준다(화면이 이 바 높이를 재서 넣는다).
+   * 스크롤 내용 **위에 겹쳐** 놓고, 가려지는 만큼은 아래 여백으로 돌려준다(화면이 이 바
+   * 높이를 재서 넣는다).
    *
-   * 경계선은 두지 않는다. 흐릿하게 비치는 것 자체가 경계 노릇을 하고, 선까지 있으면 유리
-   * 위에 자를 하나 얹은 것처럼 보인다.
+   * 바탕은 불투명한 흰색이다. 뒤가 비치게 두면 입력칸 글씨와 버튼이 겹쳐 어수선하다.
+   * 경계선 대신 위에 짧은 그라데이션(`actionFade`)을 얹어 내용이 사라지며 들어가게 한다.
    *
    * **탭바 높이를 더하지 않는다.** 이 화면은 탭 네비게이터 안에 있어 화면 영역이 이미 탭바
    * 위에서 끝난다.
@@ -29,12 +28,12 @@ export const pinCreateStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    overflow: 'hidden',
     paddingHorizontal: layout.gutter,
     paddingVertical: spacing.x4,
+    backgroundColor: colors.white,
   },
-  /** 흐림만으로는 뒤 글자가 비쳐 버튼 글씨와 겹친다. 아주 옅은 흰색을 한 겹 더 깐다. */
-  actionBarTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.5)' },
+  /** 바 바로 위에서 내용을 흰색으로 지워 간다. 높이는 한 줄 정도면 충분하다. */
+  actionFade: { position: 'absolute', left: 0, right: 0, height: 28 },
 
   /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */
 
