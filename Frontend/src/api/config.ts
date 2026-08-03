@@ -106,7 +106,13 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     핀 떠났어요(POST /chat/pins/{pinId}/rooms/leave)만 아직 컨트롤러가 없다.
   */
   'chat/leave': true,
-  // 목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
+  /*
+    목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
+
+    2026-08-03에 실서버로 돌려 확인했다 — 없는 경로인데 404가 아니라 500
+    (INTERNAL_SERVER_ERROR)이 온다. 그래서 이 스위치를 끄기 전에는 서버가 준비됐는지
+    상태 코드만으로 판단할 수 없다. 컨트롤러가 생겼는지 확인하고 지우는 편이 확실하다.
+  */
   'chat/rooms': true,
   'chat/pins': true,
 
