@@ -17,6 +17,9 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 
+    // Internal API (AI Worker 등 내부 시스템 콜백)
+    INTERNAL_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "내부 API 인증에 실패했습니다."),
+
     // Place
     INVALID_PLACE_SEARCH_QUERY(HttpStatus.BAD_REQUEST, "장소 검색 조건이 올바르지 않습니다."),
     EXTERNAL_PLACE_API_ERROR(HttpStatus.BAD_GATEWAY, "외부 장소 검색 API 오류가 발생했습니다."),
@@ -69,6 +72,11 @@ public enum ErrorCode {
     INVALID_PAGINATION(HttpStatus.BAD_REQUEST, "페이지 조회 조건이 올바르지 않습니다."),
     TODAY_PINS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "오늘 등록한 영상 핀 목록 조회 중 오류가 발생했습니다."),
 
+    // Credit Transactions
+    // UNAUTHORIZED(401)·USER_NOT_FOUND(404)·INVALID_PAGINATION(400)은 위 정의를 재사용한다.
+    INVALID_CREDIT_FILTER(HttpStatus.BAD_REQUEST, "크레딧 조회 조건이 올바르지 않습니다."),
+    CREDIT_TRANSACTIONS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "크레딧 내역 조회 중 오류가 발생했습니다."),
+
     // Onboarding
     INVALID_ONBOARDING_REQUEST(HttpStatus.BAD_REQUEST, "온보딩 입력값이 올바르지 않습니다."),
     INVALID_ONBOARDING_TOKEN(HttpStatus.UNAUTHORIZED, "온보딩 토큰이 유효하지 않습니다."),
@@ -108,6 +116,13 @@ public enum ErrorCode {
     CHAT_REQUEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 대기 중인 요청 또는 채팅방이 있습니다."),
     CHAT_REQUEST_CREATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 요청 처리 중 오류가 발생했습니다."),
 
+    // Chat Read (읽음 위치 갱신)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)는 아래 WebSocket 섹션 정의를 재사용한다.
+    INVALID_MESSAGE_ID(HttpStatus.BAD_REQUEST, "메시지 ID 형식이 올바르지 않습니다."),
+    CHAT_ROOM_ACCESS_DENIED(HttpStatus.FORBIDDEN, "채팅방에 접근할 권한이 없습니다."),
+    CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "읽음 처리할 메시지를 찾을 수 없습니다."),
+    CHAT_READ_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "메시지 읽음 처리 중 오류가 발생했습니다."),
+
     // Chat Request Decision
     INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
     CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
@@ -142,6 +157,10 @@ public enum ErrorCode {
     CHAT_MESSAGE_SEND_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅방에 메시지를 보낼 권한이 없습니다."),
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 내용이 너무 깁니다."),
+
+    // AI Chat Pattern Result (AI Worker 콜백)
+    AI_CHAT_JOB_NOT_FOUND(HttpStatus.NOT_FOUND, "AI 채팅 분석 작업을 찾을 수 없습니다."),
+    INVALID_CHAT_PATTERN_RESULT(HttpStatus.BAD_REQUEST, "패턴 분석 결과 형식이 올바르지 않습니다."),
 
     // Pin Evaluation
     INVALID_RATING(HttpStatus.BAD_REQUEST, "평가 값이 올바르지 않습니다."),

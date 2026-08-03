@@ -2,11 +2,14 @@ package com.yuhan.wagglewaggle.domain.credit.repository;
 
 import com.yuhan.wagglewaggle.domain.credit.entity.CreditTransaction;
 import com.yuhan.wagglewaggle.domain.credit.entity.CreditTransactionType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,5 +41,49 @@ public interface CreditTransactionRepository extends JpaRepository<CreditTransac
             @Param("memberId") Long memberId,
             @Param("startDate") LocalDate startDate,
             @Param("endDateExclusive") LocalDate endDateExclusive
+    );
+
+    // ===== 크레딧 내역 목록(커서 페이지네이션) =====
+    // 대상 = 현재 사용자의 거래 전체. 유형 필터는 change_amount 부호(min/max 경계)로, 기간 필터는
+    //        created_at 범위 [start, end)로 적용한다. 적용 여부는 apply* 플래그로 켜고 끈다.
+    // 정렬 = created_at DESC, id DESC. limit+1건을 조회해 다음 페이지 존재 여부를 판단한다(nextCursor 발급용).
+    // 커서 = 마지막 노출 항목의 (created_at, id). applyCursor=false 면 첫 페이지다.
+    //
+    // apply* 플래그로 조건을 끄는 이유: 값 파라미터를 ':param IS NULL'로 검사하면 PostgreSQL이
+    // 해당 바인딩의 타입을 추론하지 못해("could not determine data type of parameter") 실패한다.
+    // 값 파라미터는 항상 컬럼과의 타입 있는 비교에만 두고, 조건 on/off는 boolean 플래그로 분리한다.
+
+    /**
+     * 크레딧 거래 내역을 유형·기간·커서 조건으로 조회한다.
+     *
+     * <p>applyMinAmount·applyMaxAmount는 유형 필터(EARNED=하한 1, SPENT=상한 -1, ALL=둘 다 off),
+     * applyPeriod는 서비스 날짜 윈도우 [start, endExclusive), applyCursor는 커서 적용 여부다.
+     * 정렬(created_at DESC, id DESC)과 동일한 타이브레이커로 커서보다 "뒤"에 오는 거래
+     * (created_at이 더 이르거나, 같으면 id가 더 작은 거래)만 조회한다.</p>
+     */
+    @Query("""
+            SELECT c FROM CreditTransaction c
+            WHERE c.memberId = :memberId
+              AND (:applyMinAmount = FALSE OR c.changeAmount >= :minChangeAmount)
+              AND (:applyMaxAmount = FALSE OR c.changeAmount <= :maxChangeAmount)
+              AND (:applyPeriod = FALSE OR (c.createdAt >= :start AND c.createdAt < :endExclusive))
+              AND (:applyCursor = FALSE
+                   OR c.createdAt < :cursorCreatedAt
+                   OR (c.createdAt = :cursorCreatedAt AND c.id < :cursorId))
+            ORDER BY c.createdAt DESC, c.id DESC
+            """)
+    List<CreditTransaction> findHistory(
+            @Param("memberId") Long memberId,
+            @Param("applyMinAmount") boolean applyMinAmount,
+            @Param("minChangeAmount") Integer minChangeAmount,
+            @Param("applyMaxAmount") boolean applyMaxAmount,
+            @Param("maxChangeAmount") Integer maxChangeAmount,
+            @Param("applyPeriod") boolean applyPeriod,
+            @Param("start") Instant start,
+            @Param("endExclusive") Instant endExclusive,
+            @Param("applyCursor") boolean applyCursor,
+            @Param("cursorCreatedAt") Instant cursorCreatedAt,
+            @Param("cursorId") Long cursorId,
+            Pageable pageable
     );
 }

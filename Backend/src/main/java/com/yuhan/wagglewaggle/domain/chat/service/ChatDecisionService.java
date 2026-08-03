@@ -27,7 +27,8 @@ import java.util.UUID;
  * PENDING 요청을 수락/거절/나감으로 처리한다.
  *
  * <p>전체를 단일 트랜잭션으로 처리한다. ACCEPT 시 상태 전이 + 요청자 −5/수락자 +5 크레딧 이동 +
- * credit_transactions 2건 + chat_room_members 2건 생성이 원자적으로 커밋되거나 전부 롤백된다.</p>
+ * credit_transactions 2건 + 수락자 chat_room_members 1건 생성이 원자적으로 커밋되거나 전부 롤백된다.
+ * (요청자 멤버 행은 방 생성 시점에 이미 만들어진다.)</p>
  *
  * <p>동시성: 결정 대상 chat_rooms 행을 비관적 쓰기 락으로 잠근 뒤 status를 재검증해
  * 중복 결정(모바일 재전송)을 멱등하게 막는다. ACCEPT 시 두 회원 잔액도 행 잠금으로 보호하며,
@@ -85,8 +86,9 @@ public class ChatDecisionService {
     }
 
     /**
-     * 요청을 수락한다. 요청자 −5/수락자 +5 크레딧을 이동하고 거래 2건·멤버 2건을 생성한 뒤
+     * 요청을 수락한다. 요청자 −5/수락자 +5 크레딧을 이동하고 거래 2건·수락자 멤버 1건을 생성한 뒤
      * 방을 ACTIVE로 전이한다. 두 회원 행은 데드락 방지를 위해 id 오름차순으로 잠근다.
+     * (요청자 멤버 행은 방 생성 시점에 이미 만들어졌으므로 여기서 생성하지 않는다.)
      */
     private void accept(ChatRoom room) {
         Long requesterId = room.getRequester().getId();
@@ -116,7 +118,7 @@ public class ChatDecisionService {
                 recipientId, CreditTransactionType.RECEIVED_CHAT_REQUEST_ACCEPTED, pinId,
                 CHAT_ACCEPT_CREDIT, recipient.getCreditBalance()));
 
-        chatRoomMemberRepository.save(ChatRoomMember.create(room, requester));
+        // 요청자 멤버 행은 방 생성 시점에 이미 만들어졌으므로 수락자 멤버 행만 생성한다.
         chatRoomMemberRepository.save(ChatRoomMember.create(room, recipient));
 
         room.accept();
