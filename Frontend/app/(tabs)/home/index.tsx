@@ -18,7 +18,7 @@ import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
 import { CrowdFilterToggle } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common';
-import { DEFAULT_CENTER, isWithinBounds, useMapStore } from '@/store/useMapStore';
+import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -53,9 +53,6 @@ export default function Home() {
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
   const setCenter = useMapStore((state) => state.setCenter);
   const setBounds = useMapStore((state) => state.setBounds);
-  const bounds = useMapStore((state) => state.bounds);
-  const mapLevel = useMapStore((state) => state.mapLevel);
-  const setMapLevel = useMapStore((state) => state.setMapLevel);
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const [mapReady, setMapReady] = useState(false);
@@ -139,38 +136,32 @@ export default function Home() {
   );
 
   /**
-   * 카드나 지도 핀을 눌렀을 때.
+   * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
    *
-   * **카드 전체가 누를 자리다.** 예전에는 고른 카드에만 작은 `상세 보기` 버튼이 나타났는데,
-   * 표적이 너무 작았다. 대신 "지금 그 장소를 제대로 보고 있는가"로 갈래를 나눈다.
-   *
-   * - 충분히 당겨져 있고(축척 250m 이하) 화면 안에 있으면 — 이미 보고 있는 장소다.
-   *   가운데로 맞추면서 곧바로 상세로 넘어간다.
-   * - 그렇지 않으면 — 먼저 보여준다. 멀리서 보고 있었으면 250m까지 당기고, 화면 밖이면
-   *   손으로 쓸어가듯 중앙으로 데려온다. 한 번 더 누르면 위 조건이 맞아 상세로 넘어간다.
-   *
-   * 그래서 누르는 횟수는 늘 둘 중 하나다. 이미 보고 있던 장소면 한 번, 아니면 두 번.
-   *
-   * 축척을 되돌리지는 않는다. 사용자가 250m보다 더 가까이 당겨 둔 상태라면 그대로 둔다
-   * (판정은 `focusPlace`가 지도 쪽에서 한 번 더 한다).
+   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
+   * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
+   * 이어지는 일이 없다.
    */
-  const choosePlace = useCallback(
+  const openPlace = useCallback((placeId: string) => router.push(`/place/${placeId}`), []);
+
+  /**
+   * 카드나 지도 핀을 눌렀을 때. 상세로 넘어가지 않고 그 장소를 보여주기만 한다.
+   *
+   * 멀리서 보고 있었으면 250m까지 당기고, 화면 밖이면 손으로 쓸어가듯 중앙으로 데려온다.
+   * 이미 그보다 가까이 당겨 둔 상태라면 축척은 그대로 둔다 — 판정은 지도 쪽 `focusPlace`가
+   * 한다. 이 화면은 어디로 갈지만 정하고, 얼마나 당길지는 지도가 정한다.
+   */
+  const focusPlace = useCallback(
     (placeId: string) => {
       const place = places.find((item) => item.id === placeId);
       if (!place) return;
 
-      const coordinate = { latitude: place.latitude, longitude: place.longitude };
-      const closeEnough = mapLevel !== null && mapLevel <= PLACE_FOCUS_MAP_LEVEL;
-      const onScreen = bounds !== null && isWithinBounds(bounds, coordinate);
-
       selectPlace(placeId);
       // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
       if (level === 2) moveTo(1);
-      setPendingPan(coordinate);
-
-      if (closeEnough && onScreen) router.push(`/place/${placeId}`);
+      setPendingPan({ latitude: place.latitude, longitude: place.longitude });
     },
-    [bounds, level, mapLevel, moveTo, selectPlace],
+    [level, moveTo, selectPlace],
   );
 
   const handleViewChange = useCallback(
@@ -180,10 +171,8 @@ export default function Home() {
         southWest: { latitude: view.bounds.swLat, longitude: view.bounds.swLng },
         northEast: { latitude: view.bounds.neLat, longitude: view.bounds.neLng },
       });
-      // 카드를 눌렀을 때 얼마나 가까이 보고 있는지 판정하려면 축척도 알아야 한다.
-      setMapLevel(view.level);
     },
-    [setBounds, setCenter, setMapLevel],
+    [setBounds, setCenter],
   );
 
   const clearSelection = useCallback(() => selectPlace(null), [selectPlace]);
@@ -277,8 +266,8 @@ export default function Home() {
           // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
-          // 지도 핀도 카드와 같은 규칙을 따른다. 같은 장소인데 반응이 다르면 헷갈린다.
-          onPinPress={choosePlace}
+          // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
+          onPinPress={focusPlace}
           onMapPress={clearSelection}
           onViewChange={handleViewChange}
         />
@@ -382,15 +371,9 @@ export default function Home() {
             <Pressable
               key={place.id}
               accessibilityRole="button"
-              /*
-                한 번 눌러 바로 상세로 가는지, 지도부터 맞추는지가 상황에 따라 다르다.
-                읽는 사람이 무엇이 일어날지 알 수 있도록 라벨도 그에 맞춰 바꾼다.
-              */
-              accessibilityLabel={
-                place.id === selectedPlaceId ? `${place.name} 상세 보기` : `${place.name} 지도에서 보기`
-              }
+              accessibilityLabel={`${place.name} 지도에서 보기`}
               accessibilityState={{ selected: place.id === selectedPlaceId }}
-              onPress={() => choosePlace(place.id)}
+              onPress={() => focusPlace(place.id)}
               /*
                 첫 카드만 재서 "기본" 단계 높이를 정한다. 카드 구조가 같아 하나로 충분하고,
                 모두 재면 같은 값을 여러 번 쓰게 된다. 값이 실제로 바뀔 때만 반영해 되풀이를 막는다.
@@ -416,22 +399,26 @@ export default function Home() {
                   </Text>
                 </View>
                 {/*
-                  버튼이 아니라 표시다. 누를 자리는 카드 전체다.
+                  상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
 
-                  예전에는 고른 카드에만 작은 `상세 보기` 버튼이 나타났는데 표적이 너무 작아
-                  잘 눌리지 않았다. 지금은 어디를 눌러도 같으므로, 이 자리는 다음에 무엇이
-                  일어날지만 알려 준다 — 고른 카드는 상세로, 아직 아닌 카드는 지도 이동으로.
+                  고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
+                  예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
+                  실제로는 카드와 같은 동작이라 오해를 샀다.
+
+                  글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
+                  표적은 아이콘보다 훨씬 크게 잡는다.
                 */}
-                <View style={s.cardHint}>
-                  <Ionicons
-                    name={place.id === selectedPlaceId ? 'chevron-forward' : 'location-outline'}
-                    size={20}
-                    color={place.id === selectedPlaceId ? colors.dark : colors.gray400}
-                  />
-                  <Text style={[s.cardHintText, place.id === selectedPlaceId && s.cardHintTextActive]}>
-                    {place.id === selectedPlaceId ? '상세 보기' : '지도에서'}
-                  </Text>
-                </View>
+                {place.id === selectedPlaceId && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${place.name} 상세 보기`}
+                    hitSlop={16}
+                    onPress={() => openPlace(place.id)}
+                    style={s.detailChevron}
+                  >
+                    <Ionicons name="chevron-forward" size={22} color={colors.dark} />
+                  </Pressable>
+                )}
               </View>
               <View style={s.cardRule} />
               <Text style={s.pinUpload}>감지카메라 외 {place.pins}명이 핀을 업로드했습니다</Text>
@@ -545,10 +532,23 @@ const s = StyleSheet.create({
   },
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
   placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.x3 },
-  cardHint: { alignItems: 'center', gap: 2, paddingLeft: spacing.x2 },
-  cardHintText: { ...type.caption, color: colors.gray400 },
-  cardHintTextActive: { color: colors.dark, fontWeight: '600' },
+  // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
+  /**
+   * 꺽새를 담는 칸.
+   *
+   * 높이를 장소명 한 줄(`type.title`의 lineHeight 26)과 같게 두고 가운데 정렬해, 꺽새가
+   * 이름과 같은 높이에 놓인다. 글꼴 크기 설정이 바뀌어도 두 값이 함께 움직인다.
+   *
+   * 글자가 없어 눌리는 넓이는 이 칸이 확보하고, 모자란 만큼은 hitSlop으로 넓힌다.
+   */
+  detailChevron: {
+    width: 32,
+    height: type.title.lineHeight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.x2,
+  },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
