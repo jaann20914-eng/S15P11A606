@@ -33,10 +33,15 @@ pipeline {
         JWT_SECRET            = credentials('waggle-jwt-secret')
         AWS_ACCESS_KEY_ID     = credentials('waggle-aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('waggle-aws-secret-access-key')
+        RABBITMQ_PASSWORD     = credentials('waggle-rabbitmq-password')
 
         // 비밀값이 아니므로 직접 작성 가능
         KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
         NAVER_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/naver'
+
+        RABBITMQ_HOST     = 'waggle-rabbitmq'
+        RABBITMQ_PORT     = '5672'
+        RABBITMQ_USERNAME = 'waggle'
 
         AWS_S3_BUCKET = 'waggle-waggle'
         AWS_REGION    = 'ap-northeast-2'
@@ -130,6 +135,10 @@ pipeline {
                         -e DB_USERNAME="$DB_USER" \
                         -e DB_PASSWORD="$DB_PASSWORD" \
                         -e ES_URIS="$ES_URIS" \
+                        -e RABBITMQ_HOST="$RABBITMQ_HOST" \
+                        -e RABBITMQ_PORT="$RABBITMQ_PORT" \
+                        -e RABBITMQ_USERNAME="$RABBITMQ_USERNAME" \
+                        -e RABBITMQ_PASSWORD="$RABBITMQ_PASSWORD" \
                         -e KAKAO_REST_API_KEY="$KAKAO_REST_API_KEY" \
                         -e KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET" \
                         -e KAKAO_REDIRECT_URI="$KAKAO_REDIRECT_URI" \
