@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { Dimensions, Keyboard, Platform } from 'react-native';
 import type { KeyboardEvent, View } from 'react-native';
 import type { RefObject } from 'react';
 
@@ -26,10 +26,20 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
 
       if (node === null) return;
 
-      const keyboardTop = event.endCoordinates.screenY;
+      /*
+        **아래에서부터** 잰다.
+
+        키보드 위치(`screenY`)는 화면 기준이고 `measureInWindow`는 창 기준이라, 상태바만큼
+        원점이 어긋나 있다. 그 차이가 그대로 오차가 되어 버튼이 조금 가렸다. 둘 다 아래에서
+        떨어진 거리로 바꾸면 위쪽 원점 차이가 상쇄된다.
+      */
+      const keyboardHeight = event.endCoordinates.height;
+      const windowHeight = Dimensions.get('window').height;
 
       node.measureInWindow((_x, y, _width, height) => {
-        setOverlap(Math.max(0, y + height - keyboardTop));
+        const gapBelow = windowHeight - (y + height);
+
+        setOverlap(Math.max(0, keyboardHeight - gapBelow));
       });
     };
 
