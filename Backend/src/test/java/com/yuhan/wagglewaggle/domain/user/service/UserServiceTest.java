@@ -1,6 +1,5 @@
 package com.yuhan.wagglewaggle.domain.user.service;
 
-import com.yuhan.wagglewaggle.domain.chat.filter.ProfanityFilter;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
@@ -41,7 +40,7 @@ class UserServiceTest {
     private MemberRepository memberRepository;
 
     @Mock
-    private ProfanityFilter profanityFilter;
+    private ForbiddenNicknamePolicy forbiddenNicknamePolicy;
 
     @InjectMocks
     private UserService userService;
@@ -121,7 +120,7 @@ class UserServiceTest {
     void 수정_성공() {
         Member member = member("와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
         given(memberRepository.existsByNickname("새와글러")).willReturn(false);
 
         NicknameUpdateResponse result = userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("새와글러"));
@@ -136,7 +135,7 @@ class UserServiceTest {
     void 수정_대문자_정규화() {
         Member member = member("oldnick");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("newnick")).willReturn("newnick");
+        given(forbiddenNicknamePolicy.isForbidden("newnick")).willReturn(false);
         given(memberRepository.existsByNickname("newnick")).willReturn(false);
 
         NicknameUpdateResponse result = userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("NewNick"));
@@ -146,15 +145,15 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("정규화 결과가 현재 닉네임과 같으면 변경 없이 성공 처리한다")
+    @DisplayName("정규화 결과가 현재 닉네임과 같으면 금칙어·중복 검사 없이 성공 처리한다")
     void 수정_현재와_동일하면_변경없음() {
         Member member = member("와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("와글러")).willReturn("와글러");
 
         NicknameUpdateResponse result = userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("와글러"));
 
         assertThat(result.nickname()).isEqualTo("와글러");
+        verify(forbiddenNicknamePolicy, never()).isForbidden(anyString());
         verify(memberRepository, never()).existsByNickname(anyString());
         verify(memberRepository, never()).saveAndFlush(any());
     }
@@ -189,22 +188,24 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("금칙어 닉네임이면 INVALID_NICKNAME으로 실패하고 사용자 조회를 하지 않는다")
+    @DisplayName("금칙어 닉네임이면 INVALID_NICKNAME으로 실패하고 중복 검사·저장을 하지 않는다")
     void 수정_금칙어() {
-        given(profanityFilter.mask("나쁜말")).willReturn("***");
+        Member member = member("와글러");
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(forbiddenNicknamePolicy.isForbidden("관리자")).willReturn(true);
 
-        assertThatThrownBy(() -> userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("나쁜말")))
+        assertThatThrownBy(() -> userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("관리자")))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_NICKNAME);
 
-        verify(memberRepository, never()).findById(anyLong());
+        verify(memberRepository, never()).existsByNickname(anyString());
+        verify(memberRepository, never()).saveAndFlush(any());
     }
 
     @Test
     @DisplayName("사용자가 없으면 USER_NOT_FOUND로 실패한다")
     void 수정_사용자없음() {
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("새와글러")))
@@ -218,7 +219,6 @@ class UserServiceTest {
     void 수정_탈퇴사용자() {
         Member withdrawn = member("와글러");
         ReflectionTestUtils.setField(withdrawn, "deletedAt", Instant.parse("2026-08-01T00:00:00Z"));
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(withdrawn));
 
         assertThatThrownBy(() -> userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("새와글러")))
@@ -232,7 +232,7 @@ class UserServiceTest {
     void 수정_중복() {
         Member member = member("와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
         given(memberRepository.existsByNickname("새와글러")).willReturn(true);
 
         assertThatThrownBy(() -> userService.updateNickname(MEMBER_ID, new NicknameUpdateRequest("새와글러")))
@@ -248,7 +248,7 @@ class UserServiceTest {
     void 수정_동시_유니크위반() {
         Member member = member("와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
         given(memberRepository.existsByNickname("새와글러")).willReturn(false);
         given(memberRepository.saveAndFlush(member))
                 .willThrow(new DataIntegrityViolationException("uq_member_nickname"));
@@ -264,7 +264,7 @@ class UserServiceTest {
     void 수정_저장실패() {
         Member member = member("와글러");
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
-        given(profanityFilter.mask("새와글러")).willReturn("새와글러");
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
         given(memberRepository.existsByNickname("새와글러")).willReturn(false);
         given(memberRepository.saveAndFlush(member)).willThrow(new RuntimeException("db down"));
 

@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
+import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.ServiceAccess;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,9 +31,11 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -148,7 +152,7 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("닉네임 수정 성공 시 200과 변경된 닉네임을 반환한다")
+    @DisplayName("닉네임 수정 성공 시 200과 변경된 닉네임을 반환하고 요청 본문을 서비스에 전달한다")
     void 닉네임수정_200() throws Exception {
         given(userService.updateNickname(eq(MEMBER_ID), any()))
                 .willReturn(new NicknameUpdateResponse("새와글러"));
@@ -160,6 +164,11 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.statusCode").value(200))
                 .andExpect(jsonPath("$.message").value("닉네임이 수정되었습니다."))
                 .andExpect(jsonPath("$.data.nickname").value("새와글러"));
+
+        // 요청 본문이 NicknameUpdateRequest로 바인딩되어 서비스에 그대로 전달되는지 검증한다.
+        ArgumentCaptor<NicknameUpdateRequest> captor = ArgumentCaptor.forClass(NicknameUpdateRequest.class);
+        verify(userService).updateNickname(eq(MEMBER_ID), captor.capture());
+        assertThat(captor.getValue().nickname()).isEqualTo("새와글러");
     }
 
     @Test
