@@ -302,8 +302,21 @@ async function waitForReplacement(
   });
 }
 
-/** 발급받은 티켓. 재시도할 때 같은 키를 쓰기 위해 화면 밖에 둔다. */
+/**
+ * 발급받은 티켓. 재시도할 때 같은 영상을 두 번 올리지 않으려고 화면 밖에 둔다.
+ *
+ * 다만 **아무 때나 재사용하면 안 된다.** 키는 한 번만 쓸 수 있고, 등록이 접수되는 순간 그 핀의
+ * 것이 된다. 그래서 접수에 성공하면 곧바로 비우고(아래 3번), 새로 찍은 영상에는 다시 발급받는다.
+ */
 let ticket: VideoUploadTicket | null = null;
+
+/**
+ * 티켓이 어느 파일의 것인지.
+ *
+ * 이 값을 두지 않았을 때, 검수에서 걸려 다시 찍어도 예전 티켓을 그대로 써서 새 영상은 올라가지
+ * 않고 이미 쓴 키로 등록을 시도했다 — 서버가 "이미 등록에 사용한 영상"으로 거절한다.
+ */
+let ticketFileUri: string | null = null;
 /** 진행 중인 업로드를 취소하기 위한 손잡이. */
 let cancelUpload: (() => void) | null = null;
 /** 취소된 시도의 결과가 상태를 되살리지 못하게 막는다. */
@@ -339,8 +352,8 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
     const fileUri = draft.video.uri;
 
     const run = async () => {
-      // 1. 발급 — 이미 받은 티켓이 있으면 재사용한다.
-      if (!ticket) {
+      // 1. 발급 — **같은 파일**로 다시 시도하는 경우에만 앞서 받은 티켓을 재사용한다.
+      if (!ticket || ticketFileUri !== fileUri) {
         set({ phase: 'issuing' });
         const size = await readVideoSize(fileUri);
         logPublish('발급 요청', { contentType: VIDEO_CONTENT_TYPE, fileSize: size });
@@ -352,6 +365,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
           expiresAt: issued.expiresAt,
         });
         ticket = issued;
+        ticketFileUri = fileUri;
 
         // 2. 업로드 — 티켓을 새로 받았을 때만 올린다.
         set({ phase: 'uploading' });
@@ -401,6 +415,13 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
       if (!alive()) return;
       logPublish('등록 접수', { pinId: result.pinId, videoStatus: result.videoStatus });
 
+      /*
+        접수된 순간 이 키는 그 핀의 것이 된다. 검수에서 걸리더라도 되돌아오지 않는다.
+        여기서 비워 두지 않으면 다음 시도가 쓸 수 없는 키를 들고 간다.
+      */
+      ticket = null;
+      ticketFileUri = null;
+
       // 4. 처리 대기 — 접수만 된 상태다. 완료될 때까지 상태를 물어본다.
       set({ phase: 'processing', pinId: result.pinId, videoStatus: result.videoStatus });
       await waitForCompletion(result.pinId, alive, set);
@@ -449,7 +470,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
 
     const run = async () => {
       // 1~2. 영상을 바꿀 때만 발급하고 올린다. 글자만 고쳤으면 이 단계가 통째로 없다.
-      if (replacement && !ticket) {
+      if (replacement && (!ticket || ticketFileUri !== replacement.uri)) {
         set({ phase: 'issuing' });
         const size = await readVideoSize(replacement.uri);
         logPublish('교체 발급 요청', { contentType: VIDEO_CONTENT_TYPE, fileSize: size });
@@ -457,6 +478,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
         const issued = await issueVideoUploadTicket(VIDEO_CONTENT_TYPE, size);
         if (!alive()) return;
         ticket = issued;
+        ticketFileUri = replacement.uri;
 
         set({ phase: 'uploading' });
         const upload = startVideoUpload(issued, replacement.uri, (ratio) => {
@@ -481,6 +503,10 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
 
       const result = await updatePin(pinId, body);
       if (!alive()) return;
+
+      // 등록과 같다 — 보낸 키는 이 핀의 것이 되므로 다음 시도가 물려받지 않게 비운다.
+      ticket = null;
+      ticketFileUri = null;
       logPublish('수정 완료', {
         updatedFields: result.updatedFields,
         videoReplacementStatus: result.videoReplacementStatus ?? '없음',
@@ -541,6 +567,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
     attempt += 1;
     cancelUpload = null;
     ticket = null;
+    ticketFileUri = null;
     set(initialState);
   },
 }));
