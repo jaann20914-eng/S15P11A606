@@ -10,7 +10,7 @@
   - strokeWidth = size * 0.045
   - radius = size / 2 - strokeWidth
   - 색이 있는 구간의 비율은 인자로 받는다. 나머지는 비고 양 끝은 둥글게 처리한다.
-  - 그라데이션: 왼쪽 위 → 오른쪽 아래
+  - 그라데이션은 호를 따라 흐른다. 머리(12시에서 시작하는 쪽)가 가장 진하다.
 */
 const fs = require('fs');
 const zlib = require('zlib');
@@ -53,34 +53,44 @@ function gradientAt(t) {
   return { rgb: STOPS[0].rgb, alpha: STOPS[0].alpha };
 }
 
+/** 12시 방향에서 시작해 시계 방향으로 그린다. 호가 짧을 때 맨 위에 놓이도록. */
+const START_ANGLE = -Math.PI / 2;
+
+/** 색이 있는 구간이 차지하는 각도. */
+const SPAN = Math.PI * 2 * DASH_RATIO;
+
 /**
- * 이 점이 링 안에 있는지.
+ * 이 점이 호의 어디쯤인지. 호 밖이면 null.
  *
- * 띠(가운데 원에서 두께의 절반 이내) 위에 있고, 색이 있는 각도 구간에 들어야 한다.
- * 구간 밖이라도 양 끝의 둥근 마개 안이면 칠한다.
+ * 돌려주는 값은 **호를 따라간 비율**이다(0 = 머리, 1 = 꼬리). 그림 전체를 가로지르는
+ * 그라데이션이 아니라 이 값으로 색을 정해야, 길이가 달라져도 머리는 늘 진한 연두로 남는다.
+ * 가로 그라데이션을 쓰면 짧은 호가 그림 어디에 놓이느냐에 따라 색이 달라진다.
  */
-function inRing(x, y) {
+function sampleArc(x, y) {
   const cx = x - SIZE / 2;
   const cy = y - SIZE / 2;
   const distance = Math.hypot(cx, cy);
   const half = STROKE / 2;
 
   if (Math.abs(distance - RADIUS) <= half) {
-    // SVG와 같게 3시 방향에서 시작해 시계 방향으로 진행한다.
-    let angle = Math.atan2(cy, cx);
-    if (angle < 0) angle += Math.PI * 2;
+    let travelled = Math.atan2(cy, cx) - START_ANGLE;
+    while (travelled < 0) travelled += Math.PI * 2;
 
-    if (angle <= Math.PI * 2 * DASH_RATIO) return true;
+    if (travelled <= SPAN) return travelled / SPAN;
   }
 
-  for (const end of [0, Math.PI * 2 * DASH_RATIO]) {
-    const ex = Math.cos(end) * RADIUS;
-    const ey = Math.sin(end) * RADIUS;
+  // 양 끝의 둥근 마개. 머리 쪽은 0, 꼬리 쪽은 1로 친다.
+  for (const [angle, t] of [
+    [START_ANGLE, 0],
+    [START_ANGLE + SPAN, 1],
+  ]) {
+    const ex = Math.cos(angle) * RADIUS;
+    const ey = Math.sin(angle) * RADIUS;
 
-    if (Math.hypot(cx - ex, cy - ey) <= half) return true;
+    if (Math.hypot(cx - ex, cy - ey) <= half) return t;
   }
 
-  return false;
+  return null;
 }
 
 const raw = Buffer.alloc(SIZE * (SIZE * 4 + 1));
@@ -91,13 +101,18 @@ for (let y = 0; y < SIZE; y += 1) {
 
   for (let x = 0; x < SIZE; x += 1) {
     let hits = 0;
+    let travelledSum = 0;
 
     for (let sy = 0; sy < SUPERSAMPLE; sy += 1) {
       for (let sx = 0; sx < SUPERSAMPLE; sx += 1) {
         const px = x + (sx + 0.5) / SUPERSAMPLE;
         const py = y + (sy + 0.5) / SUPERSAMPLE;
+        const travelled = sampleArc(px, py);
 
-        if (inRing(px, py)) hits += 1;
+        if (travelled === null) continue;
+
+        hits += 1;
+        travelledSum += travelled;
       }
     }
 
@@ -106,7 +121,7 @@ for (let y = 0; y < SIZE; y += 1) {
 
     if (coverage === 0) continue;
 
-    const { rgb, alpha } = gradientAt((x + y) / (SIZE * 2));
+    const { rgb, alpha } = gradientAt(travelledSum / hits);
     const finalAlpha = alpha * coverage;
 
     // 미리 곱하지 않은 값으로 저장한다(PNG 규격).
