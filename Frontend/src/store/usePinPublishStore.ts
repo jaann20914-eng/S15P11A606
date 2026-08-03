@@ -117,6 +117,31 @@ const messageByCode: Record<string, string> = {
   PIN_UPDATE_FAILED: '수정하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
+/**
+ * 서버 응답이 아니라 **기기에서 나가지도 못한** 실패의 표시들.
+ *
+ * 영상은 우리 서버가 아니라 S3로 바로 올라간다. 그 주소를 못 찾거나 닿지 못하면 여기서 끊기고,
+ * 오류 코드가 없어 원문 예외가 그대로 화면에 뜬다 — "Unable to resolve host ..." 같은 문장은
+ * 사용자가 무엇을 해야 하는지 알려 주지 않는다.
+ *
+ * 안드로이드·iOS가 쓰는 문구가 서로 달라 몇 가지를 함께 본다.
+ */
+const NETWORK_FAILURE_HINTS = [
+  'Unable to resolve host',
+  'No address associated',
+  'Failed to connect',
+  'Network request failed',
+  'Software caused connection abort',
+  'timed out',
+];
+
+const NETWORK_FAILURE_MESSAGE =
+  '영상 저장소에 연결하지 못했어요. 네트워크를 바꿔(다른 와이파이나 모바일 데이터) 다시 시도해 주세요.';
+
+function isNetworkFailure(cause: unknown): boolean {
+  return cause instanceof Error && NETWORK_FAILURE_HINTS.some((hint) => cause.message.includes(hint));
+}
+
 /** 다시 시도해서 풀릴 수 있는 실패. 입력을 고쳐야 하는 실패와 구분한다. */
 const retryableCodes = new Set([
   'PIN_CREATE_FAILED',
@@ -394,9 +419,11 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
         progress: 0,
         error: isApiError
           ? (messageByCode[cause.code] ?? cause.message)
-          : cause instanceof Error
-            ? cause.message
-            : '핀을 등록하지 못했어요',
+          : isNetworkFailure(cause)
+            ? NETWORK_FAILURE_MESSAGE
+            : cause instanceof Error
+              ? cause.message
+              : '핀을 등록하지 못했어요',
         // 업로드 실패는 네트워크 문제가 대부분이라 다시 시도할 값이 있다.
         retryable: isApiError ? retryableCodes.has(cause.code) : true,
       });
@@ -487,9 +514,11 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
         progress: 0,
         error: isApiError
           ? (messageByCode[cause.code] ?? cause.message)
-          : cause instanceof Error
-            ? cause.message
-            : '영상핀을 수정하지 못했어요',
+          : isNetworkFailure(cause)
+            ? NETWORK_FAILURE_MESSAGE
+            : cause instanceof Error
+              ? cause.message
+              : '영상핀을 수정하지 못했어요',
         retryable: isApiError ? retryableCodes.has(cause.code) : true,
       });
     });
