@@ -4,6 +4,7 @@ import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
+import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
 import { useKeyboardHeight } from '@/hooks/useKeyboardHeight';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
@@ -57,6 +58,16 @@ export default function PinCreateScreen() {
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
   const [focused, setFocused] = useState(false);
   const keyboardHeight = useKeyboardHeight();
+  const tabBarHeight = useAppTabBarHeight();
+
+  /*
+    키보드가 이 화면을 덮는 높이.
+
+    키보드 높이는 창 맨 아래를 기준으로 재는데, 그 아래에는 탭바가 깔려 있다. 그 값을 그대로
+    쓰면 탭바 높이만큼 더 밀려 버튼 아래에 빈 자리가 생긴다. 실제로 이 화면을 덮는 만큼만
+    비운다.
+  */
+  const keyboardOverlap = Math.max(0, keyboardHeight - tabBarHeight);
 
   /*
     입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
@@ -180,7 +191,7 @@ export default function PinCreateScreen() {
             여백을 주면 그 위 영역에서만 배치돼, 버튼은 키보드 바로 위로 올라오고 스크롤도
             보이는 범위 안에서 움직인다.
           */
-          <View style={[s.form, { paddingBottom: keyboardHeight }]}>
+          <View style={[s.form, { paddingBottom: keyboardOverlap }]}>
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
