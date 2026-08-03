@@ -65,13 +65,19 @@ export default function Search() {
   */
   const boundsQuery = useMemo(() => (bounds === null ? null : toBoundsQuery(bounds)), [bounds]);
 
-  const tags = useTagSuggestions(places.keyword, boundsQuery);
+  // `#`을 뗀 값을 보낸다. 서버도 떼지만, 보내는 쪽에서 맞춰야 로그와 실제 질의가 같아진다.
+  const tags = useTagSuggestions(toTagName(places.keyword), boundsQuery);
   const recent = useRecentSearches();
   const confirm = usePlaceConfirm();
 
   const query = places.keyword.trim();
   const tagName = toTagName(places.keyword);
   const searching = query.length > 0;
+  /*
+    `#`으로 시작하면 태그를 찾겠다는 뜻으로 읽어 장소 구역을 접는다. 요청 자체는
+    `usePlaceSearch`가 보내지 않는다(장소명은 `#`으로 시작하지 않는다).
+  */
+  const tagOnly = query.startsWith('#');
   const loading = places.loading || tags.loading;
 
   /**
@@ -208,46 +214,48 @@ export default function Search() {
               ))}
             </View>
 
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>장소</Text>
+            {!tagOnly && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>장소</Text>
 
-              {/* 두 글자부터 요청한다. 그 전에는 왜 결과가 없는지 알려 준다. */}
-              {query.length < MIN_PLACE_QUERY_LENGTH && (
-                <Text style={s.status}>{MIN_PLACE_QUERY_LENGTH}글자 이상 입력해 주세요.</Text>
-              )}
+                {/* 두 글자부터 요청한다. 그 전에는 왜 결과가 없는지 알려 준다. */}
+                {query.length < MIN_PLACE_QUERY_LENGTH && (
+                  <Text style={s.status}>{MIN_PLACE_QUERY_LENGTH}글자 이상 입력해 주세요.</Text>
+                )}
 
-              {places.error !== null && (
-                <View style={s.statusBlock}>
-                  <Text accessibilityRole="alert" style={s.status}>
-                    {places.error}
-                  </Text>
-                  {/* 외부 장소 API 장애처럼 다시 시도할 값이 있을 때만 버튼을 준다. */}
-                  {places.retryable && (
-                    <Pressable onPress={places.retry} style={s.retryButton}>
-                      <Text style={s.retryText}>다시 시도</Text>
-                    </Pressable>
-                  )}
-                </View>
-              )}
+                {places.error !== null && (
+                  <View style={s.statusBlock}>
+                    <Text accessibilityRole="alert" style={s.status}>
+                      {places.error}
+                    </Text>
+                    {/* 외부 장소 API 장애처럼 다시 시도할 값이 있을 때만 버튼을 준다. */}
+                    {places.retryable && (
+                      <Pressable onPress={places.retry} style={s.retryButton}>
+                        <Text style={s.retryText}>다시 시도</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
 
-              {places.empty && <Text style={s.status}>이름이 일치하는 장소가 없어요.</Text>}
+                {places.empty && <Text style={s.status}>이름이 일치하는 장소가 없어요.</Text>}
 
-              {places.results.map((place) => (
-                <SearchRow
-                  key={place.kakaoPlaceId}
-                  icon="place"
-                  accessibilityLabel={`${place.name} 장소 보기`}
-                  onPress={() => openPlace(place)}
-                  pending={confirm.pendingId === place.kakaoPlaceId}
-                >
-                  <HighlightedText text={place.name} query={query} />
-                  <Text numberOfLines={1} style={s.placeAddress}>
-                    {place.address}
-                  </Text>
-                  <Text style={s.placeMeta}>{formatDistance(place.distanceMeters)}</Text>
-                </SearchRow>
-              ))}
-            </View>
+                {places.results.map((place) => (
+                  <SearchRow
+                    key={place.kakaoPlaceId}
+                    icon="place"
+                    accessibilityLabel={`${place.name} 장소 보기`}
+                    onPress={() => openPlace(place)}
+                    pending={confirm.pendingId === place.kakaoPlaceId}
+                  >
+                    <HighlightedText text={place.name} query={query} />
+                    <Text numberOfLines={1} style={s.placeAddress}>
+                      {place.address}
+                    </Text>
+                    <Text style={s.placeMeta}>{formatDistance(place.distanceMeters)}</Text>
+                  </SearchRow>
+                ))}
+              </View>
+            )}
           </>
         ) : recent.loading ? (
           <View style={s.centered}>

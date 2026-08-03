@@ -19,7 +19,18 @@ export type DevLogger = (step: string, detail?: Record<string, unknown>) => void
 export function createDevLogger(scope: string): DevLogger {
   return (step, detail) => {
     if (!__DEV__) return;
-    console.log(`[${scope}] ${step}`, detail ?? '');
+
+    if (detail === undefined) {
+      console.log(`[${scope}] ${step}`);
+      return;
+    }
+
+    /*
+      값이 `undefined`인 항목은 뺀다. 조건이 맞을 때만 적는 항목(예: 0건일 때의 비고)을
+      두면 나머지 경우에 `비고: undefined`가 줄마다 찍혀 읽는 데 방해가 된다.
+    */
+    const kept = Object.entries(detail).filter(([, value]) => value !== undefined);
+    console.log(`[${scope}] ${step}`, Object.fromEntries(kept));
   };
 }
 

@@ -126,7 +126,14 @@ export function usePlaceSearch({
   useEffect(() => {
     const query = keyword.trim();
 
-    if (query.length < MIN_PLACE_QUERY_LENGTH) {
+    /*
+      `#`으로 시작하면 장소를 찾는 것이 아니다. 장소명은 `#`으로 시작하지 않고, 사용자가
+      그걸 붙였다면 태그를 찾겠다는 뜻이다.
+
+      실기에서 `#개발자`를 넣었더니 카카오가 "개발자학원" 6건을 돌려줬다. 서버가 태그
+      쪽에서만 `#`을 떼기 때문에 장소 검색에는 그대로 실려 나간 것이다.
+    */
+    if (query.startsWith('#') || query.length < MIN_PLACE_QUERY_LENGTH) {
       reset();
       return;
     }
