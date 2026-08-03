@@ -9,7 +9,22 @@ export const pinCreateStyles = StyleSheet.create({
   /* 화면 골격 */
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1 },
-  content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5 },
+  form: { flex: 1 },
+  /** 아래 고정 영역이 자리를 차지하므로 내용에는 탭바 높이를 더하지 않는다. */
+  content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5, paddingBottom: spacing.x6 },
+  /**
+   * 늘 보이는 등록 버튼 자리.
+   *
+   * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위에 경계를 둔다. 아래 여백은 탭바 높이만큼
+   * 화면에서 넣어 준다(게시글 상세의 행동 영역과 같은 방식).
+   */
+  actionBar: {
+    paddingHorizontal: layout.gutter,
+    paddingTop: spacing.x4,
+    borderTopWidth: 1,
+    borderTopColor: colors.gray200,
+    backgroundColor: colors.white,
+  },
 
   /* 헤더는 공용 컴포넌트(`ScreenHeader`)가 그린다. 이 화면이 그 모양의 기준이었다. */
 
@@ -238,12 +253,11 @@ export const pinCreateStyles = StyleSheet.create({
     color: colors.dark,
   },
 
-  /* 등록 버튼 */
+  /* 등록 버튼. 위 여백은 감싸는 고정 영역(`actionBar`)이 준다. */
   submit: {
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.x8,
     borderRadius: radius.lg,
     backgroundColor: colors.lime,
   },

@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -143,36 +152,54 @@ export default function PinCreateScreen() {
         ) : phase !== 'idle' ? (
           <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
         ) : (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 40 }]}
+          /*
+            키보드가 올라오면 화면을 그만큼 밀어 올린다.
+
+            그러지 않으면 아래쪽 입력칸(상세 위치)이 키보드에 가려 무엇을 치는지 보이지 않고,
+            아래 고정된 등록 버튼도 키보드 뒤로 들어간다. 안드로이드는 창 자체가 줄어들어
+            이것만으로 충분하고, iOS는 아래 여백을 키보드 높이만큼 넣어 같은 결과를 만든다.
+          */
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={s.form}
           >
-            <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={s.content}
+            >
+              <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
-            <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
+              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
 
-            <MemoField value={form.draft.memo} onChange={form.setMemo} />
+              <MemoField value={form.draft.memo} onChange={form.setMemo} />
 
-            <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
+              <TagField tags={form.draft.tags} onAdd={form.addTag} onRemove={form.removeTag} />
 
-            {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
-            {mode.type === 'edit' ? (
-              <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
-            ) : (
-              <PlaceField
-                place={form.draft.place}
-                onSelect={form.setPlace}
-                droppedPlaceName={form.droppedPlaceName}
-              />
-            )}
+              {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
+              {mode.type === 'edit' ? (
+                <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
+              ) : (
+                <PlaceField
+                  place={form.draft.place}
+                  onSelect={form.setPlace}
+                  droppedPlaceName={form.droppedPlaceName}
+                />
+              )}
 
-            <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
+              <DetailLocationField value={form.draft.detailLocation} onChange={form.setDetailLocation} />
+            </ScrollView>
 
-            <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
-              <Text style={s.submitText}>{copy.submitLabel}</Text>
-            </Pressable>
-          </ScrollView>
+            {/*
+              등록 버튼은 늘 보인다. 예전에는 입력칸 아래에 붙어 있어서 끝까지 스크롤해야
+              나타났다 — 다 쓰고도 어디서 등록하는지 못 찾는 자리였다.
+            */}
+            <View style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}>
+              <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
+                <Text style={s.submitText}>{copy.submitLabel}</Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
         )}
       </View>
     </SafeAreaView>
