@@ -10,7 +10,6 @@ import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
-import com.yuhan.wagglewaggle.domain.place.service.PlaceScoreRecalculationPort;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.s3.S3ObjectInspector;
@@ -43,7 +42,7 @@ import java.time.Instant;
  *       원자적으로 새 영상으로 교체한다. FAIL·FAILED와 반영 불가 결과는 기존 영상을 유지하고 작업만 종료한다.</li>
  * </ul>
  *
- * <p>삭제 대상 등록·장소 점수 재계산은 DB 커밋 이후 수행한다({@link #runAfterCommit}).
+ * <p>삭제 대상 등록은 DB 커밋 이후 수행한다({@link #runAfterCommit}).
  */
 @Slf4j
 @Service
@@ -55,7 +54,6 @@ public class AiBlurResultService {
     private final PinRepository pinRepository;
     private final S3ObjectInspector s3ObjectInspector;
     private final VideoObjectCleanupPort videoObjectCleanupPort;
-    private final PlaceScoreRecalculationPort placeScoreRecalculationPort;
     private final Clock clock;
 
     @Transactional
@@ -118,6 +116,7 @@ public class AiBlurResultService {
     /**
      * PASS: 블러 영상·썸네일이 S3에 실제로 존재할 때만 Pin을 ACTIVE로 전환한다.
      * 하나라도 확인할 수 없으면 DB를 변경하지 않는다(작업은 PENDING으로 남겨 재처리 여지를 둔다).
+     * expiresAt은 메시지의 과거 시각이 아니라 Back이 PASS 결과를 반영하는 서버 시각(clock) 기준 1시간 뒤로 설정한다.
      */
     private AiBlurResultOutcome applyPass(Pin pin, AiBlurJob job, AiBlurResultMessage message) {
         if (!objectExists(message.blurredVideoKey()) || !objectExists(message.thumbnailKey())) {
@@ -125,7 +124,7 @@ public class AiBlurResultService {
                     job.getRequestId());
             return AiBlurResultOutcome.OBJECT_NOT_FOUND;
         }
-        pin.activate(message.blurredVideoKey(), message.thumbnailKey(), message.completedAt());
+        pin.activate(message.blurredVideoKey(), message.thumbnailKey(), clock.instant());
         job.markCompleted(message.completedAt());
         return AiBlurResultOutcome.APPLIED;
     }
@@ -200,12 +199,10 @@ public class AiBlurResultService {
                 message.thumbnailKey(), clock.instant());
         job.markCompleted(message.completedAt());
 
-        Long placeId = pin.getPlace().getId();
         runAfterCommit(() -> {
             videoObjectCleanupPort.registerForDeletion(previousOriginalKey);
             videoObjectCleanupPort.registerForDeletion(previousBlurredKey);
             videoObjectCleanupPort.registerForDeletion(previousThumbnailKey);
-            placeScoreRecalculationPort.recalculate(placeId);
         });
         return AiBlurResultOutcome.APPLIED;
     }
@@ -298,7 +295,7 @@ public class AiBlurResultService {
     }
 
     /**
-     * DB 커밋 이후 실행할 후속 처리를 등록한다(삭제 대상 등록·장소 점수 재계산).
+     * DB 커밋 이후 실행할 후속 처리를 등록한다(삭제 대상 등록).
      * 활성 트랜잭션이 없으면(단위 테스트 등) 즉시 실행한다.
      */
     private void runAfterCommit(Runnable action) {

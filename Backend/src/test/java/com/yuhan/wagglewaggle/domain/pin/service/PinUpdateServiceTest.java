@@ -9,7 +9,6 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinUpdate;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
-import com.yuhan.wagglewaggle.domain.place.service.PlaceScoreRecalculationPort;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.jackson.PatchField;
@@ -28,7 +27,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
@@ -44,7 +42,6 @@ class PinUpdateServiceTest {
     @Mock private AiBlurJobRepository aiBlurJobRepository;
     @Mock private PinUpdatePersistenceService pinUpdatePersistenceService;
     @Mock private AiBlurJobPublisher aiBlurJobPublisher;
-    @Mock private PlaceScoreRecalculationPort placeScoreRecalculationPort;
 
     private PinUpdateService service;
 
@@ -56,8 +53,7 @@ class PinUpdateServiceTest {
     @BeforeEach
     void setUp() {
         service = new PinUpdateService(pinUpdateValidator, replacementVideoValidator,
-                aiBlurJobRepository, pinUpdatePersistenceService, aiBlurJobPublisher,
-                placeScoreRecalculationPort);
+                aiBlurJobRepository, pinUpdatePersistenceService, aiBlurJobPublisher);
         given(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(any(), any(), any())).willReturn(false);
     }
 
@@ -88,7 +84,7 @@ class PinUpdateServiceTest {
         givenValidatorReturns();
         given(pinUpdatePersistenceService.apply(any(), eq(null)))
                 .willReturn(new PinUpdatePersistenceService.Result(
-                        VideoStatus.ACTIVE, List.of("memo"), null, List.of()));
+                        VideoStatus.ACTIVE, List.of("memo"), null));
 
         PinUpdateResponse response = service.update(MEMBER_ID, RAW_PIN_ID, generalRequest());
 
@@ -106,7 +102,7 @@ class PinUpdateServiceTest {
         AiBlurJob job = AiBlurJob.create(PIN_ID, VIDEO_KEY, AiBlurJobType.VIDEO_REPLACEMENT);
         given(pinUpdatePersistenceService.apply(any(), eq(VIDEO_KEY)))
                 .willReturn(new PinUpdatePersistenceService.Result(
-                        VideoStatus.ACTIVE, List.of("detailLocation"), job, List.of()));
+                        VideoStatus.ACTIVE, List.of("detailLocation"), job));
 
         PinUpdateResponse response = service.update(MEMBER_ID, RAW_PIN_ID, videoRequest());
 
@@ -167,7 +163,7 @@ class PinUpdateServiceTest {
         AiBlurJob job = AiBlurJob.create(PIN_ID, VIDEO_KEY, AiBlurJobType.VIDEO_REPLACEMENT);
         given(pinUpdatePersistenceService.apply(any(), eq(VIDEO_KEY)))
                 .willReturn(new PinUpdatePersistenceService.Result(
-                        VideoStatus.ACTIVE, List.of(), job, List.of()));
+                        VideoStatus.ACTIVE, List.of(), job));
         org.mockito.BDDMockito.willThrow(new org.springframework.amqp.AmqpException("broker down"))
                 .given(aiBlurJobPublisher).publish(any());
 
@@ -175,32 +171,5 @@ class PinUpdateServiceTest {
 
         assertThat(response.isVideoReplacementAccepted()).isTrue();
         assertThat(response.updatedFields()).isEmpty();
-    }
-
-    @Test
-    void 커밋_이후_변경된_장소_점수_재계산을_호출한다() {
-        givenValidatorReturns();
-        given(pinUpdatePersistenceService.apply(any(), eq(null)))
-                .willReturn(new PinUpdatePersistenceService.Result(
-                        VideoStatus.ACTIVE, List.of("crowdLevel"), null, List.of(1L, 2L)));
-
-        service.update(MEMBER_ID, RAW_PIN_ID, generalRequest());
-
-        verify(placeScoreRecalculationPort).recalculate(1L);
-        verify(placeScoreRecalculationPort).recalculate(2L);
-    }
-
-    @Test
-    void 점수_재계산_실패해도_응답에_영향을_주지_않는다() {
-        givenValidatorReturns();
-        given(pinUpdatePersistenceService.apply(any(), eq(null)))
-                .willReturn(new PinUpdatePersistenceService.Result(
-                        VideoStatus.ACTIVE, List.of("crowdLevel"), null, List.of(1L)));
-        org.mockito.BDDMockito.willThrow(new RuntimeException("score error"))
-                .given(placeScoreRecalculationPort).recalculate(anyLong());
-
-        PinUpdateResponse response = service.update(MEMBER_ID, RAW_PIN_ID, generalRequest());
-
-        assertThat(response.updatedFields()).containsExactly("crowdLevel");
     }
 }

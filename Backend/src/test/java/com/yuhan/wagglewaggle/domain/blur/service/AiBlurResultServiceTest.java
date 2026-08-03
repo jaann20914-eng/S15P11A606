@@ -13,7 +13,6 @@ import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
-import com.yuhan.wagglewaggle.domain.place.service.PlaceScoreRecalculationPort;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.global.s3.S3ObjectInspector;
 import com.yuhan.wagglewaggle.global.s3.S3VideoObjectMetadata;
@@ -39,7 +38,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,7 +53,6 @@ class AiBlurResultServiceTest {
     @Mock private PinRepository pinRepository;
     @Mock private S3ObjectInspector s3ObjectInspector;
     @Mock private VideoObjectCleanupPort videoObjectCleanupPort;
-    @Mock private PlaceScoreRecalculationPort placeScoreRecalculationPort;
 
     private AiBlurResultService service;
 
@@ -86,7 +83,7 @@ class AiBlurResultServiceTest {
         Clock clock = Clock.fixed(SERVER_NOW, ZoneOffset.UTC);
         service = new AiBlurResultService(
                 new AiBlurResultMessageValidator(), aiBlurJobRepository, pinRepository, s3ObjectInspector,
-                videoObjectCleanupPort, placeScoreRecalculationPort, clock);
+                videoObjectCleanupPort, clock);
     }
 
     // ---------- 헬퍼 ----------
@@ -175,13 +172,12 @@ class AiBlurResultServiceTest {
         assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.ACTIVE);
         assertThat(pin.getBlurredVideoKey()).isEqualTo(BLURRED_KEY);
         assertThat(pin.getThumbnailKey()).isEqualTo(THUMBNAIL_KEY);
-        // INITIAL_UPLOAD는 기존대로 메시지 completedAt 기준으로 만료 시각을 정한다.
-        assertThat(pin.getExpiresAt()).isEqualTo(COMPLETED_AT.plusSeconds(3600));
+        // expiresAt은 메시지 completedAt이 아니라 반영 서버 시각(SERVER_NOW) 기준 1시간 뒤다.
+        assertThat(pin.getExpiresAt()).isEqualTo(SERVER_NOW.plusSeconds(3600));
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
         assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
-        // 최초 등록은 삭제 대상 등록·점수 재계산을 하지 않는다.
+        // 최초 등록은 삭제 대상 등록을 하지 않는다.
         verify(videoObjectCleanupPort, never()).registerForDeletion(any());
-        verify(placeScoreRecalculationPort, never()).recalculate(anyLong());
     }
 
     @Test
@@ -341,7 +337,7 @@ class AiBlurResultServiceTest {
     }
 
     @Test
-    void 교체_PASS_반영_시_기존_객체를_삭제_대상으로_등록하고_점수를_재계산한다() {
+    void 교체_PASS_반영_시_기존_객체를_삭제_대상으로_등록한다() {
         AiBlurJob job = replacementJob(AiBlurJobStatus.PENDING);
         Pin pin = activePin();
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
@@ -354,7 +350,6 @@ class AiBlurResultServiceTest {
         verify(videoObjectCleanupPort).registerForDeletion(OLD_ORIGINAL_KEY);
         verify(videoObjectCleanupPort).registerForDeletion(OLD_BLURRED_KEY);
         verify(videoObjectCleanupPort).registerForDeletion(OLD_THUMBNAIL_KEY);
-        verify(placeScoreRecalculationPort).recalculate(PLACE_ID);
     }
 
     @Test
@@ -414,9 +409,8 @@ class AiBlurResultServiceTest {
         assertThat(pin.getOriginalVideoKey()).isEqualTo(OLD_ORIGINAL_KEY);
         assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.ACTIVE);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
-        // 후보 원본·결과 객체는 삭제 대상 등록, 점수 재계산 없음
+        // 후보 원본·결과 객체는 삭제 대상 등록
         verify(videoObjectCleanupPort).registerForDeletion(NEW_ORIGINAL_KEY);
-        verify(placeScoreRecalculationPort, never()).recalculate(anyLong());
         verify(s3ObjectInspector, never()).findObjectMetadata(any());
     }
 
@@ -471,9 +465,8 @@ class AiBlurResultServiceTest {
         assertThat(pin.getBlurredVideoKey()).isEqualTo(OLD_BLURRED_KEY);
         assertThat(pin.getThumbnailKey()).isEqualTo(OLD_THUMBNAIL_KEY);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
-        // 후보 원본은 삭제 대상 등록, 점수 재계산 없음
+        // 후보 원본은 삭제 대상 등록
         verify(videoObjectCleanupPort).registerForDeletion(NEW_ORIGINAL_KEY);
-        verify(placeScoreRecalculationPort, never()).recalculate(anyLong());
     }
 
     @Test
@@ -491,7 +484,6 @@ class AiBlurResultServiceTest {
         assertThat(pin.getExpiresAt()).isEqualTo(Instant.parse("2026-07-31T13:00:00Z"));
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.FAILED);
         verify(videoObjectCleanupPort).registerForDeletion(NEW_ORIGINAL_KEY);
-        verify(placeScoreRecalculationPort, never()).recalculate(anyLong());
     }
 
     // ========================= pinId 출처 =========================
