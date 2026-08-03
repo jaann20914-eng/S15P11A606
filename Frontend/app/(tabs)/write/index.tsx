@@ -12,8 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
-import { useAppTabBarHeight } from '@/components/common/AppTabBar';
-import { colors, spacing } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
 import { DetailLocationField } from '@/features/pin-create/components/DetailLocationField';
@@ -60,7 +59,6 @@ export default function PinCreateScreen() {
 
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
-  const tabBarHeight = useAppTabBarHeight();
   const [focused, setFocused] = useState(false);
 
   const phase = usePinPublishStore((state) => state.phase);
@@ -194,7 +192,7 @@ export default function PinCreateScreen() {
               등록 버튼은 늘 보인다. 예전에는 입력칸 아래에 붙어 있어서 끝까지 스크롤해야
               나타났다 — 다 쓰고도 어디서 등록하는지 못 찾는 자리였다.
             */}
-            <View style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}>
+            <View style={s.actionBar}>
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
               </Pressable>

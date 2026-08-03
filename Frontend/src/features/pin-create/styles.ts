@@ -15,12 +15,15 @@ export const pinCreateStyles = StyleSheet.create({
   /**
    * 늘 보이는 등록 버튼 자리.
    *
-   * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위에 경계를 둔다. 아래 여백은 탭바 높이만큼
-   * 화면에서 넣어 준다(게시글 상세의 행동 영역과 같은 방식).
+   * 스크롤 내용과 겹치지 않도록 흰 바탕을 깔고 위에 경계를 둔다.
+   *
+   * **탭바 높이를 더하지 않는다.** 이 화면은 탭 네비게이터 안에 있어 화면 영역이 이미 탭바
+   * 위에서 끝난다. 게시글 상세처럼 탭바를 화면 위에 얹는 경우에만 그만큼 띄우면 되고, 여기서
+   * 같이 띄우면 버튼 아래에 탭바 하나만큼의 빈 자리가 더 생긴다.
    */
   actionBar: {
     paddingHorizontal: layout.gutter,
-    paddingTop: spacing.x4,
+    paddingVertical: spacing.x4,
     borderTopWidth: 1,
     borderTopColor: colors.gray200,
     backgroundColor: colors.white,
