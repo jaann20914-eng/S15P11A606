@@ -10,6 +10,7 @@ import java.util.List;
  * tags는 정규화·중복 제거를 마친 결과다. 다음 단계(실제 저장·발행)에서 이 값을 그대로 사용한다.
  * categoryGroupCode/categoryGroupName/phone/addressName은 Front가 보낸 카카오 장소 부가 정보를
  * null→"" 정규화한 값으로, 장소 신규 저장 시 places 에 저장한다.
+ * categoryName은 카카오 전체 카테고리 경로로, 빈 값이면 null 이며 카테고리 분류에 사용한다.
  */
 public record ValidatedPinCreation(
         Long memberId,
@@ -20,6 +21,7 @@ public record ValidatedPinCreation(
         double placeLongitude,
         String categoryGroupCode,
         String categoryGroupName,
+        String categoryName,
         String phone,
         String addressName,
         double captureLatitude,

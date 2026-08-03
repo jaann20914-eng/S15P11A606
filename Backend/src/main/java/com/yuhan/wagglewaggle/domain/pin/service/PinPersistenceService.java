@@ -9,7 +9,9 @@ import com.yuhan.wagglewaggle.domain.pin.entity.PinTag;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinTagRepository;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
+import com.yuhan.wagglewaggle.domain.place.entity.PlaceCategory;
 import com.yuhan.wagglewaggle.domain.place.repository.PlaceRepository;
+import com.yuhan.wagglewaggle.domain.place.service.PlaceCategoryResolver;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.domain.user.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -73,13 +75,19 @@ public class PinPersistenceService {
      * kakaoPlaceId로 기존 장소를 재사용하고, 없으면 서버가 확인한 정보로 새 장소를 저장한다.
      */
     private Place resolveOrCreatePlace(ValidatedPinCreation validated) {
+        PlaceCategory category = PlaceCategoryResolver.resolve(
+                validated.categoryGroupCode(),
+                validated.categoryGroupName(),
+                validated.categoryName());
         return placeRepository.findFirstByKakaoPlaceId(validated.kakaoPlaceId())
                 .orElseGet(() -> placeRepository.save(Place.create(
                         validated.kakaoPlaceId(),
                         validated.resolvedPlaceName(),
                         point(validated.placeLongitude(), validated.placeLatitude()),
+                        category,
                         validated.categoryGroupCode(),
                         validated.categoryGroupName(),
+                        validated.categoryName(),
                         validated.phone(),
                         validated.addressName())));
     }
