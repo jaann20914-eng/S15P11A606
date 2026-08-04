@@ -37,6 +37,14 @@ const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
 const FADE_NEAR_WHITE = 'rgba(255,255,255,0.96)';
 const FADE_STOPS = [0, 0.55, 1] as const;
 
+/**
+ * 스크롤이 멈춘 것으로 보는 시간(ms).
+ *
+ * 이 시간 동안 스크롤 이벤트가 없으면 카메라 미리보기를 다시 켠다. 짧으면 관성으로 흐르는
+ * 중에 켜져 다시 깜빡이고, 길면 손을 뗀 뒤 화면이 멈춘 것처럼 보인다.
+ */
+const SCROLL_IDLE_MS = 220;
+
 /** 키보드가 다 올라오기를 기다리는 시간(ms). 이보다 일찍 옮기면 줄어들기 전 높이로 계산된다. */
 const KEYBOARD_SETTLE_MS = 180;
 
@@ -104,6 +112,33 @@ export default function PinCreateScreen() {
       scrollRef.current?.scrollTo({ y: Math.max(0, top - spacing.x4), animated: true });
     }, KEYBOARD_SETTLE_MS);
   };
+
+  /*
+    스크롤이 움직이는 동안에는 카메라 미리보기를 멈춘다.
+
+    미리보기는 뷰 계층 밖의 서피스에 그려져서, 자리가 바뀌는 중에도 계속 그리면 프레임이
+    어긋나며 깜빡인다(검게 또는 희게). 움직임이 끝난 뒤 다시 켜면 무작위 깜빡임이 사라진다.
+
+    끝을 알리는 신호가 하나로 정해지지 않는다 — 손을 떼고 관성으로 더 흐르기도 하고, 그
+    자리에서 멈추기도 한다. 그래서 마지막 스크롤 이벤트로부터 잠깐 뒤에 다시 켠다.
+  */
+  const [scrolling, setScrolling] = useState(false);
+  const scrollIdleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markScrolling = useCallback(() => {
+    setScrolling(true);
+
+    if (scrollIdleTimer.current !== null) clearTimeout(scrollIdleTimer.current);
+
+    scrollIdleTimer.current = setTimeout(() => setScrolling(false), SCROLL_IDLE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (scrollIdleTimer.current !== null) clearTimeout(scrollIdleTimer.current);
+    },
+    [],
+  );
 
   const phase = usePinPublishStore((state) => state.phase);
   const progress = usePinPublishStore((state) => state.progress);
@@ -228,11 +263,17 @@ export default function PinCreateScreen() {
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              /*
+                스크롤 중임을 카메라에 알린다. 시작 · 끝 신호만 쓰면 관성으로 흐르는 구간을
+                놓치므로, 실제로 움직이는 동안 오는 이 이벤트를 기준으로 삼는다.
+              */
+              onScroll={markScrolling}
+              scrollEventThrottle={16}
               contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
-              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
+              <CaptureField video={form.draft.video} onCaptured={form.setVideo} paused={scrolling} />
 
               <View onLayout={rememberTop('memo')}>
                 <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />
