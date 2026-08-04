@@ -13,7 +13,6 @@ import {
   View,
 } from 'react-native';
 import { Camera } from 'expo-camera';
-import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +22,7 @@ import { preferenceCategoryImages } from '@/features/onboarding/preferenceAssets
 import { useOnboardingSubmit } from '@/features/onboarding/hooks/useOnboardingSubmit';
 import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
+import { readCurrentCoordinate } from '@/utils/location';
 import {
   MAX_PREFERENCES,
   MIN_PREFERENCES,
@@ -81,11 +81,20 @@ export default function Onboarding() {
     if (Platform.OS === 'web') return true;
 
     try {
-      const location = await Location.requestForegroundPermissionsAsync();
       const camera = await Camera.requestCameraPermissionsAsync();
       const microphone = await Camera.requestMicrophonePermissionsAsync();
 
-      if (!location.granted || !camera.granted || !microphone.granted) {
+      /*
+        위치는 공용 유틸로 받는다.
+
+        예전에는 여기서 `getCurrentPositionAsync`를 직접 불러 좌표까지 확인했다. 그런데 그
+        호출은 시간 제한이 없고 실패 이유도 구분하지 않아, 실내처럼 측위가 늦는 곳에서는
+        가입이 그대로 막혔다. 로그도 남지 않아 원인을 알 수 없었다.
+      */
+      const location = await readCurrentCoordinate({ requestPermission: true });
+      const failure = 'failure' in location ? location.failure : null;
+
+      if (!camera.granted || !microphone.granted || failure === 'denied') {
         Alert.alert(
           '필수 권한이 필요해요',
           '위치, 카메라, 마이크 권한을 모두 허용해야 가입을 완료할 수 있어요.',
@@ -93,11 +102,22 @@ export default function Onboarding() {
         return false;
       }
 
-      // 권한만으로는 부족하다. 기기의 위치 서비스가 꺼져 있으면 여기서 실패한다.
-      await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      // 기기에서 위치를 껐으면 앱에서 켤 수 없다. 무엇을 해야 하는지만 알려 준다.
+      if (failure === 'disabled') {
+        Alert.alert('위치 서비스가 꺼져 있어요', '기기 설정에서 위치를 켜고 다시 시도해 주세요.');
+        return false;
+      }
+
+      /*
+        좌표를 못 읽은 것(`failed`)으로는 막지 않는다.
+
+        권한이 있고 위치 서비스도 켜져 있다면 준비는 끝났다. 지금 이 순간 측위가 되는지는
+        실내·창가 여부에 따라 갈리는 일이고, 실제로 좌표가 필요한 순간(제보·추천)에 다시 읽는다.
+        가입을 막을 이유가 아니다.
+      */
       return true;
     } catch {
-      Alert.alert('권한을 확인하지 못했어요', '기기의 위치 서비스를 켜고 다시 시도해 주세요.');
+      Alert.alert('권한을 확인하지 못했어요', '잠시 후 다시 시도해 주세요.');
       return false;
     }
   }, []);
