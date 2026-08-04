@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '@/components/common';
@@ -33,7 +33,17 @@ const TABS: Tab[] = ['요청한 대화', '요청받은 대화'];
  * 탭 전환이 곧 목록 전환이라 화면을 갈라 둘 이유가 없다.
  */
 export default function Chat() {
-  const [tab, setTab] = useState<Tab>('요청한 대화');
+  /*
+    어느 탭으로 열릴지는 경로가 정한다.
+
+    화면은 하나지만 라우트가 둘이라, 들어온 경로가 곧 "무엇을 보러 왔는지"다. 내 게시글에 온
+    요청을 보러 `/chat/received`로 왔는데 요청한 대화가 먼저 열리면, 왜 빈 목록이 보이는지
+    알 수 없다(핀 상세의 "채팅방으로 이동"이 그랬다).
+  */
+  const pathname = usePathname();
+  const [tab, setTab] = useState<Tab>(
+    pathname.endsWith('/received') ? '요청받은 대화' : '요청한 대화',
+  );
   const [query, setQuery] = useState('');
   const [selectedPin, setSelectedPin] = useState<ChatPinListItem | null>(null);
 

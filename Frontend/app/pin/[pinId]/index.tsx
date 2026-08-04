@@ -140,6 +140,7 @@ function PinDetailScreen({
           onRequestChat={chat.show}
           onRequestPurchase={purchase.show}
           onLeave={leave.show}
+          left={leave.done}
         />
 
         <AppTabBar />

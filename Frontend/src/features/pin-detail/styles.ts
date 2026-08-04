@@ -160,7 +160,11 @@ export const pinDetailStyles = StyleSheet.create({
   muteToggle: {
     position: 'absolute',
     right: spacing.x4,
-    bottom: spacing.x4,
+    /*
+      본문 시트가 영상 아래를 `radius.hero`만큼 덮고 올라온다. 그 값을 더하지 않으면 버튼이
+      흰 바탕에 맞닿아 붙어 보인다. 덮이는 만큼을 먼저 비우고 그 위로 여백을 준다.
+    */
+    bottom: radius.hero + spacing.x4,
     width: 40,
     height: 40,
     alignItems: 'center',
@@ -241,6 +245,9 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   leaveButton: { backgroundColor: colors.dark },
+  /** 이미 떠난 핀. 눌러도 달라질 것이 없어 눌릴 수 있어 보이지 않게 둔다. */
+  leaveButtonDone: { backgroundColor: colors.gray100 },
+  leaveButtonTextDone: { color: colors.gray400 },
   leaveButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.lime },
   goChatButton: { backgroundColor: '#D9ED76' },
   goChatButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
