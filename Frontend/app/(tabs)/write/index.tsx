@@ -86,7 +86,14 @@ export default function PinCreateScreen() {
     상세 화면처럼 직접 그리고, 바가 차지하는 만큼 아래 여백을 올린다. 작성(탭 안)에서는 0이다.
   */
   const tabBarHeight = useAppTabBarHeight();
-  const editTabBarOffset = mode.type === 'edit' ? tabBarHeight : 0;
+
+  /*
+    아래 고정 영역을 띄울 높이. 키보드와 하단 바 중 **더 높은 쪽 하나**다.
+
+    키보드는 하단 바를 덮고 올라온다. 둘을 더하면 버튼이 키보드보다 바 높이만큼 더 올라가
+    화면 가운데에 떠 버린다.
+  */
+  const bottomOffset = Math.max(keyboardOverlap, mode.type === 'edit' ? tabBarHeight : 0);
 
   /*
     입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
@@ -270,7 +277,7 @@ export default function PinCreateScreen() {
               overScrollMode="never"
               contentContainerStyle={[
                 s.content,
-                { paddingBottom: actionBarHeight + editTabBarOffset + spacing.x4 },
+                { paddingBottom: actionBarHeight + bottomOffset - keyboardOverlap + spacing.x4 },
               ]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
@@ -335,13 +342,13 @@ export default function PinCreateScreen() {
               locations={FADE_STOPS}
               style={[
                 s.actionFade,
-                { bottom: keyboardOverlap + editTabBarOffset + actionBarHeight - ACTION_FADE_DROP },
+                { bottom: bottomOffset + actionBarHeight - ACTION_FADE_DROP },
               ]}
             />
 
             <View
               onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
-              style={[s.actionBar, { bottom: keyboardOverlap + editTabBarOffset }]}
+              style={[s.actionBar, { bottom: bottomOffset }]}
             >
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
