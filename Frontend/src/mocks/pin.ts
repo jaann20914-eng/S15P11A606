@@ -87,8 +87,9 @@ export function registerMockPinScenario(pinId: PinId, scenario: PinDetailScenari
 /**
  * 모든 시나리오가 공유하는 본문.
  *
- * `videoUrl`·`previewUrl`은 빈 문자열이다. Object Storage signed URL이 아직 없어서
- * 화면이 번들에 포함된 디자인 시안 이미지로 폴백하도록 두었다.
+ * `videoUrl`은 빈 문자열이다. Object Storage signed URL이 아직 없어서 화면이 번들에 포함된
+ * 디자인 시안 영상으로 폴백하도록 두었다. 서버는 접근 수준과 무관하게 같은 영상 하나를 주므로
+ * 목업도 미리보기용 URL을 따로 두지 않는다.
  */
 function createBaseDetail(): PinDetailResponse {
   return {
@@ -109,8 +110,8 @@ function createBaseDetail(): PinDetailResponse {
     tags: ['좌석없음', '콘센트', '조용함'],
     videoAccess: 'PREVIEW_BLURRED',
     isEvaluated: null,
-    videoUrl: null,
-    previewUrl: '',
+    videoUrl: '',
+    thumbnailUrl: null,
     canRequestChat: false,
     chatRequestState: 'NONE',
   };
@@ -131,7 +132,6 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
         videoAccess: 'UNLOCKED',
         isEvaluated: false,
         videoUrl: '',
-        previewUrl: null,
         canRequestChat: true,
       };
 
@@ -142,7 +142,6 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
         videoAccess: 'UNLOCKED',
         isEvaluated: true,
         videoUrl: '',
-        previewUrl: null,
         canRequestChat: false,
         chatRequestState: 'PENDING',
       };
@@ -157,7 +156,6 @@ function createFixture(scenario: Exclude<PinDetailScenario, 'notFound'>): PinDet
         videoAccess: 'OWNER',
         isEvaluated: null,
         videoUrl: '',
-        previewUrl: null,
       };
   }
 }
@@ -221,7 +219,6 @@ export async function evaluateMockPin(pinId: PinId, rating: PinRating): Promise<
     pinId,
     rating,
     rewardCredit: 1,
-    createdAt: new Date().toISOString(),
   };
 }
 

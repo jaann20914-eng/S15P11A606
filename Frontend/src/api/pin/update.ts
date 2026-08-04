@@ -3,6 +3,7 @@ import { usesMock } from '../config';
 import { updateMockPin } from '@/mocks/pin';
 import type { PinUpdateRequest, PinUpdateResult } from '@/types/pinCreate';
 import type { PinId } from '@/types/pin';
+import { tracePin } from './log';
 
 /**
  * 핀 수정 — `PATCH /api/v1/pins/{pinId}`
@@ -30,7 +31,16 @@ function requestPinUpdate(pinId: PinId, body: PinUpdateRequest): Promise<PinUpda
   });
 }
 
-export async function updatePin(pinId: PinId, body: PinUpdateRequest): Promise<PinUpdateResult> {
-  if (usesMock('pin/update')) return updateMockPin(pinId, body);
-  return requestPinUpdate(pinId, body);
+export function updatePin(pinId: PinId, body: PinUpdateRequest): Promise<PinUpdateResult> {
+  return tracePin(
+    '게시글 수정',
+    'pin/update',
+    () => (usesMock('pin/update') ? updateMockPin(pinId, body) : requestPinUpdate(pinId, body)),
+    (result) => ({
+      pinId,
+      보낸필드: Object.keys(body).join(', ') || '없음',
+      바뀐필드: result.updatedFields?.join(', ') ?? '없음',
+      영상교체: result.videoReplacementStatus ?? '없음',
+    }),
+  );
 }

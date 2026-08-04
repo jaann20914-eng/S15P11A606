@@ -61,7 +61,6 @@ export type PinEvaluationResult = {
   rating: PinRating;
   /** 평가자에게 지급된 크레딧. 정상 최초 평가는 1이다. */
   rewardCredit: number;
-  createdAt: string;
 };
 
 /**
@@ -102,9 +101,30 @@ export type PinPlaceSummary = {
  * `GET /api/v1/pins/{pinId}` 응답 `data` 원형.
  *
  * 서버가 보낸 그대로다. 화면은 이 타입을 쓰지 않고, API 경계에서 `PinDetail`로 바꾼 값을 쓴다.
+ *
+ * 영상이 **하나**다. `videoUrl`은 AI가 얼굴을 가린 최종 영상이고, 접근 수준과 상관없이 같은
+ * 값이 온다(`PinDetailService`가 언제나 `blurredVideoKey`로 발급한다). 결제로 받는
+ * `PinUnlockResult.videoUrl`도 같은 키다 — 결제는 접근 권한과 크레딧을 처리할 뿐 다른 영상을
+ * 주지 않는다. 그래서 열람 전 가림은 화면에서 처리한다(`PinDetailMedia`).
  */
-export type PinDetailResponse = Omit<PinDetail, 'crowdLevel'> & {
+export type PinDetailResponse = {
+  pinId: PinId;
+  authorViewAngle: number;
+  authorNickname: string;
+  createdAt: string;
+  place: PinPlaceSummary;
   crowdLevel: PinCrowdLevel;
+  detailLocation: string | null;
+  memo: string | null;
+  tags: string[];
+  videoAccess: PinVideoAccess;
+  isEvaluated: boolean | null;
+  /** 얼굴을 가린 최종 영상의 signed URL. 접근 수준과 무관하게 같은 값이 온다. */
+  videoUrl: string | null;
+  /** 썸네일 이미지의 signed URL. 목록·공유 카드에 쓸 수 있다. */
+  thumbnailUrl: string | null;
+  canRequestChat: boolean;
+  chatRequestState: PinChatRequestState;
 };
 
 /**
@@ -133,10 +153,18 @@ export type PinDetail = {
   videoAccess: PinVideoAccess;
   /** `UNLOCKED`일 때만 boolean, 그 외에는 null. */
   isEvaluated: boolean | null;
-  /** `OWNER`·`UNLOCKED`일 때만 발급되는 signed URL. */
+  /** 재생할 영상. 서버 응답의 `videoUrl`을 그대로 쓴다. */
   videoUrl: string | null;
-  /** `PREVIEW_BLURRED`일 때 제공되는 블러 미리보기 signed URL. */
+  /**
+   * 열람 전에 보여줄 영상.
+   *
+   * 서버가 접근 수준에 따라 다른 영상을 주지는 않는다(`PinDetailResponse` 설명 참고).
+   * 같은 URL을 담아 두고 가리는 일은 화면이 한다. 서버가 나중에 미리보기용 영상을 따로 주면
+   * 이 값만 그것으로 바꾸면 된다.
+   */
   previewUrl: string | null;
+  /** 썸네일 이미지. 아직 화면에서 쓰지 않지만 응답에 있어 함께 들고 다닌다. */
+  thumbnailUrl: string | null;
   canRequestChat: boolean;
   chatRequestState: PinChatRequestState;
 };
