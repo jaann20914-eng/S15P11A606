@@ -109,6 +109,15 @@ export function PinDetailBody({
               ))}
             </View>
           )}
+
+          {/*
+            내용도 태그도 없는 글 — 구분선 아래가 통째로 비어 잘못 불러온 것처럼 보인다.
+            둘 다 선택 입력이라 실제로 이런 글이 있으므로, 비어 있는 것이 정상이라는 안내를
+            한 줄 둔다.
+          */}
+          {!detail.memo && detail.tags.length === 0 && (
+            <Text style={s.emptyBody}>작성자가 따로 남긴 설명이 없어요. 영상으로 현장을 확인해 보세요.</Text>
+          )}
         </View>
       </ScrollView>
 

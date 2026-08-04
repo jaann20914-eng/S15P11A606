@@ -104,10 +104,21 @@ export default function Room() {
   const offsetYRef = useRef(0);
   const renderedOnceRef = useRef(false);
 
+  const anchorBottom = () => scrollRef.current?.scrollToEnd({ animated: false });
+
   const followBottom = () => {
     if (!renderedOnceRef.current) {
-      scrollRef.current?.scrollToEnd({ animated: false });
       renderedOnceRef.current = true;
+
+      /*
+        처음에는 여러 번 잡는다. 이 콜백이 오는 시점에 줄 높이 계산이 다 끝나 있지 않아,
+        한 번만 내리면 마지막 메시지가 반쯤 가려진 채 멈춘다. 프레임이 정리된 뒤와 그보다
+        조금 뒤에 한 번씩 더 내려 마지막 줄까지 확실히 보이게 한다 — 이미 바닥이면 아무
+        일도 일어나지 않는 호출이라 겹쳐도 해롭지 않다.
+      */
+      anchorBottom();
+      requestAnimationFrame(anchorBottom);
+      setTimeout(anchorBottom, 150);
       return;
     }
 

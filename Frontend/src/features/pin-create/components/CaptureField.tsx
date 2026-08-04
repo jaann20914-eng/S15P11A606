@@ -33,11 +33,7 @@ function formatTimer(seconds: number): string {
  * 5초가 되면 카메라가 스스로 멈추고, 그 전에 버튼을 다시 누르면 거기서 끝난다.
  * 촬영이 끝나면 결과를 그 자리에서 재생해 보여주고 다시 찍을 수 있게 한다.
  */
-export function CaptureField({
-  video,
-  onCaptured,
-  existingVideoUrl = null,
-}: CaptureFieldProps) {
+export function CaptureField({ video, onCaptured, existingVideoUrl = null }: CaptureFieldProps) {
   const capture = useVideoCapture(onCaptured);
   const { requestPermissions } = capture;
 
@@ -87,20 +83,16 @@ export function CaptureField({
     );
   }
 
-  if (capture.permissionMessage) {
-    return (
-      <View style={[s.camera, s.cameraBlocked]}>
-        <Ionicons name="videocam-off-outline" size={28} color={colors.gray400} />
-        <Text style={s.cameraBlockedText}>{capture.permissionMessage}</Text>
-        <Pressable accessibilityRole="button" onPress={requestPermissions} style={s.cameraRetry}>
-          <Text style={s.cameraRetryText}>권한 다시 요청</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  /*
+    찍어 둔 영상이 있으면 카메라 대신 그 영상을 보여준다. 권한 확인보다도 먼저다 — 영상은
+    이미 손에 있으니 카메라를 쓸 수 있는지와 무관하게 보여야 한다.
 
-  // 촬영이 끝났으면 카메라를 내리고 결과 영상을 보여준다.
-  if (capture.state === 'done' && video) {
+    촬영 상태(`capture.state`)가 아니라 **영상이 있는지**로 판단한다. 촬영 상태는 이 컴포넌트의
+    것이라 화면이 잠깐 갈렸다 돌아오면(등록 실패 안내 뒤 진행 화면이 내려갈 때) 처음으로
+    돌아가는데, 그때 영상이 멀쩡히 남아 있는데도 카메라가 떠서 지워진 것처럼 보였다.
+    영상은 폼에 있어 그 교체를 견딘다.
+  */
+  if (video) {
     return (
       <View style={s.camera}>
         <CapturePreview uri={video.uri} />
@@ -114,6 +106,18 @@ export function CaptureField({
 
         <Pressable accessibilityLabel="다시 촬영" onPress={capture.retake} style={s.cameraAction}>
           <Ionicons name="refresh" size={18} color={colors.white} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (capture.permissionMessage) {
+    return (
+      <View style={[s.camera, s.cameraBlocked]}>
+        <Ionicons name="videocam-off-outline" size={28} color={colors.gray400} />
+        <Text style={s.cameraBlockedText}>{capture.permissionMessage}</Text>
+        <Pressable accessibilityRole="button" onPress={requestPermissions} style={s.cameraRetry}>
+          <Text style={s.cameraRetryText}>권한 다시 요청</Text>
         </Pressable>
       </View>
     );
@@ -164,7 +168,6 @@ export function CaptureField({
       >
         <View style={[s.recordInner, recording && s.recording]} />
       </Pressable>
-
     </View>
   );
 }

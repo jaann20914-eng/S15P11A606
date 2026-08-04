@@ -22,8 +22,9 @@ import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
 import { ACTION_FADE_DROP, pinCreateStyles as s } from '@/features/pin-create/styles';
 import { usePinPublishStore } from '@/store/usePinPublishStore';
-import { EMPTY_PIN_DRAFT } from '@/types/pinCreate';
+import { EMPTY_PIN_DRAFT, MAX_MEMO_LENGTH } from '@/types/pinCreate';
 import type { PinDraft } from '@/types/pinCreate';
+import { countGraphemes } from '@/utils/graphemes';
 
 /** 사라짐 그라데이션의 시작 색. 안드로이드에서 transparent는 검은색이 섞여 회색 띠가 생긴다. */
 const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
@@ -145,6 +146,34 @@ export default function PinCreateScreen() {
   );
 
   const submit = () => {
+    /*
+      내용 검증은 생성 · 수정이 함께 지나간다.
+
+      공백 · 줄바꿈만 있는 내용은 서버로 보내면 지워져서(빈 값으로 취급), 사용자는 적었다고
+      생각하는데 결과에는 없다. 조용히 지우는 대신 여기서 알려 준다.
+
+      길이는 입력칸이 이미 자르지만 한 번 더 본다 — 안드로이드 한글 입력기는 조합 중에
+      프로그램이 값을 되돌리는 것을 가끔 무시해서, 빠르게 치면 제한을 넘긴 채 남을 수 있다.
+      넘긴 채 보내면 서버가 INVALID_REQUEST 로 거절한다.
+    */
+    const memo = form.draft.memo;
+
+    if (memo.length > 0 && memo.trim().length === 0) {
+      Alert.alert(
+        '내용을 확인해 주세요',
+        '공백과 줄바꿈만으로는 내용을 남길 수 없어요. 내용을 적거나 비워 주세요.',
+      );
+      return;
+    }
+
+    if (countGraphemes(memo.trim()) > MAX_MEMO_LENGTH) {
+      Alert.alert(
+        '내용이 조금 길어요',
+        `내용은 ${MAX_MEMO_LENGTH}자까지 적을 수 있어요. 조금만 줄여 주세요.`,
+      );
+      return;
+    }
+
     if (mode.type === 'edit') {
       /*
         수정은 영상이 필수가 아니다. 기존 영상은 서버에 있고, 다시 찍었을 때만 교체된다.
@@ -197,9 +226,7 @@ export default function PinCreateScreen() {
     */
     Alert.alert(
       mode.type === 'edit' ? '영상핀을 수정했어요' : '영상핀을 등록했어요',
-      mode.type === 'edit'
-        ? '고친 내용이 반영됐어요.'
-        : '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
+      mode.type === 'edit' ? '고친 내용이 반영됐어요.' : '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
       [
         {
           text: '확인',
@@ -305,11 +332,7 @@ export default function PinCreateScreen() {
               {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
               <View onLayout={rememberTop('place')}>
                 {mode.type === 'edit' ? (
-                  <PlaceEditField
-                    place={form.draft.place}
-                    onSelect={form.setPlace}
-                    origin={originPlace}
-                  />
+                  <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
                 ) : (
                   // 이 자리는 이제 입력칸이 아니라 눌러서 고르는 줄이라 키보드 대응이 필요 없다.
                   <PlaceField
@@ -340,10 +363,7 @@ export default function PinCreateScreen() {
               pointerEvents="none"
               colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
               locations={FADE_STOPS}
-              style={[
-                s.actionFade,
-                { bottom: bottomOffset + actionBarHeight - ACTION_FADE_DROP },
-              ]}
+              style={[s.actionFade, { bottom: bottomOffset + actionBarHeight - ACTION_FADE_DROP }]}
             />
 
             <View

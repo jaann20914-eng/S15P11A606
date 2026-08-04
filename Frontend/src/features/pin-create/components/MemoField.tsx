@@ -24,7 +24,7 @@ export function MemoField({ value, onChange, onFocus }: MemoFieldProps) {
       onChangeText={(text) => onChange(truncateGraphemes(text, MAX_MEMO_LENGTH))}
       onFocus={onFocus}
       multiline
-      placeholder={`내용 입력 (최대 ${MAX_MEMO_LENGTH}자)`}
+      placeholder={`내용 입력 (선택 · 최대 ${MAX_MEMO_LENGTH}자)`}
       placeholderTextColor={colors.gray400}
       style={s.memo}
     />
