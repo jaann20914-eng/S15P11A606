@@ -12,17 +12,6 @@ import { CapturePreview } from './CapturePreview';
 export interface CaptureFieldProps {
   video: PinDraftVideo | null;
   onCaptured: (video: PinDraftVideo | null) => void;
-  /**
-   * 미리보기를 잠시 멈출지. 폼이 스크롤되는 동안 참이다.
-   *
-   * 카메라는 뷰 계층 밖의 서피스에 그려져서, 자리가 움직이는 중에도 계속 그리면 프레임이
-   * 어긋나며 깜빡인다. 움직이는 동안에는 그리지 않게 해 무작위 깜빡임을 의도된 정지로 바꾼다.
-   *
-   * **근본 원인은 네이티브에서 고쳤다**(`patches/expo-camera+17.0.10.patch` — 미리보기를
-   * TextureView 경로로 바꾼다). 그 패치가 들어간 빌드에서 깜빡임이 없는 것을 확인하면 이
-   * 정지도 없애는 편이 낫다 — 스크롤할 때 화면이 멈추는 것 자체는 손해다.
-   */
-  paused?: boolean;
 }
 
 /** `0:00:05` 형태. 최대 5초라 분·시는 항상 0이지만 시안 표기를 따른다. */
@@ -37,7 +26,7 @@ function formatTimer(seconds: number): string {
  * 5초가 되면 카메라가 스스로 멈추고, 그 전에 버튼을 다시 누르면 거기서 끝난다.
  * 촬영이 끝나면 결과를 그 자리에서 재생해 보여주고 다시 찍을 수 있게 한다.
  */
-export function CaptureField({ video, onCaptured, paused = false }: CaptureFieldProps) {
+export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
   const capture = useVideoCapture(onCaptured);
   const { requestPermissions } = capture;
 
@@ -88,11 +77,6 @@ export function CaptureField({ video, onCaptured, paused = false }: CaptureField
           facing={capture.facing}
           mode="video"
           videoQuality="720p"
-          /*
-            녹화 중에는 멈추지 않는다. 스크롤 때문에 촬영이 끊기면 안 된다 — 손가락이 스쳐도
-            녹화는 이어져야 한다.
-          */
-          active={!paused || recording}
           style={s.cameraView}
         />
       ) : (
