@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { CrowdChart, PlacePinCard } from '@/components/place';
+import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -234,7 +235,14 @@ export default function Place() {
         </View>
 
         <ScrollView
-          scrollEnabled={level > 0}
+          /*
+            **확장 단계에서만 스크롤한다.**
+
+            "보통" 단계에서는 카드를 한 장씩 넘기므로(`PinCardPager`) 시트까지 함께 스크롤되면
+            둘이 같은 세로 제스처를 두고 다툰다. 그 단계 높이는 어차피 내용에 맞춰 잡혀 있어
+            스크롤할 것도 없다.
+          */
+          scrollEnabled={expanded}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             s.sheetContent,
@@ -321,7 +329,17 @@ export default function Place() {
                 <View style={s.sectionHead}>
                   <Text style={s.sectionTitle}>실시간 영상핀</Text>
                 </View>
-                <PlacePinCard pin={pins[0]} onPress={() => router.push(`/pin/${pins[0].pinId}`)} />
+
+                {/*
+                  "보통" 단계는 높이가 **제목 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
+                  아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
+                  한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 그대로 목록으로 둔다.
+                */}
+                {expanded ? (
+                  <PlacePinCard pin={pins[0]} onPress={() => router.push(`/pin/${pins[0].pinId}`)} />
+                ) : (
+                  <PinCardPager pins={pins} onSelect={(pin) => router.push(`/pin/${pin.pinId}`)} />
+                )}
               </View>
 
               {/*

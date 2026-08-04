@@ -16,7 +16,7 @@ import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
 import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
-import { CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
+import { CardPager, CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
@@ -138,6 +138,19 @@ export default function Home() {
   const markers = useMemo(
     () => visiblePlaces.map(({ id, name, latitude, longitude }) => ({ id, name, latitude, longitude })),
     [visiblePlaces],
+  );
+
+  /**
+   * 고른 장소가 목록에서 몇 번째인지. 한 장씩 넘기는 칸이 그 카드를 보여주도록 넘긴다.
+   *
+   * 지도 핀을 누르거나, 확장 목록에서 카드를 눌러 "보통" 단계로 내려올 때가 이 경우다. 이게
+   * 없으면 방금 고른 장소에 테두리는 쳐지는데 화면에는 첫 카드가 보인다.
+   *
+   * 걸러진 목록에 없으면 `-1`이고, 그때는 칸이 그대로 있는다(`CardPager`가 무시한다).
+   */
+  const selectedCardIndex = useMemo(
+    () => visiblePlaces.findIndex((place) => place.id === selectedPlaceId),
+    [selectedPlaceId, visiblePlaces],
   );
 
   /**
@@ -361,7 +374,14 @@ export default function Home() {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          scrollEnabled={level > 0}
+          /*
+            **확장 단계에서만 스크롤한다.**
+
+            "보통" 단계에서는 카드를 한 장씩 넘기므로(`CardPager`) 시트까지 함께 스크롤되면
+            둘이 같은 세로 제스처를 두고 다툰다. 그 단계 높이는 어차피 카드 한 장에 맞춰
+            잡혀 있어 스크롤할 것도 없다.
+          */
+          scrollEnabled={level === 2}
           contentContainerStyle={[
             s.list,
             /*
@@ -372,82 +392,79 @@ export default function Home() {
             { paddingHorizontal: gutter, paddingBottom: spacing.x6 + sheet.top },
           ]}
         >
-          {visiblePlaces.map((place, index) => (
-            <Pressable
-              key={place.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${place.name} 지도에서 보기`}
-              accessibilityState={{ selected: place.id === selectedPlaceId }}
-              onPress={() => focusPlace(place.id)}
-              /*
-                첫 카드만 재서 "기본" 단계 높이를 정한다. 카드 구조가 같아 하나로 충분하고,
-                모두 재면 같은 값을 여러 번 쓰게 된다. 값이 실제로 바뀔 때만 반영해 되풀이를 막는다.
-              */
-              onLayout={
-                index === 0
-                  ? (event) => {
-                      const measured = Math.round(event.nativeEvent.layout.height);
-                      setCardHeight((current) => (current === measured ? current : measured));
-                    }
-                  : undefined
-              }
-              style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
-            >
-              <View style={s.cardTop}>
-                <View style={s.placeCopy}>
-                  <Text numberOfLines={1} style={s.placeName}>
-                    {place.name}
-                  </Text>
-                  <Text style={s.hours}>영업중 · 오후 10:00까지</Text>
-                  <Text numberOfLines={1} style={s.address}>
-                    {place.address}
-                  </Text>
+          {/*
+            "보통" 단계에서는 카드를 한 장씩 넘긴다. 확장하면 목록으로 돌아간다.
+
+            **카드 높이는 `CardPager`가 알려 준다**(`onSlotHeightChange`). 예전에는 첫 카드에
+            `onLayout`을 달아 직접 쟀는데, 카드가 넘기는 칸 안에 들어가면 잰 값이 곧 칸 높이가
+            되어 둘이 서로 물린다. 재는 일은 칸을 가진 쪽이 맡는 편이 맞다.
+          */}
+          <CardPager paging={level !== 2} onSlotHeightChange={setCardHeight} activeIndex={selectedCardIndex}>
+            {visiblePlaces.map((place) => (
+              <Pressable
+                key={place.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${place.name} 지도에서 보기`}
+                accessibilityState={{ selected: place.id === selectedPlaceId }}
+                onPress={() => focusPlace(place.id)}
+                style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
+              >
+                <View style={s.cardTop}>
+                  <View style={s.placeCopy}>
+                    <Text numberOfLines={1} style={s.placeName}>
+                      {place.name}
+                    </Text>
+                    <Text style={s.hours}>영업중 · 오후 10:00까지</Text>
+                    <Text numberOfLines={1} style={s.address}>
+                      {place.address}
+                    </Text>
+                  </View>
+                  {/*
+                    상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+
+                    고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
+                    예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
+                    실제로는 카드와 같은 동작이라 오해를 샀다.
+
+                    글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
+                    표적은 아이콘보다 훨씬 크게 잡는다.
+                  */}
+                  {place.id === selectedPlaceId && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${place.name} 상세 보기`}
+                      hitSlop={16}
+                      onPress={() => openPlace(place.id)}
+                      style={s.detailChevron}
+                    >
+                      <Ionicons name="chevron-forward" size={22} color={colors.dark} />
+                    </Pressable>
+                  )}
                 </View>
+                <View style={s.cardRule} />
+                {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
+                <Text style={s.pinUpload}>
+                  감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
+                </Text>
                 {/*
-                  상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+                  작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
+                  비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
+                  같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
 
-                  고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
-                  예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
-                  실제로는 카드와 같은 동작이라 오해를 샀다.
-
-                  글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
-                  표적은 아이콘보다 훨씬 크게 잡는다.
+                  장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
                 */}
-                {place.id === selectedPlaceId && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${place.name} 상세 보기`}
-                    hitSlop={16}
-                    onPress={() => openPlace(place.id)}
-                    style={s.detailChevron}
-                  >
-                    <Ionicons name="chevron-forward" size={22} color={colors.dark} />
-                  </Pressable>
-                )}
-              </View>
-              <View style={s.cardRule} />
-              {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
-              <Text style={s.pinUpload}>
-                감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
-              </Text>
-              {/*
-                작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
-                비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
-                같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
-
-                장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
-              */}
-              <View style={s.angleRow}>
-                {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
-                  <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
-                ))}
-                {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
-                {place.pins > ANGLE_PREVIEW_COUNT && (
-                  <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
-                )}
-              </View>
-            </Pressable>
-          ))}
+                <View style={s.angleRow}>
+                  {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
+                    <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
+                  ))}
+                  {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
+                  {place.pins > ANGLE_PREVIEW_COUNT && (
+                    <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
+                  )}
+                </View>
+              </Pressable>
+            ))}
+          </CardPager>
           {visiblePlaces.length === 0 && (
             <View style={s.empty}>
               <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
@@ -540,14 +557,23 @@ const s = StyleSheet.create({
   sheetTitle: { ...type.body, flex: 1, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
   sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   list: { paddingTop: 0, gap: spacing.x3 },
+  /**
+   * 장소 카드.
+   *
+   * 테두리 자리를 **고르지 않았을 때도 미리 비워 둔다**(투명). 고를 때만 테두리를 주면 그
+   * 카드가 3px 높아져, 목록이 밀리고 한 장씩 넘기는 칸(`CardPager`)에서는 칸에 갇혀 아래
+   * 테두리가 잘린다. 색만 바뀌면 높이가 변하지 않는다.
+   */
   placeCard: {
     padding: spacing.x5,
     borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...glassShadow,
   },
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
-  placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
+  placeCardSelected: { borderColor: colors.lime },
   // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
   /**
