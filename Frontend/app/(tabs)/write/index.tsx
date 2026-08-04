@@ -228,6 +228,15 @@ export default function PinCreateScreen() {
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              /*
+                스크롤이 끝에 닿을 때의 늘어나는 효과(stretch overscroll)를 끈다.
+
+                안드로이드 12부터 끝에 부딪히면 내용 전체가 고무줄처럼 늘어나는데, 카메라
+                미리보기는 뷰 계층 밖의 서피스에 그려져 그 변형에 참여하지 못한다. 그 순간
+                미리보기가 왼쪽 위로 붙고 나머지가 검게 남았다. 빠르게 스크롤할 때만 보였던
+                것도 그때만 끝에 세게 닿기 때문이다.
+              */
+              overScrollMode="never"
               contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
