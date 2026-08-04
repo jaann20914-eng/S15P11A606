@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.domain.pin.service;
 
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomStatusChangedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
@@ -27,6 +28,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
@@ -43,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +54,7 @@ class PinPublisherLeaveServiceTest {
 
     @Mock private PinRepository pinRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
+    @Mock private SimpMessagingTemplate messagingTemplate;
 
     private PinPublisherLeaveService service;
 
@@ -59,13 +63,14 @@ class PinPublisherLeaveServiceTest {
     private static final String RAW_PIN_ID = "11111111-2222-3333-4444-555555555555";
     private static final UUID PIN_ID = UUID.fromString(RAW_PIN_ID);
     private static final Instant SERVER_NOW = Instant.parse("2026-08-04T00:00:00Z");
+    private static final String USER_QUEUE = "/queue/chat-rooms";
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(SERVER_NOW, ZoneOffset.UTC);
-        service = new PinPublisherLeaveService(pinRepository, chatRoomRepository, clock);
+        service = new PinPublisherLeaveService(pinRepository, chatRoomRepository, messagingTemplate, clock);
         given(chatRoomRepository.findByPin_IdAndStatusIn(any(), any())).willReturn(List.of());
     }
 
@@ -80,10 +85,12 @@ class PinPublisherLeaveServiceTest {
         return pin;
     }
 
-    private ChatRoom roomWithStatus(Long id, ChatRoomStatus status) {
+    private ChatRoom roomWithStatus(Long id, ChatRoomStatus status, Long requesterId) {
+        Member requester = Mockito.mock(Member.class);
+        given(requester.getId()).willReturn(requesterId);
         ChatRoom room = ChatRoom.create(
                 Mockito.mock(Pin.class),
-                Mockito.mock(Member.class),
+                requester,
                 Mockito.mock(Member.class));
         ReflectionTestUtils.setField(room, "id", id);
         ReflectionTestUtils.setField(room, "status", status);
@@ -98,9 +105,9 @@ class PinPublisherLeaveServiceTest {
     void 정상_떠남처리하면_핀을_LEFT로_전환하고_PENDING_ACTIVE_REFUSED_채팅방을_LEFT로_종료한다() {
         Pin pin = pinOwnedBy(MEMBER_ID);
         given(pinRepository.findByIdForUpdate(PIN_ID)).willReturn(Optional.of(pin));
-        ChatRoom pending = roomWithStatus(1L, ChatRoomStatus.PENDING);
-        ChatRoom active = roomWithStatus(2L, ChatRoomStatus.ACTIVE);
-        ChatRoom refused = roomWithStatus(3L, ChatRoomStatus.REFUSED);
+        ChatRoom pending = roomWithStatus(1L, ChatRoomStatus.PENDING, 101L);
+        ChatRoom active = roomWithStatus(2L, ChatRoomStatus.ACTIVE, 102L);
+        ChatRoom refused = roomWithStatus(3L, ChatRoomStatus.REFUSED, 103L);
         given(chatRoomRepository.findByPin_IdAndStatusIn(eq(PIN_ID), any()))
                 .willReturn(List.of(pending, active, refused));
 
@@ -117,6 +124,26 @@ class PinPublisherLeaveServiceTest {
         assertThat(response.status()).isEqualTo("LEFT");
         assertThat(response.leftChatRoomIds()).containsExactly(1L, 2L, 3L);
         assertThat(response.leftAt()).isEqualTo(SERVER_NOW);
+
+        // 종료된 방마다 상대(요청자) 개인 큐로 LEFT 상태 변경을 push한다(팬아웃). actor(핀 소유자)에겐 미발행.
+        ArgumentCaptor<ChatRoomStatusChangedEvent> captor =
+                ArgumentCaptor.forClass(ChatRoomStatusChangedEvent.class);
+        verify(messagingTemplate, times(3)).convertAndSendToUser(any(String.class), eq(USER_QUEUE), captor.capture());
+        verify(messagingTemplate).convertAndSendToUser(eq("101"), eq(USER_QUEUE), any(ChatRoomStatusChangedEvent.class));
+        verify(messagingTemplate).convertAndSendToUser(eq("102"), eq(USER_QUEUE), any(ChatRoomStatusChangedEvent.class));
+        verify(messagingTemplate).convertAndSendToUser(eq("103"), eq(USER_QUEUE), any(ChatRoomStatusChangedEvent.class));
+        // actor(핀 소유자) 자신에게는 보내지 않는다.
+        verify(messagingTemplate, never())
+                .convertAndSendToUser(eq(String.valueOf(MEMBER_ID)), eq(USER_QUEUE), any(ChatRoomStatusChangedEvent.class));
+        // 모든 이벤트가 LEFT·해당 pin·actor(senderId)로 채워진다.
+        assertThat(captor.getAllValues()).allSatisfy(e -> {
+            assertThat(e.eventType()).isEqualTo("CHAT_ROOM_STATUS_CHANGED");
+            assertThat(e.data().status()).isEqualTo(ChatRoomStatus.LEFT);
+            assertThat(e.data().pinId()).isEqualTo(PIN_ID);
+            assertThat(e.data().senderId()).isEqualTo(MEMBER_ID);
+            assertThat(e.data().changedAt()).isEqualTo(SERVER_NOW);
+        });
+        assertThat(captor.getAllValues()).extracting(e -> e.data().roomId()).containsExactly(1L, 2L, 3L);
     }
 
     @Test
@@ -145,6 +172,8 @@ class PinPublisherLeaveServiceTest {
         assertThat(pin.getPublisherStatus()).isEqualTo(PublisherStatus.LEFT);
         assertThat(response.leftChatRoomIds()).isEmpty();
         assertThat(response.status()).isEqualTo("LEFT");
+        // 종료된 방이 없으면 상태 변경 push도 발생하지 않는다.
+        verify(messagingTemplate, never()).convertAndSendToUser(any(String.class), any(), any());
     }
 
     @Test
@@ -181,6 +210,7 @@ class PinPublisherLeaveServiceTest {
 
         assertThat(pin.getPublisherStatus()).isEqualTo(PublisherStatus.STILL_HERE);
         verify(chatRoomRepository, never()).findByPin_IdAndStatusIn(any(), any());
+        verify(messagingTemplate, never()).convertAndSendToUser(any(String.class), any(), any());
     }
 
     @Test

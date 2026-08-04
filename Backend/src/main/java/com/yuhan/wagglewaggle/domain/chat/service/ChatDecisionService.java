@@ -3,6 +3,7 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecision;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomStatusChangedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
@@ -17,9 +18,14 @@ import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -41,10 +47,16 @@ public class ChatDecisionService {
 
     private static final int CHAT_ACCEPT_CREDIT = 5;
 
+    // convertAndSendToUser가 /user prefix를 자동으로 붙이므로 send 시엔 prefix를 제외한다.
+    // 구독 경로 /user/queue/chat-rooms(= StompAuthChannelInterceptor.USER_CHAT_ROOMS_DESTINATION)와 대응한다.
+    private static final String USER_CHAT_ROOMS_SEND_DESTINATION = "/queue/chat-rooms";
+
     private final ChatRoomRepository chatRoomRepository;
     private final MemberRepository memberRepository;
     private final CreditTransactionRepository creditTransactionRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final Clock clock;
 
     /**
      * 채팅 요청에 응답한다. 검증 실패 시 명세의 오류 코드로 예외를 던지며,
@@ -82,7 +94,34 @@ public class ChatDecisionService {
             throw new CustomException(ErrorCode.CHAT_REQUEST_DECISION_FAILED);
         }
 
+        // 상태 변경을 상대(요청자)에게 알린다. actor(memberId)는 recipient이므로 비actor는 항상 requester다.
+        // 크레딧 이동 등 롤백 가능 로직이 있으므로 커밋 이후에만 push한다(롤백 시 잘못된 알림 방지).
+        // 저장 상태는 결정의 targetStatus(ACTIVE/REFUSED/LEFT)로 확정한다(전이된 엔티티 재조회에 의존하지 않음).
+        UUID pinId = room.getPin().getId();
+        Long requesterId = room.getRequester().getId();
+        ChatRoomStatus status = decision.targetStatus();
+        Instant changedAt = clock.instant();
+        runAfterCommit(() -> messagingTemplate.convertAndSendToUser(
+                String.valueOf(requesterId), USER_CHAT_ROOMS_SEND_DESTINATION,
+                ChatRoomStatusChangedEvent.of(roomId, pinId, memberId, status, changedAt, clock.instant())));
+
         return new ChatDecisionResponse(roomId, decision.apiStatus());
+    }
+
+    /**
+     * DB 커밋 이후 실행할 후속 처리를 등록한다. 활성 트랜잭션이 없으면 즉시 실행한다.
+     */
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
 
     /**

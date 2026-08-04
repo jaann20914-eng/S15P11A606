@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageCreatedEvent;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageSendRequest;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomUpdatedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatMessage;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
@@ -39,6 +40,9 @@ public class ChatMessageService {
     static final int MAX_CONTENT_LENGTH = 1000;
 
     private static final String CHAT_ROOM_TOPIC_PREFIX = "/topic/chat/rooms/";
+    // convertAndSendToUser가 /user prefix를 자동으로 붙이므로 send 시엔 prefix를 제외한다.
+    // 구독 경로 /user/queue/chat-rooms(= StompAuthChannelInterceptor.USER_CHAT_ROOMS_DESTINATION)와 대응한다.
+    private static final String USER_CHAT_ROOMS_SEND_DESTINATION = "/queue/chat-rooms";
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -93,6 +97,20 @@ public class ChatMessageService {
                 saved.getCreatedAt(),
                 Instant.now(clock));
         messagingTemplate.convertAndSend(CHAT_ROOM_TOPIC_PREFIX + roomId, event);
+
+        // 방 토픽은 방 상세 화면 구독자에게만 도달하므로, 목록 화면만 보는 참여자를 위해
+        // 이번 메시지의 비발신 참여자(상대) 개인 큐로 목록 갱신 이벤트(CHAT_ROOM_UPDATED)를 push한다.
+        // 이 이벤트 수신 자체가 새 메시지 도착이므로 안읽음 여부는 담지 않는다(클라이언트가 수신 즉시 처리).
+        // 발신자 본인 목록은 SEND 성공 시 클라이언트가 낙관적으로 갱신한다.
+        // 수신자는 room 목록(roomId)/pin 목록(pinId) 어느 화면이든 볼 수 있어 둘 다 담는다.
+        String preview = saved.getMaskedContent() != null ? saved.getMaskedContent() : saved.getContent();
+        Long recipientId = room.getRequester().getId().equals(senderId)
+                ? room.getRecipient().getId()
+                : room.getRequester().getId();
+        ChatRoomUpdatedEvent listEvent = ChatRoomUpdatedEvent.of(
+                roomId, room.getPin().getId(), senderId, preview, saved.getCreatedAt(), Instant.now(clock));
+        messagingTemplate.convertAndSendToUser(
+                String.valueOf(recipientId), USER_CHAT_ROOMS_SEND_DESTINATION, listEvent);
     }
 
     private String validateContent(ChatMessageSendRequest request) {
