@@ -241,7 +241,12 @@ export default function PinCreateScreen() {
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
-              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
+              {/* 수정이면 지금 올라가 있는 영상을 먼저 보여준다. 다시 찍을 때만 교체된다. */}
+              <CaptureField
+                video={form.draft.video}
+                onCaptured={form.setVideo}
+                existingVideoUrl={editable.existingVideoUrl}
+              />
 
               <View onLayout={rememberTop('memo')}>
                 <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />
