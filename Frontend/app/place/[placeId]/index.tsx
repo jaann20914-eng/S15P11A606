@@ -511,8 +511,22 @@ const s = StyleSheet.create({
   handle: { width: 40, height: 4, borderRadius: radius.pill, backgroundColor: 'rgba(59,56,56,0.32)' },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: spacing.x6 },
-  /** 장소 정보와 혼잡도 그래프를 함께 담는 한 장. 여백은 그래프가 전제하는 값이다. */
-  infoCard: { padding: INFO_CARD_PADDING, borderRadius: radius.hero, backgroundColor: colors.white },
+  /**
+   * 장소 정보와 혼잡도 그래프를 함께 담는 한 장. 여백은 그래프가 전제하는 값이다.
+   *
+   * 그림자를 둔다 — 반투명 시트 위에 놓이므로 없으면 시트 바닥과 붙어 한 덩어리로 보인다.
+   * 영상핀 카드(`PlacePinCard`)와 같은 값이라 두 카드가 같은 높이에 떠 보인다.
+   */
+  infoCard: {
+    padding: INFO_CARD_PADDING,
+    borderRadius: radius.hero,
+    backgroundColor: colors.white,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   /**
    * 그래프가 드러나는 창. 확장 단계에서만 붙는다.
    *

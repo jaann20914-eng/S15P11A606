@@ -14,7 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
-import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
+import {
+  DEFAULT_MAP_LEVEL,
+  PLACE_FOCUS_MAP_LEVEL,
+  REVIEW_PIN_MAX_LEVEL,
+} from '@/components/home/kakaoMapHtml';
 import { CardPager, CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
@@ -23,7 +27,8 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
-import { places } from '@/data/mock';
+import { usesMockApi } from '@/api/config';
+import { demoNearbyPlaces, places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -130,9 +135,21 @@ export default function Home() {
   });
   const { level, moveTo, sheetY, coveredHeight } = sheet;
 
+  /*
+    지도에 찍을 장소.
+
+    목업 모드에서는 주변 장소들을 함께 얹는다(`demoNearbyPlaces`). 손으로 박아 둔 세 곳만으로는
+    지도가 비어 보여 시연에서 "핀이 안 나온다"로 읽힌다. 실서버 모드에서는 얹지 않는다 —
+    `GET /api/v1/places`가 붙으면 그쪽 응답이 이 자리를 대신한다.
+  */
+  const mapPlaces = useMemo(() => (usesMockApi ? [...places, ...demoNearbyPlaces] : places), []);
+
+  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
+  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
+
   const visiblePlaces = useMemo(
-    () => places.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
-    [crowdFilter],
+    () => mapPlaces.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
+    [crowdFilter, mapPlaces],
   );
 
   const markers = useMemo(
@@ -171,7 +188,8 @@ export default function Home() {
    */
   const focusPlace = useCallback(
     (placeId: string) => {
-      const place = places.find((item) => item.id === placeId);
+      // 목업 모드에서 함께 얹은 주변 장소도 찾을 수 있어야 한다. `places`만 보면 그 마커는 먹통이 된다.
+      const place = mapPlaces.find((item) => item.id === placeId);
       if (!place) return;
 
       selectPlace(placeId);
@@ -179,11 +197,30 @@ export default function Home() {
       if (level === 2) moveTo(1);
       setPendingPan({ latitude: place.latitude, longitude: place.longitude });
     },
-    [level, moveTo, selectPlace],
+    [level, mapPlaces, moveTo, selectPlace],
+  );
+
+  /**
+   * 지도 마커를 눌렀을 때.
+   *
+   * 축척을 20m까지 당긴 상태에서는 마커가 **리뷰핀**이다. 그때는 지도만 옮기지 않고 그 장소의
+   * 상세까지 연다 — 그만큼 당겼으면 누른 것이 어느 곳인지 확실하기 때문이다.
+   *
+   * 그보다 넓게 보고 있으면 지금처럼 지도만 옮긴다. 손가락 하나에 여러 장소가 걸리는 축척에서
+   * 화면까지 바뀌면 실수가 된다. 목록 카드를 누르는 것도 지도 이동까지만인 것과 같은 이유다.
+   */
+  const pressMapPin = useCallback(
+    (placeId: string) => {
+      focusPlace(placeId);
+      if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
+    },
+    [focusPlace, mapLevel, openPlace],
   );
 
   const handleViewChange = useCallback(
     (view: MapViewState) => {
+      // 마커를 리뷰핀으로 다룰지 판단하는 값이다. 지도가 멈출 때마다 갱신된다.
+      setMapLevel(view.level);
       setCenter({ latitude: view.latitude, longitude: view.longitude });
       setBounds({
         southWest: { latitude: view.bounds.swLat, longitude: view.bounds.swLng },
@@ -297,7 +334,7 @@ export default function Home() {
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
           // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
-          onPinPress={focusPlace}
+          onPinPress={pressMapPin}
           onMapPress={clearSelection}
           onViewChange={handleViewChange}
         />

@@ -25,36 +25,48 @@ export interface PlacePinCardProps {
 const ANGLE_RING_SIZE = 44;
 
 /**
- * 메모를 접는 길이.
+ * 메모를 몇 줄까지 보여줄지.
  *
- * 시안이 네 줄쯤에서 `… 더보기`로 접는다. `numberOfLines`로 자르면 말줄임표 뒤에 글자를 붙일
- * 수 없어 안내가 사라지므로, 글자 수로 잘라 직접 붙인다.
+ * `numberOfLines`로 자른다 — 넘치는 지점부터 RN이 말줄임표를 붙여 준다. 예전에는 글자 수
+ * (82자)로 잘라 `… 더보기`를 직접 붙였는데, 그러면 **글자 수가 같아도 줄 수가 달라진다.**
+ * 화면 너비와 글자 조합에 따라 세 줄이 되기도 네 줄이 되기도 해서 카드 높이가 제각각이었다.
+ * 줄 수로 자르면 어느 카드든 같은 높이에서 끝난다.
+ *
+ * `더보기` 글자는 없어진다. 말줄임표 뒤에 글자를 붙일 수단이 없기 때문이다. 카드 전체가
+ * 게시글로 가는 버튼이라 눌러서 이어 읽는 길은 그대로 남는다.
+ *
+ * 아래 `THUMBNAIL_HEIGHT`에서 태그 줄을 뺀 만큼이 이 줄 수의 근거다(계산은 그쪽 주석 참고).
  */
-const MEMO_PREVIEW_LENGTH = 82;
+const MEMO_MAX_LINES = 4;
 
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 
 /**
- * 썸네일 칸의 가로·최소 세로.
+ * 썸네일 칸의 크기. **이 세로 높이가 카드 높이를 정한다.**
  *
  * 들어갈 것이 **영상**이라 정사각(128×128)보다 옆으로 누운 편이 원본 화면비에 가깝다.
- * 세로는 최소값만 두고 옆 글줄이 길면 함께 늘어난다(`alignItems: 'stretch'`).
+ *
+ * 세로를 최소값이 아니라 **고정값**으로 둔다. 예전에는 최소값이라 옆 글줄이 길면 함께
+ * 늘어났고, 그래서 메모가 긴 카드만 키가 컸다. 한 장씩 넘겨 보는 자리에서는 카드마다 키가
+ * 다르면 넘길 때 아래가 들쭉날쭉해 보인다.
+ *
+ * 이 높이가 옆 칸의 예산이 된다 — 태그 줄(28 + 위 여백 8 = 36)을 빼면 92가 남고,
+ * 메모 한 줄이 22px(`type.small`의 lineHeight)이라 네 줄(88)이 들어간다. 그래서
+ * `MEMO_MAX_LINES`가 4다. 이 값을 바꾸면 그 줄 수도 함께 다시 계산해야 한다.
  *
  * 가로를 더 늘리면 옆 메모 칸이 그만큼 좁아져 한 줄에 담기는 글자가 줄어든다. 지금 값이
  * 메모가 읽히는 선에서 가장 넓게 잡은 것이다.
  */
 const THUMBNAIL_WIDTH = 152;
-const THUMBNAIL_MIN_HEIGHT = 128;
+const THUMBNAIL_HEIGHT = 128;
 
 export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
     없이 등록된 핀이 목록에 하나만 있어도 카드가 아니라 화면 전체가 죽었다.
   */
-  const body = pin.memo ?? '';
-  const folded = body.length > MEMO_PREVIEW_LENGTH;
-  const memo = folded ? `${body.slice(0, MEMO_PREVIEW_LENGTH).trimEnd()}... ` : body;
+  const memo = pin.memo ?? '';
 
   return (
     <Pressable
@@ -85,9 +97,8 @@ export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
         <View style={s.copy}>
           {/* 메모가 없으면 빈 줄을 만들지 않는다. 태그만 있는 카드도 있다. */}
           {memo.length > 0 && (
-            <Text style={s.memo}>
+            <Text numberOfLines={MEMO_MAX_LINES} ellipsizeMode="tail" style={s.memo}>
               {memo}
-              {folded && <Text style={s.more}>더보기</Text>}
             </Text>
           )}
 
@@ -109,16 +120,36 @@ export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
 }
 
 const s = StyleSheet.create({
-  card: { padding: spacing.x4, borderRadius: radius.hero, backgroundColor: colors.white },
+  /**
+   * 카드 한 장.
+   *
+   * 그림자를 둔다. 이 카드는 반투명 시트 위에 놓이는데 그림자가 없으면 시트 바닥과 붙어
+   * 한 덩어리로 보인다. 홈 시트의 장소 카드와 같은 옅은 그림자를 쓴다(§1.5의 지도 위 카드).
+   */
+  card: {
+    padding: spacing.x4,
+    borderRadius: radius.hero,
+    backgroundColor: colors.white,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },
   authorName: { ...type.label, fontWeight: '600', color: colors.dark },
   time: { ...type.caption, color: colors.gray400 },
-  body: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.x3, marginTop: spacing.x3 },
-  thumbnail: { width: THUMBNAIL_WIDTH, minHeight: THUMBNAIL_MIN_HEIGHT, borderRadius: radius.md },
+  // 높이를 고정해 카드마다 키가 같아진다. 근거는 `THUMBNAIL_HEIGHT` 주석에 있다.
+  body: {
+    height: THUMBNAIL_HEIGHT,
+    flexDirection: 'row',
+    gap: spacing.x3,
+    marginTop: spacing.x3,
+  },
+  thumbnail: { width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT, borderRadius: radius.md },
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
-  more: { ...type.small, color: colors.gray400 },
   tags: { flexDirection: 'row', gap: spacing.x1, marginTop: spacing.x2, overflow: 'hidden' },
   tag: {
     maxWidth: '45%',
