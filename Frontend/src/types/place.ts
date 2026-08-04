@@ -109,6 +109,14 @@ export interface PlacePinCard {
   tags: string[];
   /** 내가 이미 열람한 핀인지. 썸네일 블러 여부를 가른다. */
   isUnlocked: boolean;
+  /**
+   * 촬영 좌표. **서버는 아직 주지 않아 실서버에서는 null이다**(백엔드에 요청해 둔 항목).
+   *
+   * 있으면 상세 화면이 그 자리에 영상핀 마커를 찍고, 게시물을 오르내릴 때 지도를 그 좌표로
+   * 옮긴다. 없으면 마커를 찍지 않고 지도는 장소 좌표에 머문다 — 화면이 깨지지 않아야 한다.
+   */
+  latitude: number | null;
+  longitude: number | null;
 }
 
 /**
@@ -118,9 +126,12 @@ export interface PlacePinCard {
  * 올지 확정되지 않았다. 둘 다 선택으로 받아 두고 API 경계에서 `thumbnailUrl` 하나로 모은다.
  * 확정되면 여기 한 곳만 지우면 된다.
  */
-export type PlacePinCardResponse = Omit<PlacePinCard, 'thumbnailUrl'> & {
+export type PlacePinCardResponse = Omit<PlacePinCard, 'thumbnailUrl' | 'latitude' | 'longitude'> & {
   videoThumbnailUrl?: string | null;
   thumbnailKey?: string | null;
+  /** 서버가 아직 주지 않는다. 목업은 채워 주므로 선택으로 받아 둔다. */
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';

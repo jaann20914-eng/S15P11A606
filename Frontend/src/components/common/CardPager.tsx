@@ -113,9 +113,22 @@ export interface CardPagerProps {
    * 이 값이 실제로 바뀔 때만 움직인다.
    */
   activeIndex?: number;
+  /**
+   * 보고 있는 카드가 바뀔 때마다 알린다.
+   *
+   * 손으로 넘긴 경우와 `activeIndex`로 옮겨진 경우를 모두 알린다 — 받는 쪽은 "지금 몇 번째"만
+   * 알면 되고 누가 옮겼는지는 구분할 필요가 없다.
+   */
+  onIndexChange?: (index: number) => void;
 }
 
-export function CardPager({ children, paging = true, onSlotHeightChange, activeIndex }: CardPagerProps) {
+export function CardPager({
+  children,
+  paging = true,
+  onSlotHeightChange,
+  activeIndex,
+  onIndexChange,
+}: CardPagerProps) {
   // `toArray`는 null·false를 걸러 주고 key를 지켜 준다. 측정용으로 한 번 더 그려도 안전하다.
   const items = useMemo(() => Children.toArray(children), [children]);
   const count = items.length;
@@ -205,6 +218,19 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
     카드를 넘긴 것과 구분해야 한다 — 그쪽은 위 스프링이 맡으므로 여기서 값을 덮으면 그
     애니메이션이 끊긴다. 그래서 칸 높이 자체가 바뀐 경우에만 다시 놓는다.
   */
+  /*
+    보고 있는 카드가 바뀐 것을 알린다.
+
+    값이 실제로 바뀔 때만 부른다 — 리렌더마다 부르면 받는 쪽이 지도를 계속 다시 옮긴다.
+    `activeIndex`로 옮겨진 경우도 여기서 함께 알려지므로 호출부가 두 길을 따로 다룰 필요가 없다.
+  */
+  const reportedIndex = useRef(index);
+  useEffect(() => {
+    if (reportedIndex.current === index) return;
+    reportedIndex.current = index;
+    onIndexChange?.(index);
+  }, [index, onIndexChange]);
+
   const appliedSlotHeight = useRef(slotHeight);
   useEffect(() => {
     if (appliedSlotHeight.current === slotHeight) return;

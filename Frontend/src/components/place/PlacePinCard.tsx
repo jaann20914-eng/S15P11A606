@@ -19,6 +19,12 @@ import { colors, radius, spacing, type } from '@/constants/theme';
 export interface PlacePinCardProps {
   pin: PlacePinCardData;
   onPress: () => void;
+  /**
+   * 지금 지도 중앙에 정렬된 영상핀인지.
+   *
+   * 홈의 장소 카드와 같은 양식으로 라임 테두리를 둘러 "지도에 보이는 그 핀"임을 알린다.
+   */
+  selected?: boolean;
 }
 
 /** 카드의 각도 링 지름. */
@@ -61,7 +67,7 @@ const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 const THUMBNAIL_WIDTH = 152;
 const THUMBNAIL_HEIGHT = 128;
 
-export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
+export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
     없이 등록된 핀이 목록에 하나만 있어도 카드가 아니라 화면 전체가 죽었다.
@@ -73,7 +79,7 @@ export function PlacePinCard({ pin, onPress }: PlacePinCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`${pin.nickname}님의 영상핀 보기`}
       onPress={onPress}
-      style={s.card}
+      style={[s.card, selected && s.cardSelected]}
     >
       <View style={s.author}>
         <ViewAvatar angle={pin.viewAngle} size={ANGLE_RING_SIZE} />
@@ -129,6 +135,12 @@ const s = StyleSheet.create({
   card: {
     padding: spacing.x4,
     borderRadius: radius.hero,
+    /*
+      테두리 자리를 고르지 않았을 때도 비워 둔다(투명). 고를 때만 주면 그 카드가 3px 높아져
+      한 장씩 넘기는 칸에서 아래가 잘린다 — 홈의 장소 카드와 같은 이유다.
+    */
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     backgroundColor: colors.white,
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 4 },
@@ -136,6 +148,8 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  /** 지도 중앙에 정렬된 영상핀. 홈의 선택된 장소 카드와 같은 양식이다. */
+  cardSelected: { borderColor: colors.lime },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },
   authorName: { ...type.label, fontWeight: '600', color: colors.dark },

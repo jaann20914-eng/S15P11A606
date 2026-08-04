@@ -20,13 +20,29 @@ export interface PinCardPagerProps {
   paging?: boolean;
   /** 한 칸의 높이. 시트의 "보통" 단계 높이를 이 값으로 정한다. */
   onSlotHeightChange?: (height: number) => void;
+  /** 지금 지도 중앙에 정렬된 핀. 그 카드에 라임 테두리를 두른다. */
+  selectedIndex?: number;
+  /** 보고 있는 카드가 바뀔 때. 화면이 그 핀으로 지도를 옮긴다. */
+  onIndexChange?: (index: number) => void;
 }
 
-export function PinCardPager({ pins, onSelect, paging, onSlotHeightChange }: PinCardPagerProps) {
+export function PinCardPager({
+  pins,
+  onSelect,
+  paging,
+  onSlotHeightChange,
+  selectedIndex,
+  onIndexChange,
+}: PinCardPagerProps) {
   return (
-    <CardPager paging={paging} onSlotHeightChange={onSlotHeightChange}>
-      {pins.map((pin) => (
-        <PlacePinCard key={pin.pinId} pin={pin} onPress={() => onSelect(pin)} />
+    <CardPager paging={paging} onSlotHeightChange={onSlotHeightChange} onIndexChange={onIndexChange}>
+      {pins.map((pin, index) => (
+        <PlacePinCard
+          key={pin.pinId}
+          pin={pin}
+          selected={index === selectedIndex}
+          onPress={() => onSelect(pin)}
+        />
       ))}
     </CardPager>
   );

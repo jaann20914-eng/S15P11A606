@@ -10,8 +10,20 @@ import type { PlaceDetail, PlaceDetailResponse, PlacePinCard, PlacePinCardRespon
  * 확정되지 않았다. 둘 다 받아 두고 화면에는 `thumbnailUrl` 하나만 넘긴다. 키로 온다면
  * 저장소 주소를 앞에 붙이는 자리도 여기다.
  */
-export function toPinCard({ videoThumbnailUrl, thumbnailKey, ...pin }: PlacePinCardResponse): PlacePinCard {
-  return { ...pin, thumbnailUrl: videoThumbnailUrl ?? thumbnailKey ?? null };
+export function toPinCard({
+  videoThumbnailUrl,
+  thumbnailKey,
+  latitude,
+  longitude,
+  ...pin
+}: PlacePinCardResponse): PlacePinCard {
+  return {
+    ...pin,
+    thumbnailUrl: videoThumbnailUrl ?? thumbnailKey ?? null,
+    // 서버는 아직 좌표를 주지 않는다. 없으면 null로 못 박아 화면이 있는 척하지 않게 한다.
+    latitude: latitude ?? null,
+    longitude: longitude ?? null,
+  };
 }
 
 function toPlaceDetail(response: PlaceDetailResponse): PlaceDetail {

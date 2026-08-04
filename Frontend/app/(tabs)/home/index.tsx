@@ -65,6 +65,7 @@ export default function Home() {
   const setBounds = useMapStore((state) => state.setBounds);
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
+  const pinOverlay = useMapStore((state) => state.pinOverlay);
   const [mapReady, setMapReady] = useState(false);
 
   /**
@@ -88,7 +89,7 @@ export default function Home() {
    * 한 번 더 렌더된 뒤에 옮기면 새 높이가 반영돼 있다. 검색 복귀도 같은 길을 쓰게 해서
    * 이동 경로를 하나로 둔다.
    */
-  const [pendingPan, setPendingPan] = useState<Coordinate | null>(null);
+  const [pendingPan, setPendingPan] = useState<{ coordinate: Coordinate; level: number } | null>(null);
   const mapRef = useRef<KakaoMapHandle>(null);
   // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
   const myLocation = useCurrentLocation({ auto: true });
@@ -152,10 +153,19 @@ export default function Home() {
     [crowdFilter, mapPlaces],
   );
 
-  const markers = useMemo(
+  /*
+    지도에 찍을 마커.
+
+    **상세 화면이 열려 있으면 그쪽 영상핀을 찍는다.** 상세는 자기 지도가 없어 이 지도를
+    반투명하게 비추고 있을 뿐이므로, 영상핀 마커도 여기서 그려야 한다(`pinOverlay`).
+    상세를 닫으면 비워지고 장소 마커로 돌아온다.
+  */
+  const placeMarkers = useMemo(
     () => visiblePlaces.map(({ id, name, latitude, longitude }) => ({ id, name, latitude, longitude })),
     [visiblePlaces],
   );
+  const markers = pinOverlay ? pinOverlay.markers : placeMarkers;
+  const selectedMarkerId = pinOverlay ? pinOverlay.selectedPinId : selectedPlaceId;
 
   /**
    * 고른 장소가 목록에서 몇 번째인지. 한 장씩 넘기는 칸이 그 카드를 보여주도록 넘긴다.
@@ -195,7 +205,10 @@ export default function Home() {
       selectPlace(placeId);
       // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
       if (level === 2) moveTo(1);
-      setPendingPan({ latitude: place.latitude, longitude: place.longitude });
+      setPendingPan({
+        coordinate: { latitude: place.latitude, longitude: place.longitude },
+        level: PLACE_FOCUS_MAP_LEVEL,
+      });
     },
     [level, mapPlaces, moveTo, selectPlace],
   );
@@ -265,7 +278,8 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !focus) return;
-    setPendingPan(focus.coordinate);
+    // 영상핀은 20m까지 당겨야 여러 개가 겹치지 않는다. 부르는 쪽이 정한 축척을 따른다.
+    setPendingPan({ coordinate: focus.coordinate, level: focus.level ?? PLACE_FOCUS_MAP_LEVEL });
     clearFocus();
   }, [clearFocus, focus, mapReady]);
 
@@ -278,7 +292,7 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !pendingPan) return;
-    mapRef.current?.focusPlace(pendingPan, PLACE_FOCUS_MAP_LEVEL);
+    mapRef.current?.focusPlace(pendingPan.coordinate, pendingPan.level);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
 
@@ -329,7 +343,7 @@ export default function Home() {
           bottomInset={coveredHeight}
           places={markers}
           filter={crowdFilter}
-          selectedPlaceId={selectedPlaceId}
+          selectedPlaceId={selectedMarkerId}
           // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
@@ -482,7 +496,6 @@ export default function Home() {
                     <Text numberOfLines={1} style={s.placeName}>
                       {place.name}
                     </Text>
-                    <Text style={s.hours}>영업중 · 오후 10:00까지</Text>
                     <Text numberOfLines={1} style={s.address}>
                       {place.address}
                     </Text>
@@ -694,7 +707,6 @@ const s = StyleSheet.create({
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
-  hours: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   address: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinUpload: { ...type.caption, color: colors.gray400 },

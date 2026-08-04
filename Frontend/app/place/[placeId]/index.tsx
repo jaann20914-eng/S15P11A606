@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -21,6 +21,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapStore } from '@/store/useMapStore';
+import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /** 손잡이 영역 높이. `s.handleArea`와 같은 값을 스냅 계산에서도 쓴다. */
@@ -83,6 +84,8 @@ export default function Place() {
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
   const focusOn = useMapStore((state) => state.focusOn);
+  const showPinOverlay = useMapStore((state) => state.showPinOverlay);
+  const clearPinOverlay = useMapStore((state) => state.clearPinOverlay);
   const myLocation = useCurrentLocation();
   const navBarHeight = useAppTabBarHeight();
 
@@ -190,6 +193,58 @@ export default function Place() {
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
+  /*
+    영상핀을 지도에 올리고, 보고 있는 게시물에 맞춰 지도를 옮긴다.
+
+    이 화면은 **자기 지도가 없다.** 반투명 모달로 홈 위에 겹쳐 있어 아래 홈 지도가 그대로
+    보이므로, 마커도 홈에게 부탁해 그린다(`showPinOverlay`). 내 위치 버튼이 이미 같은 방식이다.
+
+    좌표가 없는 핀은 마커로 찍을 수 없다 — 서버가 아직 촬영 좌표를 주지 않아 실서버에서는
+    비어 있고, 목업에서는 채워진다. 비면 마커를 올리지 않고 지도는 장소 자리에 머문다.
+  */
+  const [pinIndex, setPinIndex] = useState(0);
+
+  const pinMarkers = useMemo(
+    () =>
+      pins
+        .filter((pin) => pin.latitude !== null && pin.longitude !== null)
+        .map((pin) => ({
+          id: pin.pinId,
+          name: pin.nickname,
+          latitude: pin.latitude as number,
+          longitude: pin.longitude as number,
+        })),
+    [pins],
+  );
+
+  /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */
+  const focusedPin = pins[pinIndex] ?? null;
+
+  useEffect(() => {
+    if (pinMarkers.length === 0) return;
+
+    showPinOverlay({ markers: pinMarkers, selectedPinId: focusedPin?.pinId ?? null });
+  }, [focusedPin, pinMarkers, showPinOverlay]);
+
+  /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 영상핀이 남는다. */
+  useEffect(() => clearPinOverlay, [clearPinOverlay]);
+
+  /*
+    보고 있는 게시물의 핀을 화면 중앙으로 데려온다.
+
+    20m까지 당긴다 — 한 장소의 핀이 수십 미터 안에 모여 있어 장소용 축척(250m)으로는 여러
+    개가 한 점처럼 겹쳐 어느 것이 중앙인지 알 수 없다.
+  */
+  useEffect(() => {
+    if (focusedPin === null || focusedPin.latitude === null || focusedPin.longitude === null) return;
+
+    focusOn({
+      coordinate: { latitude: focusedPin.latitude, longitude: focusedPin.longitude },
+      name: focusedPin.nickname,
+      level: REVIEW_PIN_MAX_LEVEL,
+    });
+  }, [focusOn, focusedPin]);
+
   useEffect(() => {
     if (expanded) setChartMounted(true);
 
@@ -214,7 +269,8 @@ export default function Place() {
 
   return (
     // 배경을 두지 않는다. 아래 깔린 홈 지도가 그대로 보여야 한다.
-    <View style={s.overlay}>
+    // box-none이라 지도 영역의 터치가 아래 홈 지도로 지나간다. 시트와 상단 컨트롤은 자식이라 그대로 받는다.
+    <View pointerEvents="box-none" style={s.overlay}>
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
         pointerEvents="box-none"
@@ -411,6 +467,8 @@ export default function Place() {
                 pins={pins}
                 paging={!expanded}
                 onSlotHeightChange={setPinSlotHeight}
+                selectedIndex={pinIndex}
+                onIndexChange={setPinIndex}
                 onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
               />
             </View>
