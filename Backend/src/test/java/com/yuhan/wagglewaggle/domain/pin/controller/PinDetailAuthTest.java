@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinPublisherLeaveService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUnlockService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
@@ -40,6 +41,7 @@ class PinDetailAuthTest {
     @MockitoBean private PinDetailService pinDetailService;
     @MockitoBean private PinUpdateService pinUpdateService;
     @MockitoBean private PinDeleteService pinDeleteService;
+    @MockitoBean private PinPublisherLeaveService pinPublisherLeaveService;
     @MockitoBean private PinEvaluationService pinEvaluationService;
     @MockitoBean private PinUnlockService pinUnlockService;
 
