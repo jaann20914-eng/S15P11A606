@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import type { PlaceNearbyItem } from '@/types/place';
@@ -122,11 +122,10 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
             </Text>
           ) : (
             /*
-              목록 안에서 스크롤한다. 폼도 스크롤 화면이라 안드로이드에서는 `nestedScrollEnabled`가
-              있어야 안쪽이 손가락을 받는다 — 없으면 목록 위에서 밀어도 폼만 움직인다.
-              스크롤바는 감추지 않는다. 아래에 더 있다는 것을 알리는 유일한 표시다.
+              목록 안에서 따로 스크롤하지 않는다. 폼이 이미 스크롤 화면이라 그 안에 또 두면
+              손가락이 어느 쪽을 움직이는지 애매해져, 아래 후보가 있는지조차 알기 어려웠다.
             */
-            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            <View>
               {nearby.places.map((found) => (
                 <Pressable
                   key={found.kakaoPlaceId}
@@ -142,7 +141,7 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
                   <Text style={s.placeDistance}>{found.distanceMeters}m</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           )}
         </View>
       )}

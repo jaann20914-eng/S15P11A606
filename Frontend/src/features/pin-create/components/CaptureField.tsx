@@ -70,20 +70,7 @@ export function CaptureField({ video, onCaptured }: CaptureFieldProps) {
   const recording = capture.state === 'recording';
 
   return (
-    /*
-      스크롤 중에 미리보기가 깜빡이는 것을 막는다.
-
-      카메라는 일반 뷰가 아니라 별도 서피스에 그려진다. 그래서 두 가지에 약하다.
-      - 안드로이드가 자식 하나뿐인 뷰를 부모에 합치는 최적화(view flattening). 서피스를 들고
-        있던 뷰가 사라지면 다시 붙을 때까지 빈 판이 보인다 → `collapsable={false}`로 막는다
-      - 부모의 잘라내기(`overflow: hidden` + 둥근 모서리). 스크롤로 자리가 바뀔 때마다 다시
-        계산되며 한 프레임이 비어 보인다 → 잘라내기를 걷어냈다. 미리보기 모서리가 각지게 남는
-        것은 깜빡임과 맞바꾼 것이다
-
-      하드웨어 레이어(`renderToHardwareTextureAndroid`)는 쓰지 않는다. 검은 깜빡임이 흰 깜빡임으로
-      바뀌기만 했다 — 매 프레임 바뀌는 내용이라 레이어를 계속 다시 만든다.
-    */
-    <View collapsable={false} style={s.camera}>
+    <View style={s.camera}>
       {capture.ready ? (
         <CameraView
           ref={capture.cameraRef}

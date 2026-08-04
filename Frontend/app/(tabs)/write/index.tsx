@@ -224,20 +224,6 @@ export default function PinCreateScreen() {
             바깥 끝에 붙는다. 그래서 바와 그라데이션은 덮이는 높이만큼 직접 띄운다.
           */
           <View ref={formRef} style={[s.form, { paddingBottom: keyboardOverlap }]}>
-            {/*
-              카메라는 스크롤 밖에 둔다.
-
-              미리보기는 뷰 계층 밖의 서피스에 그려져서, 스크롤로 자리가 움직이면 매번 붙였다
-              떼는 일이 생겨 깜빡인다. 잘라내기를 걷어내고 하드웨어 레이어를 켜 봐도 색만
-              달라졌을 뿐 깜빡임은 남았다. 자리를 고정하면 그 일이 애초에 없다.
-
-              그래서 화면 순서도 카메라가 맨 위다 — 영상이 이 화면의 본체이고, 나머지는 그
-              영상에 붙이는 설명이다.
-            */}
-            <View style={s.captureArea}>
-              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
-            </View>
-
             <ScrollView
               ref={scrollRef}
               showsVerticalScrollIndicator={false}
@@ -245,6 +231,8 @@ export default function PinCreateScreen() {
               contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
+
+              <CaptureField video={form.draft.video} onCaptured={form.setVideo} />
 
               <View onLayout={rememberTop('memo')}>
                 <MemoField value={form.draft.memo} onChange={form.setMemo} onFocus={reveal('memo')} />

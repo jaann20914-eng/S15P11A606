@@ -446,50 +446,32 @@ export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsRespon
 /**
  * 지금 자리의 장소 목업.
  *
- * 서버가 붙었으니 평소에는 쓰이지 않는다(목업 스위치에서 뺐다). 서버 주소가 없는 환경이나,
- * 실제 자리에 후보가 적어 목록이 길 때의 화면을 확인할 때 쓴다.
- *
- * **열 곳을 준다.** 실서버는 반경 50m 안에서 유형별 두 곳까지만 주므로 실제로는 두세 곳만
- * 오는 자리가 많다. 그러면 목록이 길어질 때 잘리는지·스크롤되는지 확인할 수 없다.
+ * 서버가 붙었으니 평소에는 쓰이지 않는다(목업 스위치에서 뺐다). 서버 주소가 없는 환경에서
+ * 화면 흐름을 확인할 때만 쓴다.
  *
  * 좌표는 실제 API와 시그니처를 맞추기 위해 받기만 한다. 반경 판정과 거리 계산은 서버가 하므로
  * 목업은 고정된 거리를 그대로 준다.
  */
-const MOCK_NEARBY_COUNT = 10;
-
-/** 유형을 돌려 쓴다. 한 가지로 두면 카테고리 값이 늘 같아 등록 요청에 실리는지 확인하기 어렵다. */
-const MOCK_NEARBY_CATEGORIES = [
-  { groupCode: 'CE7', groupName: '카페', name: '음식점 > 카페' },
-  { groupCode: 'FD6', groupName: '음식점', name: '음식점 > 한식' },
-  { groupCode: 'CT1', groupName: '문화시설', name: '문화시설 > 전시관' },
-  { groupCode: 'AT4', groupName: '관광명소', name: '여행 > 관광명소' },
-];
-
 export async function listMockNearbyPlaces(
   _latitude: number,
   _longitude: number,
 ): Promise<PlaceNearbyItem[]> {
   await delay(MOCK_LATENCY_MS);
 
-  const base = [...places].sort((a, b) => a.distanceMeters - b.distanceMeters);
-
-  return Array.from({ length: MOCK_NEARBY_COUNT }, (_unused, index) => {
-    const place = base[index % base.length];
-    const category = MOCK_NEARBY_CATEGORIES[index % MOCK_NEARBY_CATEGORIES.length];
-    // 같은 자리를 돌려 쓰므로 식별자와 거리는 순번으로 갈라 둔다. 거리는 오름차순이어야 한다.
-    const suffix = Math.floor(index / base.length) + 1;
-
-    return {
-      kakaoPlaceId: `${place.kakaoPlaceId}-${index}`,
-      placeName: suffix === 1 ? place.name : `${place.name} ${suffix}호점`,
+  return [...places]
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 3)
+    .map((place) => ({
+      kakaoPlaceId: place.kakaoPlaceId,
+      placeName: place.name,
       kakaoPlaceLatitude: place.latitude,
       kakaoPlaceLongitude: place.longitude,
-      categoryGroupCode: category.groupCode,
-      categoryGroupName: category.groupName,
-      categoryName: category.name,
+      // 카카오 메타는 등록 요청에 실려 가는 값이라 형식만 그럴듯하게 채운다.
+      categoryGroupCode: 'CE7',
+      categoryGroupName: '카페',
+      categoryName: '음식점 > 카페',
       phone: '02-000-0000',
       addressName: place.address,
-      distanceMeters: 4 + index * 5,
-    };
-  });
+      distanceMeters: place.distanceMeters,
+    }));
 }
