@@ -25,7 +25,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Internal API
+    # Back은 두 방향의 키를 따로 관리한다. 수신(Back -> AI)은 x-internal-api-key로
+    # internal_api_key를, 발신(AI -> Back)은 X-Internal-Secret으로 아래 값을 쓴다.
     internal_api_key: str
+    internal_api_secret: str
     log_level: str = "INFO"
 
     # Recommendation
@@ -49,6 +52,14 @@ class Settings(BaseSettings):
     blur_dlx: str = "ai.blur.dlx"
     blur_dead_letter_queue: str = "ai.blur.dead-letter"
     blur_dead_letter_routing_key: str = "ai.blur.dead-letter"
+
+    chat_exchange: str = "ai.chat.exchange"
+    chat_message_queue: str = "ai.chat.message"
+    chat_message_routing_key: str = "ai.chat.message"
+
+    chat_dlx: str = "ai.chat.dlx"
+    chat_dead_letter_queue: str = "ai.chat.dead-letter"
+    chat_dead_letter_routing_key: str = "ai.chat.dead-letter"
 
     # SCRFD
     model_name: str = "buffalo_sc"

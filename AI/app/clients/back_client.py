@@ -37,7 +37,7 @@ class BackClient:
             self._client = httpx.AsyncClient(
                 base_url=settings.back_base_url,
                 timeout=settings.chat_callback_timeout_seconds,
-                headers={"x-internal-api-key": settings.internal_api_key},
+                headers={"X-Internal-Secret": settings.internal_api_secret},
                 transport=self._transport,
             )
 

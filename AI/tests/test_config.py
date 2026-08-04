@@ -5,6 +5,7 @@ def test_storage_settings_accept_backend_aws_environment_names(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("INTERNAL_API_KEY", "test-key")
+    monkeypatch.setenv("INTERNAL_API_SECRET", "test-secret")
     monkeypatch.setenv("AWS_S3_BUCKET", "test-bucket")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
