@@ -183,13 +183,21 @@ const s = StyleSheet.create({
    * 메모·태그 자리에 같은 스타일을 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
    */
   placeholder: { ...type.caption, color: colors.gray400 },
-  /** 태그 칩 줄. 태그가 없을 때도 이 줄이 그대로 있어 카드 높이가 흔들리지 않는다. */
+  /**
+   * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**
+   *
+   * `marginTop: 'auto'`가 남는 높이를 위로 몰아 이 줄을 칸 맨 아래로 내린다. 옆 칸의 높이는
+   * 썸네일 높이로 고정돼 있으므로(`body`), 결과적으로 태그 줄의 아랫변이 썸네일 아랫변과 같은
+   * 선에 놓인다 — 메모가 한 줄이든 네 줄이든 카드마다 같은 자리다.
+   *
+   * 태그가 없을 때도 이 줄과 높이가 그대로 있어 `태그 없음`이 같은 선에 놓인다.
+   */
   tags: {
     minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x1,
-    marginTop: spacing.x2,
+    marginTop: 'auto',
     overflow: 'hidden',
   },
   tag: {

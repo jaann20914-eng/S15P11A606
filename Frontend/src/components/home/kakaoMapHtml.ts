@@ -211,6 +211,8 @@ export function buildKakaoMapHtml({
   var map = null;
   var overlays = [];
   var meOverlay = null;
+  /** 겹친 마커를 밀어 놓은 값(id → {dx, dy}). 그릴 때와 탭 판정이 같은 값을 쓴다. */
+  var spreadOffsets = {};
   /**
    * RN이 넘겨 준 손가락으로 지도를 끌고 있는지.
    *
@@ -271,16 +273,102 @@ export function buildKakaoMapHtml({
     overlays = [];
   }
 
+  /**
+   * 화면에서 이 거리(px) 안에 있으면 겹친 것으로 본다. 마커 지름(34)보다 조금 작다.
+   */
+  var OVERLAP_RADIUS_PX = 28;
+
+  /**
+   * 겹친 마커를 원으로 벌릴 때의 반지름(px).
+   *
+   * 이웃한 두 마커 사이가 마커 지름(34)에 숨 쉴 틈(4)을 더한 38px은 되어야 서로 다시 겹치지
+   * 않는다. 원 위에 n개를 고르게 놓으면 이웃 간격이 2 x r x sin(pi/n)이므로, 그 값이 38이
+   * 되는 반지름을 쓴다. 둘뿐이면 그 식으로 19가 나오지만 그러면 지도에 너무 붙어 보여
+   * 최소값을 둔다.
+   */
+  function spreadRadius(count) {
+    return Math.max(22, 19 / Math.sin(Math.PI / count));
+  }
+
+  /**
+   * 같은 자리에 겹친 마커들을 화면에서 조금씩 밀어 놓을 값을 구한다.
+   *
+   * **한 자리에서 여러 번 찍으면 핀들의 좌표가 사실상 같다.** 그러면 마커가 완전히 포개져,
+   * 여러 개인지 하나인지 알 수 없고 **고른 핀이 바뀌어도 그림이 그대로다** — 물방울은 뾰족한
+   * 끝이, 동그라미는 중심이 좌표에 맞으므로 둘의 자리가 서로 바뀌어도 화면은 똑같이 보인다.
+   * 카드를 넘겨도 모양이 안 바뀌는 것처럼 보이던 이유가 이것이다.
+   *
+   * 좌표를 건드리지 않고 **그림만** 민다(요소에 transform). 지도 이동·확대는 원래 좌표 그대로
+   * 계산되고, 탭 판정만 같은 값을 더해 맞춘다.
+   */
+  function computeSpread() {
+    var offsets = {};
+    if (!map || state.places.length < 2) return offsets;
+
+    var projection = map.getProjection();
+    var points = [];
+    for (var i = 0; i < state.places.length; i += 1) {
+      var place = state.places[i];
+      points.push(projection.containerPointFromCoords(
+        new kakao.maps.LatLng(place.latitude, place.longitude)
+      ));
+    }
+
+    /*
+      가까운 것끼리 묶는다. 개수가 최대 10개라 단순 비교로 충분하다.
+      먼저 만들어진 무리의 첫 마커를 기준으로 삼아, 그 둘레에 드는 것을 같은 무리로 본다.
+    */
+    var groups = [];
+    for (var at = 0; at < points.length; at += 1) {
+      var joined = false;
+      for (var g = 0; g < groups.length; g += 1) {
+        var head = points[groups[g][0]];
+        var dx = points[at].x - head.x;
+        var dy = points[at].y - head.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= OVERLAP_RADIUS_PX) {
+          groups[g].push(at);
+          joined = true;
+          break;
+        }
+      }
+      if (!joined) groups.push([at]);
+    }
+
+    for (var k = 0; k < groups.length; k += 1) {
+      var group = groups[k];
+      if (group.length < 2) continue;
+
+      var radius = spreadRadius(group.length);
+      for (var m = 0; m < group.length; m += 1) {
+        // 12시에서 시작해 시계 방향으로 돌린다. 순서가 정해져 있어 다시 그려도 자리가 같다.
+        var angle = -Math.PI / 2 + (m * 2 * Math.PI) / group.length;
+        offsets[state.places[group[m]].id] = {
+          dx: Math.round(Math.cos(angle) * radius),
+          dy: Math.round(Math.sin(angle) * radius)
+        };
+      }
+    }
+
+    return offsets;
+  }
+
   function renderPlaces() {
     if (!map) return;
     clearOverlays();
     var tone = toneOf(state.filter);
+    spreadOffsets = computeSpread();
 
     for (var i = 0; i < state.places.length; i += 1) {
       var place = state.places[i];
       var selected = place.id === state.selectedPlaceId;
       var element = selected ? dropElement(tone) : circleElement(tone);
       element.setAttribute('aria-label', place.name);
+
+      // 겹친 마커는 화면에서 조금씩 밀어 놓는다. 좌표는 그대로 두고 그림만 옮긴다.
+      var offset = spreadOffsets[place.id];
+      if (offset) {
+        element.style.transform = 'translate(' + offset.dx + 'px,' + offset.dy + 'px)';
+      }
 
       var overlay = new kakao.maps.CustomOverlay({
         map: map,
@@ -500,8 +588,10 @@ export function buildKakaoMapHtml({
     for (var i = 0; i < state.places.length; i += 1) {
       var place = state.places[i];
       var point = projection.containerPointFromCoords(new kakao.maps.LatLng(place.latitude, place.longitude));
-      var dx = tapped.x - point.x;
-      var dy = tapped.y - point.y;
+      // 겹쳐서 밀어 놓은 마커는 그림이 있는 자리로 판정해야 손가락과 맞는다.
+      var offset = spreadOffsets[place.id] || { dx: 0, dy: 0 };
+      var dx = tapped.x - (point.x + offset.dx);
+      var dy = tapped.y - (point.y + offset.dy);
       var selected = place.id === state.selectedPlaceId;
       var withinX = Math.abs(dx) <= 24;
       var withinY = selected ? dy >= -56 && dy <= 10 : Math.abs(dy) <= 24;
@@ -755,6 +845,15 @@ export function buildKakaoMapHtml({
 
     // 사용자가 직접 밀기 시작하면 진행 중인 이동을 멈춘다. 손보다 지도가 앞서 가면 안 된다.
     kakao.maps.event.addListener(map, 'dragstart', cancelPan);
+
+    /*
+      확대가 바뀌면 겹침을 다시 계산한다.
+
+      밀어 놓는 값은 **화면 픽셀** 기준이라 축척이 달라지면 판정도 달라진다 — 멀리서는 겹치던
+      핀들이 당기면 저절로 떨어지고, 그때까지 밀어 둔 채로 두면 오히려 어긋나 보인다.
+      마커는 최대 10개라 다시 그려도 부담이 없다.
+    */
+    kakao.maps.event.addListener(map, 'zoom_changed', renderPlaces);
 
     kakao.maps.event.addListener(map, 'click', function (mouseEvent) {
       var placeId = hitTestPlace(mouseEvent.latLng);
