@@ -5,6 +5,7 @@ from aio_pika.abc import AbstractIncomingMessage
 from pydantic import ValidationError
 
 from app.clients.back_client import back_client
+from app.clients.gemini_client import gemini_client
 from app.common.logging import get_logger
 from app.core.config import settings
 from app.messaging.chat_risk.consumer import get_message_queue
@@ -25,6 +26,7 @@ class ChatRiskWorker:
 
     async def stop(self) -> None:
         await back_client.close()
+        await gemini_client.close()
 
     async def handle_message(self, message: AbstractIncomingMessage) -> None:
         try:
