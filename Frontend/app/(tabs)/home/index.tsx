@@ -272,10 +272,22 @@ export default function Home() {
    */
   const pressMapPin = useCallback(
     (placeId: string) => {
+      /*
+        **받아 둔 장소가 아니면 아무것도 하지 않는다.**
+
+        이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
+        대신 그리고(`pinOverlay`), 그때 눌린 id는 `pinId`(UUID)다. 그대로 상세로 넘기면
+        `/place/<UUID>`가 되어 숫자로 읽히지 않는 화면이 열린다 — 사용자에게는 "장소를 찾을 수
+        없어요"만 보인다. 지금은 상세가 지도 위 터치를 자기가 받아 여기까지 오지 않지만,
+        경계에서 한 번 걸러 두면 그 구조가 바뀌어도 깨지지 않는다.
+      */
+      const known = inView.places.some((place) => place.id === placeId);
+      if (!known) return;
+
       focusPlace(placeId);
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, mapLevel, openPlace],
+    [focusPlace, inView.places, mapLevel, openPlace],
   );
 
   const handleViewChange = useCallback(
