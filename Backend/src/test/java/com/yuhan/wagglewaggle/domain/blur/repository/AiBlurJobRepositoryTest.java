@@ -3,6 +3,7 @@ package com.yuhan.wagglewaggle.domain.blur.repository;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobStatus;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
+import com.yuhan.wagglewaggle.domain.blur.message.FinalStatus;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
@@ -147,7 +148,7 @@ class AiBlurJobRepositoryTest {
         // 완료된 작업(상태가 달라 대상 아님)
         AiBlurJob completed =
                 AiBlurJob.create(pinId, "videos/original/done.mp4", AiBlurJobType.INITIAL_UPLOAD);
-        completed.markCompleted(Instant.now());
+        completed.markCompleted(Instant.now(), FinalStatus.PASS);
         aiBlurJobRepository.saveAndFlush(completed);
         backdateCreatedAt(completed.getRequestId(), Instant.now().minus(40, ChronoUnit.MINUTES));
 
@@ -208,7 +209,7 @@ class AiBlurJobRepositoryTest {
         // 완료된 교체 작업(상태가 달라 대상 아님)
         AiBlurJob completed =
                 AiBlurJob.create(pinId, "videos/original/replace-done.mp4", AiBlurJobType.VIDEO_REPLACEMENT);
-        completed.markCompleted(Instant.now());
+        completed.markCompleted(Instant.now(), FinalStatus.PASS);
         aiBlurJobRepository.saveAndFlush(completed);
         em.clear();
 

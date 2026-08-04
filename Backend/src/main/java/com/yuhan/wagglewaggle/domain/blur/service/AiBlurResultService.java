@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobStatus;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
 import com.yuhan.wagglewaggle.domain.blur.message.AiBlurResultMessage;
 import com.yuhan.wagglewaggle.domain.blur.message.AiBlurResultMessageValidator;
+import com.yuhan.wagglewaggle.domain.blur.message.FinalStatus;
 import com.yuhan.wagglewaggle.domain.blur.message.ProcessingStatus;
 import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
@@ -92,7 +93,7 @@ public class AiBlurResultService {
         if (message.processingStatus() == ProcessingStatus.FAILED) {
             job.markFailed(message.completedAt());
         } else {
-            job.markCompleted(message.completedAt());
+            job.markCompleted(message.completedAt(), message.finalStatus());
         }
         log.info("삭제된 핀의 AI 결과 → 핀 미반영, 작업만 종료 "
                         + "(requestId={}, pinId={}, jobType={}, processingStatus={})",
@@ -108,7 +109,7 @@ public class AiBlurResultService {
             case FAILED -> applyFailed(pin, job, message.completedAt());
             case COMPLETED -> switch (message.finalStatus()) {
                 case PASS -> applyPass(pin, job, message);
-                case FAIL -> applyFail(pin, job, message.completedAt());
+                case FAIL -> applyFail(pin, job, message);
             };
         };
     }
@@ -125,16 +126,16 @@ public class AiBlurResultService {
             return AiBlurResultOutcome.OBJECT_NOT_FOUND;
         }
         pin.activate(message.blurredVideoKey(), message.thumbnailKey(), clock.instant());
-        job.markCompleted(message.completedAt());
+        job.markCompleted(message.completedAt(), message.finalStatus());
         return AiBlurResultOutcome.APPLIED;
     }
 
     /**
-     * FAIL: Pin을 REJECTED로, 작업을 COMPLETED로 반영한다. 영상 객체 키는 저장하지 않는다.
+     * FAIL: Pin을 REJECTED로, 작업을 COMPLETED(finalStatus=FAIL)로 반영한다. 영상 객체 키는 저장하지 않는다.
      */
-    private AiBlurResultOutcome applyFail(Pin pin, AiBlurJob job, Instant completedAt) {
+    private AiBlurResultOutcome applyFail(Pin pin, AiBlurJob job, AiBlurResultMessage message) {
         pin.reject();
-        job.markCompleted(completedAt);
+        job.markCompleted(message.completedAt(), message.finalStatus());
         return AiBlurResultOutcome.APPLIED;
     }
 
@@ -178,7 +179,7 @@ public class AiBlurResultService {
             log.warn("영상 교체 PASS이지만 반영 불가(최신 아님·삭제·비ACTIVE). 작업만 종료한다 "
                             + "(requestId={}, pinId={}, videoStatus={}, deleted={})",
                     job.getRequestId(), pin.getId(), pin.getVideoStatus(), pin.getDeletedAt() != null);
-            job.markCompleted(message.completedAt());
+            job.markCompleted(message.completedAt(), message.finalStatus());
             runAfterCommit(() -> registerCandidateCleanup(job, message));
             return AiBlurResultOutcome.REPLACEMENT_SKIPPED;
         }
@@ -197,7 +198,7 @@ public class AiBlurResultService {
         // 공개 기준 시각은 메시지의 과거 시각이 아니라 Back이 결과를 반영하는 서버 시각이다.
         pin.replaceVideo(job.getOriginalVideoKey(), message.blurredVideoKey(),
                 message.thumbnailKey(), clock.instant());
-        job.markCompleted(message.completedAt());
+        job.markCompleted(message.completedAt(), message.finalStatus());
 
         runAfterCommit(() -> {
             videoObjectCleanupPort.registerForDeletion(previousOriginalKey);
@@ -212,7 +213,7 @@ public class AiBlurResultService {
      * 작업만 COMPLETED로 종료하고, 후보 원본·결과 객체를 삭제 대상으로 등록한다. 점수는 재계산하지 않는다.
      */
     private AiBlurResultOutcome applyReplacementFail(AiBlurJob job, AiBlurResultMessage message) {
-        job.markCompleted(message.completedAt());
+        job.markCompleted(message.completedAt(), message.finalStatus());
         runAfterCommit(() -> registerCandidateCleanup(job, message));
         return AiBlurResultOutcome.APPLIED;
     }
@@ -275,23 +276,42 @@ public class AiBlurResultService {
 
     /**
      * 이미 최종 상태인 작업에 결과가 다시 도착한 경우. 기존 상태를 유지하고 유형만 구분한다.
-     * 수신 결과가 기존 상태와 같으면 중복(DUPLICATE), 다르면 충돌(CONFLICT)이다.
+     * 수신 결과가 기존 결과와 같으면 중복(DUPLICATE), 다르면 충돌(CONFLICT)이다.
      */
     private AiBlurResultOutcome resolveTerminalOutcome(AiBlurJob job, AiBlurResultMessage message) {
-        AiBlurJobStatus expected = expectedJobStatus(message.processingStatus());
-        if (job.getStatus() == expected) {
-            log.info("이미 처리된 작업의 중복 결과 (requestId={}, status={})", job.getRequestId(), job.getStatus());
+        if (isSameResult(job, message)) {
+            log.info("이미 처리된 작업의 중복 결과 (requestId={}, status={}, finalStatus={})",
+                    job.getRequestId(), job.getStatus(), job.getFinalStatus());
             return AiBlurResultOutcome.DUPLICATE;
         }
-        log.warn("이미 처리된 작업에 충돌 결과 도착. 기존 상태 유지 (requestId={}, 기존={}, 수신 processingStatus={})",
-                job.getRequestId(), job.getStatus(), message.processingStatus());
+        log.warn("이미 처리된 작업에 충돌 결과 도착. 기존 상태 유지 "
+                        + "(requestId={}, 기존 status={}, 기존 finalStatus={}, 수신 processingStatus={}, 수신 finalStatus={})",
+                job.getRequestId(), job.getStatus(), job.getFinalStatus(),
+                message.processingStatus(), message.finalStatus());
         return AiBlurResultOutcome.CONFLICT;
     }
 
-    private AiBlurJobStatus expectedJobStatus(ProcessingStatus processingStatus) {
-        return processingStatus == ProcessingStatus.FAILED
-                ? AiBlurJobStatus.FAILED
-                : AiBlurJobStatus.COMPLETED;
+    /**
+     * 도착한 결과가 기존 최종 결과와 동일한지(정상 중복) 판정한다.
+     * 결과 카테고리(PASS / FAIL / FAILED)를 비교하며, PASS와 FAIL은 finalStatus로 구분한다.
+     * final_status가 없는 레거시 COMPLETED 행은 PASS/FAIL 구분이 불가하므로 기존과 동일하게
+     * processingStatus 기준으로만 중복 처리한다(완화).
+     */
+    private boolean isSameResult(AiBlurJob job, AiBlurResultMessage message) {
+        // 시스템 처리 실패(FAILED)는 status만으로 구분된다.
+        if (message.processingStatus() == ProcessingStatus.FAILED) {
+            return job.getStatus() == AiBlurJobStatus.FAILED;
+        }
+        // 수신은 COMPLETED(PASS/FAIL). 기존도 COMPLETED여야 같은 계열이다.
+        if (job.getStatus() != AiBlurJobStatus.COMPLETED) {
+            return false;
+        }
+        FinalStatus stored = job.getFinalStatus();
+        if (stored == null) {
+            // 레거시(final_status 미기록) COMPLETED 행: PASS/FAIL 구분 불가 → 기존과 동일하게 중복으로 본다.
+            return true;
+        }
+        return stored == message.finalStatus();
     }
 
     /**

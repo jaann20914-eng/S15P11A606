@@ -175,6 +175,7 @@ class AiBlurResultServiceTest {
         // expiresAt은 메시지 completedAt이 아니라 반영 서버 시각(SERVER_NOW) 기준 1시간 뒤다.
         assertThat(pin.getExpiresAt()).isEqualTo(SERVER_NOW.plusSeconds(3600));
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
+        assertThat(job.getFinalStatus()).isEqualTo(FinalStatus.PASS);
         assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
         // 최초 등록은 삭제 대상 등록을 하지 않는다.
         verify(videoObjectCleanupPort, never()).registerForDeletion(any());
@@ -207,6 +208,7 @@ class AiBlurResultServiceTest {
         assertThat(outcome).isEqualTo(AiBlurResultOutcome.APPLIED);
         assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.REJECTED);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
+        assertThat(job.getFinalStatus()).isEqualTo(FinalStatus.FAIL);
         verify(s3ObjectInspector, never()).findObjectMetadata(any());
     }
 
@@ -271,8 +273,9 @@ class AiBlurResultServiceTest {
     // ========================= 멱등 / 중복 / 충돌 =========================
 
     @Test
-    void 이미_COMPLETED인_작업의_같은_결과는_중복으로_처리한다() {
+    void 이미_PASS로_COMPLETED된_작업에_같은_PASS가_오면_중복으로_처리한다() {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
@@ -282,8 +285,34 @@ class AiBlurResultServiceTest {
     }
 
     @Test
+    void 이미_PASS로_COMPLETED된_작업에_FAIL이_오면_충돌로_처리한다() {
+        // 회귀 방지: PASS와 FAIL 모두 processingStatus=COMPLETED라 예전에는 중복으로 오판했다.
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+
+        AiBlurResultOutcome outcome = service.apply(failMessage());
+
+        assertThat(outcome).isEqualTo(AiBlurResultOutcome.CONFLICT);
+        assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
+        assertThat(job.getFinalStatus()).isEqualTo(FinalStatus.PASS);
+        verify(pinRepository, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void 레거시_finalStatus가_없는_COMPLETED_작업은_기존처럼_중복으로_처리한다() {
+        // final_status 미기록(legacy) COMPLETED 행: PASS/FAIL 구분 불가 → 완화된 중복 처리 유지.
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+
+        assertThat(service.apply(passMessage())).isEqualTo(AiBlurResultOutcome.DUPLICATE);
+        assertThat(service.apply(failMessage())).isEqualTo(AiBlurResultOutcome.DUPLICATE);
+    }
+
+    @Test
     void 이미_COMPLETED인_교체_작업의_같은_결과도_중복으로_처리한다() {
         AiBlurJob job = replacementJob(AiBlurJobStatus.COMPLETED);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
 
         AiBlurResultOutcome outcome = service.apply(passMessage());
@@ -294,8 +323,9 @@ class AiBlurResultServiceTest {
     }
 
     @Test
-    void 이미_최종_상태인_작업에_다른_결과가_오면_충돌로_처리한다() {
+    void 이미_최종_상태인_작업에_시스템_FAILED가_오면_충돌로_처리한다() {
         AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
         given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
 
         AiBlurResultOutcome outcome = service.apply(failedMessage());

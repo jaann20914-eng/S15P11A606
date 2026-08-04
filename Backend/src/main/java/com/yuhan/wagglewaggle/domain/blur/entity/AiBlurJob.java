@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.domain.blur.entity;
 
+import com.yuhan.wagglewaggle.domain.blur.message.FinalStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -47,6 +48,12 @@ public class AiBlurJob {
     @Column(name = "status", nullable = false)
     private AiBlurJobStatus status;
 
+    // 최종 판정 결과. PASS/FAIL 로 COMPLETED 된 경우에만 저장하고, FAILED·PENDING 은 null 이다.
+    // 동일 requestId 결과 재도착 시 정상 중복(같은 결과)과 충돌(다른 결과)을 구분하는 데 사용한다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "final_status")
+    private FinalStatus finalStatus;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -70,15 +77,18 @@ public class AiBlurJob {
     }
 
     /**
-     * 작업을 완료 처리한다. 상태를 COMPLETED로 바꾸고 완료 시각을 기록한다.
+     * 작업을 완료 처리한다. 상태를 COMPLETED로 바꾸고 완료 시각과 최종 판정 결과(PASS/FAIL)를 기록한다.
+     * finalStatus는 결과 재도착 시 정상 중복과 충돌을 구분하는 데 사용한다.
      */
-    public void markCompleted(Instant completedAt) {
+    public void markCompleted(Instant completedAt, FinalStatus finalStatus) {
         this.status = AiBlurJobStatus.COMPLETED;
         this.completedAt = completedAt;
+        this.finalStatus = finalStatus;
     }
 
     /**
      * 작업을 실패 처리한다. 상태를 FAILED로 바꾸고 종료 시각을 기록한다.
+     * 시스템 처리 실패(FAILED)는 status만으로 구분되므로 finalStatus는 null로 둔다.
      */
     public void markFailed(Instant completedAt) {
         this.status = AiBlurJobStatus.FAILED;
