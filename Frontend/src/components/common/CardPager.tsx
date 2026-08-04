@@ -72,6 +72,20 @@ const ESTIMATED_CARD_HEIGHT = 240;
  */
 const SLOT_GAP = spacing.x3;
 
+/**
+ * 창 좌우에 남기는 그림자 자리.
+ *
+ * 창은 넘긴 카드를 잘라내려고 `overflow: 'hidden'`을 쓰는데, RN에는 세로만 자르는 수단이
+ * 없어 **좌우까지 함께 잘린다.** 카드가 창 폭을 꽉 채우고 있어 그림자가 나갈 자리가 없었고,
+ * 위아래 그림자는 보이는데 좌우만 잘려 보였다.
+ *
+ * 그래서 창을 좌우로 이만큼 넓히고(`marginHorizontal`) 그만큼을 칸이 되돌려 준다
+ * (`paddingHorizontal`). 카드 폭은 그대로면서 잘리는 경계만 밖으로 밀려난다.
+ *
+ * 화면 좌우 여백(가장 좁은 화면에서 18)보다 작아야 창이 화면 밖으로 나가지 않는다.
+ */
+const SHADOW_ROOM = spacing.x4;
+
 export interface CardPagerProps {
   /** 넘겨 볼 카드들. 각자 `key`를 가져야 한다. */
   children: ReactNode;
@@ -290,7 +304,10 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
     >
       <Animated.View style={paging ? { transform: [{ translateY }] } : undefined}>
         {items.map((item, at) => (
-          <View key={`slot-${at}`} style={paging ? { height: slotHeight } : at > 0 ? s.listGap : undefined}>
+          <View
+            key={`slot-${at}`}
+            style={paging ? [s.slot, { height: slotHeight }] : at > 0 ? s.listGap : undefined}
+          >
             {item}
           </View>
         ))}
@@ -320,9 +337,30 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
 }
 
 const s = StyleSheet.create({
-  /** 한 장만 보이는 창. 나머지 카드는 이 밖으로 나가 잘린다. */
-  viewport: { overflow: 'hidden' },
+  /**
+   * 한 장만 보이는 창. 나머지 카드는 이 밖으로 나가 잘린다.
+   *
+   * 좌우로 `SHADOW_ROOM`만큼 넓혀 카드 그림자가 잘리지 않게 한다. **창에는 여백을 두지
+   * 않는다** — 여백을 두면 절대 배치인 `probe`의 기준 폭이 여백을 포함하는지가 플랫폼 구현에
+   * 달려 애매해진다. 되돌리는 몫은 칸과 `probe`가 각자 갖는다.
+   */
+  viewport: { overflow: 'hidden', marginHorizontal: -SHADOW_ROOM },
+  /** 넓힌 창을 되돌려 카드 폭을 원래대로 맞춘다. */
+  slot: { paddingHorizontal: SHADOW_ROOM },
   /** 목록 모드의 카드 사이 간격. 넘길 때 칸에 들어가는 간격과 같은 값이다. */
   listGap: { marginTop: SLOT_GAP },
-  probe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
+  /**
+   * 높이를 재는 자리. 칸과 **같은 좌우 여백**을 가져야 한다.
+   *
+   * 폭이 다르면 글줄이 다르게 접혀 잰 높이가 실제 카드와 어긋난다 — 칸이 그만큼 짧아져
+   * 카드 아래가 잘린다.
+   */
+  probe: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    opacity: 0,
+    paddingHorizontal: SHADOW_ROOM,
+  },
 });
