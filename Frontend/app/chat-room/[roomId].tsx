@@ -106,7 +106,7 @@ export default function Room() {
             <Ionicons name="chevron-back" size={24} color={colors.gray400} />
           </Pressable>
 
-          {room.info !== null && <ViewAvatar angle={room.info.otherUserViewAngle} size={36} />}
+          {room.info !== null && <ViewAvatar angle={room.info.otherUserViewTemperature} size={36} />}
 
           <View style={s.headerCopy}>
             <Text numberOfLines={1} style={s.headerTitle}>

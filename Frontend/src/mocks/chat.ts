@@ -415,7 +415,7 @@ export async function fetchMockChatHistory(roomId: number): Promise<ChatRoomHist
     status: room.status,
     placeName: room.placeName,
     address: '서울 강남구 테헤란로 123 1층 (역삼동)',
-    otherUserViewAngle: room.otherUserViewTemperature,
+    otherUserViewTemperature: room.otherUserViewTemperature,
     otherUserNickname: room.otherUserNickname,
     messages: mockMessagesByRoom.get(roomId) ?? [],
     warnings: mockWarningsByRoom.get(roomId) ?? [],

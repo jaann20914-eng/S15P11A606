@@ -148,9 +148,11 @@ export type ChatMessage = {
  * 위험 확정이나 제재가 아니다. 경고가 와도 원본 메시지는 지우지 않는다.
  *
  * `messageId`는 경고 자체의 식별자다(메시지 id가 아니다). 이름이 헷갈리지만 명세가 그렇다.
+ * 이력 조회에는 담겨 오지만 실시간 이벤트에는 없어 선택으로 둔다 — 같은 경고를 두 번 붙이지
+ * 않으려고 쓰는 값이라, 없으면 도착 시각으로 가린다.
  */
 export type ChatWarning = {
-  messageId: number;
+  messageId?: number;
   reasonCode: WarningReasonCode;
   content: string;
   createdAt: string;
@@ -166,8 +168,13 @@ export type ChatRoomHistory = {
   status: ChatRoomStatus;
   placeName: string;
   address: string;
-  /** 상대의 공개 뷰 온도(각도). */
-  otherUserViewAngle: number;
+  /**
+   * 상대의 공개 뷰 온도(각도).
+   *
+   * 명세에는 `otherUserViewAngle`로 적혀 있지만 실제 응답은 `otherUserViewTemperature`다.
+   * 목록 API도 같은 이름을 쓰므로 서버 쪽이 일관된 이름이다.
+   */
+  otherUserViewTemperature: number;
   otherUserNickname: string;
   /** 생성 시각 오름차순. 없으면 빈 배열. */
   messages: ChatMessage[];

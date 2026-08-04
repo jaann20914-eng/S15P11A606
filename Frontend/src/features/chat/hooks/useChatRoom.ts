@@ -21,7 +21,7 @@ export interface ChatRoomInfo {
   status: ChatRoomStatus;
   placeName: string;
   address: string;
-  otherUserViewAngle: number;
+  otherUserViewTemperature: number;
   otherUserNickname: string;
 }
 
@@ -207,8 +207,18 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
     if (event.eventType === 'WARNING_CREATED') {
       const warning = event.data;
 
+      /*
+        같은 경고가 두 번 들어오지 않게 한다.
+
+        식별자가 있으면 그것으로 보고, 없으면(실시간 이벤트에는 없다) 사유와 도착 시각이 같은
+        것을 같은 경고로 본다. 재연결 직후 같은 프레임을 다시 받는 경우를 막기 위한 것이다.
+      */
       setWarnings((current) =>
-        current.some((item) => item.messageId === warning.messageId)
+        current.some((item) =>
+          warning.messageId === undefined
+            ? item.reasonCode === warning.reasonCode && item.createdAt === warning.createdAt
+            : item.messageId === warning.messageId,
+        )
           ? current
           : [...current, warning],
       );
@@ -266,7 +276,7 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
       status: status ?? history.status,
       placeName: history.placeName,
       address: history.address,
-      otherUserViewAngle: history.otherUserViewAngle,
+      otherUserViewTemperature: history.otherUserViewTemperature,
       otherUserNickname: history.otherUserNickname,
     };
   }, [history, status]);

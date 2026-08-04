@@ -42,7 +42,14 @@ export interface MessageCreatedData {
 }
 
 export interface WarningCreatedData {
-  messageId: number;
+  /**
+   * 경고 식별자.
+   *
+   * 이력 조회에는 담겨 오지만 실시간 이벤트에는 없다(서버 `ChatWarningEvent.Data`는 사유 ·
+   * 문구 · 시각만 준다). 같은 경고를 두 번 붙이지 않으려고 쓰는 값이라, 없으면 도착 시각으로
+   * 가린다.
+   */
+  messageId?: number;
   reasonCode: WarningReasonCode;
   content: string;
   createdAt: string;

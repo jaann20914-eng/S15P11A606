@@ -122,23 +122,14 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     채팅방 목록을 준다.
   */
   /*
-    목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
+    메시지 이력(GET /chat/rooms/{roomId}/messages)은 2026-08-04에 실서버로 연결했다.
+    읽음 갱신과 함께 쓰이므로, 이제 보내는 messageId도 서버가 가진 값이다.
 
-    2026-08-03에 실서버로 돌려 확인했다 — 없는 경로인데 404가 아니라 500
-    (INTERNAL_SERVER_ERROR)이 온다. 그래서 이 스위치를 끄기 전에는 서버가 준비됐는지
-    상태 코드만으로 판단할 수 없다. 컨트롤러가 생겼는지 확인하고 지우는 편이 확실하다.
+    목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 ChatController 에 들어왔다.
+    응답 필드를 대조한 뒤 그 스위치도 지운다.
   */
   'chat/rooms': true,
   'chat/pins': true,
-  /*
-    메시지 이력(GET /chat/rooms/{roomId}/messages)도 아직 없다(2026-08-04, dev 확인).
-    ChatController에는 요청 · 응답 · 읽음 갱신 세 개뿐이다.
-
-    읽음 갱신(PATCH /chat/rooms/{roomId}/read)은 들어와 실서버로 연결했다. 다만 이력이 목업인
-    동안 보내는 messageId는 목업의 것이라 서버에서 CHAT_MESSAGE_NOT_FOUND(404)가 온다 —
-    실패 로그가 그렇게 찍히면 이 조합 때문이지 읽음 API 자체의 문제가 아니다.
-  */
-  'chat/messages': true,
 
   /*
     마이페이지 4종(프로필 조회 · 닉네임 수정 · 오늘 핀 · 크레딧 내역)은 2026-08-04에 전부
