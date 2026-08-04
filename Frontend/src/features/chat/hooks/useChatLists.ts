@@ -6,6 +6,7 @@ import { getChatRooms, getPinChatRooms } from '@/api/chat/rooms';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
 import type { PinId } from '@/types/pin';
 import { applyUserChatEvent, applyUserChatEventToPins, needsReload } from '../roomListUpdates';
+import { onRoomRead } from '../readTracker';
 import { useUserChatEvents } from './useChatEvents';
 
 /** 목록 하나의 상태. 화면은 이것만 보고 그린다. */
@@ -100,6 +101,27 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableL
 }
 
 /**
+ * 방을 읽었다는 신호를 받아 처리한다.
+ *
+ * 신호는 읽음 갱신이 **서버에 저장된 뒤** 온다. 그래서 목록을 다시 부르지 않고 처리해도
+ * 서버와 어긋나지 않고, 방을 나온 직후의 재조회와 경합하지도 않는다 — 재조회가 먼저 끝나
+ * 옛 값을 보여줘도 이 신호가 덮는다.
+ */
+function useRoomReadSignal(onRead: (roomId: number) => void): void {
+  const handlerRef = useRef(onRead);
+  handlerRef.current = onRead;
+
+  useEffect(() => onRoomRead((roomId) => handlerRef.current(roomId)), []);
+}
+
+/** 방 목록에서 읽은 방의 점을 끈다. */
+function clearUnread(rooms: ChatRoomListItem[], roomId: number): ChatRoomListItem[] {
+  if (!rooms.some((room) => room.roomId === roomId && room.hasUnread)) return rooms;
+
+  return rooms.map((room) => (room.roomId === roomId ? { ...room, hasUnread: false } : room));
+}
+
+/**
  * 내가 요청한 대화 목록.
  *
  * 실시간 이벤트로 마지막 메시지·안 읽음·상태를 그 자리에서 고친다. 새 요청 이벤트는 내가
@@ -114,6 +136,8 @@ export function useMyChatRooms(): ListState<ChatRoomListItem> {
 
     setItems((rooms) => applyUserChatEvent(rooms, event));
   });
+
+  useRoomReadSignal((roomId) => setItems((rooms) => clearUnread(rooms, roomId)));
 
   return list;
 }
@@ -133,6 +157,33 @@ export function useChatPins(): ListState<ChatPinListItem> {
     setItems((pins) => applyUserChatEventToPins(pins, event));
   });
 
+  /*
+    방 하나를 읽었다고 글의 점을 바로 끌 수는 없다 — 같은 글의 **다른 방**에 안 읽은 것이
+    남았을 수 있고, 이 목록은 방 단위 상태를 갖고 있지 않다. 서버에 다시 물어 글 단위로
+    계산된 값을 받는다.
+
+    잠깐 모아서 부른다. 방 안에서 대화가 오가면 메시지마다 읽음 신호가 오는데, 그때마다
+    다시 받으면(핀마다 방 목록까지 붙는 조회라) 요청이 몰린다. 신호가 잦아든 뒤 한 번이면
+    충분하다 — 이 목록은 그 순간 화면에 보이지도 않는다.
+  */
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useRoomReadSignal(() => {
+    if (reloadTimerRef.current !== null) clearTimeout(reloadTimerRef.current);
+
+    reloadTimerRef.current = setTimeout(() => {
+      reloadTimerRef.current = null;
+      reload();
+    }, 600);
+  });
+
+  useEffect(
+    () => () => {
+      if (reloadTimerRef.current !== null) clearTimeout(reloadTimerRef.current);
+    },
+    [],
+  );
+
   return list;
 }
 
@@ -142,10 +193,7 @@ export function useChatPins(): ListState<ChatPinListItem> {
  * `pinId`가 null이면 아직 고르지 않은 상태라 요청하지 않는다.
  */
 export function usePinChatRooms(pinId: PinId | null): ListState<ChatRoomListItem> {
-  const list = useList(
-    () => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)),
-    pinId !== null,
-  );
+  const list = useList(() => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)), pinId !== null);
   const { reload, setItems } = list;
 
   useUserChatEvents((event) => {
@@ -156,6 +204,8 @@ export function usePinChatRooms(pinId: PinId | null): ListState<ChatRoomListItem
 
     setItems((rooms) => applyUserChatEvent(rooms, event));
   });
+
+  useRoomReadSignal((roomId) => setItems((rooms) => clearUnread(rooms, roomId)));
 
   return list;
 }

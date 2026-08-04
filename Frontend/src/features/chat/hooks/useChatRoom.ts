@@ -4,14 +4,10 @@ import { updateChatRead } from '@/api/chat/read';
 import { sendChatMessage } from '@/api/chat/socket/messages';
 import { usesMock } from '@/api/config';
 import { appendMockChatMessage } from '@/mocks/chat';
-import type {
-  ChatMessage,
-  ChatRoomHistory,
-  ChatRoomStatus,
-  ChatWarning,
-} from '@/types/chat';
+import type { ChatMessage, ChatRoomHistory, ChatRoomStatus, ChatWarning } from '@/types/chat';
 import type { ChatRoomEvent } from '@/types/chatSocket';
 import { createDevLogger } from '@/utils/devLog';
+import { enterRoom, notifyRoomRead } from '../readTracker';
 import { useChatRoomEvents } from './useChatEvents';
 
 const log = createDevLogger('chat-room');
@@ -74,9 +70,11 @@ function isSendable(status: ChatRoomStatus | undefined): boolean {
  * 않고 서버가 되돌려 주는 `MESSAGE_CREATED`를 기다린다 — 그래야 순서와 내용(마스킹 결과)이
  * 서버가 가진 것과 어긋나지 않는다. 목업일 때만 그 왕복이 없어 직접 붙인다.
  *
- * 읽음 위치는 **화면에 표시된** 메시지 중 가장 큰 id로만 갱신한다(명세). 이력을 받은 직후와
- * 방을 떠날 때 보내고, 새 메시지가 도착할 때마다 보내지는 않는다 — 사용자가 화면을 보고 있는
- * 동안 도착한 것은 떠날 때 한 번에 처리하면 충분하다.
+ * 읽음 위치는 **화면에 표시된** 메시지 중 가장 큰 id로만 갱신한다(명세). 이력을 받은 직후,
+ * 새 메시지가 화면에 붙은 직후, 그리고 방을 떠날 때 보낸다. 도착할 때마다 보내는 이유는
+ * 목록의 안 읽음 점 때문이다 — 방을 보고 있는 동안 도착한 메시지는 그 자리에서 읽힌 것이고,
+ * 떠날 때까지 미루면 그 사이 서버가 계산하는 안 읽음과 실제 읽은 상태가 어긋난다(카카오톡과
+ * 같은 규칙). 갱신은 멱등하고 값이 같으면 부르지 않으므로 부담이 크지 않다.
  */
 export function useChatRoom(roomId: number | null): ChatRoomState {
   const [history, setHistory] = useState<ChatRoomHistory | null>(null);
@@ -165,10 +163,25 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
 
     reportedReadRef.current = latest;
 
-    updateChatRead(roomId, latest).catch(() => {
-      // 다음 진입에서 다시 보내도록 되돌려 둔다.
-      reportedReadRef.current = null;
-    });
+    updateChatRead(roomId, latest)
+      .then(() => {
+        // 목록들이 이 방의 안 읽음 점을 끄게 한다. 서버 재조회와 경합하지 않는 유일한 길이다.
+        notifyRoomRead(roomId);
+      })
+      .catch(() => {
+        // 다음 진입에서 다시 보내도록 되돌려 둔다.
+        reportedReadRef.current = null;
+      });
+  }, [roomId]);
+
+  /*
+   * 이 방을 보고 있다고 알린다. 목록들은 열려 있는 방의 새 메시지 이벤트에 점을 켜지 않는다 —
+   * 지금 읽히고 있는 메시지이기 때문이다.
+   */
+  useEffect(() => {
+    if (roomId === null) return;
+
+    return enterRoom(roomId);
   }, [roomId]);
 
   /** 이력을 받은 직후 한 번. 그 뒤로는 떠날 때 정리한다. */
@@ -178,58 +191,62 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
 
   useEffect(() => reportRead, [reportRead]);
 
-  const handleEvent = useCallback((event: ChatRoomEvent) => {
-    if (event.eventType === 'MESSAGE_CREATED') {
-      const { messageId, senderId, content, maskedContent, createdAt } = event.data;
+  const handleEvent = useCallback(
+    (event: ChatRoomEvent) => {
+      if (event.eventType === 'MESSAGE_CREATED') {
+        const { messageId, senderId, content, maskedContent, createdAt } = event.data;
 
-      // 내가 보낸 것이 되돌아왔는지 본다. 맞으면 그 김에 내 id를 기억한다.
-      const mine = outboxRef.current.indexOf(content);
+        // 내가 보낸 것이 되돌아왔는지 본다. 맞으면 그 김에 내 id를 기억한다.
+        const mine = outboxRef.current.indexOf(content);
 
-      if (mine !== -1) {
-        outboxRef.current.splice(mine, 1);
-        myUserIdRef.current = senderId;
+        if (mine !== -1) {
+          outboxRef.current.splice(mine, 1);
+          myUserIdRef.current = senderId;
+        }
+
+        const sender = myUserIdRef.current === senderId ? 'SELF' : 'OTHER';
+
+        setMessages((current) => {
+          // 같은 메시지가 두 번 오는 경우(재연결 직후 등)를 막는다.
+          if (current.some((message) => message.messageId === messageId)) return current;
+
+          return [...current, { messageId, sender, content, maskedContent, createdAt }];
+        });
+
+        // 화면에 붙었으니 곧바로 읽음이다. 보고 있는 사람에게 도착한 메시지를 안 읽음으로 두지 않는다.
+        latestDisplayedRef.current = Math.max(latestDisplayedRef.current ?? 0, messageId);
+        reportRead();
+        return;
       }
 
-      const sender = myUserIdRef.current === senderId ? 'SELF' : 'OTHER';
+      if (event.eventType === 'WARNING_CREATED') {
+        const warning = event.data;
 
-      setMessages((current) => {
-        // 같은 메시지가 두 번 오는 경우(재연결 직후 등)를 막는다.
-        if (current.some((message) => message.messageId === messageId)) return current;
-
-        return [...current, { messageId, sender, content, maskedContent, createdAt }];
-      });
-
-      // 화면에 붙였으므로 읽음 후보를 올린다. 서버에는 떠날 때 한 번 보낸다.
-      latestDisplayedRef.current = Math.max(latestDisplayedRef.current ?? 0, messageId);
-      return;
-    }
-
-    if (event.eventType === 'WARNING_CREATED') {
-      const warning = event.data;
-
-      /*
+        /*
         같은 경고가 두 번 들어오지 않게 한다.
 
         식별자가 있으면 그것으로 보고, 없으면(실시간 이벤트에는 없다) 사유와 도착 시각이 같은
         것을 같은 경고로 본다. 재연결 직후 같은 프레임을 다시 받는 경우를 막기 위한 것이다.
       */
-      setWarnings((current) =>
-        current.some((item) =>
-          warning.messageId === undefined
-            ? item.reasonCode === warning.reasonCode && item.createdAt === warning.createdAt
-            : item.messageId === warning.messageId,
-        )
-          ? current
-          : [...current, warning],
-      );
-      setArrivedWarning(warning);
-      log('경고 도착', { roomId: event.roomId, 사유: warning.reasonCode });
-      return;
-    }
+        setWarnings((current) =>
+          current.some((item) =>
+            warning.messageId === undefined
+              ? item.reasonCode === warning.reasonCode && item.createdAt === warning.createdAt
+              : item.messageId === warning.messageId,
+          )
+            ? current
+            : [...current, warning],
+        );
+        setArrivedWarning(warning);
+        log('경고 도착', { roomId: event.roomId, 사유: warning.reasonCode });
+        return;
+      }
 
-    setStatus(event.data.status);
-    log('상태 변경', { roomId: event.roomId, 상태: event.data.status });
-  }, []);
+      setStatus(event.data.status);
+      log('상태 변경', { roomId: event.roomId, 상태: event.data.status });
+    },
+    [reportRead],
+  );
 
   useChatRoomEvents(roomId, handleEvent);
 
