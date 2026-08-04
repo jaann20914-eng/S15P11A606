@@ -123,10 +123,19 @@ export default function PinCreateScreen() {
         setFocused(false);
         form.reset();
 
+        /*
+          수정 표식을 지운다.
+
+          이 화면은 탭이라 파라미터가 탭 상태에 남는다. 수정하러 들어왔다가 저장하지 않고 다른
+          곳으로 가면 `pinId`가 그대로 남아, 나중에 + 탭을 눌렀을 때 새 글이 아니라 지난 수정
+          화면이 열렸다.
+        */
+        if (mode.type === 'edit') router.setParams({ pinId: undefined });
+
         // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
         if (usePinPublishStore.getState().phase === 'done') resetPublish();
       };
-    }, [form.reset, resetPublish]),
+    }, [form.reset, resetPublish, mode.type]),
   );
 
   const submit = () => {
@@ -207,7 +216,16 @@ export default function PinCreateScreen() {
               return;
             }
 
-            router.replace(`/pin/${publishedPinId}`);
+            /*
+              등록은 상세를 **쌓아서** 연다.
+
+              전에는 `replace`로 열었는데, 이 화면이 탭 안에 있어 탭 묶음 자체가 상세로
+              바뀌었다 — 스택의 뿌리가 사라져, 그 뒤로는 어느 화면에서 뒤로를 눌러도 돌아갈
+              곳이 없어 홈으로 떨어졌다. 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에
+              상세를 얹으면, 상세에서 뒤로 갔을 때 방금 등록한 핀이 담긴 목록이 나온다.
+            */
+            router.replace('/(tabs)/mypage/activity');
+            router.push(`/pin/${publishedPinId}`);
           },
         },
       ],
