@@ -68,7 +68,12 @@ export function PinDetailBody({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
       >
-        <PinDetailMedia unlocked={unlocked} videoUrl={detail.videoUrl} previewUrl={detail.previewUrl} />
+        <PinDetailMedia
+          unlocked={unlocked}
+          videoUrl={detail.videoUrl}
+          previewUrl={detail.previewUrl}
+          thumbnailUrl={detail.thumbnailUrl}
+        />
 
         <View style={s.detailSheet}>
           <View style={s.authorRow}>

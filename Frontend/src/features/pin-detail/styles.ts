@@ -133,6 +133,27 @@ export const pinDetailStyles = StyleSheet.create({
   videoPlayer: { width: '100%', height: '100%' },
 
   /**
+   * 영상이 준비되기 전 프레임을 채우는 층.
+   *
+   * 영상 위에 얹되 음소거 버튼보다 아래에 온다(그리는 순서). 가운데에 회전 표시를 두어
+   * 받는 중임을 알린다.
+   */
+  mediaLoading: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray200,
+  },
+  mediaLoadingFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.gray200 },
+  /** 열람 전에는 썸네일도 가린다. 영상만 가리고 썸네일을 보여주면 가린 뜻이 없다. */
+  mediaLoadingBlurred: { filter: [{ blur: 18 }] },
+  mediaLoadingImage: { width: '100%', height: '100%' },
+
+  /**
    * 시안 영상 전용 배치. 프레임보다 크게 잡아 아래에 붙이고 위를 잘라낸다.
    *
    * 시안이 16:9 가로 영상이고 위쪽에 워터마크가 있어서 필요한 보정이다.

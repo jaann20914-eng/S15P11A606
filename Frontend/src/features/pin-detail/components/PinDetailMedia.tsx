@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Image, Pressable, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView } from 'expo-video';
@@ -69,6 +69,8 @@ export interface PinDetailMediaProps {
   videoUrl: string | null;
   /** 열람 전에 서버가 준 미리보기 URL. */
   previewUrl: string | null;
+  /** 영상을 받는 동안 그 자리에 깔 썸네일. 없으면 회색 바탕만 쓴다. */
+  thumbnailUrl?: string | null;
 }
 
 /**
@@ -83,7 +85,12 @@ export interface PinDetailMediaProps {
  *
  * 결제 전에 가리는 방법은 `PREVIEW_BLUR_RADIUS` 설명을 참고한다.
  */
-export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMediaProps) {
+export function PinDetailMedia({
+  unlocked,
+  videoUrl,
+  previewUrl,
+  thumbnailUrl = null,
+}: PinDetailMediaProps) {
   // 열람 전에는 미리보기만 내려온다. 둘 다 비어 있으면 시안 영상으로 대체한다.
   const mediaUrl = unlocked ? videoUrl : previewUrl;
   const usesPlaceholder = !mediaUrl;
@@ -92,6 +99,24 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
   const [muted, setMuted] = useState(true);
 
   const player = useAutoplayVideo(source, { loop: true, muted: true });
+
+  /**
+   * 첫 프레임이 나올 준비가 됐는지.
+   *
+   * 준비되기 전에는 프레임이 회색 판으로 남아, 받는 중인지 실패했는지 알 수 없었다. 그동안
+   * 무언가 오고 있다는 것을 보여주기 위해 상태를 따라간다. 소스가 바뀌면 다시 기다린다.
+   */
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(player.status === 'readyToPlay');
+
+    const subscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') setReady(true);
+    });
+
+    return () => subscription.remove();
+  }, [player, mediaUrl]);
 
   useEffect(() => {
     player.muted = muted;
@@ -134,6 +159,15 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
         </View>
       )}
 
+      {/*
+        영상을 받는 동안 그 자리를 채운다.
+
+        회색 판만 남겨 두면 받는 중인지 실패했는지 알 수 없다. 썸네일이 있으면 먼저 깔아
+        "이 장면이 곧 움직인다"는 것을 보여주고, 없으면 숨을 쉬는 회색 판으로 기다리는
+        중임을 알린다. 준비되면 사라지므로 영상이 늦게 와도 화면이 비어 있지 않다.
+      */}
+      {!ready && <MediaLoading blurred={!unlocked} thumbnailUrl={thumbnailUrl} />}
+
       {/* 결제 전에는 소리도 유료 정보라 켤 수 없게 버튼 자체를 숨긴다. */}
       {unlocked && (
         <Pressable
@@ -147,6 +181,66 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
           <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color={colors.white} />
         </Pressable>
       )}
+    </View>
+  );
+}
+
+/** 숨쉬기 한 주기. 너무 빠르면 초조해 보이고 느리면 멈춘 것처럼 보인다. */
+const PULSE_MS = 900;
+
+/**
+ * 영상이 준비되기 전 그 자리를 채우는 층.
+ *
+ * 썸네일이 오면 그것을 깔고, 없으면 회색 판이 천천히 밝아졌다 어두워진다. 어느 쪽이든 위에
+ * 작은 회전 표시를 얹어 "받는 중"임을 분명히 한다 — 정지 화면만 두면 실패한 것과 구분되지
+ * 않는다.
+ *
+ * 열람 전이라면 썸네일도 흐리게 둔다. 영상은 가려 두고 썸네일로 장면이 드러나면 결제 전에
+ * 볼 수 없어야 할 것을 보여주는 셈이다.
+ */
+function MediaLoading({
+  blurred,
+  thumbnailUrl,
+}: {
+  blurred: boolean;
+  thumbnailUrl: string | null;
+}) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: PULSE_MS, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: PULSE_MS, useNativeDriver: true }),
+      ]),
+    );
+
+    loop.start();
+
+    return () => loop.stop();
+  }, [pulse]);
+
+  return (
+    <View style={s.mediaLoading} pointerEvents="none">
+      {thumbnailUrl === null ? (
+        <Animated.View
+          style={[
+            s.mediaLoadingFill,
+            // 회색 판이 숨을 쉬는 정도. 눈에 걸릴 만큼만 움직인다.
+            { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) },
+          ]}
+        />
+      ) : (
+        /*
+          블러는 감싼 뷰에 건다. `filter`는 뷰 스타일이라 `Image`에 바로 줄 수 없고, 영상에
+          거는 방식과도 같아진다(`PREVIEW_BLUR_STYLE`).
+        */
+        <View style={[s.mediaLoadingFill, blurred && s.mediaLoadingBlurred]}>
+          <Image source={{ uri: thumbnailUrl }} style={s.mediaLoadingImage} resizeMode="cover" />
+        </View>
+      )}
+
+      <ActivityIndicator color={colors.white} />
     </View>
   );
 }
