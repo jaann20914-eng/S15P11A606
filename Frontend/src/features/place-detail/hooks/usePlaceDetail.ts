@@ -87,8 +87,27 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
     */
     Promise.all([withMinimumDuration(getPlaceDetail(placeId), MIN_LOADING_MS), resolvePlaceMapData(placeId)])
       .then(([received, mapData]) => {
-        setDetail(withPinCoordinates(received, mapData));
+        const merged = withPinCoordinates(received, mapData);
+        setDetail(merged);
         setLoading(false);
+
+        /*
+          좌표를 못 붙인 핀이 남았으면 목록을 한 번 더 물어본다.
+
+          받아 둔 좌표는 홈이 지도를 그릴 때의 활성 핀이라, **그 뒤에 올라온 핀은 그 안에 없다.**
+          그러면 카드는 있는데 지도에 마커가 없어 "핀이 다 보이지 않는다"가 된다. 다시 물어
+          붙일 수 있으면 붙인다.
+
+          실패하거나 그래도 없으면 그대로 둔다 — 이미 화면은 그려져 있고, 마커 하나가 비는 것과
+          화면이 비는 것은 다르다.
+        */
+        if (!merged.pins.some((pin) => pin.latitude === null)) return;
+
+        resolvePlaceMapData(placeId, mapData?.coordinate ?? null, { refresh: true })
+          .then((fresh) =>
+            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh))),
+          )
+          .catch(() => undefined);
       })
       .catch((cause: unknown) => {
         setLoading(false);

@@ -121,6 +121,18 @@ export default function Home() {
   const sheetSpace = screenHeight > 0 ? screenHeight : Math.max(0, height - navBarHeight);
 
   /*
+    잰 값을 위에 겹치는 장소 상세에도 나눠 준다.
+
+    그 화면은 탭 그룹 밖이라 자기가 잴 수 있는 것이 창 높이뿐이고, 거기서 탭바를 빼도 이 값과
+    같지 않았다 — 실기기에서 상세 시트가 홈보다 눈에 띄게 높았던 이유다. 재는 쪽 값을 그대로
+    쓰면 두 시트가 같은 자리에 놓인다.
+  */
+  const setHomeSheetSpace = useMapStore((state) => state.setHomeSheetSpace);
+  useEffect(() => {
+    if (screenHeight > 0) setHomeSheetSpace(screenHeight);
+  }, [screenHeight, setHomeSheetSpace]);
+
+  /*
     3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
 
     - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
@@ -198,8 +210,29 @@ export default function Home() {
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
    * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
    * 이어지는 일이 없다.
+   *
+   * **넘어가면서 그 장소를 영상핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
+   * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
+   * 단계씩 이어 붙인다 — `zoomStepwise`). 예전에는 상세가 열려 핀을 받은 뒤에야 당기기
+   * 시작해서, 시트만 툭 덮이고 지도는 한참 뒤에 따로 움직였다.
+   *
+   * 핀 목록이 도착하면 상세가 첫 게시물의 핀으로 중심만 다시 맞춘다. 이미 같은 축척이라
+   * 그때는 짧게 미끄러질 뿐이다.
    */
-  const openPlace = useCallback((placeId: string) => router.push(`/place/${placeId}`), []);
+  const openPlace = useCallback(
+    (placeId: string) => {
+      const place = inView.places.find((item) => item.id === placeId);
+      if (place) {
+        setPendingPan({
+          coordinate: { latitude: place.latitude, longitude: place.longitude },
+          level: REVIEW_PIN_MAX_LEVEL,
+        });
+      }
+
+      router.push(`/place/${placeId}`);
+    },
+    [inView.places],
+  );
 
   /**
    * 카드나 지도 핀을 눌렀을 때. 상세로 넘어가지 않고 그 장소를 보여주기만 한다.
@@ -239,10 +272,22 @@ export default function Home() {
    */
   const pressMapPin = useCallback(
     (placeId: string) => {
+      /*
+        **받아 둔 장소가 아니면 아무것도 하지 않는다.**
+
+        이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
+        대신 그리고(`pinOverlay`), 그때 눌린 id는 `pinId`(UUID)다. 그대로 상세로 넘기면
+        `/place/<UUID>`가 되어 숫자로 읽히지 않는 화면이 열린다 — 사용자에게는 "장소를 찾을 수
+        없어요"만 보인다. 지금은 상세가 지도 위 터치를 자기가 받아 여기까지 오지 않지만,
+        경계에서 한 번 걸러 두면 그 구조가 바뀌어도 깨지지 않는다.
+      */
+      const known = inView.places.some((place) => place.id === placeId);
+      if (!known) return;
+
       focusPlace(placeId);
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, mapLevel, openPlace],
+    [focusPlace, inView.places, mapLevel, openPlace],
   );
 
   const handleViewChange = useCallback(
