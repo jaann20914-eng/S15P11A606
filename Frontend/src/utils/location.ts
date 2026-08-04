@@ -148,20 +148,47 @@ export async function readCurrentCoordinate({
       };
     }
 
-    // 캐시가 없을 때만 새로 측위한다. 실내에서는 끝나지 않을 수 있어 시간을 끊는다.
-    const position = await withTimeout(
+    /*
+      캐시가 없으면 새로 측위한다. 두 번 시도한다.
+
+      먼저 `Balanced`로 묻는다 — 기지국·와이파이를 함께 써서 빠르고 전력을 덜 쓴다. 다만 그
+      방식은 network provider에 기대는데, 그쪽이 값을 못 주는 환경에서는 아무것도 오지 않는다
+      (데이터가 끊긴 실기기, 그리고 에뮬레이터가 그렇다 — 주입한 좌표는 GPS로만 들어온다).
+
+      그때 `Highest`로 한 번 더 묻는다. 위성을 직접 보는 요청이라 network provider가 비어 있어도
+      값이 온다. 전력을 더 쓰지만 한 번 읽고 끝나는 자리라 부담이 적고, 못 읽어서 기능이 막히는
+      것보다 낫다.
+
+      둘 다 시간을 끊는다. `getCurrentPositionAsync`는 실패해도 끝나지 않아서, 기다리는 화면이
+      로딩에 갇힌다.
+    */
+    const balanced = await withTimeout(
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
       POSITION_TIMEOUT_MS,
     );
 
-    if (!position) {
-      log('실패', { failure: 'failed', reason: 'timeout', limitMs: POSITION_TIMEOUT_MS });
+    if (balanced) {
+      log('좌표 확보', { source: 'getCurrentPosition', accuracy: 'balanced' });
+      return {
+        coordinate: { latitude: balanced.coords.latitude, longitude: balanced.coords.longitude },
+      };
+    }
+
+    log('재시도', { reason: 'balanced timeout', accuracy: 'highest' });
+
+    const precise = await withTimeout(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest }),
+      POSITION_TIMEOUT_MS,
+    );
+
+    if (!precise) {
+      log('실패', { failure: 'failed', reason: 'timeout', limitMs: POSITION_TIMEOUT_MS * 2 });
       return { failure: 'failed' };
     }
 
-    log('좌표 확보', { source: 'getCurrentPosition' });
+    log('좌표 확보', { source: 'getCurrentPosition', accuracy: 'highest' });
     return {
-      coordinate: { latitude: position.coords.latitude, longitude: position.coords.longitude },
+      coordinate: { latitude: precise.coords.latitude, longitude: precise.coords.longitude },
     };
   } catch (cause) {
     log('예외', { cause: String(cause) });
