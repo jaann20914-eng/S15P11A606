@@ -151,8 +151,8 @@ export const pinDetailStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#6D6D6D',
   },
-  /** 회색 판 위를 지나가는 빛줄기. 폭과 가로 위치는 화면이 프레임 너비로 정한다. */
-  mediaLoadingBand: { position: 'absolute', top: 0, bottom: 0, left: 0 },
+  /** 회색 판 위를 위에서 아래로 지나가는 빛줄기. 높이와 위치는 화면이 프레임 높이로 정한다. */
+  mediaLoadingBand: { position: 'absolute', top: 0, left: 0, right: 0 },
   mediaLoadingBandFill: { flex: 1 },
 
   /**

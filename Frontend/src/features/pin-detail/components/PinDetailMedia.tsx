@@ -181,29 +181,37 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
 /** 빛줄기가 한 번 지나가는 시간. 너무 빠르면 초조해 보이고 느리면 멈춘 것처럼 보인다. */
 const SWEEP_MS = 1100;
 
-/** 빛줄기 폭. 프레임 너비에 대한 비율이다. 좁으면 선처럼 보이고 넓으면 번쩍이는 판이 된다. */
+/** 빛줄기 높이. 프레임 높이에 대한 비율이다. 좁으면 선처럼 보이고 넓으면 번쩍이는 판이 된다. */
 const SWEEP_RATIO = 0.6;
 
-/** 빛줄기의 색. 회색 판 위를 지나가며 밝아지는 정도다. */
-const SWEEP_COLORS = ['rgba(255,255,255,0)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0)'] as const;
+/**
+ * 빛줄기의 색.
+ *
+ * 진하게 두면 대비가 커서 줄기만 눈에 튄다. 바탕보다 한 단계 밝은 회색으로 보일 만큼만
+ * 올린다 — 판이 훑히는 것으로 읽히면 그것으로 충분하다.
+ */
+const SWEEP_COLORS = ['rgba(255,255,255,0)', 'rgba(255,255,255,0.16)', 'rgba(255,255,255,0)'] as const;
 
 /**
  * 영상이 준비되기 전 그 자리를 채우는 층.
  *
- * 회색 판 위로 밝은 빛줄기가 왼쪽에서 오른쪽으로 지나간다. 회전 표시를 얹어 보니 "무언가
- * 돌고 있다"까지만 전해지고 화면이 채워지는 중이라는 느낌은 없었다. 판 자체가 움직이면
- * 기다리는 대상이 이 자리라는 것이 그대로 읽힌다.
+ * 회색 판 위로 빛줄기가 위에서 아래로 지나간다. 회전 표시를 얹어 보니 "무언가 돌고 있다"
+ * 까지만 전해지고 화면이 채워지는 중이라는 느낌은 없었다. 판 자체가 움직이면 기다리는 대상이
+ * 이 자리라는 것이 그대로 읽힌다.
+ *
+ * 방향은 아래로 흐른다. 영상 프레임이 가로로 넓어 좌우로 지나가면 순식간에 스쳐 지나가는데,
+ * 위아래로 흐르면 같은 시간에 더 천천히 채워지는 것처럼 보인다.
  *
  * 썸네일을 깔지 않는다. 열람 전에는 어차피 가려야 하고, 열람한 뒤에도 잠깐 보였다 영상으로
  * 바뀌면 화면이 두 번 바뀌는 것처럼 보인다.
  */
 function MediaLoading() {
   const sweep = useRef(new Animated.Value(0)).current;
-  /** 빛줄기가 지나갈 거리를 알아야 해서 프레임 너비를 잰다. 재기 전에는 그리지 않는다. */
-  const [width, setWidth] = useState(0);
+  /** 빛줄기가 지나갈 거리를 알아야 해서 프레임 높이를 잰다. 재기 전에는 그리지 않는다. */
+  const [height, setHeight] = useState(0);
 
   useEffect(() => {
-    if (width === 0) return;
+    if (height === 0) return;
 
     sweep.setValue(0);
 
@@ -214,28 +222,28 @@ function MediaLoading() {
     loop.start();
 
     return () => loop.stop();
-  }, [sweep, width]);
+  }, [sweep, height]);
 
-  const bandWidth = width * SWEEP_RATIO;
+  const bandHeight = height * SWEEP_RATIO;
 
   return (
     <View
       style={s.mediaLoading}
       pointerEvents="none"
-      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
     >
-      {width > 0 && (
+      {height > 0 && (
         <Animated.View
           style={[
             s.mediaLoadingBand,
             {
-              width: bandWidth,
-              // 화면 왼쪽 밖에서 들어와 오른쪽 밖으로 빠진다. 끊기는 자리가 보이지 않는다.
+              height: bandHeight,
+              // 프레임 위쪽 밖에서 들어와 아래쪽 밖으로 빠진다. 끊기는 자리가 보이지 않는다.
               transform: [
                 {
-                  translateX: sweep.interpolate({
+                  translateY: sweep.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [-bandWidth, width],
+                    outputRange: [-bandHeight, height],
                   }),
                 },
               ],
@@ -245,7 +253,7 @@ function MediaLoading() {
           <LinearGradient
             colors={[...SWEEP_COLORS]}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={s.mediaLoadingBandFill}
           />
         </Animated.View>
