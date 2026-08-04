@@ -17,12 +17,12 @@ const EMPTY_BY_MODE: Record<CrowdFilter, { image: number; title: string; body: s
   relaxed: {
     image: require('../../../../assets/images/recommend-empty-relaxed.png'),
     title: '이 주변은 아직 조용해요',
-    body: '한갓진 자리를 찾으려면 먼저 올라온 영상핀이 필요해요.\n지금 이곳을 처음 알리는 사람이 되어 보세요.',
+    body: '여유있는 장소를 찾으려면 영상핀이 필요해요.\n지금 이곳을 처음 알려보세요!',
   },
   wagle: {
     image: require('../../../../assets/images/recommend-empty-wagle.png'),
     title: '아직 북적이는 곳이 없어요',
-    body: '사람이 모인 자리는 영상핀이 알려 줘요.\n지금 이곳의 분위기를 처음 전해 보세요.',
+    body: '사람이 모이는 자리를 찾으려면 영상핀이 필요해요.\n지금 이곳의 분위기를 처음 전해보세요!',
   },
 };
 
