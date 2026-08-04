@@ -182,12 +182,25 @@ export default function PinCreateScreen() {
     */
     Alert.alert(
       mode.type === 'edit' ? '영상핀을 수정했어요' : '영상핀을 등록했어요',
-      '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
+      mode.type === 'edit'
+        ? '고친 내용이 반영됐어요.'
+        : '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
       [
         {
           text: '확인',
           onPress: () => {
             resetPublish();
+
+            /*
+              수정은 그 핀의 상세에서 들어온다. 상세를 새로 열면 같은 화면이 두 장 쌓여서,
+              뒤로 가기를 한 번 눌렀을 때 고치기 전의 상세가 나온다. 그래서 새로 열지 않고
+              들어온 화면으로 돌아간다 — 그 화면은 다시 보일 때 스스로 새로 받아 온다.
+            */
+            if (mode.type === 'edit') {
+              router.back();
+              return;
+            }
+
             router.replace(`/pin/${publishedPinId}`);
           },
         },
