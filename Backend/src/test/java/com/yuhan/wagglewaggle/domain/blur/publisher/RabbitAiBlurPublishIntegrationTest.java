@@ -1,14 +1,23 @@
 package com.yuhan.wagglewaggle.domain.blur.publisher;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
 import com.yuhan.wagglewaggle.domain.blur.message.AiBlurRequestMessage;
 import com.yuhan.wagglewaggle.global.config.RabbitConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,5 +128,62 @@ class RabbitAiBlurPublishIntegrationTest {
         template.convertAndSend(RabbitConfig.EXCHANGE, "no.such.routing.key", "unroutable");
 
         assertThat(returned.await(5, TimeUnit.SECONDS)).isTrue();
+    }
+
+    /**
+     * 운영 publisher(RabbitAiBlurJobPublisher) 경로로 라우팅 불가 메시지를 발행하면,
+     * RabbitConfig의 confirm 콜백이 이를 발행 성공이 아니라 실패로 인식해 requestId와 함께 ERROR로 남기는지 검증한다.
+     * (기존 confirm 테스트는 waitForConfirms를 직접 호출해 운영 publisher의 콜백 처리를 검증하지 못했다.)
+     */
+    @Test
+    void 운영_publisher로_라우팅_불가_메시지를_발행하면_confirm_콜백이_발행_실패로_처리한다() throws Exception {
+        Logger rabbitConfigLogger = (Logger) LoggerFactory.getLogger(RabbitConfig.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        rabbitConfigLogger.addAppender(appender);
+        try {
+            // 요청 큐를 삭제해 ai.blur.request 라우팅 키에 바인딩된 큐가 없게 만든다(라우팅 불가 유도).
+            amqpAdmin.deleteQueue(RabbitConfig.QUEUE);
+
+            AiBlurJob job = job();
+            publisher.publish(job); // 운영 publisher 경로(mandatory + CorrelationData) 발행
+
+            // confirm/return 콜백은 비동기다. requestId를 담은 '발행 실패' ERROR 로그가 뜰 때까지 폴링한다.
+            String requestId = job.getRequestId().toString();
+            assertThat(awaitFailureLog(appender, requestId, 5000))
+                    .as("운영 publisher 발행의 unroutable을 confirm 콜백이 requestId와 함께 실패로 로깅해야 한다")
+                    .isTrue();
+        } finally {
+            rabbitConfigLogger.detachAppender(appender);
+            restoreRequestQueue(); // 다른 테스트를 위해 큐·바인딩 복구
+        }
+    }
+
+    /** 지정한 requestId를 포함한 '발행 실패' ERROR 로그가 나타날 때까지 최대 timeoutMs 동안 폴링한다. */
+    private boolean awaitFailureLog(ListAppender<ILoggingEvent> appender, String requestId, long timeoutMs)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            boolean found = appender.list.stream().anyMatch(event ->
+                    event.getLevel() == Level.ERROR
+                            && event.getFormattedMessage().contains(requestId)
+                            && event.getFormattedMessage().contains("발행 실패"));
+            if (found) {
+                return true;
+            }
+            Thread.sleep(100);
+        }
+        return false;
+    }
+
+    /** 삭제한 요청 큐와 바인딩을 원래 계약대로 복구한다(DLX 인자 포함). */
+    private void restoreRequestQueue() {
+        Queue queue = QueueBuilder.durable(RabbitConfig.QUEUE)
+                .withArgument("x-dead-letter-exchange", RabbitConfig.DLX)
+                .withArgument("x-dead-letter-routing-key", RabbitConfig.DLQ_ROUTING_KEY)
+                .build();
+        amqpAdmin.declareQueue(queue);
+        amqpAdmin.declareBinding(BindingBuilder.bind(queue)
+                .to(new DirectExchange(RabbitConfig.EXCHANGE)).with(RabbitConfig.ROUTING_KEY));
     }
 }
