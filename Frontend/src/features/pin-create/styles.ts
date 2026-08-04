@@ -13,6 +13,13 @@ export const pinCreateStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1 },
   form: { flex: 1 },
+  /**
+   * 스크롤 밖에 고정한 카메라 자리.
+   *
+   * 좌우 여백만 준다. 위 여백은 `camera`가 갖고 있고, 아래는 스크롤 내용의 위 여백이 맡는다.
+   * 자리를 고정하는 이유는 화면 쪽 주석에 적어 두었다.
+   */
+  captureArea: { paddingHorizontal: layout.gutter },
   content: { paddingHorizontal: layout.gutter, paddingTop: spacing.x5 },
   /**
    * 늘 보이는 등록 버튼 자리.
@@ -61,11 +68,18 @@ export const pinCreateStyles = StyleSheet.create({
   segmentTextActive: { color: colors.dark, fontWeight: '600' },
 
   /* 촬영 */
+  /**
+   * 카메라 자리.
+   *
+   * **잘라내지 않는다.** 카메라는 뷰 계층 밖의 서피스에 그려져서, 부모가 둥근 모서리로 잘라내면
+   * 스크롤로 자리가 바뀔 때마다 한 프레임이 비어 깜빡인다. 그래서 미리보기는 모서리가 각지게
+   * 남는다 — 깜빡임과 맞바꾼 것이다. 촬영이 끝난 뒤의 재생(`CapturePreview`)은 일반 뷰라
+   * 그쪽만 둥글게 두어도 된다.
+   */
   camera: {
     height: 248,
     marginTop: spacing.x5,
     position: 'relative',
-    overflow: 'hidden',
     borderRadius: radius.md,
     backgroundColor: colors.dark,
   },
@@ -223,14 +237,15 @@ export const pinCreateStyles = StyleSheet.create({
   /**
    * 장소 후보 목록.
    *
-   * 높이를 제한하지 않는다. 예전에는 200으로 묶고 안에서 스크롤했는데, 폼 자체가 스크롤 화면이라
-   * 그 안의 스크롤이 잘 잡히지 않아 세 줄 아래가 있는지조차 보이지 않았다. 받은 만큼 그대로
-   * 펼치고 넘치는 만큼은 폼이 스크롤한다.
+   * 높이를 묶고 안에서 스크롤한다. 후보가 많을 때 목록이 폼을 아래로 밀어내면 혼잡도·메모 같은
+   * 다음 칸이 화면에서 사라져, 무엇을 더 채워야 하는지 보이지 않는다.
    *
-   * 후보는 많아도 열 몇 개다 — 서버가 반경 50m 안에서 유형별로 두 곳까지만 준다.
+   * 높이는 **줄의 정수배가 아니게** 둔다(줄 높이 64에 224 = 3.5줄). 마지막 줄이 반쯤 잘려
+   * 보이면 아래에 더 있다는 것이 그대로 읽힌다 — 딱 맞게 두면 목록이 거기서 끝난 것처럼 보인다.
    */
   placeList: {
     marginTop: spacing.x2,
+    maxHeight: 224,
     overflow: 'hidden',
     borderRadius: radius.md,
     borderWidth: 1,
