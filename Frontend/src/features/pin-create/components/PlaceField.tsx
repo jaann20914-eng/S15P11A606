@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import type { PlaceNearbyItem } from '@/types/place';
@@ -121,7 +121,11 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
               주변 50m에서 장소를 찾지 못했어요. 자리를 조금 옮겨 다시 눌러 주세요.
             </Text>
           ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            /*
+              목록 안에서 따로 스크롤하지 않는다. 폼이 이미 스크롤 화면이라 그 안에 또 두면
+              손가락이 어느 쪽을 움직이는지 애매해져, 아래 후보가 있는지조차 알기 어려웠다.
+            */
+            <View>
               {nearby.places.map((found) => (
                 <Pressable
                   key={found.kakaoPlaceId}
@@ -137,7 +141,7 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
                   <Text style={s.placeDistance}>{found.distanceMeters}m</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           )}
         </View>
       )}

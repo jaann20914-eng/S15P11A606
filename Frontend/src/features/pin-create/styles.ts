@@ -221,13 +221,16 @@ export const pinCreateStyles = StyleSheet.create({
   },
   placeSelectedText: { ...type.body, color: colors.dark },
   /**
-   * 검색 결과 목록.
+   * 장소 후보 목록.
    *
-   * 결과가 많아도 화면을 밀지 않도록 최대 높이를 두고 안에서 스크롤한다.
+   * 높이를 제한하지 않는다. 예전에는 200으로 묶고 안에서 스크롤했는데, 폼 자체가 스크롤 화면이라
+   * 그 안의 스크롤이 잘 잡히지 않아 세 줄 아래가 있는지조차 보이지 않았다. 받은 만큼 그대로
+   * 펼치고 넘치는 만큼은 폼이 스크롤한다.
+   *
+   * 후보는 많아도 열 몇 개다 — 서버가 반경 50m 안에서 유형별로 두 곳까지만 준다.
    */
   placeList: {
     marginTop: spacing.x2,
-    maxHeight: 200,
     overflow: 'hidden',
     borderRadius: radius.md,
     borderWidth: 1,
