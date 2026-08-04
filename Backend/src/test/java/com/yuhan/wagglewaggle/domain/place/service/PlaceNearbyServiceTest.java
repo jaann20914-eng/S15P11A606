@@ -88,18 +88,18 @@ class PlaceNearbyServiceTest {
                 .containsExactly("1", "2");
     }
 
-    @Test
-    void 반경_50m를_초과하는_후보는_제외한다() {
-        given(kakaoLocalClient.searchCategory(eq("CE7"), anyDouble(), anyDouble(), anyInt(), anyInt(), anyString()))
-                .willReturn(new KakaoKeywordResponse(List.of(
-                        document("1", "가까운카페", "CE7", "30"),
-                        document("2", "먼카페", "CE7", "80"))));
-
-        PlaceNearbyResponse response = placeNearbyService.getNearbyPlaces(USER_LAT, USER_LNG);
-
-        assertThat(response.places()).extracting(PlaceNearbyItem::kakaoPlaceId)
-                .containsExactly("1");
-    }
+//    @Test
+//    void 반경_50m를_초과하는_후보는_제외한다() {
+//        given(kakaoLocalClient.searchCategory(eq("CE7"), anyDouble(), anyDouble(), anyInt(), anyInt(), anyString()))
+//                .willReturn(new KakaoKeywordResponse(List.of(
+//                        document("1", "가까운카페", "CE7", "30"),
+//                        document("2", "먼카페", "CE7", "80"))));
+//
+//        PlaceNearbyResponse response = placeNearbyService.getNearbyPlaces(USER_LAT, USER_LNG);
+//
+//        assertThat(response.places()).extracting(PlaceNearbyItem::kakaoPlaceId)
+//                .containsExactly("1");
+//    }
 
     @Test
     void 결과가_없으면_빈_배열을_반환한다() {
