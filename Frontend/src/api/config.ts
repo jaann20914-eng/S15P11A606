@@ -93,8 +93,13 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     POST /pins/{pinId}/unlock, POST /pins/{pinId}/evaluation.
   */
 
-  // GET /api/v1/recommendations/places 도 아직 없다. recommendation 컨트롤러가 없다.
-  'recommend/places': true,
+  /*
+    개인화 장소 추천도 2026-08-04에 실서버로 연결했다(`RecommendationController`).
+
+    명세와 다른 점이 있다 — 응답에 인기순 대체 여부(`recommendationType`)와 영업 상태 ·
+    영업시간 문구가 없다. 화면이 준비해 둔 자리라 타입에서는 선택으로 남기고, 값이 없으면 그
+    줄을 그리지 않는다(`types/recommend.ts`).
+  */
 
   // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
   'place/detail': true,

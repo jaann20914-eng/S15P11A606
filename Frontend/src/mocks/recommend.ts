@@ -4,7 +4,7 @@ import type {
   RecommendationsResponse,
   RecommendedPlace,
 } from '@/types/recommend';
-import { MOCK_LATENCY_MS, delay } from './pin';
+import { MOCK_LATENCY_MS, delay, mockPinId } from './pin';
 import {
   averageCrowdLevelOf,
   mockPlaceSeeds,
@@ -31,9 +31,9 @@ const MAX_PIN_PREVIEWS = 5;
 
 function toPlace(seed: MockPlaceSeed): RecommendedPlace {
   const pinPreviews: PinPreview[] = seed.pins.slice(0, MAX_PIN_PREVIEWS).map((pin, index) => ({
-    // 장소마다 겹치지 않도록 장소 번호를 앞에 붙인다.
-    pinId: seed.placeId * 100 + index + 1,
-    uploaderViewReliability: pin.viewAngle,
+    // 장소마다 겹치지 않도록 장소 번호를 앞에 붙여 UUID 모양으로 만든다.
+    pinId: mockPinId(seed.placeId * 100 + index + 1),
+    uploaderViewAngle: pin.viewAngle,
   }));
 
   return {
