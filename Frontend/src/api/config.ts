@@ -34,6 +34,7 @@ export type ApiModule =
   | 'pin/videoUploadTask'
   | 'place/detail'
   | 'place/list'
+  | 'place/nearby'
   | 'place/search'
   | 'place/search-confirm'
   | 'place/search-recent'
@@ -103,6 +104,12 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
 
   // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
   'place/detail': true,
+  /*
+    검색어 없는 주변 조회는 아직 서버가 받지 않는다 — `GET /places/search`의 `q`가 필수다.
+    등록 화면의 "현재 위치" 버튼이 이 조회를 쓰므로 그때까지 목업으로 둔다. 서버가 `q`를
+    선택으로 바꾸면 이 줄만 지운다(`api/place/nearby`).
+  */
+  'place/nearby': true,
 
   /*
     핀 떠났어요도 2026-08-04에 실서버로 연결했다.

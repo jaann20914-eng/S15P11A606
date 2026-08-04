@@ -441,3 +441,24 @@ export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsRespon
   // 서버는 최신 작성순으로 준다.
   return { pins: pins.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
 }
+
+/**
+ * 지금 자리의 장소 목업.
+ *
+ * 등록 화면의 "현재 위치" 버튼이 쓴다. 서버가 아직 검색어 없는 조회를 받지 않아, 화면 흐름을
+ * 이 데이터로 돌린다(`api/place/nearby`).
+ *
+ * 좌표는 실제 API와 시그니처를 맞추기 위해 받기만 한다. 반경 판정과 거리 계산은 서버가 하므로
+ * 목업은 고정된 `distanceMeters`를 그대로 준다.
+ *
+ * 가까운 셋만 준다. 실제로 반경 50m 안에 있는 장소는 그 정도이고, 목록이 길면 고르는 화면이
+ * 아니라 검색 결과처럼 보인다.
+ */
+export async function listMockNearbyPlaces(
+  _latitude: number,
+  _longitude: number,
+): Promise<PlaceSearchItem[]> {
+  await delay(MOCK_LATENCY_MS);
+
+  return [...places].sort((a, b) => a.distanceMeters - b.distanceMeters).slice(0, 3);
+}

@@ -256,11 +256,11 @@ export default function PinCreateScreen() {
                     origin={originPlace}
                   />
                 ) : (
+                  // 이 자리는 이제 입력칸이 아니라 눌러서 고르는 줄이라 키보드 대응이 필요 없다.
                   <PlaceField
                     place={form.draft.place}
                     onSelect={form.setPlace}
                     droppedPlaceName={form.droppedPlaceName}
-                    onFocus={reveal('place')}
                   />
                 )}
               </View>
