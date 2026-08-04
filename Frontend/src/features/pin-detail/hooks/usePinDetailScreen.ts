@@ -225,10 +225,7 @@ function useEvaluation(pinId: PinId, onDetailChange: (patch: Partial<PinDetail>)
  * 이미 대기 중인 요청이나 활성 방이 있으면 서버가 409를 준다.
  * 그때는 오류로 남기지 않고 화면을 "수락 대기"로 넘긴다 — 서버 상태가 그게 맞다.
  */
-function useChatRequest(
-  pinId: PinId,
-  onDetailChange: (patch: Partial<PinDetail>) => void,
-): ChatRequestState {
+function useChatRequest(pinId: PinId, onDetailChange: (patch: Partial<PinDetail>) => void): ChatRequestState {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,10 +242,19 @@ function useChatRequest(
     setError(null);
 
     createChatRequest(pinId)
-      .then(() => {
+      .then((result) => {
         setBusy(false);
         setOpen(false);
         onDetailChange({ chatRequestState: 'PENDING', canRequestChat: false });
+        /*
+          만들어진 방으로 바로 들여보낸다. 수락 전에도 요청자는 메시지를 보낼 수 있으므로
+          (서버 정책), 요청만 걸어 두고 목록에서 방을 다시 찾게 할 이유가 없다.
+          뒤로 가면 이 상세로 돌아온다(push).
+        */
+        router.push({
+          pathname: '/chat-room/[roomId]',
+          params: { roomId: String(result.roomId), role: 'requester' },
+        });
       })
       .catch((cause: unknown) => {
         setBusy(false);

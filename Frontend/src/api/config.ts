@@ -18,7 +18,9 @@ export const usesMockApi = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true' || !a
 export type ApiModule =
   | 'chat/decision'
   | 'chat/leave'
+  | 'chat/messages'
   | 'chat/pins'
+  | 'chat/read'
   | 'chat/request'
   | 'chat/rooms'
   | 'pin/create'
@@ -60,24 +62,13 @@ export type ApiModule =
  * 엔드포인트를 붙인 두 사람이 **같은 자리를 고쳐 매번 병합 충돌이 났다**(2026-08-05). 표에는
  * 지금 동작에 영향을 주는 줄만 있어야 읽을 때도 짧다.
  */
-const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
-  /*
-    채팅 목록(GET /chat/rooms · /chat/pins).
+/*
+  지금은 비어 있다 — 화면이 쓰는 엔드포인트가 모두 실서버로 연결됐다(2026-08-05).
 
-    **2026-08-05 dev 머지로 서버 쪽이 생겼다** — `ChatController.rooms`·`pins`·`pinRooms`와
-    `ChatRoomListService`·`ChatPinListService`가 들어왔다. 그래서 이 두 줄은 이제 "없어서"가
-    아니라 **"응답 모양을 아직 맞춰 보지 못해서" 남아 있다.**
-
-    지우는 것은 채팅 화면을 맡은 사람이 판단한다. 커서 기반 목록이라(`ChatRoomCursor`)
-    프론트 타입과 페이지 규약이 맞는지 확인해야 하고, 어긋난 채로 켜면 목록이 비거나 화면이
-    죽는다. 확인해서 맞으면 이 블록과 두 줄을 함께 지운다.
-
-    참고: 없는 경로일 때 이 서버는 404가 아니라 500(INTERNAL_SERVER_ERROR)을 준다. 상태
-    코드만으로 준비 여부를 판단할 수 없어 컨트롤러를 직접 확인해야 한다(2026-08-03 확인).
-  */
-  'chat/rooms': true,
-  'chat/pins': true,
-};
+  비워 두는 편이 낫다. 이 표에 줄이 있으면 그 화면만 목업으로 도는데, 그것을 모르고 "서버가
+  이상하다"로 읽는 일이 반복됐다. 새 엔드포인트가 아직 없을 때만 한 줄 넣고, 연결되면 지운다.
+*/
+const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {};
 
 /**
  * 이 API를 목업으로 처리할지.

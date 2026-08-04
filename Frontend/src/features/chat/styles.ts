@@ -151,6 +151,14 @@ export const chatListStyles = StyleSheet.create({
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.body, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   /**
+   * 끝난 대화의 제목 · 시각.
+   *
+   * 진한 검정 대신 회색으로 눌러 살아 있는 대화와 한눈에 갈리게 한다. 처음에는 주소와
+   * 구분하려고 중간 톤(#6D6D6D)을 썼는데 진한 제목과의 차이가 눈에 띄지 않았다 — 제목은
+   * 굵기(600)가 있어 주소와 같은 색이어도 헷갈리지 않는다.
+   */
+  rowTitleClosed: { color: colors.gray400 },
+  /**
    * 장소 이름 아래의 주소.
    *
    * 이름에 딱 붙여 두면 세 줄이 한 덩어리로 뭉쳐 보인다. 한 칸 떼어 이름을 먼저 읽히게 한다.
@@ -199,7 +207,6 @@ export const chatListStyles = StyleSheet.create({
     minHeight: DECISION_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    // 시각 바로 옆에 붙인다. 양끝으로 벌리면 버튼이 글 묶음에서 떨어져 보인다.
     gap: spacing.x3,
     /*
       위 글에 바로 이어 붙인다.
@@ -225,8 +232,13 @@ export const chatListStyles = StyleSheet.create({
   ended: { color: colors.gray400 },
   unread: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime },
 
-  /** 대기 중인 요청에 붙는 수락 · 거절. 마지막 줄에서 시각 오른쪽에 나란히 놓인다. */
-  decisions: { flexDirection: 'row', gap: spacing.x2 },
+  /**
+   * 대기 중인 요청에 붙는 수락 · 거절.
+   *
+   * 줄 오른쪽 끝에 고정한다. 시각 옆에 붙여 두면 첫 메시지가 도착해 시각이 생기는 순간 버튼이
+   * 옆으로 밀린다 — 같은 목록에서 줄마다 버튼 위치가 다르면 누르려던 자리가 어긋난다.
+   */
+  decisions: { marginLeft: 'auto', flexDirection: 'row', gap: spacing.x2 },
   decision: {
     width: 72,
     height: DECISION_HEIGHT,
@@ -253,4 +265,7 @@ export const chatListStyles = StyleSheet.create({
   },
   leaveButtonBusy: { opacity: 0.6 },
   leaveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#D9ED76' },
+  /** 이미 떠난 글의 버튼. 지우지 않고 잠긴 모양으로 남겨 "처리됐다"를 알린다. */
+  leaveButtonDone: { backgroundColor: colors.gray100 },
+  leaveTextDone: { color: colors.gray400 },
 });

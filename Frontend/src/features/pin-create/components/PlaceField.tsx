@@ -9,8 +9,6 @@ import { pinCreateStyles as s } from '../styles';
 export interface PlaceFieldProps {
   place: PinDraftPlace | null;
   onSelect: (place: PinDraftPlace | null) => void;
-  /** 촬영 자리에서 멀어 선택이 취소된 장소 이름. 없으면 null. */
-  droppedPlaceName?: string | null;
 }
 
 /**
@@ -21,10 +19,10 @@ export interface PlaceFieldProps {
  *
  * 좌표는 누를 때 읽는다. 화면에 들어오자마자 권한을 묻지 않는다.
  *
- * 고른 뒤 자리를 옮겨 촬영하면 선택이 취소된다. 그 이유를 여기서 알려 준다 — 등록 버튼을
- * 누른 뒤에 서버가 거절해서 알게 되면 이미 늦다.
+ * 촬영 자리와 장소의 거리는 여기서 판단하지 않는다. 서버가 재고
+ * (LOCATION_OUT_OF_RANGE), 프론트는 고른 것을 지키기만 한다.
  */
-export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFieldProps) {
+export function PlaceField({ place, onSelect }: PlaceFieldProps) {
   const nearby = useNearbyPlaces();
 
   const select = (found: PlaceNearbyItem) => {
@@ -92,13 +90,6 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
             <Ionicons name="chevron-forward" size={18} color={colors.gray400} />
           )}
         </Pressable>
-      )}
-
-      {!place && droppedPlaceName !== null && (
-        <Text style={s.placeNotice}>
-          촬영한 자리가 &apos;{droppedPlaceName}&apos;에서 멀어 선택을 지웠어요. 지금 자리의
-          장소를 다시 골라 주세요.
-        </Text>
       )}
 
       {/*

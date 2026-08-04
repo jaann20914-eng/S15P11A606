@@ -158,7 +158,12 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: colors.gray100,
     ...type.small,
     color: colors.dark,
+    // 한도 표시용 테두리 자리. 평소에는 투명이라 그리지 않는 것과 같아 보인다.
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  /** 내용이 한도(50자)에 닿았을 때. 연한 연두 테두리로 "가득 찼다"를 알린다. */
+  memoAtLimit: { borderColor: '#D8EB6A' },
 
   /* 공통 라벨 */
   label: {
@@ -253,11 +258,16 @@ export const pinCreateStyles = StyleSheet.create({
   /** 수정 화면의 장소 후보 거리. 검색 결과의 거리 표시와 같은 자리다. */
   placeDistance: { ...type.caption, color: colors.gray400 },
   /** 수정 진입 시 기존 값을 불러오는 동안·실패했을 때. */
-  formState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.x3, padding: spacing.x6 },
+  formState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.x3,
+    padding: spacing.x6,
+  },
   formStateText: { ...type.small, textAlign: 'center', color: colors.gray600 },
   placeEmpty: { ...type.caption, color: colors.gray400, padding: spacing.x4 },
   /** 촬영 자리에서 멀어 선택이 취소됐을 때의 안내. 입력칸 바로 아래에 붙는다. */
-  placeNotice: { ...type.caption, color: colors.danger, marginTop: spacing.x2 },
   /** 검색 중·실패 상태를 목록 자리에 대신 놓는다. */
   placeStatus: { alignItems: 'center', justifyContent: 'center', gap: spacing.x2, padding: spacing.x4 },
   placeRetry: {
