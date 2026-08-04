@@ -1,0 +1,94 @@
+# 와글와글 지원 서비스 (PostGIS / Elasticsearch / RabbitMQ)
+#
+# 이 파일은 "상태를 가진" 지원 서비스만 정의한다.
+# 앱(Backend / AI / AI Worker)은 여전히 Jenkins 파이프라인이 배포하며,
+# 여기서 만든 waggle-network 위에서 이 서비스들을 컨테이너 이름으로 찾는다.
+#
+# 실행:  docker compose -f infra/docker-compose.yml up -d
+# 비밀값은 같은 폴더의 .env 에서 주입된다 (.env.example 참고).
+
+name: waggle-infra
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.5
+    container_name: waggle-postgis
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    environment:
+      POSTGRES_DB: wagglewaggle
+      POSTGRES_USER: waggle
+      # 주의: 이미 초기화된 볼륨에서는 이 값이 인증에 사용되지 않는다(최초 부팅 시에만 적용).
+      #       기존 데이터를 계속 쓰려면 현재 운영 중인 비밀번호와 반드시 동일해야 한다.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+    volumes:
+      - waggle-postgis-data:/var/lib/postgresql/data
+    # 포트는 호스트에 공개하지 않는다. 앱은 waggle-network 안에서 waggle-postgis:5432 로 접근한다.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waggle -d wagglewaggle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.8
+    container_name: waggle-elasticsearch
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+    volumes:
+      - waggle-elasticsearch-data:/usr/share/elasticsearch/data
+    # 현재 운영과 동일하게 호스트 디버깅용으로 로컬에만 노출한다.
+    ports:
+      - "127.0.0.1:9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: waggle-rabbitmq
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    environment:
+      RABBITMQ_DEFAULT_USER: waggle
+      # PostGIS 와 동일하게 최초 부팅 시에만 적용된다. 기존 볼륨에서는 저장된 값이 유지된다.
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS 를 .env 에 설정하세요}
+    volumes:
+      - waggle-rabbitmq-data:/var/lib/rabbitmq
+    # AMQP(5672)/관리 UI(15672) 모두 호스트에 공개하지 않는다. 필요 시 SSH 터널로 접근한다.
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+# 앱 컨테이너(Jenkins 배포)와 공유하는 네트워크. compose 가 소유/생성한다.
+# 이미 존재하면 삭제하지 않고 그대로 재사용한다(앱 컨테이너 연결 유지).
+networks:
+  waggle-network:
+    name: waggle-network
+    driver: bridge
+
+# 운영 중인 기존 볼륨을 그대로 재사용한다. 이름이 정확해야 데이터를 물고 간다.
+volumes:
+  waggle-postgis-data:
+    name: waggle-postgis-data
+    external: true
+  waggle-elasticsearch-data:
+    name: waggle-elasticsearch-data
+    external: true
+  waggle-rabbitmq-data:
+    name: waggle-rabbitmq-data
+    external: true
