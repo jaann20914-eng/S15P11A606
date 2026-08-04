@@ -213,7 +213,7 @@ export default function Chat() {
           이미 전부 끝난 게시글에는 버튼을 두지 않는다. 눌러도 바뀔 것이 없고, 서버도 빈 결과로
           성공을 돌려주므로 아무 일도 일어나지 않은 것처럼 보인다.
         */}
-        {inPin && pinRooms.items.some((room) => room.status !== 'LEFT') && (
+        {inPin && pinRooms.items.some((room) => room.status !== 'CLOSED') && (
           <View style={s.leaveArea}>
             <Text style={s.leaveHint}>모든 답변을 종료합니다</Text>
             <Pressable

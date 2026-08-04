@@ -122,14 +122,13 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     채팅방 목록을 준다.
   */
   /*
-    메시지 이력(GET /chat/rooms/{roomId}/messages)은 2026-08-04에 실서버로 연결했다.
-    읽음 갱신과 함께 쓰이므로, 이제 보내는 messageId도 서버가 가진 값이다.
+    채팅은 2026-08-04에 전부 실서버로 연결됐다 — 요청 · 응답 · 읽음 · 이력 · 목록 3종.
 
-    목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 ChatController 에 들어왔다.
-    응답 필드를 대조한 뒤 그 스위치도 지운다.
+    목록 응답이 명세와 두 곳 달랐고 타입에 그대로 반영했다.
+    - 상태를 세 가지로 줄여 준다(거절 · 나감을 `CLOSED`로 합침). 목록은 "종료"로만 보여준다
+    - 상대 뷰 온도 필드 이름이 이력과 다르다(목록 `otherUserViewAngle`,
+      이력 `otherUserViewTemperature`)
   */
-  'chat/rooms': true,
-  'chat/pins': true,
 
   /*
     마이페이지 4종(프로필 조회 · 닉네임 수정 · 오늘 핀 · 크레딧 내역)은 2026-08-04에 전부

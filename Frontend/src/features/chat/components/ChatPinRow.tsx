@@ -47,6 +47,9 @@ export function ChatPinRow({ pin, onOpen }: ChatPinRowProps) {
         </View>
       </View>
 
+      {/* 안 읽은 방이 있으면 점을 둔다. 어느 글부터 볼지 한눈에 고를 수 있다. */}
+      {pin.hasUnread && <View style={s.unread} />}
+
       <Ionicons name="chevron-forward" size={20} color={colors.gray400} />
     </Pressable>
   );

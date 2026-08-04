@@ -1,4 +1,4 @@
-import type { ChatRoomListItem } from '@/types/chat';
+import type { ChatRoomListItem, ChatRoomStatus, ChatRoomSummaryStatus } from '@/types/chat';
 import type { UserChatEvent } from '@/types/chatSocket';
 
 /**
@@ -25,7 +25,11 @@ export function applyUserChatEvent(
   if (event.eventType === 'CHAT_ROOM_STATUS_CHANGED') {
     const { roomId, status } = event.data;
 
-    return replace(rooms, roomId, (room) => ({ ...room, status }));
+    /*
+      목록은 상태를 세 가지로 줄여서 갖는다. 이벤트는 네 가지를 그대로 주므로 같은 기준으로
+      바꿔 담는다 — 거절과 나감은 목록에서 구분하지 않는다.
+    */
+    return replace(rooms, roomId, (room) => ({ ...room, status: toSummaryStatus(status) }));
   }
 
   return rooms;
@@ -59,4 +63,17 @@ function sortByRecent(rooms: ChatRoomListItem[]): ChatRoomListItem[] {
 
     return right.lastMessageAt.localeCompare(left.lastMessageAt);
   });
+}
+
+/**
+ * 방 상태를 목록이 쓰는 세 가지로 줄인다.
+ *
+ * 목록 조회는 서버가 이미 줄여서 주지만(`ChatRoomSummaryStatus`), 실시간 이벤트는 네 가지를
+ * 그대로 준다. 한쪽만 네 가지면 같은 방의 상태가 새로고침 전후로 달라 보인다.
+ */
+function toSummaryStatus(status: ChatRoomStatus): ChatRoomSummaryStatus {
+  if (status === 'PENDING') return 'PENDING';
+  if (status === 'ACTIVE') return 'ACTIVE';
+
+  return 'CLOSED';
 }

@@ -15,6 +15,16 @@ import type { PinId } from './pin';
 export type ChatRoomStatus = 'PENDING' | 'ACTIVE' | 'REFUSED' | 'LEFT';
 
 /**
+ * 목록이 받는 방 상태.
+ *
+ * **목록은 세 가지로 줄여서 준다**(서버 `ChatRoomSummaryStatus`). 거절과 나감을 `CLOSED` 하나로
+ * 합치기 때문이다. 그래서 목록에서는 둘을 구분할 수 없고, 화면도 "종료된 대화"로 한 문구를 쓴다.
+ *
+ * 정확한 상태는 방에 들어가면 알 수 있다 — 이력 조회는 네 가지를 그대로 준다.
+ */
+export type ChatRoomSummaryStatus = 'PENDING' | 'ACTIVE' | 'CLOSED';
+
+/**
  * 익명 채팅 요청 응답 `data`.
  *
  * 요청이 곧 채팅방 생성이다. 수락 전(`PENDING`)에도 `roomId`가 발급된다. 상태는 따로 오지
@@ -64,13 +74,19 @@ export type CursorQuery = {
  */
 export type ChatRoomListItem = {
   roomId: number;
-  status: ChatRoomStatus;
+  /** 목록은 세 가지로 줄여서 준다. `ChatRoomSummaryStatus` 설명 참고. */
+  status: ChatRoomSummaryStatus;
   pinId: PinId;
   placeName: string;
   /** 익명 정책이 적용된 상대 표시명. */
   otherUserNickname: string;
-  /** 상대의 공개 뷰 온도. 프로필 링에 쓰는 값과 같은 척도다. */
-  otherUserViewTemperature: number;
+  /**
+   * 상대의 공개 뷰 온도. 프로필 링에 쓰는 값과 같은 척도다.
+   *
+   * 목록은 `otherUserViewAngle`, 이력은 `otherUserViewTemperature`로 이름이 갈린다. 서버가
+   * 섞어 쓰고 있어 각 응답의 이름을 그대로 따른다.
+   */
+  otherUserViewAngle: number;
   /** 메시지가 아직 없으면 null. */
   lastMessage: string | null;
   lastMessageAt: string | null;
@@ -89,6 +105,8 @@ export type ChatPinListItem = {
   createdAt: string;
   placeName: string;
   placeAddress: string;
+  /** 이 글에 달린 방 중 안 읽은 것이 있는지. 줄에 점으로 표시한다. */
+  hasUnread: boolean;
 };
 
 /**
