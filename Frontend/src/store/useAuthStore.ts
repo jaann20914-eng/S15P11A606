@@ -18,22 +18,8 @@ import type { AuthStatus, OAuthLoginResult, TokenPair } from '@/types/auth';
  *   앱을 껐다 켜면 소셜 로그인부터 다시 하는 게 맞다.
  */
 
-/**
- * 토큰을 담는 키. **목업 모드와 실서버 모드가 서로 다른 자리를 쓴다.**
- *
- * 두 모드가 같은 키를 쓰면 한쪽에서 만든 세션이 다른 쪽에서 되살아난다. 실서버로 한 번
- * 로그인해 두면 목업 모드로 켜도 `hydrate`가 그 토큰을 읽어 `AUTHENTICATED`가 되고,
- * `app/index.tsx`가 곧바로 홈으로 보낸다 — **목업 안내문이 붙은 로그인 화면과 온보딩을
- * 건너뛰어 시연 흐름을 처음부터 보여줄 수 없었다.**
- *
- * 나눠 두면 두 가지가 함께 해결된다. 목업 모드는 늘 로그인부터 시작하고, 실서버 모드로
- * 되돌아가도 그쪽 세션이 그대로 남아 다시 로그인할 필요가 없다.
- *
- * 실서버 쪽 키는 접미사 없이 그대로 둔다. 이미 저장돼 있는 세션을 잃지 않아야 한다.
- */
-const KEY_NAMESPACE = usesMockApi ? '.mock' : '';
-const ACCESS_TOKEN_KEY = `auth.accessToken${KEY_NAMESPACE}`;
-const REFRESH_TOKEN_KEY = `auth.refreshToken${KEY_NAMESPACE}`;
+const ACCESS_TOKEN_KEY = 'auth.accessToken';
+const REFRESH_TOKEN_KEY = 'auth.refreshToken';
 
 export interface AuthState {
   /** secure store 복원이 끝났는지. 끝나기 전에 화면을 분기하면 로그인 상태가 잠깐 깜빡인다. */
@@ -68,14 +54,26 @@ const TERMINAL_REFRESH_CODES = new Set([
 ]);
 
 /**
- * 이 환경에 보안 저장소가 있는지.
+ * 토큰을 기기에 남길지.
  *
- * `expo-secure-store`의 웹 모듈은 빈 객체라 호출하면 예외가 난다. 안드로이드 우선
- * 프로젝트에서 웹은 화면 확인용이므로 저장을 건너뛰고 메모리만 쓴다 —
- * **localStorage로 대체하지 않는다.** 토큰을 안전하지 않은 곳에 두는 절충은 하지 않는다.
- * 그래서 웹에서는 새로고침하면 로그인이 풀린다.
+ * 두 경우에 남기지 않고 메모리만 쓴다.
+ *
+ * **웹**: `expo-secure-store`의 웹 모듈은 빈 객체라 호출하면 예외가 난다. 안드로이드 우선
+ * 프로젝트에서 웹은 화면 확인용이므로 저장을 건너뛴다 — **localStorage로 대체하지 않는다.**
+ * 토큰을 안전하지 않은 곳에 두는 절충은 하지 않는다. 그래서 웹에서는 새로고침하면 로그인이 풀린다.
+ *
+ * **목업 모드**: 시연용이라 **켤 때마다 로그인 화면부터 보여야 한다.** 남기면 한 번 온보딩을
+ * 끝낸 뒤로는 `hydrate`가 그 토큰을 읽어 `AUTHENTICATED`가 되고, `app/index.tsx`가 곧바로
+ * 홈으로 보낸다 — 목업 안내문이 붙은 로그인 화면과 온보딩을 다시 볼 수 없다. 실서버로 한 번
+ * 로그인해 둔 세션이 목업 모드에서 되살아나는 문제도 같은 뿌리다.
+ *
+ * 가치가 없는 값이라 남길 이유도 없다. 이미 `onboardingToken`을 메모리에만 두는 것과 같은
+ * 판단이다 — 앱을 껐다 켜면 소셜 로그인부터 다시 하는 게 맞다.
+ *
+ * 목업 모드에서는 어떤 요청도 네트워크를 타지 않으므로(`usesMock`이 모든 모듈에 참을 준다)
+ * 401도, 재발급도 일어나지 않는다. 저장된 refreshToken이 없어도 걸릴 곳이 없다.
  */
-const canPersistTokens = Platform.OS !== 'web';
+const canPersistTokens = Platform.OS !== 'web' && !usesMockApi;
 
 async function persistTokens({ accessToken, refreshToken }: TokenPair): Promise<void> {
   if (!canPersistTokens) return;
