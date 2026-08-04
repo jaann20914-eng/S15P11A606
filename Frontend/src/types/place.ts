@@ -61,7 +61,13 @@ export interface PlacesQuery {
   southWestLongitude: number;
   northEastLatitude: number;
   northEastLongitude: number;
-  /** 생략하면 혼잡도와 관계없이 조회한다. */
+  /**
+   * 생략하면 혼잡도와 관계없이 조회한다.
+   *
+   * **서버에서는 필수 파라미터다.** 여기서 선택인 것은 호출부 편의이고, 빈 값을 채워 보내는
+   * 일은 `api/place/list.ts`가 맡는다(`NO_FILTER`). 값을 지정하면 평균 혼잡도가 없는 장소
+   * — 활성 핀이 없는 장소 — 가 응답에서 빠진다.
+   */
   filter?: CrowdFilter;
 }
 
@@ -103,6 +109,14 @@ export interface PlacePinCard {
   tags: string[];
   /** 내가 이미 열람한 핀인지. 썸네일 블러 여부를 가른다. */
   isUnlocked: boolean;
+  /**
+   * 촬영 좌표. **서버는 아직 주지 않아 실서버에서는 null이다**(백엔드에 요청해 둔 항목).
+   *
+   * 있으면 상세 화면이 그 자리에 영상핀 마커를 찍고, 게시물을 오르내릴 때 지도를 그 좌표로
+   * 옮긴다. 없으면 마커를 찍지 않고 지도는 장소 좌표에 머문다 — 화면이 깨지지 않아야 한다.
+   */
+  latitude: number | null;
+  longitude: number | null;
 }
 
 /**
@@ -112,9 +126,12 @@ export interface PlacePinCard {
  * 올지 확정되지 않았다. 둘 다 선택으로 받아 두고 API 경계에서 `thumbnailUrl` 하나로 모은다.
  * 확정되면 여기 한 곳만 지우면 된다.
  */
-export type PlacePinCardResponse = Omit<PlacePinCard, 'thumbnailUrl'> & {
+export type PlacePinCardResponse = Omit<PlacePinCard, 'thumbnailUrl' | 'latitude' | 'longitude'> & {
   videoThumbnailUrl?: string | null;
   thumbnailKey?: string | null;
+  /** 서버가 아직 주지 않는다. 목업은 채워 주므로 선택으로 받아 둔다. */
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type DayOfWeek = 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
@@ -314,4 +331,39 @@ export interface PlaceSearchOptions {
    * 핀 등록은 반대다. 지금 서 있는 자리를 골라야 하므로 대체 좌표를 주지 않는다.
    */
   fallbackCoordinate?: { latitude: number; longitude: number };
+}
+
+/**
+ * 지금 서 있는 자리의 장소 후보 — `GET /api/v1/places/nearby`
+ *
+ * 검색 결과(`PlaceSearchItem`)와 값의 성격이 다르다. 이쪽은 **핀 등록 요청에 실어 보낼 값을
+ * 그대로** 준다 — 카카오 식별자와 이름·좌표뿐 아니라 카테고리·전화·지번 주소까지 온다.
+ * 서버가 그 장소를 처음 저장할 때 쓰는 값이라, 프론트는 고른 것을 그대로 들고 있다가 등록에
+ * 넘기기만 한다.
+ *
+ * 그래서 필드 이름도 검색 결과와 다르다(`placeName`·`kakaoPlaceLatitude`). 등록 요청의 이름과
+ * 같게 맞춰 둔 것이므로 화면 편의로 바꾸지 않는다 — 옮겨 담는 자리가 늘면 한쪽만 고치는 일이
+ * 생긴다.
+ *
+ * 반경 50m 안만 오고 거리 오름차순이다. 그 반경이 곧 등록 가능 범위다(촬영 좌표도 그 안이어야
+ * 한다).
+ */
+export interface PlaceNearbyItem {
+  kakaoPlaceId: string;
+  placeName: string;
+  kakaoPlaceLatitude: number;
+  kakaoPlaceLongitude: number;
+  /** 카카오 카테고리 분류. 없는 장소도 있어 빈 문자열이 올 수 있다. */
+  categoryGroupCode: string;
+  categoryGroupName: string;
+  categoryName: string;
+  phone: string;
+  /** 지번 주소(카카오 `address_name`). */
+  addressName: string;
+  distanceMeters: number;
+}
+
+/** `GET /api/v1/places/nearby` 응답의 `data`. */
+export interface PlaceNearbyResponse {
+  places: PlaceNearbyItem[];
 }

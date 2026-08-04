@@ -1,8 +1,10 @@
+import { useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
-import { colors } from '@/constants/theme';
+import { colors, spacing } from '@/constants/theme';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
 import { NicknameField } from '@/features/mypage/components/NicknameField';
 import { useMypageSummary } from '@/features/mypage/hooks/useMypageSummary';
@@ -49,6 +51,16 @@ function NicknameEditor({ current }: { current: string }) {
   const edit = useNicknameCheck(current);
   const saving = useNicknameSave();
 
+  /*
+    키보드가 저장 버튼을 덮지 않게 그만큼 올린다.
+
+    입력하는 동안 버튼이 가려지면 닫았다 눌러야 한다. `KeyboardAvoidingView`는 이 앱에서
+    듣지 않는다 — 화면 끝까지 그리는 방식이라 키보드가 떠도 창이 줄지 않는다(`useKeyboardOverlap`
+    주석 참고). 이 영역의 아래 끝과 키보드가 겹치는 만큼을 재서 아래 여백에 더한다.
+  */
+  const contentRef = useRef<View>(null);
+  const keyboardOverlap = useKeyboardOverlap(contentRef);
+
   /** 저장을 누를 수 있는지. 중복 확인을 통과했고 저장 중이 아니어야 한다. */
   const canSave = edit.checked && !saving.saving;
 
@@ -66,7 +78,7 @@ function NicknameEditor({ current }: { current: string }) {
   };
 
   return (
-    <View style={s.nicknameContent}>
+    <View ref={contentRef} style={s.nicknameContent}>
       <Text style={s.nicknameTitle}>닉네임 수정</Text>
       <Text style={s.nicknameDescription}>변경 전 중복 확인이 필요해요.</Text>
 
@@ -77,7 +89,12 @@ function NicknameEditor({ current }: { current: string }) {
         accessibilityState={{ disabled: !canSave, busy: saving.saving }}
         disabled={!canSave}
         onPress={save}
-        style={[s.saveButton, !canSave && s.saveDisabled]}
+        style={[
+          s.saveButton,
+          !canSave && s.saveDisabled,
+          // 겹치지 않을 때는 0이라 원래 여백(x4)이 그대로 남는다.
+          { marginBottom: spacing.x4 + keyboardOverlap },
+        ]}
       >
         {saving.saving ? (
           <ActivityIndicator color={colors.gray600} />

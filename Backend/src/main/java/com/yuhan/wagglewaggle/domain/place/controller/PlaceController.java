@@ -2,9 +2,11 @@ package com.yuhan.wagglewaggle.domain.place.controller;
 
 import com.yuhan.wagglewaggle.domain.place.dto.PlaceDetailResponse;
 import com.yuhan.wagglewaggle.domain.place.dto.PlaceListResponse;
+import com.yuhan.wagglewaggle.domain.place.dto.PlaceNearbyResponse;
 import com.yuhan.wagglewaggle.domain.place.dto.PlaceSearchConfirmRequest;
 import com.yuhan.wagglewaggle.domain.place.dto.PlaceSearchResponse;
 import com.yuhan.wagglewaggle.domain.place.service.PlaceDetailService;
+import com.yuhan.wagglewaggle.domain.place.service.PlaceNearbyService;
 import com.yuhan.wagglewaggle.domain.place.service.PlacePinService;
 import com.yuhan.wagglewaggle.domain.place.service.PlaceSearchConfirmService;
 import com.yuhan.wagglewaggle.domain.place.service.PlaceService;
@@ -29,6 +31,18 @@ public class PlaceController {
     private final PlacePinService placePinService;
     private final PlaceDetailService placeDetailService;
     private final PlaceSearchConfirmService placeSearchConfirmService;
+    private final PlaceNearbyService placeNearbyService;
+
+    @GetMapping("/nearby")
+    public ApiResponse<PlaceNearbyResponse> getNearbyPlaces(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @AuthenticationPrincipal Long memberId
+    ) {
+        PlaceNearbyResponse result = placeNearbyService.getNearbyPlaces(latitude, longitude);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "반경 50m 내 장소 조회가 완료됐습니다.", result);
+    }
 
     @GetMapping("/search")
     public ApiResponse<PlaceSearchResponse> searchPlaces(

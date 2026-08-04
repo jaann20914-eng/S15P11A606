@@ -2,24 +2,35 @@ package com.yuhan.wagglewaggle.domain.chat.controller;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessagesHistoryResponse;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadResponse;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatPinListResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomListResponse;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatDecisionService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatHistoryService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatPinListService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatPinRoomListService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatReadService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatRequestService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatRoomListService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,6 +40,53 @@ public class ChatController {
     private final ChatRequestService chatRequestService;
     private final ChatDecisionService chatDecisionService;
     private final ChatReadService chatReadService;
+    private final ChatHistoryService chatHistoryService;
+    private final ChatRoomListService chatRoomListService;
+    private final ChatPinListService chatPinListService;
+    private final ChatPinRoomListService chatPinRoomListService;
+
+    /**
+     * 내가 보낸(요청한) 채팅방 목록을 조회한다. 현재 사용자가 요청자인 방을 최근 활동 시각 내림차순으로
+     * 커서 페이지네이션하여 반환한다. cursor·limit 오류는 INVALID_PAGINATION(400)으로 처리한다.
+     */
+    @GetMapping("/rooms")
+    public ApiResponse<ChatRoomListResponse> rooms(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        ChatRoomListResponse data = chatRoomListService.getMySentChatRooms(memberId, cursor, limit);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅방 목록 조회가 완료되었습니다.", data);
+    }
+
+    /**
+     * 내가 요청받은 채팅이 있는 핀 목록을 조회한다(요청받은 대화 탭). 현재 사용자가 수신자인 채팅방이 있는 핀을
+     * 등록 시각 내림차순으로 커서 페이지네이션하여 반환한다. cursor·limit 오류는 INVALID_PAGINATION(400)으로 처리한다.
+     */
+    @GetMapping("/pins")
+    public ApiResponse<ChatPinListResponse> pins(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        ChatPinListResponse data = chatPinListService.getMyReceivedChatPins(memberId, cursor, limit);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅 핀 목록 조회가 완료되었습니다.", data);
+    }
+
+    /**
+     * 특정 핀에 대해 현재 사용자가 참여한 채팅방 목록을 조회한다(핀 → 방 드릴다운). 최근 활동 시각 내림차순으로
+     * 커서 페이지네이션하여 반환한다. 미참여·없는 핀이면 빈 배열이며, cursor·limit 오류는 INVALID_PAGINATION(400)이다.
+     */
+    @GetMapping("/rooms/{pinId}")
+    public ApiResponse<ChatRoomListResponse> pinRooms(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable UUID pinId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        ChatRoomListResponse data = chatPinRoomListService.getPinChatRooms(memberId, pinId, cursor, limit);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅방 목록 조회가 완료되었습니다.", data);
+    }
 
     /**
      * 채팅 요청을 생성한다. 구매 완료한 타인 소유의 활성 핀에 대해 PENDING 채팅방을 만든다.
@@ -71,5 +129,18 @@ public class ChatController {
     ) {
         ChatReadResponse data = chatReadService.updateLastRead(memberId, roomId, request);
         return ApiResponse.success(HttpStatus.OK.value(), "채팅방 읽음 위치가 갱신되었습니다.", data);
+    }
+
+    /**
+     * 채팅 메시지 이력을 조회한다. 참여자(요청자 또는 수신자)만 접근할 수 있으며, 방 컨텍스트
+     * (상태·장소·상대방)와 사용자 메시지·안전 경고 이력을 한 번에 반환한다. 종료된 방도 기존 이력은 조회 가능하다.
+     */
+    @GetMapping("/rooms/{roomId}/messages")
+    public ApiResponse<ChatMessagesHistoryResponse> messages(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable Long roomId
+    ) {
+        ChatMessagesHistoryResponse data = chatHistoryService.getHistory(memberId, roomId);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅 메시지 이력 조회가 완료되었습니다.", data);
     }
 }

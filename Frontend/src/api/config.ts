@@ -36,6 +36,7 @@ export type ApiModule =
   | 'pin/videoUploadTask'
   | 'place/detail'
   | 'place/list'
+  | 'place/nearby'
   | 'place/search'
   | 'place/search-confirm'
   | 'place/search-recent'
@@ -89,25 +90,37 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     버킷 환경변수와 자격증명(또는 IAM 역할)이 채워지면 코드 변경 없이 다시 시도해 확인한다.
   */
 
-  // 핀 상세·수정·열람·평가·삭제는 아직 없다. 등록 3종(발급·등록·상태)만 열려 있다.
-  'pin/detail': true,
-  // PATCH /api/v1/pins/{pinId} 는 명세만 나왔다. PinController에 아직 매핑이 없다.
-  'pin/update': true,
-  'pin/unlock': true,
-  'pin/evaluate': true,
-  'pin/remove': true,
+  /*
+    핀 상세 계열 5종(상세 · 수정 · 열람 · 평가 · 삭제)은 2026-08-04에 전부 실서버로 연결했다.
+    `PinController`에서 확인했다 — GET·PATCH·DELETE /pins/{pinId},
+    POST /pins/{pinId}/unlock, POST /pins/{pinId}/evaluation.
+  */
 
-  // GET /api/v1/recommendations/places 도 아직 없다. recommendation 컨트롤러가 없다.
-  'recommend/places': true,
+  /*
+    개인화 장소 추천도 2026-08-04에 실서버로 연결했다(`RecommendationController`).
+
+    명세와 다른 점이 있다 — 응답에 인기순 대체 여부(`recommendationType`)와 영업 상태 ·
+    영업시간 문구가 없다. 화면이 준비해 둔 자리라 타입에서는 선택으로 남기고, 값이 없으면 그
+    줄을 그리지 않는다(`types/recommend.ts`).
+  */
 
   // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
   'place/detail': true,
+  /*
+    등록 화면의 "현재 위치"가 쓰는 주변 조회는 2026-08-04에 실서버로 연결했다.
+
+    `GET /places/search`의 `q`를 선택으로 바꾸는 대신 별도 경로가 나왔다 —
+    `GET /places/nearby`(`PlaceController.getNearbyPlaces`). 좌표만 받고 반경 50m 안을
+    거리순으로 주며, 등록 요청에 실을 카카오 메타까지 함께 온다.
+  */
 
   /*
-    채팅 요청과 응답은 ChatController에 들어와 실서버로 연결했다(2026-08-03).
-    핀 떠났어요(POST /chat/pins/{pinId}/rooms/leave)만 아직 컨트롤러가 없다.
+    핀 떠났어요도 2026-08-04에 실서버로 연결했다.
+
+    명세의 `POST /chat/pins/{pinId}/rooms/leave`가 아니라 `POST /pins/{pinId}/leave`로
+    나왔다(`PinController.leavePin`). 응답 모양은 명세와 같다 — 상태 `LEFT`와 이번에 종료된
+    채팅방 목록을 준다.
   */
-  'chat/leave': true,
   /*
     목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
 
@@ -127,12 +140,12 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   */
   'chat/messages': true,
 
-  // GET·PATCH /api/v1/users/me 가 아직 없다.
-  'user/me': true,
-  // GET /api/v1/users/me/credits/transactions 도 아직 없다. credit 컨트롤러가 없다.
-  'user/credits': true,
-  // GET /api/v1/users/me/pins/today 도 아직 없다.
-  'user/today-pins': true,
+  /*
+    마이페이지 4종(프로필 조회 · 닉네임 수정 · 오늘 핀 · 크레딧 내역)은 2026-08-04에 전부
+    실서버로 연결했다. `UserController`에서 확인했다 —
+    GET /users/me, PATCH /users/me/nickname, GET /users/me/pins/today,
+    GET /users/me/credits/transactions.
+  */
 };
 
 /**

@@ -22,8 +22,18 @@ export interface ToggleState {
 export interface ConfirmActionState extends ToggleState {
   busy: boolean;
   error: string | null;
+  /** 이미 처리를 끝냈는지. 화면에 남는 동작(떠났어요)에서 버튼을 잠그는 데 쓴다. */
+  done: boolean;
   confirm: () => void;
 }
+
+/**
+ * 이번 실행 동안 "이미 떠났어요"를 끝낸 핀.
+ *
+ * 상세 응답이 제보자 상태를 주지 않아 서버 값으로는 판단할 수 없다. 화면을 나갔다 들어와도
+ * 버튼이 잠긴 채 남게 하려고 모듈에 둔다 — 화면 상태로 두면 다시 들어올 때 초기값으로 돌아간다.
+ */
+const leftPinIds = new Set<PinId>();
 
 function useToggle(): ToggleState {
   const [open, setOpen] = useState(false);
@@ -36,13 +46,20 @@ function useToggle(): ToggleState {
 }
 
 /**
- * "열기 → 실행 → 성공하면 이전 화면" 흐름을 공유한다.
- * 삭제와 "이미 떠났어요"가 결과만 다르고 모양이 같다.
+ * "열기 → 실행 → 성공" 흐름을 공유한다. 삭제와 "이미 떠났어요"가 모양이 같다.
+ *
+ * 성공한 뒤가 다르다. 삭제한 핀은 더 볼 것이 없어 이전 화면으로 돌아가고, 떠난 핀은 글과
+ * 크레딧이 그대로 남아 화면에 머문다. 머무는 쪽은 같은 버튼을 다시 누르지 못하게 잠근다.
  */
-function useConfirmAction(run: () => Promise<unknown>, fallbackMessage: string): ConfirmActionState {
+function useConfirmAction(
+  run: () => Promise<unknown>,
+  fallbackMessage: string,
+  options: { stay?: boolean; doneAtStart?: boolean } = {},
+): ConfirmActionState {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(options.doneAtStart ?? false);
 
   const show = useCallback(() => {
     setError(null);
@@ -59,15 +76,17 @@ function useConfirmAction(run: () => Promise<unknown>, fallbackMessage: string):
       .then(() => {
         setBusy(false);
         setOpen(false);
-        goBackOrHome();
+        setDone(true);
+
+        if (options.stay !== true) goBackOrHome();
       })
       .catch((cause: unknown) => {
         setBusy(false);
         setError(cause instanceof Error ? cause.message : fallbackMessage);
       });
-  }, [run, fallbackMessage]);
+  }, [run, fallbackMessage, options.stay]);
 
-  return { open, busy, error, show, hide, confirm };
+  return { open, busy, error, done, show, hide, confirm };
 }
 
 /** 결제 모달. 실패하면 닫지 않고 문구를 남겨 같은 멱등성 키로 재시도할 수 있게 한다. */
@@ -279,9 +298,23 @@ export function usePinDetailScreen(
     '삭제하지 못했어요',
   );
 
+  /*
+    떠난 뒤에는 화면에 머물고 버튼을 잠근다. 글과 크레딧은 그대로 남으니 돌려보낼 이유가 없고,
+    같은 버튼이 계속 눌리는 상태로 남아 있으면 처리가 됐는지 알 수 없다.
+
+    상세 응답에는 제보자 상태가 없어서(`PinDetailResponse`) 다시 들어왔을 때 서버 값으로는
+    알 수 없다. 그래서 이번 실행 동안 떠난 핀을 기억해 둔다. 앱을 다시 켜면 버튼이 다시
+    열리는데, 그때 눌러도 서버가 멱등하게 처리하고 종료된 방 목록만 빈 배열로 온다.
+  */
   const leave = useConfirmAction(
-    useCallback(() => leavePinChats(detail.pinId), [detail.pinId]),
+    useCallback(async () => {
+      const result = await leavePinChats(detail.pinId);
+      leftPinIds.add(detail.pinId);
+
+      return result;
+    }, [detail.pinId]),
     '처리하지 못했어요',
+    { stay: true, doneAtStart: leftPinIds.has(detail.pinId) },
   );
 
   return {
@@ -298,7 +331,11 @@ export function usePinDetailScreen(
           받으려고 사용자를 기다리게 한다.
         */
         rememberEditablePin(detail);
-        router.push({ pathname: '/(tabs)/write', params: { pinId: detail.pinId } });
+        /*
+          수정은 상세 위에 쌓이는 제 화면으로 연다. 작성 탭으로 보내면 탭 이동이 상세를
+          스택에서 치워 버려, 수정에서 뒤로 가면 홈으로 떨어진다(라우트 주석 참고).
+        */
+        router.push(`/pin/${detail.pinId}/edit`);
       }, [detail, menu]),
     },
     purchase,

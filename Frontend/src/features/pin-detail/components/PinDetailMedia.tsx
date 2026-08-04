@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
@@ -93,6 +94,24 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
 
   const player = useAutoplayVideo(source, { loop: true, muted: true });
 
+  /**
+   * 첫 프레임이 나올 준비가 됐는지.
+   *
+   * 준비되기 전에는 프레임이 회색 판으로 남아, 받는 중인지 실패했는지 알 수 없었다. 그동안
+   * 무언가 오고 있다는 것을 보여주기 위해 상태를 따라간다. 소스가 바뀌면 다시 기다린다.
+   */
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(player.status === 'readyToPlay');
+
+    const subscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') setReady(true);
+    });
+
+    return () => subscription.remove();
+  }, [player, mediaUrl]);
+
   useEffect(() => {
     player.muted = muted;
   }, [player, muted]);
@@ -134,6 +153,14 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
         </View>
       )}
 
+      {/*
+        영상을 받는 동안 그 자리를 채운다.
+
+        회색 판만 남겨 두면 받는 중인지 실패했는지 알 수 없다. 판 위로 빛줄기가 지나가며 이
+        자리가 채워지는 중임을 알린다. 준비되면 사라진다.
+      */}
+      {!ready && <MediaLoading />}
+
       {/* 결제 전에는 소리도 유료 정보라 켤 수 없게 버튼 자체를 숨긴다. */}
       {unlocked && (
         <Pressable
@@ -146,6 +173,90 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
         >
           <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color={colors.white} />
         </Pressable>
+      )}
+    </View>
+  );
+}
+
+/** 빛줄기가 한 번 지나가는 시간. 너무 빠르면 초조해 보이고 느리면 멈춘 것처럼 보인다. */
+const SWEEP_MS = 1100;
+
+/** 빛줄기 높이. 프레임 높이에 대한 비율이다. 좁으면 선처럼 보이고 넓으면 번쩍이는 판이 된다. */
+const SWEEP_RATIO = 0.6;
+
+/**
+ * 빛줄기의 색.
+ *
+ * 진하게 두면 대비가 커서 줄기만 눈에 튄다. 바탕보다 한 단계 밝은 회색으로 보일 만큼만
+ * 올린다 — 판이 훑히는 것으로 읽히면 그것으로 충분하다.
+ */
+const SWEEP_COLORS = ['rgba(255,255,255,0)', 'rgba(255,255,255,0.16)', 'rgba(255,255,255,0)'] as const;
+
+/**
+ * 영상이 준비되기 전 그 자리를 채우는 층.
+ *
+ * 회색 판 위로 빛줄기가 위에서 아래로 지나간다. 회전 표시를 얹어 보니 "무언가 돌고 있다"
+ * 까지만 전해지고 화면이 채워지는 중이라는 느낌은 없었다. 판 자체가 움직이면 기다리는 대상이
+ * 이 자리라는 것이 그대로 읽힌다.
+ *
+ * 방향은 아래로 흐른다. 영상 프레임이 가로로 넓어 좌우로 지나가면 순식간에 스쳐 지나가는데,
+ * 위아래로 흐르면 같은 시간에 더 천천히 채워지는 것처럼 보인다.
+ *
+ * 썸네일을 깔지 않는다. 열람 전에는 어차피 가려야 하고, 열람한 뒤에도 잠깐 보였다 영상으로
+ * 바뀌면 화면이 두 번 바뀌는 것처럼 보인다.
+ */
+function MediaLoading() {
+  const sweep = useRef(new Animated.Value(0)).current;
+  /** 빛줄기가 지나갈 거리를 알아야 해서 프레임 높이를 잰다. 재기 전에는 그리지 않는다. */
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    if (height === 0) return;
+
+    sweep.setValue(0);
+
+    const loop = Animated.loop(
+      Animated.timing(sweep, { toValue: 1, duration: SWEEP_MS, useNativeDriver: true }),
+    );
+
+    loop.start();
+
+    return () => loop.stop();
+  }, [sweep, height]);
+
+  const bandHeight = height * SWEEP_RATIO;
+
+  return (
+    <View
+      style={s.mediaLoading}
+      pointerEvents="none"
+      onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
+    >
+      {height > 0 && (
+        <Animated.View
+          style={[
+            s.mediaLoadingBand,
+            {
+              height: bandHeight,
+              // 프레임 위쪽 밖에서 들어와 아래쪽 밖으로 빠진다. 끊기는 자리가 보이지 않는다.
+              transform: [
+                {
+                  translateY: sweep.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-bandHeight, height],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[...SWEEP_COLORS]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={s.mediaLoadingBandFill}
+          />
+        </Animated.View>
       )}
     </View>
   );

@@ -134,7 +134,6 @@ class PinUpdatePersistenceServiceTest {
         assertThat(pin.getMemo()).isEqualTo("새 메모");
         assertThat(result.aiBlurJob()).isNull();
         assertThat(result.videoStatus()).isEqualTo(VideoStatus.ACTIVE);
-        assertThat(result.placeIdsToRecalculate()).isEmpty();
     }
 
     @Test
@@ -157,18 +156,17 @@ class PinUpdatePersistenceServiceTest {
     }
 
     @Test
-    void crowdLevel이_변경되면_최종_Place가_재계산_대상에_담긴다() {
+    void crowdLevel이_변경되면_updatedFields에_crowdLevel이_담긴다() {
         ValidatedPinUpdate validated = keepAllExcept(PatchField.of(CrowdLevel.RELAXED), abs(), abs(), abs());
 
         PinUpdatePersistenceService.Result result = service.apply(validated, null);
 
         assertThat(result.updatedFields()).containsExactly("crowdLevel");
         assertThat(pin.getCrowdLevel()).isEqualTo(CrowdLevel.RELAXED);
-        assertThat(result.placeIdsToRecalculate()).containsExactly(PLACE_ID);
     }
 
     @Test
-    void placeId가_변경되면_기존과_새_Place가_모두_재계산_대상이다() {
+    void placeId가_변경되면_updatedFields에_placeId가_담긴다() {
         Place newPlace = place(2L);
         given(placeRepository.getReferenceById(2L)).willReturn(newPlace);
         ValidatedPinUpdate validated = build(abs(), newPlace, true, LAT, LNG, false,
@@ -178,7 +176,6 @@ class PinUpdatePersistenceServiceTest {
 
         assertThat(result.updatedFields()).containsExactly("placeId");
         assertThat(pin.getPlace()).isSameAs(newPlace);
-        assertThat(result.placeIdsToRecalculate()).containsExactlyInAnyOrder(PLACE_ID, 2L);
     }
 
     @Test
@@ -190,7 +187,6 @@ class PinUpdatePersistenceServiceTest {
         PinUpdatePersistenceService.Result result = service.apply(validated, null);
 
         assertThat(result.updatedFields()).isEmpty();
-        assertThat(result.placeIdsToRecalculate()).isEmpty();
     }
 
     @Test

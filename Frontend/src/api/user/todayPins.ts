@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockTodayPins } from '@/mocks/mypage';
 import type { TodayPinsQuery, TodayPinsResponse } from '@/types/pin';
+import { traceUser } from './log';
 
 /**
  * 오늘 등록한 영상핀 목록 — `GET /api/v1/users/me/pins/today`
@@ -20,7 +21,15 @@ function requestTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
   });
 }
 
-export async function getTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
-  if (usesMock('user/today-pins')) return fetchMockTodayPins(query);
-  return requestTodayPins(query);
+export function getTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
+  return traceUser(
+    '오늘 등록한 영상핀',
+    'user/today-pins',
+    () => (usesMock('user/today-pins') ? fetchMockTodayPins(query) : requestTodayPins(query)),
+    (page) => ({
+      건수: page.items.length,
+      상태: page.items.map((pin) => pin.status).join(', ') || '없음',
+      다음커서: page.nextCursor ?? '없음',
+    }),
+  );
 }

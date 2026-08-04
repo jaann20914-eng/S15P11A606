@@ -5,12 +5,30 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface PinUnlockRepository extends JpaRepository<PinUnlock, Long> {
+
+    /**
+     * 장소별 최근 열람(unlock) 수를 집계한다(추천 후보의 unlockCount7d 산출용).
+     * created_at 이 :from 이후인 행만 세며, created_at 이 NULL 인 과거 행은 자연히 제외된다.
+     * 결과에 등장하지 않는 placeId 는 열람 0건을 의미한다.
+     */
+    @Query("""
+            SELECT pu.pin.place.id AS placeId, COUNT(pu.id) AS unlockCount
+            FROM PinUnlock pu
+            WHERE pu.pin.place.id IN :placeIds
+              AND pu.createdAt >= :from
+            GROUP BY pu.pin.place.id
+            """)
+    List<PlaceUnlockCountRow> countByPlaceSince(
+            @Param("placeIds") Collection<Long> placeIds,
+            @Param("from") Instant from
+    );
 
     /**
      * 인증 사용자가 열람(unlock)한 핀 id만 한 번에 조회한다(핀별 N+1 방지).

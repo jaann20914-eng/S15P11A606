@@ -123,6 +123,18 @@ public enum ErrorCode {
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "읽음 처리할 메시지를 찾을 수 없습니다."),
     CHAT_READ_UPDATE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "메시지 읽음 처리 중 오류가 발생했습니다."),
 
+    // Chat Messages History (메시지 이력 조회)
+    // INVALID_ROOM_ID(400)·CHAT_ROOM_NOT_FOUND(404)·CHAT_ROOM_ACCESS_DENIED(403)는 위/아래 정의를 재사용한다.
+    CHAT_MESSAGES_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 메시지 이력 조회 중 오류가 발생했습니다."),
+
+    // Chat Rooms (목록 조회)
+    // UNAUTHORIZED(401)·INVALID_PAGINATION(400)은 위 공통/페이지 정의를 재사용한다.
+    CHAT_ROOMS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅방 목록 조회 중 오류가 발생했습니다."),
+
+    // Chat Pins (요청받은 채팅이 있는 핀 목록 조회)
+    // UNAUTHORIZED(401)·INVALID_PAGINATION(400)은 위 공통/페이지 정의를 재사용한다.
+    CHAT_PINS_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "채팅 핀 목록 조회 중 오류가 발생했습니다."),
+
     // Chat Request Decision
     INVALID_CHAT_DECISION(HttpStatus.BAD_REQUEST, "채팅 요청 결정 값이 올바르지 않습니다."),
     CHAT_REQUEST_DECISION_FORBIDDEN(HttpStatus.FORBIDDEN, "채팅 요청에 응답할 권한이 없습니다."),
@@ -141,6 +153,11 @@ public enum ErrorCode {
     // Pin Delete
     PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
     PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다."),
+
+    // Pin Publisher Leave (제보자 떠남 처리)
+    // INVALID_PIN_ID(400)·PIN_NOT_FOUND(404)·UNAUTHORIZED(401)는 기존 정의를 재사용한다.
+    PIN_LEAVE_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 핀의 떠남 처리를 할 권한이 없습니다."),
+    PIN_LEAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 떠남 처리 중 오류가 발생했습니다."),
 
     // WebSocket / Chat Realtime
     // WebSocket은 REST 공통 응답을 쓰지 않고 STOMP ERROR 프레임/SUBSCRIPTION_FAILED 이벤트에 code만 실어 전달한다.
@@ -174,7 +191,14 @@ public enum ErrorCode {
     INVALID_IDEMPOTENCY_KEY(HttpStatus.BAD_REQUEST, "멱등성 키 형식이 올바르지 않습니다."),
     IDEMPOTENCY_KEY_CONFLICT(HttpStatus.CONFLICT, "동일한 멱등성 키가 다른 요청에 사용되었습니다."),
     PIN_UNLOCK_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 잠금 해제 중 오류가 발생했습니다."),
-    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다.");
+    VIDEO_URL_ISSUE_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "영상 URL 발급에 실패했습니다."),
+
+    // Recommendation
+    // UNAUTHORIZED(401)는 위에서 재사용한다.
+    INVALID_LOCATION(HttpStatus.BAD_REQUEST, "위치 정보가 올바르지 않습니다."),
+    LOCATION_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "추천에 사용할 위치 정보가 없습니다."),
+    RECOMMENDATION_FETCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "추천 조회 중 오류가 발생했습니다."),
+    AI_RECOMMENDATION_FAILED(HttpStatus.BAD_GATEWAY, "개인화 추천 계산에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;

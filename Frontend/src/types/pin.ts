@@ -61,7 +61,6 @@ export type PinEvaluationResult = {
   rating: PinRating;
   /** 평가자에게 지급된 크레딧. 정상 최초 평가는 1이다. */
   rewardCredit: number;
-  createdAt: string;
 };
 
 /**
@@ -102,9 +101,30 @@ export type PinPlaceSummary = {
  * `GET /api/v1/pins/{pinId}` 응답 `data` 원형.
  *
  * 서버가 보낸 그대로다. 화면은 이 타입을 쓰지 않고, API 경계에서 `PinDetail`로 바꾼 값을 쓴다.
+ *
+ * 영상이 **하나**다. `videoUrl`은 AI가 얼굴을 가린 최종 영상이고, 접근 수준과 상관없이 같은
+ * 값이 온다(`PinDetailService`가 언제나 `blurredVideoKey`로 발급한다). 결제로 받는
+ * `PinUnlockResult.videoUrl`도 같은 키다 — 결제는 접근 권한과 크레딧을 처리할 뿐 다른 영상을
+ * 주지 않는다. 그래서 열람 전 가림은 화면에서 처리한다(`PinDetailMedia`).
  */
-export type PinDetailResponse = Omit<PinDetail, 'crowdLevel'> & {
+export type PinDetailResponse = {
+  pinId: PinId;
+  authorViewAngle: number;
+  authorNickname: string;
+  createdAt: string;
+  place: PinPlaceSummary;
   crowdLevel: PinCrowdLevel;
+  detailLocation: string | null;
+  memo: string | null;
+  tags: string[];
+  videoAccess: PinVideoAccess;
+  isEvaluated: boolean | null;
+  /** 얼굴을 가린 최종 영상의 signed URL. 접근 수준과 무관하게 같은 값이 온다. */
+  videoUrl: string | null;
+  /** 썸네일 이미지의 signed URL. 목록·공유 카드에 쓸 수 있다. */
+  thumbnailUrl: string | null;
+  canRequestChat: boolean;
+  chatRequestState: PinChatRequestState;
 };
 
 /**
@@ -133,10 +153,18 @@ export type PinDetail = {
   videoAccess: PinVideoAccess;
   /** `UNLOCKED`일 때만 boolean, 그 외에는 null. */
   isEvaluated: boolean | null;
-  /** `OWNER`·`UNLOCKED`일 때만 발급되는 signed URL. */
+  /** 재생할 영상. 서버 응답의 `videoUrl`을 그대로 쓴다. */
   videoUrl: string | null;
-  /** `PREVIEW_BLURRED`일 때 제공되는 블러 미리보기 signed URL. */
+  /**
+   * 열람 전에 보여줄 영상.
+   *
+   * 서버가 접근 수준에 따라 다른 영상을 주지는 않는다(`PinDetailResponse` 설명 참고).
+   * 같은 URL을 담아 두고 가리는 일은 화면이 한다. 서버가 나중에 미리보기용 영상을 따로 주면
+   * 이 값만 그것으로 바꾸면 된다.
+   */
   previewUrl: string | null;
+  /** 썸네일 이미지. 아직 화면에서 쓰지 않지만 응답에 있어 함께 들고 다닌다. */
+  thumbnailUrl: string | null;
   canRequestChat: boolean;
   chatRequestState: PinChatRequestState;
 };
@@ -200,19 +228,18 @@ export function canEvaluate(detail: PinDetail): boolean {
 /**
  * 오늘 등록한 영상핀의 처리 상태.
  *
- * `GET /api/v1/users/me/pins/today`가 주는 값이다. 백엔드 엔티티의 `VideoStatus`
- * (`PENDING`·`PROCESSING`·`COMPLETED`·`FAILED`)나 `PublisherStatus`와는 다르다 —
- * 이쪽은 응답용으로 합쳐 만든 상태로 보인다. 컨트롤러가 생기면 실제 값을 확인해야 한다.
+ * `GET /api/v1/users/me/pins/today`가 주는 값이다. 내부 상태(`VideoStatus`)를 그대로 주지 않고
+ * 화면용으로 바꿔 내려준다(백엔드 `TodayPinStatus.from`).
  *
- * - `PROCESSING`: AI 블러 처리 중. 아직 공개되지 않아 상세를 열 수 없다
+ * - `PROCESSING`: AI 검수 중. 아직 공개되지 않아 상세를 열 수 없다(내부 `PENDING`)
  * - `ACTIVE`: 공개됨
+ * - `RESHOOT`: 검수에서 걸러져 다시 찍어야 한다(내부 `REJECTED`)
+ * - `FAILED`: 처리 중 오류로 등록되지 못했다
  *
- * 명세에는 `RESHOOT`(다시 촬영해야 함)도 있지만 화면에서 아직 다루지 않기로 했다. 살릴 때는
- * 아래 주석을 풀고 `MyPinList`의 `statusLabel`에 문구를 추가하면 된다 — 그 표가
- * `Record<TodayPinStatus, string>`이라 빠뜨리면 컴파일에서 걸린다.
+ * 네 가지 모두 실제로 온다. 표에서 빠뜨리면 컴파일에서 걸리도록 `Record<TodayPinStatus, …>`로
+ * 두었다(`MyPinList`의 `statusLabel`).
  */
-export type TodayPinStatus = 'PROCESSING' | 'ACTIVE';
-// | 'RESHOOT'
+export type TodayPinStatus = 'PROCESSING' | 'ACTIVE' | 'RESHOOT' | 'FAILED';
 
 /** 오늘 등록한 영상핀 한 건. */
 export interface TodayPin {

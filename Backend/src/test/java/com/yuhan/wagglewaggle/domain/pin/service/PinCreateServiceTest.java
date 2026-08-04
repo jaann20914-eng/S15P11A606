@@ -107,9 +107,19 @@ class PinCreateServiceTest {
         return new PinCreateRequest(
                 key, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,          // Front가 보낸 참고 좌표(신뢰하지 않음)
-                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, PHONE, ADDRESS_NAME,
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, null, PHONE, ADDRESS_NAME,
                 captureLat, captureLng,
                 "2층 창가", crowdLevel, "메모", tags);
+    }
+
+    /** memo만 지정한 기본 유효 요청. */
+    private PinCreateRequest requestWithMemo(String memo) {
+        return new PinCreateRequest(
+                VALID_KEY, KAKAO_PLACE_ID, PLACE_NAME,
+                PLACE_LAT, PLACE_LNG,
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, null, PHONE, ADDRESS_NAME,
+                PLACE_LAT, PLACE_LNG,
+                "2층 창가", "WAGLE", memo, null);
     }
 
     @Test
@@ -135,7 +145,7 @@ class PinCreateServiceTest {
         PinCreateRequest request = new PinCreateRequest(
                 VALID_KEY, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,
-                null, null, null, null,
+                null, null, null, null, null,
                 PLACE_LAT, PLACE_LNG,
                 "2층 창가", "WAGLE", "메모", null);
 
@@ -230,7 +240,7 @@ class PinCreateServiceTest {
                 org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyInt()))
                 .willReturn(new KakaoKeywordResponse(List.of(
                         new KakaoKeywordResponse.Document(
-                                KAKAO_PLACE_ID, "카카오 장소", "주소", "도로명", "02-000",
+                                KAKAO_PLACE_ID, "카카오 장소", "주소", "도로명", null, null, null, "02-000",
                                 String.valueOf(PLACE_LNG), String.valueOf(PLACE_LAT), null))));
 
         ValidatedPinCreation result = service.validate(MEMBER_ID, request(PLACE_LAT, PLACE_LNG));
@@ -258,6 +268,24 @@ class PinCreateServiceTest {
     @Test
     void 요청_바디가_없으면_INVALID_REQUEST() {
         assertError(null, ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    void memo가_50자를_초과하면_INVALID_REQUEST() {
+        assertError(requestWithMemo("a".repeat(51)), ErrorCode.INVALID_REQUEST);
+    }
+
+    @Test
+    void memo가_이모지_50자면_통과한다() {
+        // String.length() 기준이면 100(=2×50)이라 거부됐지만, 자소 클러스터 기준 50자라 통과한다.
+        ValidatedPinCreation result = service.validate(MEMBER_ID, requestWithMemo("😀".repeat(50)));
+
+        assertThat(result.memo()).isEqualTo("😀".repeat(50));
+    }
+
+    @Test
+    void memo가_이모지_51자면_INVALID_REQUEST() {
+        assertError(requestWithMemo("😀".repeat(51)), ErrorCode.INVALID_REQUEST);
     }
 
     @Test

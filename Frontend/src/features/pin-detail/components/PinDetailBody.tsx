@@ -40,6 +40,8 @@ export interface PinDetailBodyProps {
   onRequestChat: () => void;
   onRequestPurchase: () => void;
   onLeave: () => void;
+  /** 이 핀에서 이미 떠났는지. 버튼을 잠근다. */
+  left: boolean;
 }
 
 export function PinDetailBody({
@@ -48,6 +50,7 @@ export function PinDetailBody({
   onRequestChat,
   onRequestPurchase,
   onLeave,
+  left,
 }: PinDetailBodyProps) {
   const own = isOwnPin(detail);
   const unlocked = isVideoUnlocked(detail);
@@ -132,7 +135,7 @@ export function PinDetailBody({
         style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}
       >
         {own ? (
-          <OwnerFooter onLeave={onLeave} />
+          <OwnerFooter left={left} onLeave={onLeave} />
         ) : unlocked ? (
           <RatingSection evaluated={detail.isEvaluated === true} evaluation={evaluation} />
         ) : (
@@ -196,11 +199,25 @@ function ChatRequestButton({
   );
 }
 
-function OwnerFooter({ onLeave }: { onLeave: () => void }) {
+/**
+ * 내 핀 하단. 떠났어요와 채팅방 이동이 나란히 있다.
+ *
+ * 떠난 뒤에는 버튼을 잠그고 문구를 바꾼다. 같은 모양으로 남겨 두면 처리가 됐는지 알 수 없어
+ * 다시 누르게 되고, 서버는 멱등하게 받아 빈 결과만 돌려준다.
+ */
+function OwnerFooter({ left, onLeave }: { left: boolean; onLeave: () => void }) {
   return (
     <View style={s.ownerFooter}>
-      <Pressable accessibilityRole="button" onPress={onLeave} style={[s.footerButton, s.leaveButton]}>
-        <Text style={s.leaveButtonText}>이미 떠났어요</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: left }}
+        disabled={left}
+        onPress={onLeave}
+        style={[s.footerButton, s.leaveButton, left && s.leaveButtonDone]}
+      >
+        <Text style={[s.leaveButtonText, left && s.leaveButtonTextDone]}>
+          {left ? '떠난 핀이에요' : '이미 떠났어요'}
+        </Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"

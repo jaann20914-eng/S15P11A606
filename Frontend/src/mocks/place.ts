@@ -5,6 +5,7 @@ import type {
   PlaceDetailResponse,
   PlaceListItem,
   PlacePinCardResponse,
+  PlaceNearbyItem,
   PlaceSearchConfirmResponse,
   PlaceSearchItem,
   PlacesQuery,
@@ -171,7 +172,18 @@ function toCrowdLabel(average: number | null): PlaceListItem['crowdLabel'] {
   return average >= WAGLE_FROM_LEVEL ? 'WAGLE' : 'RELAXED';
 }
 
-function toPinCard(pin: MockPinSeed, index: number): PlacePinCardResponse {
+/**
+ * 핀 카드 하나.
+ *
+ * `origin`(장소 좌표)을 주면 핀의 오프셋을 더해 **촬영 좌표**까지 채운다. 상세 화면이 그
+ * 좌표로 지도에 영상핀 마커를 찍고, 게시물을 오르내릴 때 지도를 그 자리로 옮긴다.
+ * 서버는 아직 좌표를 주지 않지만 목업은 가지고 있으니, 시연에서는 그 움직임을 보여줄 수 있다.
+ */
+function toPinCard(
+  pin: MockPinSeed,
+  index: number,
+  origin?: { latitude: number; longitude: number },
+): PlacePinCardResponse {
   const scenario = (index % MOCK_PIN_SCENARIO_COUNT) + 1;
   const createdAt = new Date(Date.now() - pin.minutesAgo * 60_000);
 
@@ -185,6 +197,8 @@ function toPinCard(pin: MockPinSeed, index: number): PlacePinCardResponse {
     isUnlocked: UNLOCKED_BY_SCENARIO[scenario - 1],
     // Object Storage가 붙기 전이라 썸네일은 아직 없다. 화면은 자리만 비워 둔다.
     videoThumbnailUrl: null,
+    latitude: origin ? origin.latitude + pin.latitudeOffset : null,
+    longitude: origin ? origin.longitude + pin.longitudeOffset : null,
   };
 }
 
@@ -267,7 +281,8 @@ export async function fetchMockPlaceDetail(placeId: number): Promise<PlaceDetail
 
   return {
     place: { placeId: seed.placeId, name: seed.name, address: seed.address, phone: seed.phone },
-    pins: seed.pins.map(toPinCard),
+    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 영상핀을 찍는 재료다.
+    pins: seed.pins.map((pin, index) => toPinCard(pin, index, seed)),
     weeklyCrowdStats: toWeeklyStats(seed),
   };
 }
@@ -324,7 +339,8 @@ export async function confirmMockPlaceSearch(
 
   return {
     place: { placeId: seed.placeId, name: seed.name, address: seed.address, phone: seed.phone },
-    pins: seed.pins.map(toPinCard),
+    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 영상핀을 찍는 재료다.
+    pins: seed.pins.map((pin, index) => toPinCard(pin, index, seed)),
     weeklyCrowdStats: toWeeklyStats(seed),
   };
 }
@@ -440,4 +456,37 @@ export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsRespon
 
   // 서버는 최신 작성순으로 준다.
   return { pins: pins.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
+}
+
+/**
+ * 지금 자리의 장소 목업.
+ *
+ * 서버가 붙었으니 평소에는 쓰이지 않는다(목업 스위치에서 뺐다). 서버 주소가 없는 환경에서
+ * 화면 흐름을 확인할 때만 쓴다.
+ *
+ * 좌표는 실제 API와 시그니처를 맞추기 위해 받기만 한다. 반경 판정과 거리 계산은 서버가 하므로
+ * 목업은 고정된 거리를 그대로 준다.
+ */
+export async function listMockNearbyPlaces(
+  _latitude: number,
+  _longitude: number,
+): Promise<PlaceNearbyItem[]> {
+  await delay(MOCK_LATENCY_MS);
+
+  return [...places]
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 3)
+    .map((place) => ({
+      kakaoPlaceId: place.kakaoPlaceId,
+      placeName: place.name,
+      kakaoPlaceLatitude: place.latitude,
+      kakaoPlaceLongitude: place.longitude,
+      // 카카오 메타는 등록 요청에 실려 가는 값이라 형식만 그럴듯하게 채운다.
+      categoryGroupCode: 'CE7',
+      categoryGroupName: '카페',
+      categoryName: '음식점 > 카페',
+      phone: '02-000-0000',
+      addressName: place.address,
+      distanceMeters: place.distanceMeters,
+    }));
 }

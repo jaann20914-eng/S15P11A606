@@ -8,6 +8,8 @@ export { ViewAvatar } from './ViewAvatar';
 export type { ViewAvatarProps } from './ViewAvatar';
 export { CrowdFilterToggle } from './CrowdFilterToggle';
 export type { CrowdFilterToggleProps } from './CrowdFilterToggle';
+export { CardPager } from './CardPager';
+export type { CardPagerProps } from './CardPager';
 export { ErrorView } from './ErrorView';
 export type { ErrorViewProps } from './ErrorView';
 export { ConfirmModal } from './ConfirmModal';

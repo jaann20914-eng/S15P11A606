@@ -4,6 +4,7 @@ import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
+import com.yuhan.wagglewaggle.domain.place.entity.PlaceCategory;
 import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
@@ -182,7 +183,7 @@ class TodayPinRepositoryJpaTest {
 
     private Place persistPlace() {
         return em.persist(Place.create("kakao-1", "테스트 카페", GF.createPoint(new Coordinate(127.03, 37.5)),
-                "", "", "", "서울 광진구 동일로60길 47 1층 (군자동)"));
+                PlaceCategory.CAFE, "CE7", "음식점 > 카페", "음식점 > 카페", "", "서울 광진구 동일로60길 47 1층 (군자동)"));
     }
 
     /** createdAt(등록 시각)과 상태·소프트 삭제 여부를 지정해 핀을 저장한다. */

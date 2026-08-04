@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { unlockMockPin } from '@/mocks/pin';
 import type { PinId, PinUnlockResult } from '@/types/pin';
+import { tracePin } from './log';
 
 /**
  * 영상 잠금 해제(크레딧 결제) — `POST /api/v1/pins/{pinId}/unlock`
@@ -21,5 +22,20 @@ function requestUnlockPin(pinId: PinId, idempotencyKey: string): Promise<PinUnlo
 }
 
 export function unlockPin(pinId: PinId, idempotencyKey: string): Promise<PinUnlockResult> {
-  return usesMock('pin/unlock') ? unlockMockPin(pinId, idempotencyKey) : requestUnlockPin(pinId, idempotencyKey);
+  return tracePin(
+    '영상 열람 결제',
+    'pin/unlock',
+    () =>
+      usesMock('pin/unlock')
+        ? unlockMockPin(pinId, idempotencyKey)
+        : requestUnlockPin(pinId, idempotencyKey),
+    (result) => ({
+      pinId,
+      차감: result.creditCharged,
+      잔액: result.creditBalance,
+      권한: result.accessGranted,
+      // 같은 키로 다시 눌렀는지 알아보려면 이 값이 필요하다(재시도는 차감이 0이다).
+      멱등키: idempotencyKey,
+    }),
+  );
 }

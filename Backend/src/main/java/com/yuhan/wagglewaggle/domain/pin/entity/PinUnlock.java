@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.pin.entity;
 
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
+import com.yuhan.wagglewaggle.global.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -33,7 +34,7 @@ import java.util.UUID;
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PinUnlock {
+public class PinUnlock extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

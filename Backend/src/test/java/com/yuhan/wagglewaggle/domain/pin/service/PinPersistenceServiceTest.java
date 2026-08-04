@@ -86,7 +86,7 @@ class PinPersistenceServiceTest {
         return new ValidatedPinCreation(
                 MEMBER_ID, KEY, KAKAO_PLACE_ID, PLACE_NAME,
                 PLACE_LAT, PLACE_LNG,
-                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, PHONE, ADDRESS_NAME,
+                CATEGORY_GROUP_CODE, CATEGORY_GROUP_NAME, null, PHONE, ADDRESS_NAME,
                 CAPTURE_LAT, CAPTURE_LNG,
                 "2층 창가", CrowdLevel.WAGLE, "메모", tags);
     }

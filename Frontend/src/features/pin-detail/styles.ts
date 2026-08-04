@@ -133,6 +133,29 @@ export const pinDetailStyles = StyleSheet.create({
   videoPlayer: { width: '100%', height: '100%' },
 
   /**
+   * 영상이 준비되기 전 프레임을 채우는 층.
+   *
+   * 영상 위에 얹되 음소거 버튼보다 아래에 온다(그리는 순서). 판 위로 빛줄기가 지나가며
+   * 받는 중임을 알린다.
+   *
+   * 바탕은 테마의 회색보다 진하게 둔다. 옅은 회색은 흰 화면에 묻혀 빈 자리처럼 보이고,
+   * 그 위를 지나는 흰 빛줄기도 드러나지 않는다.
+   */
+  mediaLoading: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6D6D6D',
+  },
+  /** 회색 판 위를 위에서 아래로 지나가는 빛줄기. 높이와 위치는 화면이 프레임 높이로 정한다. */
+  mediaLoadingBand: { position: 'absolute', top: 0, left: 0, right: 0 },
+  mediaLoadingBandFill: { flex: 1 },
+
+  /**
    * 시안 영상 전용 배치. 프레임보다 크게 잡아 아래에 붙이고 위를 잘라낸다.
    *
    * 시안이 16:9 가로 영상이고 위쪽에 워터마크가 있어서 필요한 보정이다.
@@ -160,7 +183,11 @@ export const pinDetailStyles = StyleSheet.create({
   muteToggle: {
     position: 'absolute',
     right: spacing.x4,
-    bottom: spacing.x4,
+    /*
+      본문 시트가 영상 아래를 `radius.hero`만큼 덮고 올라온다. 그 값을 더하지 않으면 버튼이
+      흰 바탕에 맞닿아 붙어 보인다. 덮이는 만큼을 먼저 비우고 그 위로 여백을 준다.
+    */
+    bottom: radius.hero + spacing.x4,
     width: 40,
     height: 40,
     alignItems: 'center',
@@ -241,6 +268,9 @@ export const pinDetailStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   leaveButton: { backgroundColor: colors.dark },
+  /** 이미 떠난 핀. 눌러도 달라질 것이 없어 눌릴 수 있어 보이지 않게 둔다. */
+  leaveButtonDone: { backgroundColor: colors.gray100 },
+  leaveButtonTextDone: { color: colors.gray400 },
   leaveButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.lime },
   goChatButton: { backgroundColor: '#D9ED76' },
   goChatButtonText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },

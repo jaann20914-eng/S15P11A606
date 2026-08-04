@@ -451,7 +451,7 @@ class PlacePinServiceTest {
     }
 
     private static Document doc(String id, String roadAddress, String address, String phone) {
-        return new Document(id, "장소명", address, roadAddress, phone, "127.030", "37.500", "10");
+        return new Document(id, "장소명", address, roadAddress, null, null, null, phone, "127.030", "37.500", "10");
     }
 
     private void assertError(Runnable runnable, ErrorCode expected) {

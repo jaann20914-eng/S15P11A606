@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockRecommendations } from '@/mocks/recommend';
 import type { RecommendationsQuery, RecommendationsResponse } from '@/types/recommend';
+import { traceRecommend } from './log';
 
 /**
  * 개인화 장소 추천 — `GET /api/v1/recommendations/places`
@@ -23,9 +24,22 @@ function requestRecommendations(query: RecommendationsQuery): Promise<Recommenda
   });
 }
 
-export async function getRecommendations(
+export function getRecommendations(
   query: RecommendationsQuery,
 ): Promise<RecommendationsResponse> {
-  if (usesMock('recommend/places')) return fetchMockRecommendations(query);
-  return requestRecommendations(query);
+  return traceRecommend(
+    '장소 추천',
+    'recommend/places',
+    () =>
+      usesMock('recommend/places')
+        ? fetchMockRecommendations(query)
+        : requestRecommendations(query),
+    (result) => ({
+      위치출처: result.locationSource,
+      좌표: query.latitude === undefined ? '보내지 않음' : `${query.latitude}, ${query.longitude}`,
+      여유: result.recommendations.relaxed.length,
+      와글: result.recommendations.wagle.length,
+      생성시각: result.generatedAt,
+    }),
+  );
 }

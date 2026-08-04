@@ -1,4 +1,5 @@
 import type { CrowdFilter } from '@/constants/crowdLevels';
+import type { PinId } from './pin';
 
 /**
  * 추천 도메인 서버 계약.
@@ -8,13 +9,16 @@ import type { CrowdFilter } from '@/constants/crowdLevels';
  */
 
 /** 추천에 쓰인 위치 출처. */
-export type RecommendLocationSource = 'CURRENT_GPS' | 'CACHED_GPS' | 'NONE';
+export type RecommendLocationSource = 'CURRENT_GPS' | 'CACHED_GPS';
 
 /**
  * 추천 결과를 만든 방식.
  *
- * `POPULAR_FALLBACK`은 위치가 없거나 AI 추천이 실패해 인기순으로 대신한 경우다. 그때도
- * 200으로 오므로 화면은 오류로 다루지 않는다.
+ * `POPULAR_FALLBACK`은 위치가 없거나 AI 추천이 실패해 인기순으로 대신한 경우다.
+ *
+ * **서버 응답에는 아직 이 필드가 없다**(`RecommendationResponse`는 위치 출처 · 생성 시각 ·
+ * 목록만 준다). 명세에 있어 화면이 안내 문구를 준비해 두었으므로 선택 필드로 남긴다 —
+ * 서버가 주기 시작하면 화면이 그대로 받는다.
  */
 export type RecommendationType = 'PERSONALIZED' | 'POPULAR_FALLBACK';
 
@@ -23,15 +27,10 @@ export type BusinessStatus = 'OPEN' | 'CLOSED' | 'UNKNOWN';
 
 /** 카드에 늘어놓는 핀 한 개. */
 export interface PinPreview {
-  /**
-   * 핀 식별자.
-   *
-   * 명세는 number지만 백엔드 `Pin.id`는 UUID로 바뀌었다. 추천 카드는 장소 상세로만 이동해
-   * 이 값을 쓰지 않으므로 명세를 그대로 둔다. 핀 상세로 바로 보내게 되면 그때 맞춘다.
-   */
-  pinId: number;
+  /** 핀 식별자(UUID). 카드는 장소 상세로만 이동해 이 값을 링의 키로만 쓴다. */
+  pinId: PinId;
   /** 작성자의 뷰 신뢰도. 0~360 각도이며 링으로 그린다. */
-  uploaderViewReliability: number;
+  uploaderViewAngle: number;
 }
 
 /** 추천 목록 한 장. */
@@ -49,9 +48,16 @@ export interface RecommendedPlace {
    */
   latitude?: number;
   longitude?: number;
-  businessStatus: BusinessStatus;
-  /** `영업중 · 오후 10:00까지`. 확인할 수 없으면 null이다. */
-  businessHoursText: string | null;
+  /** 장소 전화번호. 없는 장소도 있어 null이 온다. */
+  phone?: string | null;
+  /**
+   * 영업 상태와 안내 문구.
+   *
+   * **서버가 아직 주지 않는다**(`PlaceCard`에 없다). 카드가 영업시간 줄을 그리려고 준비해 둔
+   * 자리라 선택으로 남긴다 — 값이 없으면 그 줄을 그리지 않는다.
+   */
+  businessStatus?: BusinessStatus;
+  businessHoursText?: string | null;
   /** 지금 열람할 수 있는 전체 핀 수. */
   activePinCount: number;
   /** 활성 핀을 쓴 사람 수. 한 사람이 여러 개를 써도 하나로 센다. */
@@ -65,7 +71,8 @@ export interface RecommendedPlace {
 /** `GET /api/v1/recommendations/places` 응답의 `data`. */
 export interface RecommendationsResponse {
   locationSource: RecommendLocationSource;
-  recommendationType: RecommendationType;
+  /** 아직 서버가 주지 않는다. `RecommendationType` 설명 참고. */
+  recommendationType?: RecommendationType;
   /** 추천을 만든 시각(ISO 8601). `N분 전 업데이트` 표기에 쓴다. */
   generatedAt: string;
   /**

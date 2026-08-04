@@ -26,11 +26,43 @@ export interface MapFocus {
   coordinate: Coordinate;
   /** 이동한 뒤 무엇을 찾아갔는지 알려주는 데 쓴다. */
   name: string;
+  /**
+   * 그 자리에서 당길 축척(카카오 레벨). 생략하면 홈이 장소용 기본값을 쓴다.
+   *
+   * 영상핀은 장소보다 더 당겨야 한다 — 한 장소의 핀들이 수십 미터 안에 모여 있어 장소용
+   * 축척으로는 여러 개가 한 점처럼 겹친다.
+   */
+  level?: number;
+}
+
+/** 지도에 찍는 마커 하나. `components/home/kakaoMapHtml`의 `MapPlaceMarker`와 같은 모양이다. */
+export interface MapMarker {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * 상세 화면이 홈 지도에 대신 찍어 달라고 넘긴 영상핀.
+ *
+ * 상세 화면은 **자기 지도가 없다.** 반투명 모달로 홈 위에 겹쳐 있어 아래 홈 지도가 그대로
+ * 보이므로, 마커를 바꾸려면 홈에게 부탁해야 한다(내 위치 버튼이 `focusOn`으로 같은 일을 한다).
+ *
+ * `markers`가 있는 동안 홈은 장소 마커 대신 이것을 찍는다. 상세를 닫으면 비워 장소 마커로
+ * 돌아간다.
+ */
+export interface PinMarkerOverlay {
+  markers: MapMarker[];
+  /** 지금 보고 있는 게시물의 핀. 마커 모양(동그라미/뾰족한 핀)이 이 값으로 갈린다. */
+  selectedPinId: string | null;
 }
 
 export interface MapState {
   center: Coordinate;
   bounds: MapBounds | null;
+  /** 상세 화면이 넘긴 영상핀 마커. null이면 홈이 장소 마커를 찍는다. */
+  pinOverlay: PinMarkerOverlay | null;
   /** 처리되기를 기다리는 이동 요청. 없으면 null. */
   focus: MapFocus | null;
   /** 상단 혼잡도 필터. 지도 핀 색 계열과 목록 필터링을 함께 결정한다. */
@@ -44,11 +76,15 @@ export interface MapState {
   setCrowdFilter: (crowdFilter: CrowdFilter) => void;
   toggleCrowdFilter: () => void;
   selectPlace: (placeId: string | null) => void;
+  /** 상세 화면이 자기 영상핀을 지도에 올린다. 닫을 때 `clearPinOverlay`로 반드시 되돌린다. */
+  showPinOverlay: (overlay: PinMarkerOverlay) => void;
+  clearPinOverlay: () => void;
 }
 
 export const useMapStore = createStore<MapState>((set, get) => ({
   center: DEFAULT_CENTER,
   bounds: null,
+  pinOverlay: null,
   focus: null,
   crowdFilter: 'relaxed',
   selectedPlaceId: null,
@@ -59,6 +95,8 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   setCrowdFilter: (crowdFilter) => set({ crowdFilter }),
   toggleCrowdFilter: () => set({ crowdFilter: get().crowdFilter === 'relaxed' ? 'wagle' : 'relaxed' }),
   selectPlace: (selectedPlaceId) => set({ selectedPlaceId }),
+  showPinOverlay: (pinOverlay) => set({ pinOverlay }),
+  clearPinOverlay: () => set({ pinOverlay: null }),
 }));
 
 /**
