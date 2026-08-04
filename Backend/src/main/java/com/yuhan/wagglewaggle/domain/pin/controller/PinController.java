@@ -4,6 +4,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinCreateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.PinLeaveResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinEvaluationResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUnlockResponse;
@@ -17,6 +18,7 @@ import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinPublisherLeaveService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUnlockService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUpdateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinVideoStatusQueryService;
@@ -50,6 +52,7 @@ public class PinController {
     private final PinDetailService pinDetailService;
     private final PinUpdateService pinUpdateService;
     private final PinDeleteService pinDeleteService;
+    private final PinPublisherLeaveService pinPublisherLeaveService;
     private final PinEvaluationService pinEvaluationService;
     private final PinUnlockService pinUnlockService;
 
@@ -151,6 +154,22 @@ public class PinController {
         PinDeleteResponse data = pinDeleteService.delete(memberId, pinId);
 
         return ApiResponse.success(HttpStatus.OK.value(), "영상 핀이 삭제되었습니다.", data);
+    }
+
+    /**
+     * 인증 사용자가 작성한 핀의 제보자 상태를 떠남(publisher_status → LEFT)으로 전환하고,
+     * 연결된 PENDING·ACTIVE·REFUSED 채팅방을 일괄 종료(LEFT)한다.
+     * 이미 떠남 처리했거나 삭제된 핀에 다시 호출해도 200 OK와 빈 채팅방 목록을 반환한다(멱등).
+     * pinId 형식 검증(INVALID_PIN_ID)을 위해 경로 변수를 문자열로 받아 서비스에서 파싱한다.
+     */
+    @PostMapping("/{pinId}/leave")
+    public ApiResponse<PinLeaveResponse> leavePin(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable String pinId
+    ) {
+        PinLeaveResponse data = pinPublisherLeaveService.leave(memberId, pinId);
+
+        return ApiResponse.success(HttpStatus.OK.value(), "핀 제보자 떠남 처리가 완료되었습니다.", data);
     }
 
     /**

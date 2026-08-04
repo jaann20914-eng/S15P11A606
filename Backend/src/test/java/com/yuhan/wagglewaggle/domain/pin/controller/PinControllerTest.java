@@ -16,6 +16,7 @@ import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
+import com.yuhan.wagglewaggle.domain.pin.service.PinPublisherLeaveService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDetailService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinEvaluationService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinUnlockService;
@@ -60,6 +61,7 @@ class PinControllerTest {
     private PinDetailService pinDetailService;
     private PinUpdateService pinUpdateService;
     private PinDeleteService pinDeleteService;
+    private PinPublisherLeaveService pinPublisherLeaveService;
     private PinEvaluationService pinEvaluationService;
     private PinUnlockService pinUnlockService;
     private MockMvc mockMvc;
@@ -77,12 +79,14 @@ class PinControllerTest {
         pinDetailService = Mockito.mock(PinDetailService.class);
         pinUpdateService = Mockito.mock(PinUpdateService.class);
         pinDeleteService = Mockito.mock(PinDeleteService.class);
+        pinPublisherLeaveService = Mockito.mock(PinPublisherLeaveService.class);
         pinEvaluationService = Mockito.mock(PinEvaluationService.class);
         pinUnlockService = Mockito.mock(PinUnlockService.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PinController(pinVideoUploadService, pinCreateService,
                                 pinVideoStatusQueryService, pinDetailService, pinUpdateService,
-                                pinDeleteService, pinEvaluationService, pinUnlockService))
+                                pinDeleteService, pinPublisherLeaveService, pinEvaluationService,
+                                pinUnlockService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .build();
