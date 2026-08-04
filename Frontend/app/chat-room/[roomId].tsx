@@ -98,10 +98,10 @@ export default function Room() {
     - 이력을 받아 처음 그릴 때는 **맨 아래**로 간다. 마지막 대화가 이어 갈 지점이다.
     - 새 메시지가 붙을 때는 바닥 근처를 보고 있을 때만 따라 내려간다. 위로 올려 지난 대화를
       읽는 중이라면 끌어내리지 않는다.
-    - 키보드가 열려 화면이 접힐 때도 바닥을 유지한다.
   */
   const scrollRef = useRef<ScrollView>(null);
   const nearBottomRef = useRef(true);
+  const offsetYRef = useRef(0);
   const renderedOnceRef = useRef(false);
 
   const followBottom = () => {
@@ -117,14 +117,38 @@ export default function Room() {
   const trackScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
 
+    offsetYRef.current = contentOffset.y;
     nearBottomRef.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 80;
   };
 
-  useEffect(() => {
-    if (keyboardOverlap > 0 && nearBottomRef.current) {
+  /**
+   * 키보드가 열려 목록이 접힐 때의 처리.
+   *
+   * `keyboardOverlap` 값이 바뀌는 순간이 아니라 **목록의 높이가 실제로 줄어든 뒤**(onLayout)에
+   * 움직인다. 값이 바뀐 프레임에는 아직 옛 높이라, 그때 스크롤하면 접힌 만큼 다시 가려진다.
+   *
+   * - 바닥을 보고 있었으면 바닥을 유지한다 — 마지막 대화를 보며 입력하는 경우다.
+   * - 중간을 읽고 있었으면 줄어든 만큼만 내린다. 읽던 줄이 키보드에 가려지지 않으면서,
+   *   바닥까지 끌려 내려가지도 않는다.
+   */
+  const viewportHeightRef = useRef(0);
+
+  const handleListLayout = (event: { nativeEvent: { layout: { height: number } } }) => {
+    const { height } = event.nativeEvent.layout;
+    const previous = viewportHeightRef.current;
+
+    viewportHeightRef.current = height;
+
+    // 처음 재는 것이거나 커진 것(키보드 내려감)은 그대로 둔다.
+    if (previous === 0 || height >= previous) return;
+
+    if (nearBottomRef.current) {
       scrollRef.current?.scrollToEnd({ animated: false });
+      return;
     }
-  }, [keyboardOverlap]);
+
+    scrollRef.current?.scrollTo({ y: offsetYRef.current + (previous - height), animated: false });
+  };
 
   /*
     들어올 때마다 지난 경고를 한 번 짚어 준다.
@@ -194,6 +218,7 @@ export default function Room() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={s.messages}
             onContentSizeChange={followBottom}
+            onLayout={handleListLayout}
             onScroll={trackScroll}
             scrollEventThrottle={100}
           >

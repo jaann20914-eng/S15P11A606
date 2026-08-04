@@ -53,6 +53,8 @@ function resolveUnreadDots(pins: ChatPinListItem[]): Promise<ChatPinListItem[]> 
         return {
           ...pin,
           hasUnread: rooms.some((room) => room.status === 'PENDING' || room.hasUnread),
+          // 전부 끝난 글은 줄을 연하게 누른다. 점과 같은 재료(방 목록)로 함께 계산한다.
+          closed: rooms.length > 0 && rooms.every((room) => room.status === 'CLOSED'),
         };
       } catch {
         return pin;

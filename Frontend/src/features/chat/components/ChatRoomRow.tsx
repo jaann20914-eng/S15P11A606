@@ -54,13 +54,7 @@ function statusStyle(status: ChatRoomSummaryStatus) {
  * - 수락 · 거절은 마지막 줄에서 시각 오른쪽에 놓고, 그 줄 높이를 버튼 높이로 잡아 둔다.
  *   버튼이 없는 줄도 같은 높이라 대기 중인 줄만 높아지지 않는다
  */
-export function ChatRoomRow({
-  room,
-  decidable = false,
-  busy = false,
-  onOpen,
-  onDecide,
-}: ChatRoomRowProps) {
+export function ChatRoomRow({ room, decidable = false, busy = false, onOpen, onDecide }: ChatRoomRowProps) {
   const showDecisions = decidable && room.status === 'PENDING';
   /** 아직 주고받은 말이 없는 방. 안내 문구가 한 줄이라 아래 간격을 다르게 잡는다. */
   const empty = room.lastMessage === null;
@@ -71,7 +65,8 @@ export function ChatRoomRow({
 
       <View style={s.chatRowCopy}>
         <View style={s.rowTitleLine}>
-          <Text numberOfLines={1} style={s.rowTitle}>
+          {/* 끝난 대화는 제목을 연하게 눌러, 살아 있는 대화와 한눈에 갈리게 한다. */}
+          <Text numberOfLines={1} style={[s.rowTitle, room.status === 'CLOSED' && s.rowTitleClosed]}>
             {room.placeName} · {room.otherUserNickname}
           </Text>
           {/*
@@ -101,9 +96,7 @@ export function ChatRoomRow({
             위 메시지의 왼쪽 끝과 어긋난다. 줄 높이는 `timeLine`이 잡아 두므로 비어도 흔들리지
             않는다.
           */}
-          {room.lastMessageAt !== null && (
-            <Text style={s.time}>{formatTimeOfDay(room.lastMessageAt)}</Text>
-          )}
+          {room.lastMessageAt !== null && <Text style={s.time}>{formatTimeOfDay(room.lastMessageAt)}</Text>}
 
           {showDecisions && (
             <View style={s.decisions}>

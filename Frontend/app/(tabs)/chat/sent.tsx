@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, usePathname } from 'expo-router';
+import { router, useLocalSearchParams, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '@/components/common';
@@ -48,6 +48,28 @@ export default function Chat() {
   const myRooms = useMyChatRooms();
   const pins = useChatPins();
   const pinRooms = usePinChatRooms(selectedPin?.pinId ?? null);
+
+  /*
+    핀 상세의 "채팅방으로 이동"이 실어 보낸 핀. 목록이 도착하면 그 글의 방 목록까지 바로 연다.
+
+    param은 **한 번 쓰고 지운다.** 탭 라우트의 param은 화면에 남아, 지우지 않으면 나중에 탭
+    버튼으로 열 때마다 그 글로 다시 끌려 들어간다(등록 화면의 `pinId`가 그랬다).
+  */
+  const { pinId: requestedPinId } = useLocalSearchParams<{ pinId?: string }>();
+
+  useEffect(() => {
+    if (!requestedPinId || pins.loading) return;
+
+    const target = pins.items.find((pin) => pin.pinId === requestedPinId);
+
+    if (target) {
+      setSelectedPin(target);
+      setTab('요청받은 대화');
+      setQuery('');
+    }
+
+    router.setParams({ pinId: '' });
+  }, [requestedPinId, pins.loading, pins.items]);
 
   /*
     수락·거절·떠났어요 뒤에는 방 목록과 함께 **글 목록도** 다시 받는다. 글 줄의 점은 대기 중인
@@ -103,6 +125,9 @@ export default function Chat() {
 
   /** 게시글을 고른 상태에서는 그 글의 방 목록만 보여준다. */
   const inPin = selectedPin !== null;
+  /** 이 글의 대화가 전부 끝났는지. 떠났어요 버튼을 잠그는 기준이다. */
+  const allPinRoomsClosed =
+    pinRooms.items.length > 0 && pinRooms.items.every((room) => room.status === 'CLOSED');
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -210,19 +235,22 @@ export default function Chat() {
         </ScrollView>
 
         {/*
-          이미 전부 끝난 게시글에는 버튼을 두지 않는다. 눌러도 바뀔 것이 없고, 서버도 빈 결과로
-          성공을 돌려주므로 아무 일도 일어나지 않은 것처럼 보인다.
+          이미 전부 끝난 게시글에서는 버튼을 지우지 않고 **잠근다**. 버튼이 사라지면 원래 없던
+          것인지 처리된 것인지 알 수 없는데, 잠긴 채 남아 있으면 "이미 눌렀다"로 읽힌다.
         */}
-        {inPin && pinRooms.items.some((room) => room.status !== 'CLOSED') && (
+        {inPin && pinRooms.items.length > 0 && (
           <View style={s.leaveArea}>
-            <Text style={s.leaveHint}>모든 답변을 종료합니다</Text>
+            <Text style={s.leaveHint}>
+              {allPinRoomsClosed ? '모든 대화가 종료됐어요' : '모든 답변을 종료합니다'}
+            </Text>
             <Pressable
               accessibilityRole="button"
-              disabled={leave.busy}
+              accessibilityState={{ disabled: allPinRoomsClosed }}
+              disabled={leave.busy || allPinRoomsClosed}
               onPress={confirmLeave}
-              style={[s.leaveButton, leave.busy && s.leaveButtonBusy]}
+              style={[s.leaveButton, leave.busy && s.leaveButtonBusy, allPinRoomsClosed && s.leaveButtonDone]}
             >
-              <Text style={s.leaveText}>떠났어요</Text>
+              <Text style={[s.leaveText, allPinRoomsClosed && s.leaveTextDone]}>떠났어요</Text>
             </Pressable>
           </View>
         )}

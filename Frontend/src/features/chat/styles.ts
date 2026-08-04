@@ -151,6 +151,13 @@ export const chatListStyles = StyleSheet.create({
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   rowTitle: { ...type.body, flexShrink: 1, color: colors.dark, fontWeight: '600' },
   /**
+   * 끝난 대화의 제목 · 시각.
+   *
+   * 진한 검정 대신 연한 차콜로 눌러 살아 있는 대화와 한눈에 갈리게 한다. 회색(gray400)까지
+   * 내리면 주소와 구분이 안 되므로 그 사이 톤을 쓴다.
+   */
+  rowTitleClosed: { color: '#6D6D6D' },
+  /**
    * 장소 이름 아래의 주소.
    *
    * 이름에 딱 붙여 두면 세 줄이 한 덩어리로 뭉쳐 보인다. 한 칸 떼어 이름을 먼저 읽히게 한다.
@@ -257,4 +264,7 @@ export const chatListStyles = StyleSheet.create({
   },
   leaveButtonBusy: { opacity: 0.6 },
   leaveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#D9ED76' },
+  /** 이미 떠난 글의 버튼. 지우지 않고 잠긴 모양으로 남겨 "처리됐다"를 알린다. */
+  leaveButtonDone: { backgroundColor: colors.gray100 },
+  leaveTextDone: { color: colors.gray400 },
 });

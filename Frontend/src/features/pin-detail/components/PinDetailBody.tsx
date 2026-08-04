@@ -5,8 +5,9 @@ import { router } from 'expo-router';
 import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
+import { getChatRooms } from '@/api/chat/rooms';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
-import type { PinDetail, PinRating } from '@/types/pin';
+import type { PinDetail, PinId, PinRating } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
 import { formatRelativeTime } from '@/utils/datetime';
 import { ACTION_FADE_DROP, pinDetailStyles as s } from '../styles';
@@ -87,9 +88,7 @@ export function PinDetailBody({
             "2층 창가석 기준 · 40초 전 업로드"로 붙어 있었는데, 그건 장소에 대한 설명이라
             장소명 밑이 맞다. 주소가 있던 자리이기도 하다 — 서버가 주소를 주지 않는다.
           */}
-          {detail.detailLocation && (
-            <Text style={s.detailLocation}>{detail.detailLocation} 기준</Text>
-          )}
+          {detail.detailLocation && <Text style={s.detailLocation}>{detail.detailLocation} 기준</Text>}
 
           {/*
             혼잡 단계는 **열람한 뒤에만** 보여준다. 결제 전에 붙이면 영상을 사지 않고도
@@ -135,7 +134,7 @@ export function PinDetailBody({
         style={[s.actionBar, { paddingBottom: tabBarHeight + spacing.x4 }]}
       >
         {own ? (
-          <OwnerFooter left={left} onLeave={onLeave} />
+          <OwnerFooter pinId={detail.pinId} left={left} onLeave={onLeave} />
         ) : unlocked ? (
           <RatingSection evaluated={detail.isEvaluated === true} evaluation={evaluation} />
         ) : (
@@ -149,26 +148,56 @@ export function PinDetailBody({
 /**
  * 채팅 버튼. 상태에 따라 요청 · 대기 · 입장으로 갈린다.
  *
- * `ACTIVE`일 때 이동할 `roomId`가 상세 응답에 없어 채팅 목록으로 보낸다.
- * 서버가 roomId를 내려주면 방으로 바로 보낼 수 있다.
+ * 방이 이미 있으면(`ACTIVE` · `PENDING`) 목록이 아니라 **그 방으로** 들여보낸다. 대기 중에도
+ * 요청자는 메시지를 보낼 수 있다(서버 정책). 상세 응답에 `roomId`가 없어 내 방 목록에서
+ * 이 핀의 방을 찾는다 — (핀, 요청자) 조합은 방이 최대 하나라 어긋날 일이 없다.
+ * 못 찾으면(목록 조회 실패 등) 채팅 목록으로 보낸다.
  */
 function ChatAction({ detail, onRequestChat }: { detail: PinDetail; onRequestChat: () => void }) {
-  if (detail.chatRequestState === 'ACTIVE') {
+  const [opening, setOpening] = useState(false);
+
+  const openMyRoom = async () => {
+    if (opening) return;
+
+    setOpening(true);
+
+    try {
+      const rooms = await getChatRooms();
+      const room = rooms.find((item) => item.pinId === detail.pinId);
+
+      if (room) {
+        router.push({
+          pathname: '/chat-room/[roomId]',
+          params: { roomId: String(room.roomId), role: 'requester' },
+        });
+        return;
+      }
+    } catch {
+      // 방을 못 찾으면 아래에서 목록으로 보낸다. 여기서 화면을 막을 이유가 없다.
+    } finally {
+      setOpening(false);
+    }
+
+    router.push('/(tabs)/chat/sent');
+  };
+
+  if (detail.chatRequestState === 'ACTIVE' || detail.chatRequestState === 'PENDING') {
+    const waiting = detail.chatRequestState === 'PENDING';
+
     return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push('/(tabs)/chat/sent')}
-        style={s.chatButton}
-      >
-        <Text style={s.chatText}>채팅방 이동</Text>
+      <Pressable accessibilityRole="button" disabled={opening} onPress={openMyRoom} style={s.chatButton}>
+        {opening ? (
+          <ActivityIndicator color={colors.white} />
+        ) : (
+          <Text style={s.chatText}>{waiting ? '수락 대기 · 대화 보기' : '채팅방 이동'}</Text>
+        )}
       </Pressable>
     );
   }
 
-  const waiting = detail.chatRequestState === 'PENDING';
-  const disabled = waiting || !detail.canRequestChat;
-
-  return <ChatRequestButton disabled={disabled} waiting={waiting} onRequestChat={onRequestChat} />;
+  return (
+    <ChatRequestButton disabled={!detail.canRequestChat} waiting={false} onRequestChat={onRequestChat} />
+  );
 }
 
 /** 시트에 쓸 그림을 받은 뒤에 연다. 받는 동안에는 이 버튼에서 기다린다. */
@@ -205,7 +234,7 @@ function ChatRequestButton({
  * 떠난 뒤에는 버튼을 잠그고 문구를 바꾼다. 같은 모양으로 남겨 두면 처리가 됐는지 알 수 없어
  * 다시 누르게 되고, 서버는 멱등하게 받아 빈 결과만 돌려준다.
  */
-function OwnerFooter({ left, onLeave }: { left: boolean; onLeave: () => void }) {
+function OwnerFooter({ pinId, left, onLeave }: { pinId: PinId; left: boolean; onLeave: () => void }) {
   return (
     <View style={s.ownerFooter}>
       <Pressable
@@ -219,9 +248,14 @@ function OwnerFooter({ left, onLeave }: { left: boolean; onLeave: () => void }) 
           {left ? '떠난 핀이에요' : '이미 떠났어요'}
         </Text>
       </Pressable>
+      {/*
+        이 글의 방 목록까지 바로 들어가도록 핀 식별자를 실어 보낸다. 목록 첫 화면에 내려 두면
+        어느 글의 대화인지 다시 찾아 들어가야 한다. 받는 쪽(채팅 목록)이 param을 한 번 쓰고
+        지우므로 탭으로 다시 열 때 되살아나지 않는다.
+      */}
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push('/(tabs)/chat/received')}
+        onPress={() => router.push({ pathname: '/(tabs)/chat/received', params: { pinId } })}
         style={[s.footerButton, s.goChatButton]}
       >
         <Text style={s.goChatButtonText}>채팅방으로 이동</Text>

@@ -24,16 +24,19 @@ export function ChatPinRow({ pin, onOpen }: ChatPinRowProps) {
   */
   const { street, region } = splitAddress(pin.placeAddress);
 
+  /** 대화가 전부 끝난 글. 시각과 장소 이름을 연하게 눌러 굳이 들어가 볼 글이 아님을 알린다. */
+  const closed = pin.closed === true;
+
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.postRow}>
       {/* 시각을 장소 이름과 한 선에 두려고 둘을 한 덩어리로 묶는다. `postBody` 주석 참고. */}
       <View style={s.postBody}>
         <View style={s.timePill}>
-          <Text style={s.timePillText}>{formatTimeOfDay(pin.createdAt)}</Text>
+          <Text style={[s.timePillText, closed && s.rowTitleClosed]}>{formatTimeOfDay(pin.createdAt)}</Text>
         </View>
 
         <View style={s.rowCopy}>
-          <Text numberOfLines={1} style={s.rowTitle}>
+          <Text numberOfLines={1} style={[s.rowTitle, closed && s.rowTitleClosed]}>
             {pin.placeName}
           </Text>
           <Text numberOfLines={1} style={s.address}>

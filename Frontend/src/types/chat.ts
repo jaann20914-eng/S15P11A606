@@ -107,6 +107,13 @@ export type ChatPinListItem = {
   placeAddress: string;
   /** 이 글에 달린 방 중 안 읽은 것이 있는지. 줄에 점으로 표시한다. */
   hasUnread: boolean;
+  /**
+   * 이 글의 대화가 전부 끝났는지(모든 방이 `CLOSED`).
+   *
+   * 서버 응답에는 없고 방 목록으로 계산해 채운다(`api/chat/pins.ts`). 줄의 글자를 연하게
+   * 눌러 굳이 들어가 볼 글이 아님을 알린다. 계산하지 못했으면(조회 실패) 없는 채로 둔다.
+   */
+  closed?: boolean;
 };
 
 /**
@@ -132,10 +139,7 @@ export type PinChatLeaveResult = {
  * 있고, 나중에 사유별로 아이콘을 붙일 여지를 남기기 위해서다.
  */
 export type WarningReasonCode =
-  | 'EXTERNAL_MESSENGER_INDUCEMENT'
-  | 'FRAUD_SCAM'
-  | 'ILLEGAL_GOODS_TRADE'
-  | 'ETC_SUSPICIOUS';
+  'EXTERNAL_MESSENGER_INDUCEMENT' | 'FRAUD_SCAM' | 'ILLEGAL_GOODS_TRADE' | 'ETC_SUSPICIOUS';
 
 /**
  * 메시지를 누가 보냈는지.
