@@ -101,6 +101,13 @@ class PinDetailQueryServiceTest {
         return pin;
     }
 
+    /** AUTHOR_ID 소유의, 이미 만료된 ACTIVE 핀을 만든다(expiresAt이 과거). */
+    private Pin expiredPin() {
+        Pin pin = activePin();
+        ReflectionTestUtils.setField(pin, "expiresAt", Instant.now().minus(Duration.ofMinutes(1)));
+        return pin;
+    }
+
     private PinTag pinTag(String tag) {
         return PinTag.create(null, tag);
     }
@@ -114,7 +121,7 @@ class PinDetailQueryServiceTest {
 
         @Test
         void 조회_가능한_핀이_없으면_PIN_NOT_FOUND() {
-            given(pinRepository.findActivePinDetailById(any(), any())).willReturn(Optional.empty());
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getPinDetail(PIN_ID))
                     .isInstanceOf(CustomException.class)
@@ -124,7 +131,7 @@ class PinDetailQueryServiceTest {
 
         @Test
         void 조회_가능한_핀의_기본_데이터와_좌표_태그를_반환한다() {
-            given(pinRepository.findActivePinDetailById(any(), any())).willReturn(Optional.of(activePin()));
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.of(activePin()));
             given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of(
                     pinTag("카페"), pinTag("조용함")));
 
@@ -150,12 +157,69 @@ class PinDetailQueryServiceTest {
 
         @Test
         void 태그가_없으면_빈_목록을_반환한다() {
-            given(pinRepository.findActivePinDetailById(any(), any())).willReturn(Optional.of(activePin()));
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.of(activePin()));
             given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of());
 
             PinDetail detail = service.getPinDetail(PIN_ID);
 
             assertThat(detail.tags()).isEmpty();
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // 만료 기준 접근 판정 (미만료는 누구나 / 만료는 작성자만)
+    // ---------------------------------------------------------------------
+
+    @Nested
+    class 만료_접근_판정 {
+
+        @Test
+        void 만료된_핀을_작성자가_조회하면_정상_조회된다() {
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any()))
+                    .willReturn(Optional.of(expiredPin()));
+            lenient().when(pinTagRepository.findByPin_IdIn(anyCollection())).thenReturn(List.of());
+
+            PinDetailView view = service.getPinDetail(PIN_ID, AUTHOR_ID);
+
+            assertThat(view.detail().pinId()).isEqualTo(PIN_ID);
+            assertThat(view.access().videoAccess()).isEqualTo(VideoAccessLevel.OWNER);
+        }
+
+        @Test
+        void 만료된_핀을_비작성자가_조회하면_PIN_NOT_FOUND() {
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any()))
+                    .willReturn(Optional.of(expiredPin()));
+
+            assertThatThrownBy(() -> service.getPinDetail(PIN_ID, VIEWER_ID))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.PIN_NOT_FOUND);
+            verifyNoInteractions(pinTagRepository);
+        }
+
+        @Test
+        void 만료된_핀을_비로그인_사용자가_조회하면_PIN_NOT_FOUND() {
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any()))
+                    .willReturn(Optional.of(expiredPin()));
+
+            assertThatThrownBy(() -> service.getPinDetail(PIN_ID))
+                    .isInstanceOf(CustomException.class)
+                    .extracting("errorCode").isEqualTo(ErrorCode.PIN_NOT_FOUND);
+            verifyNoInteractions(pinTagRepository);
+        }
+
+        @Test
+        void 미만료_핀은_비작성자도_조회할_수_있다() {
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any()))
+                    .willReturn(Optional.of(activePin()));
+            lenient().when(pinTagRepository.findByPin_IdIn(anyCollection())).thenReturn(List.of());
+            given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, VIEWER_ID)).willReturn(false);
+            given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, VIEWER_ID))
+                    .willReturn(Optional.empty());
+
+            PinDetailView view = service.getPinDetail(PIN_ID, VIEWER_ID);
+
+            assertThat(view.detail().pinId()).isEqualTo(PIN_ID);
+            assertThat(view.access().videoAccess()).isEqualTo(VideoAccessLevel.PREVIEW_BLURRED);
         }
     }
 
@@ -168,7 +232,7 @@ class PinDetailQueryServiceTest {
 
         @BeforeEach
         void stubBasicLoad() {
-            given(pinRepository.findActivePinDetailById(any(), any())).willReturn(Optional.of(activePin()));
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.of(activePin()));
             lenient().when(pinTagRepository.findByPin_IdIn(anyCollection())).thenReturn(List.of());
         }
 

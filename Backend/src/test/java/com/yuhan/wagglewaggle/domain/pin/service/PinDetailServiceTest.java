@@ -103,6 +103,7 @@ class PinDetailServiceTest {
         assertThat(res.authorViewAngle()).isEqualByComparingTo(java.math.BigDecimal.valueOf(90));
         assertThat(res.authorNickname()).isEqualTo("와글러");
         assertThat(res.createdAt()).isEqualTo(Instant.parse("2026-07-28T03:20:00Z"));
+        assertThat(res.expiresAt()).isEqualTo(Instant.parse("2026-07-28T04:20:00Z"));
         assertThat(res.place().placeId()).isEqualTo(1L);
         assertThat(res.place().kakaoPlaceId()).isEqualTo("1372855768");
         assertThat(res.place().name()).isEqualTo("바나프레소 테헤란로점");
