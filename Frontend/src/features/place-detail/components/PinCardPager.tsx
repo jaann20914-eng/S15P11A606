@@ -16,11 +16,15 @@ export interface PinCardPagerProps {
   pins: PlacePinCardData[];
   /** 카드를 눌렀을 때. 끌어서 넘기는 동작과 구분은 `CardPager`가 맡는다. */
   onSelect: (pin: PlacePinCardData) => void;
+  /** 한 장씩 넘길지. 끄면 목록으로 그린다(확장 단계). */
+  paging?: boolean;
+  /** 한 칸의 높이. 시트의 "보통" 단계 높이를 이 값으로 정한다. */
+  onSlotHeightChange?: (height: number) => void;
 }
 
-export function PinCardPager({ pins, onSelect }: PinCardPagerProps) {
+export function PinCardPager({ pins, onSelect, paging, onSlotHeightChange }: PinCardPagerProps) {
   return (
-    <CardPager>
+    <CardPager paging={paging} onSlotHeightChange={onSlotHeightChange}>
       {pins.map((pin) => (
         <PlacePinCard key={pin.pinId} pin={pin} onPress={() => onSelect(pin)} />
       ))}

@@ -269,19 +269,28 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
     [count, index, settleTo, slotHeight, translateY],
   );
 
+  if (count === 0) return null;
+
   /*
-    넘기지 않는 단계에서는 감싸지 않고 그대로 내놓는다.
+    **두 모드가 같은 뼈대를 쓴다.**
 
-    상자로 감싸면 바깥 `contentContainerStyle`의 `gap`이 카드 사이에 먹지 않아 목록이 붙어
-    버린다. 넘길 때는 한 장만 보이므로 사이 간격이 필요 없다.
+    예전에는 넘기지 않을 때 감싸지 않고 카드를 그대로 내놓았다(`<>{items}</>`). 그러면 단계가
+    바뀌는 순간 트리 모양이 달라져 **카드가 전부 언마운트되고 다시 마운트된다.** 시트가
+    스프링으로 움직이는 그 프레임에 카드 수만큼의 뷰를 새로 만드니 JS가 붙잡히고, 내용물이
+    툭툭 끊겨 보였다. 상자와 칸을 늘 두고 **스타일만 바꾸면** 카드는 그대로 살아 있다.
+
+    대신 목록 모드에서는 사이 간격을 직접 준다. 감싸는 상자가 하나뿐이라 바깥
+    `contentContainerStyle`의 `gap`이 카드 사이에 먹지 않기 때문이다. 넘길 때 쓰는 간격과
+    같은 값이라 두 단계의 리듬이 맞는다.
   */
-  if (!paging || count === 0) return <>{items}</>;
-
   return (
-    <View {...panResponder.panHandlers} style={[s.viewport, { height: slotHeight }]}>
-      <Animated.View style={{ transform: [{ translateY }] }}>
+    <View
+      {...(paging ? panResponder.panHandlers : null)}
+      style={paging ? [s.viewport, { height: slotHeight }] : undefined}
+    >
+      <Animated.View style={paging ? { transform: [{ translateY }] } : undefined}>
         {items.map((item, at) => (
-          <View key={`slot-${at}`} style={{ height: slotHeight }}>
+          <View key={`slot-${at}`} style={paging ? { height: slotHeight } : at > 0 ? s.listGap : undefined}>
             {item}
           </View>
         ))}
@@ -313,5 +322,7 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
 const s = StyleSheet.create({
   /** 한 장만 보이는 창. 나머지 카드는 이 밖으로 나가 잘린다. */
   viewport: { overflow: 'hidden' },
+  /** 목록 모드의 카드 사이 간격. 넘길 때 칸에 들어가는 간격과 같은 값이다. */
+  listGap: { marginTop: SLOT_GAP },
   probe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
 });

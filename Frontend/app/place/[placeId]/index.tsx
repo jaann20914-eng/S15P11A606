@@ -12,9 +12,8 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, PlacePinCard } from '@/components/place';
+import { CrowdChart } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
@@ -46,7 +45,15 @@ const COLLAPSED_GAP_TRIM = spacing.x10;
  * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다.
  */
 const ESTIMATED_INFO_BODY_HEIGHT = 84;
-const ESTIMATED_VIDEO_HEIGHT = 216;
+const ESTIMATED_PIN_SLOT_HEIGHT = 240;
+
+/**
+ * "실시간 영상핀" 제목 줄의 높이.
+ *
+ * `s.sectionHead`의 `minHeight`와 같고, 그 안의 글줄(`type.title`의 lineHeight)도 같은 값이라
+ * 실제 높이가 이 값으로 정해진다. 재지 않고 더할 수 있는 이유다.
+ */
+const SECTION_HEAD_HEIGHT = 26;
 
 /**
  * 장소 카드의 안쪽 여백.
@@ -104,7 +111,7 @@ export default function Place() {
     같이 들어 있으므로(확장 단계에서 펼쳐진다) 카드를 통째로 재면 그래프까지 셈에 들어간다.
   */
   const [infoBodyHeight, setInfoBodyHeight] = useState(0);
-  const [videoHeight, setVideoHeight] = useState(0);
+  const [pinSlotHeight, setPinSlotHeight] = useState(0);
 
   const sheet = useBottomSheet({
     space: height,
@@ -116,7 +123,18 @@ export default function Place() {
         navBarHeight -
         COLLAPSED_GAP_TRIM,
     ),
-    middleExtra: (videoHeight > 0 ? videoHeight : ESTIMATED_VIDEO_HEIGHT) + spacing.x4,
+    /*
+      "기본" 단계에서 축소보다 더 보여야 하는 높이 = 제목 줄 + 그 아래 간격 + 카드 한 칸.
+
+      예전에는 제목과 첫 카드를 감싼 상자를 통째로 쟀다. 이제 그 자리에 목록이 될 수도 있는
+      페이저가 들어가 확장 단계에서는 카드 전부의 높이가 나오므로, 잴 수 없다. 카드 한 칸의
+      높이는 페이저가 알려 주고(`onSlotHeightChange`) 제목 줄은 높이가 정해져 있어 더한다.
+    */
+    middleExtra:
+      SECTION_HEAD_HEIGHT +
+      spacing.x3 +
+      (pinSlotHeight > 0 ? pinSlotHeight : ESTIMATED_PIN_SLOT_HEIGHT) +
+      spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
       아래로 밀어 내리면 닫고 홈 시트로 돌아간다. 이 화면은 홈 위에 겹쳐 있으므로
@@ -151,22 +169,22 @@ export default function Place() {
   /*
     혼잡도 그래프가 드러나는 모션.
 
-    **높이를 애니메이션하지 않는다.** 예전에는 카드 안쪽 높이를 0에서 제 높이까지 늘렸는데,
-    실기기에서 그래프가 아예 보이지 않았다. 제 높이를 **높이 0으로 잘린 상자 안에서** 재고
-    있었고 그 측정이 0으로 와서, 늘릴 목표가 0에 머물렀기 때문이다. 보이지 않는 것을 재려는
-    구조 자체가 틀렸다.
+    **카드 높이를 함께 늘린다.** 그래프를 제 높이로 곧바로 붙이면 카드가 한 프레임에 200px
+    가까이 자라고, 아래 영상핀 구역이 그만큼 통째로 밀려 내려간다 — 시트는 스프링으로 부드럽게
+    가는데 안에서만 툭 뛰는 것이 전환이 끊겨 보이던 가장 큰 이유였다.
 
-    게다가 높이는 레이아웃 속성이라 JS 드라이버로 돌려야 하는데, 그동안 시트는 네이티브
-    드라이버 스프링으로 움직인다. 두 애니메이션이 매 프레임 맞물려 단계 전환이 끊겨 보였다.
+    예전에 같은 것을 시도했다가 그래프가 아예 보이지 않은 적이 있다. 제 높이를 **높이 0으로
+    잘린 상자 안에서** 재고 있어 측정이 0으로 왔고, 늘릴 목표가 0에 머물렀다. 그래서 이번에는
+    재는 일을 **흐름 밖(절대 배치)에서** 따로 하고(`chartProbe`) 다 재면 떼어 낸다.
 
-    그래서 확장 단계에서 그래프를 **평범하게 붙이고**(잘리지 않으니 안 보일 수가 없다),
-    투명도와 위치만 네이티브 드라이버로 얹는다. 카드가 자라는 느낌은 그래프가 위에서
-    내려앉으며 나타나는 것으로 낸다.
+    재지 못해도 그래프가 사라지지 않는다 — 목표 높이가 없으면 높이를 지정하지 않아 제 높이로
+    그려진다. 부드럽지 않을 뿐이다.
 
     접을 때는 사라지는 것을 다 보여준 뒤에 떼어 낸다. 곧바로 떼면 툭 없어진다.
   */
   const chartReveal = useRef(new Animated.Value(0)).current;
   const [chartMounted, setChartMounted] = useState(false);
+  const [chartHeight, setChartHeight] = useState(0);
   const expanded = level === 2;
 
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
@@ -179,7 +197,11 @@ export default function Place() {
       toValue: expanded ? 1 : 0,
       duration: expanded ? CHART_REVEAL_MS : CHART_HIDE_MS,
       easing: expanded ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
-      useNativeDriver: true,
+      /*
+        높이는 레이아웃 속성이라 네이티브 드라이버로 다룰 수 없다. 투명도·이동도 같은 값에
+        묶어 함께 JS로 돌린다 — 나눠 돌리면 두 값이 미세하게 어긋나 더 어색해진다.
+      */
+      useNativeDriver: false,
     });
 
     animation.start(({ finished }) => {
@@ -234,16 +256,16 @@ export default function Place() {
 
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
         {/*
-          흐림 한 겹 + 표면 한 겹.
+          반투명 표면 한 겹. 농도는 `colors.sheetSurface`가 정한다.
 
-          예전에는 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
-          `backgroundColor`, 그리고 그 위 `sheetTint`. 겹치는 곳마다 흰 농도가 달라져 시트가
-          **투톤으로 갈려 보였다.** 지금은 농도를 정하는 겹이 `sheetSurface` 하나뿐이다.
+          예전에는 이 위에 `BlurView`가 있었다. **안드로이드에서는 흐리게 하지 않고 흰색을
+          덧칠할 뿐이다** — `expo-blur`의 기본값이 `experimentalBlurMethod: 'none'`이고, 그때
+          `tint="light"`는 `rgba(249,249,249, 255×intensity×0.78)`을 배경색으로 깐다. intensity
+          78이면 0.61이라, 표면과 겹쳐 실제 농도가 0.95까지 올라가 거의 흰 종이로 보였다.
 
-          흐림은 남겨 둔다. 안드로이드에서는 실제로 흐려지지 않지만(`expo-blur`의 기본값
-          `experimentalBlurMethod: 'none'`) iOS에서는 표면 아래가 흐려진다.
+          그 겹을 걷어내 농도를 한 곳에서 정한다. iOS에서 흐림이 필요해지면 다시 넣되, 그때는
+          두 겹이 합쳐진 농도를 기준으로 `sheetSurface`를 다시 잡아야 한다.
         */}
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
         <View style={s.sheetSurface} />
         <View {...sheet.panHandlers}>
           <Pressable
@@ -314,71 +336,83 @@ export default function Place() {
               겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`INFO_CARD_PADDING`)으로
               맞춰 뒀다.
 
-              **높이를 건드리지 않는다.** 평범하게 자리를 차지하므로 잘려서 안 보일 일이 없다.
-              투명도와 위치만 얹는다(`chartReveal`).
+              높이를 0에서 제 높이까지 늘려 **카드가 자라면서** 드러나게 한다. 제 높이는 아래
+              `chartProbe`가 미리 재 둔다. 아직 못 쟀으면 높이를 지정하지 않는다 — 부드럽지
+              않을 뿐 그래프는 제 높이로 보인다.
             */}
             {chartMounted && detail !== null && (
               <Animated.View
                 style={[
                   s.chartReveal,
-                  {
-                    opacity: chartReveal,
-                    transform: [
-                      {
-                        translateY: chartReveal.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-CHART_RISE, 0],
-                        }),
-                      },
-                    ],
+                  chartHeight > 0 && {
+                    height: chartReveal.interpolate({ inputRange: [0, 1], outputRange: [0, chartHeight] }),
                   },
+                  { opacity: chartReveal },
                 ]}
               >
-                <CrowdChart stats={detail.weeklyCrowdStats} />
+                {/* 창은 제자리에 두고 안쪽이 미끄러져 들어온다. 늘어나는 것과 함께 읽힌다. */}
+                <Animated.View
+                  style={[
+                    s.chartInner,
+                    {
+                      transform: [
+                        {
+                          translateY: chartReveal.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [-CHART_RISE, 0],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <CrowdChart stats={detail.weeklyCrowdStats} />
+                </Animated.View>
               </Animated.View>
+            )}
+
+            {/*
+              그래프의 제 높이를 재는 자리. 재고 나면 떼어 낸다.
+
+              **위 그래프를 그대로 재면 안 된다** — 늘어나는 상자 안에 있어 잘린 높이가 나온다.
+              그 실수로 예전에 그래프가 아예 보이지 않았다. 절대 배치는 흐름 밖이라 상자 높이에
+              묶이지 않고 제 높이로 눕고, 카드 배치에도 영향을 주지 않는다. 그리지 않고 누르지도
+              못하게 두므로 화면에는 나타나지 않는다.
+            */}
+            {chartHeight === 0 && detail !== null && (
+              <View aria-hidden pointerEvents="none" style={s.chartProbe}>
+                {/* 늘어나는 쪽과 **같은 안쪽 스타일**을 써야 잰 높이가 그대로 목표가 된다. */}
+                <View
+                  style={s.chartInner}
+                  onLayout={(event) => setChartHeight(Math.round(event.nativeEvent.layout.height))}
+                >
+                  <CrowdChart stats={detail.weeklyCrowdStats} />
+                </View>
+              </View>
             )}
           </View>
 
           {level > 0 && pins.length > 0 && (
             <View style={s.videoSection}>
-              {/*
-                제목과 첫 카드를 함께 잰다. "기본" 단계에서 축소보다 더 보여야 하는 높이가
-                정확히 이만큼이다. 둘을 따로 재면 사이 간격을 다시 더해야 해 어긋나기 쉽다.
-              */}
-              <View
-                style={s.videoSection}
-                onLayout={(event) => setVideoHeight(Math.round(event.nativeEvent.layout.height))}
-              >
-                <View style={s.sectionHead}>
-                  <Text style={s.sectionTitle}>실시간 영상핀</Text>
-                </View>
-
-                {/*
-                  "보통" 단계는 높이가 **제목 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
-                  아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
-                  한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 그대로 목록으로 둔다.
-                */}
-                {expanded ? (
-                  <PlacePinCard pin={pins[0]} onPress={() => router.push(`/pin/${pins[0].pinId}`)} />
-                ) : (
-                  <PinCardPager pins={pins} onSelect={(pin) => router.push(`/pin/${pin.pinId}`)} />
-                )}
+              <View style={s.sectionHead}>
+                <Text style={s.sectionTitle}>실시간 영상핀</Text>
               </View>
 
               {/*
-                나머지는 시트를 끝까지 올렸을 때만 그린다. 접힌 상태에서는 어차피 보이지 않는데
-                미리 그리면 카드 수만큼 첫 렌더가 느려진다.
+                "보통" 단계는 높이가 **제목 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
+                아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
+                한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 목록으로 바뀐다.
+
+                **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
+                목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
+                끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
               */}
-              {level === 2 &&
-                pins
-                  .slice(1)
-                  .map((pin) => (
-                    <PlacePinCard
-                      key={pin.pinId}
-                      pin={pin}
-                      onPress={() => router.push(`/pin/${pin.pinId}`)}
-                    />
-                  ))}
+              <PinCardPager
+                pins={pins}
+                paging={!expanded}
+                onSlotHeightChange={setPinSlotHeight}
+                onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
+              />
             </View>
           )}
 
@@ -480,12 +514,17 @@ const s = StyleSheet.create({
   /** 장소 정보와 혼잡도 그래프를 함께 담는 한 장. 여백은 그래프가 전제하는 값이다. */
   infoCard: { padding: INFO_CARD_PADDING, borderRadius: radius.hero, backgroundColor: colors.white },
   /**
-   * 그래프가 드러나는 자리. 확장 단계에서만 붙는다.
+   * 그래프가 드러나는 창. 확장 단계에서만 붙는다.
    *
-   * 높이는 내용이 정한다 — 잘라내지 않는다. 위 여백만 여기서 준다. 예전에는 이 상자의 높이를
-   * 0에서 늘리려다 그래프가 끝내 보이지 않았다.
+   * 높이를 0에서 제 높이까지 늘리므로 `overflow: hidden`이 있어야 늘어나는 동안 그래프가
+   * 카드 밖으로 비어져 나오지 않는다. **여백을 여기 두지 않는다** — `margin`은 잰 높이에
+   * 들어가지 않아 창이 열리는 순간 그만큼 툭 뛴다. 위 여백은 안쪽(`chartInner`)이 갖는다.
    */
-  chartReveal: { marginTop: spacing.x5 },
+  chartReveal: { overflow: 'hidden' },
+  /** 창 안쪽. 위 여백을 여기 둬서 재는 높이에 포함시킨다. 재는 쪽도 같은 스타일을 쓴다. */
+  chartInner: { paddingTop: spacing.x5 },
+  /** 그래프 높이를 재는 자리. 흐름 밖에 두어 카드 배치에 영향을 주지 않는다. */
+  chartProbe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
   placeName: { ...type.h3, fontWeight: '700', color: colors.dark },
   placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },

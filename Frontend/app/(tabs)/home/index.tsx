@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
@@ -154,9 +153,6 @@ export default function Home() {
     [selectedPlaceId, visiblePlaces],
   );
 
-  /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
-  const locationButton = useFadeToggle(level !== 2);
-
   /**
    * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
    *
@@ -272,6 +268,18 @@ export default function Home() {
     }, []),
   );
 
+  /**
+   * 내 위치 버튼을 보일지.
+   *
+   * 두 가지 경우에 감춘다.
+   * - **최대화 단계**: 시트가 검색바 바로 아래까지 올라와 버튼과 겹친다.
+   * - **위에 장소 상세가 올라왔을 때**: 상세는 반투명 모달이라 이 화면이 그대로 살아 있다.
+   *   상세도 같은 자리에 자기 버튼을 그리므로, 감추지 않으면 두 버튼이 겹쳐 있고 상세가
+   *   최대화되어 자기 버튼을 감춰도 **이 버튼이 상세 시트 뒤에 남아 그대로 보인다.**
+   *   상세 화면에서 버튼이 사라지지 않은 이유가 이것이었다. 시트를 감추는 것과 같은 조건이다.
+   */
+  const locationButton = useFadeToggle(onTop && level !== 2);
+
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
     <View style={s.screen} onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
@@ -356,17 +364,13 @@ export default function Home() {
       {/* 위에 상세가 겹쳐 있으면 감춘다. display로 빼야 레이아웃·그리기까지 건너뛴다. */}
       <Animated.View style={[s.sheet, !onTop && s.sheetHidden, { transform: [{ translateY: sheetY }] }]}>
         {/*
-          흐림 한 겹 + 표면 한 겹.
+          반투명 표면 한 겹. 농도는 `colors.sheetSurface`가 정하고 장소 상세 시트와 같은 값이다.
 
-          예전에는 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
-          `backgroundColor`, 그리고 그 위 `sheetTint`. 겹치는 곳마다 흰 농도가 달라져 시트가
-          **투톤으로 갈려 보였다.** 지금은 농도를 정하는 겹이 `sheetSurface` 하나뿐이고,
-          장소 상세 시트와 같은 값을 쓴다.
-
-          흐림은 남겨 둔다. 안드로이드에서는 실제로 흐려지지 않지만(`expo-blur`의 기본값
-          `experimentalBlurMethod: 'none'`) iOS에서는 표면 아래가 흐려진다.
+          예전에는 이 위에 `BlurView`가 있었다. **안드로이드에서는 흐리게 하지 않고 흰색을
+          덧칠할 뿐이다** — `expo-blur`의 기본값이 `experimentalBlurMethod: 'none'`이고, 그때
+          `tint="light"`는 `rgba(249,249,249, 255×intensity×0.78)`을 배경색으로 깐다. intensity
+          78이면 0.61이라, 표면과 겹쳐 실제 농도가 0.95까지 올라가 거의 흰 종이로 보였다.
         */}
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
         <View style={s.sheetSurface} />
 
         <View {...sheet.panHandlers}>
@@ -607,7 +611,14 @@ const s = StyleSheet.create({
   },
   // flex로 남는 폭을 차지한다. 고정 폭이면 토글에 밀려 제목이 잘린다.
   sheetTitle: { ...type.body, flex: 1, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
-  sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
+  /**
+   * 현재 위치 줄. 제목 바로 아래에 붙인다.
+   *
+   * 위로 당기는 이유가 있다. 제목이 든 줄(`sheetHeading`)은 혼잡도 토글의 터치 영역 때문에
+   * **44px을 확보**하는데 제목 글줄은 26px뿐이라, 제목 아래에 9px의 빈 칸이 남는다. 여백을
+   * 그냥 0으로 두어도 그 9px 때문에 두 줄이 떨어져 보인다. 그만큼을 되돌려 붙인다.
+   */
+  sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: -spacing.x1 },
   list: { paddingTop: 0, gap: spacing.x3 },
   /**
    * 장소 카드.

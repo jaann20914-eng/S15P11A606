@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createStore } from './createStore';
 import { ApiError } from '@/api/client';
+import { usesMockApi } from '@/api/config';
 import { refreshTokenPair } from '@/api/auth/refresh';
 import type { AuthStatus, OAuthLoginResult, TokenPair } from '@/types/auth';
 
@@ -17,8 +18,22 @@ import type { AuthStatus, OAuthLoginResult, TokenPair } from '@/types/auth';
  *   앱을 껐다 켜면 소셜 로그인부터 다시 하는 게 맞다.
  */
 
-const ACCESS_TOKEN_KEY = 'auth.accessToken';
-const REFRESH_TOKEN_KEY = 'auth.refreshToken';
+/**
+ * 토큰을 담는 키. **목업 모드와 실서버 모드가 서로 다른 자리를 쓴다.**
+ *
+ * 두 모드가 같은 키를 쓰면 한쪽에서 만든 세션이 다른 쪽에서 되살아난다. 실서버로 한 번
+ * 로그인해 두면 목업 모드로 켜도 `hydrate`가 그 토큰을 읽어 `AUTHENTICATED`가 되고,
+ * `app/index.tsx`가 곧바로 홈으로 보낸다 — **목업 안내문이 붙은 로그인 화면과 온보딩을
+ * 건너뛰어 시연 흐름을 처음부터 보여줄 수 없었다.**
+ *
+ * 나눠 두면 두 가지가 함께 해결된다. 목업 모드는 늘 로그인부터 시작하고, 실서버 모드로
+ * 되돌아가도 그쪽 세션이 그대로 남아 다시 로그인할 필요가 없다.
+ *
+ * 실서버 쪽 키는 접미사 없이 그대로 둔다. 이미 저장돼 있는 세션을 잃지 않아야 한다.
+ */
+const KEY_NAMESPACE = usesMockApi ? '.mock' : '';
+const ACCESS_TOKEN_KEY = `auth.accessToken${KEY_NAMESPACE}`;
+const REFRESH_TOKEN_KEY = `auth.refreshToken${KEY_NAMESPACE}`;
 
 export interface AuthState {
   /** secure store 복원이 끝났는지. 끝나기 전에 화면을 분기하면 로그인 상태가 잠깐 깜빡인다. */
