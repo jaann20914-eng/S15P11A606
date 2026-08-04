@@ -137,4 +137,25 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("cursorRoomId") Long cursorRoomId,
             Pageable pageable
     );
+
+    /**
+     * 주어진 핀들 중, 현재 사용자가 수신자인 채팅방에 읽지 않은 상대 메시지가 하나라도 있는 핀의 id를 조회한다.
+     * 채팅 핀 목록의 핀 단위 안읽음(hasUnread) 집계를 DB에서 처리한다:
+     * 방별 상대 발신 메시지(sender != 나) 중 내 읽음 포인터(참여행이 없으면 0으로 간주) 이후의 메시지가 있으면 안읽음이며,
+     * 핀에 그런 방이 하나라도 있으면 DISTINCT로 핀 id를 한 번 반환한다(핀당 여러 방이 있어도 1건).
+     * 방 개수만큼 중간 데이터를 앱으로 가져오지 않고 인덱스 조인으로 처리해, 핀·방이 많아도 부하를 억제한다.
+     */
+    @Query("""
+            SELECT DISTINCT cr.pin.id
+            FROM ChatRoom cr
+            JOIN ChatMessage m ON m.chatRoom = cr AND m.sender.id <> :memberId
+            LEFT JOIN ChatRoomMember crm ON crm.chatRoom = cr AND crm.member.id = :memberId
+            WHERE cr.pin.id IN :pinIds
+              AND cr.recipient.id = :memberId
+              AND m.id > COALESCE(crm.lastReadMessageId, 0L)
+            """)
+    List<UUID> findPinIdsWithUnreadForRecipient(
+            @Param("pinIds") Collection<UUID> pinIds,
+            @Param("memberId") Long memberId
+    );
 }
