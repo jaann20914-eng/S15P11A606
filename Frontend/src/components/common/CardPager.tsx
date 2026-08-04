@@ -120,6 +120,18 @@ export interface CardPagerProps {
    * 알면 되고 누가 옮겼는지는 구분할 필요가 없다.
    */
   onIndexChange?: (index: number) => void;
+  /**
+   * **목록 모드에서** 지금 스크롤 위치. 이 칸의 윗변을 0으로 본 값이다.
+   *
+   * 한 장씩 넘기는 단계에서는 "보고 있는 카드"가 분명하지만(칸에 한 장만 보인다), 목록으로
+   * 훑는 단계에서는 스크롤 위치가 그것을 정한다. 이 값을 주면 위쪽에 걸린 카드를 골라
+   * `onIndexChange`로 알린다 — 넘길 때와 훑을 때가 같은 통로를 쓰게 된다.
+   *
+   * **스크롤이 멈출 때만 넘긴다.** 매 프레임 넘기면 받는 쪽(지도)이 스크롤 내내 따라 움직인다.
+   *
+   * 주지 않으면 목록 모드에서는 고른 카드가 바뀌지 않는다(예전 동작).
+   */
+  scrollOffset?: number;
 }
 
 export function CardPager({
@@ -128,6 +140,7 @@ export function CardPager({
   onSlotHeightChange,
   activeIndex,
   onIndexChange,
+  scrollOffset,
 }: CardPagerProps) {
   // `toArray`는 null·false를 걸러 주고 key를 지켜 준다. 측정용으로 한 번 더 그려도 안전하다.
   const items = useMemo(() => Children.toArray(children), [children]);
@@ -263,6 +276,35 @@ export function CardPager({
     if (activeIndex < 0 || activeIndex > count - 1) return;
     settleTo(activeIndex, 0);
   }, [activeIndex, count, settleTo]);
+
+  /*
+    목록 모드에서 스크롤이 멈춘 자리에 가장 가까운 카드를 고른다.
+
+    카드마다 높이가 달라서(메모 줄 수·태그 유무) 한 칸 높이로 나눌 수 없다. 잰 높이를 위에서부터
+    누적해 각 카드의 윗변을 구하고, 그중 스크롤 위치와 가장 가까운 것을 고른다 — 기준이 "가장
+    가까운 것"이라 임의의 여유값이 필요하지 않다.
+
+    `settleTo`로 옮긴다. 목록 모드에서는 자리 이동이 보이지 않지만(변형을 적용하지 않는다) 값이
+    함께 맞춰져 있어야, "보통" 단계로 돌아갈 때 방금 보고 있던 카드가 그대로 나온다.
+  */
+  useEffect(() => {
+    if (paging || scrollOffset === undefined || !measured) return;
+
+    let top = 0;
+    let nearest = 0;
+    let shortest = Infinity;
+
+    for (let at = 0; at < count; at += 1) {
+      const distance = Math.abs(scrollOffset - top);
+      if (distance < shortest) {
+        shortest = distance;
+        nearest = at;
+      }
+      top += heights[at] + SLOT_GAP;
+    }
+
+    if (nearest !== index) settleTo(nearest, 0);
+  }, [count, heights, index, measured, paging, scrollOffset, settleTo]);
 
   const panResponder = useMemo(
     () =>

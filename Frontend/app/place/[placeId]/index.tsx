@@ -192,6 +192,27 @@ export default function Place() {
   */
   const [pinIndex, setPinIndex] = useState(0);
 
+  /*
+    목록(확장) 단계에서 지금 보고 있는 핀을 정하는 값들.
+
+    한 장씩 넘기는 단계는 칸이 정해 주지만(`onIndexChange`), 훑는 단계에서는 스크롤이 멈춘
+    자리가 정한다. 그래야 두 단계 모두 **보고 있는 게시물의 마커가 중앙에 물방울 모양으로**
+    놓인다 — 예전에는 목록에서 아무리 내려도 첫 핀에 머물러 있었다.
+  */
+  const [scrollOffset, setScrollOffset] = useState<number | null>(null);
+  const [pinListTop, setPinListTop] = useState(0);
+
+  /*
+    목록 단계를 벗어나면 알린 스크롤 위치를 버린다.
+
+    남겨 두면 다시 펼치는 순간 **그 낡은 값이 적용돼 첫 핀으로 되돌아간다** — 카드를 넘겨 세
+    번째 핀을 보다가 시트를 펼치기만 해도 지도가 처음 핀으로 튀는 셈이다. 비워 두면 펼친 뒤
+    실제로 스크롤할 때까지 지금 보고 있는 핀이 유지된다.
+  */
+  useEffect(() => {
+    if (!expanded) setScrollOffset(null);
+  }, [expanded]);
+
   const pinMarkers = useMemo(
     () =>
       pins
@@ -410,6 +431,15 @@ export default function Place() {
           */
           scrollEnabled={expanded}
           showsVerticalScrollIndicator={false}
+          /*
+            멈춘 자리를 알린다. 목록 단계에서 "지금 보고 있는 핀"을 정하는 값이다.
+
+            **스크롤 중에는 알리지 않는다**(`onScroll`을 쓰지 않는다). 매 프레임 알리면 스크롤
+            내내 지도가 따라 움직여, 손은 목록을 훑고 있는데 지도가 계속 흔들린다. 손을 뗀 뒤
+            (`onScrollEndDrag`)와 관성이 멈춘 뒤(`onMomentumScrollEnd`) 한 번씩만 본다.
+          */
+          onScrollEndDrag={(event) => setScrollOffset(event.nativeEvent.contentOffset.y)}
+          onMomentumScrollEnd={(event) => setScrollOffset(event.nativeEvent.contentOffset.y)}
           contentContainerStyle={[
             s.sheetContent,
             {
@@ -512,14 +542,23 @@ export default function Place() {
             끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
           */}
           {level > 0 && pins.length > 0 && (
-            <PinCardPager
-              pins={pins}
-              paging={!expanded}
-              onSlotHeightChange={setPinSlotHeight}
-              selectedIndex={pinIndex}
-              onIndexChange={setPinIndex}
-              onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
-            />
+            /*
+              칸이 스크롤 내용 안에서 어디에 있는지 재 둔다. 목록 단계에서 "지금 보고 있는 핀"은
+              스크롤 위치로 정하는데, 그 위치는 시트 내용 전체 기준이라 이 칸의 윗변만큼 빼야
+              칸 안에서의 위치가 된다. 위에 붙는 혼잡도 카드가 단계에 따라 생기고 사라지므로
+              그 값은 고정할 수 없다.
+            */
+            <View onLayout={(event) => setPinListTop(event.nativeEvent.layout.y)}>
+              <PinCardPager
+                pins={pins}
+                paging={!expanded}
+                onSlotHeightChange={setPinSlotHeight}
+                selectedIndex={pinIndex}
+                onIndexChange={setPinIndex}
+                scrollOffset={scrollOffset === null ? undefined : Math.max(0, scrollOffset - pinListTop)}
+                onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
+              />
+            </View>
           )}
 
           {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
