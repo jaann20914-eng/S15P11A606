@@ -22,10 +22,17 @@ export interface MyPinListProps {
   pageSize: number;
 }
 
-/** 상태별 문구. */
+/**
+ * 상태별 문구.
+ *
+ * 검수에서 걸러진 것(`RESHOOT`)과 처리에 실패한 것(`FAILED`)은 사용자가 할 일이 다르다 —
+ * 앞은 다시 찍어야 하고 뒤는 다시 올려야 한다. 한 문구로 뭉치면 무엇을 해야 하는지 알 수 없다.
+ */
 const statusLabel: Record<TodayPinStatus, string> = {
   PROCESSING: '게시 대기중',
   ACTIVE: '게시 완료',
+  RESHOOT: '다시 촬영 필요',
+  FAILED: '등록 실패',
 };
 
 /** 상세를 열 수 있는 상태인지. 공개된 핀만 조회된다. */
