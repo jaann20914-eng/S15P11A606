@@ -27,8 +27,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
-import { usesMockApi } from '@/api/config';
-import { demoNearbyPlaces, places } from '@/data/mock';
+import { useNearbyPlaces } from '@/features/home/hooks/useNearbyPlaces';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -138,20 +137,32 @@ export default function Home() {
   const { level, moveTo, sheetY, coveredHeight } = sheet;
 
   /*
-    지도에 찍을 장소.
+    지도에 찍을 장소. **지도에 보이는 범위를 서버에 물어 받는다**(`GET /api/v1/places`).
 
-    목업 모드에서는 주변 장소들을 함께 얹는다(`demoNearbyPlaces`). 손으로 박아 둔 세 곳만으로는
-    지도가 비어 보여 시연에서 "핀이 안 나온다"로 읽힌다. 실서버 모드에서는 얹지 않는다 —
-    `GET /api/v1/places`가 붙으면 그쪽 응답이 이 자리를 대신한다.
+    예전에는 손으로 박아 둔 배열(`@/data/mock`)을 직접 읽었다. 목업 모드에서는 그럴듯하게
+    보였지만 실서버로 돌리면 **없는 장소 세 곳이 지도에 남고, 그 id로 상세를 열어 404가 났다.**
+    목업/실서버 판정은 API 경계 한 곳(`api/place/list.ts`)이 하므로 이 화면은 어느 쪽인지 모른다.
+
+    응답의 좌표는 훅이 함께 기억해 둔다 — 장소 상세와 핀 카드에는 좌표가 없어서, 상세 화면이
+    영상핀을 지도에 찍으려면 이 응답이 유일한 출처다.
   */
-  const mapPlaces = useMemo(() => (usesMockApi ? [...places, ...demoNearbyPlaces] : places), []);
+  const bounds = useMapStore((state) => state.bounds);
+  const nearby = useNearbyPlaces(bounds);
 
   /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
   const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
+  /*
+    혼잡도 필터로 거른다. **평균 혼잡도가 없는 장소는 어느 필터에도 들지 않는다** — 최근 1시간에
+    올라온 핀이 없어 여유인지 와글인지 판단할 근거가 없다. 서버 필터도 같은 규칙이다
+    (`PlacePinService.matchesFilter`가 `null`을 탈락시킨다).
+  */
   const visiblePlaces = useMemo(
-    () => mapPlaces.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
-    [crowdFilter, mapPlaces],
+    () =>
+      nearby.places.filter(
+        (place) => place.crowdLevel !== null && matchesCrowdFilter(place.crowdLevel, crowdFilter),
+      ),
+    [crowdFilter, nearby.places],
   );
 
   /*
@@ -199,8 +210,11 @@ export default function Home() {
    */
   const focusPlace = useCallback(
     (placeId: string) => {
-      // 목업 모드에서 함께 얹은 주변 장소도 찾을 수 있어야 한다. `places`만 보면 그 마커는 먹통이 된다.
-      const place = mapPlaces.find((item) => item.id === placeId);
+      /*
+        걸러진 목록이 아니라 **받아 둔 전부**에서 찾는다. 필터를 바꾸는 순간에도 방금 누른 마커의
+        좌표를 알 수 있어야 한다.
+      */
+      const place = nearby.places.find((item) => item.id === placeId);
       if (!place) return;
 
       selectPlace(placeId);
@@ -211,7 +225,7 @@ export default function Home() {
         level: PLACE_FOCUS_MAP_LEVEL,
       });
     },
-    [level, mapPlaces, moveTo, selectPlace],
+    [level, moveTo, nearby.places, selectPlace],
   );
 
   /**
@@ -565,10 +579,14 @@ export default function Home() {
                   )}
                 </View>
                 <View style={s.cardRule} />
-                {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
-                <Text style={s.pinUpload}>
-                  감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
-                </Text>
+                {/*
+                  올라온 핀 수만 적는다.
+
+                  예전에는 `감지카메라 외 N명`이라고 적었다. `감지카메라`는 **목업의 대표 작성자
+                  이름**이고, 목록 응답(`GET /places`)에는 작성자 닉네임이 없다(뷰 각도만 온다).
+                  실서버에서는 있지도 않은 사람 이름을 모든 장소에 붙이는 셈이었다.
+                */}
+                <Text style={s.pinUpload}>지금 영상핀 {place.pins}개가 올라와 있어요</Text>
                 {/*
                   작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
                   비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
@@ -588,12 +606,34 @@ export default function Home() {
               </Pressable>
             ))}
           </CardPager>
-          {visiblePlaces.length === 0 && (
-            <View style={s.empty}>
-              <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
-              <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
-            </View>
-          )}
+          {/*
+            비어 있는 이유를 구분해서 적는다.
+
+            불러오는 중 · 불러오지 못함 · 이 범위에 없음 · 필터에 걸림이 화면에는 모두 "카드가
+            없다"로 똑같이 보인다. 사용자가 할 일이 각각 다르므로(기다린다 / 다시 시도한다 /
+            지도를 옮긴다 / 필터를 바꾼다) 문구를 나눈다.
+          */}
+          {visiblePlaces.length === 0 &&
+            (nearby.loading ? (
+              <View style={s.empty}>
+                <ActivityIndicator color={colors.gray600} />
+              </View>
+            ) : nearby.error !== null ? (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
+                <Text style={s.emptyText}>{nearby.error}</Text>
+              </View>
+            ) : nearby.places.length === 0 ? (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
+                <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
+              </View>
+            ) : (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
+                <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
+              </View>
+            ))}
         </ScrollView>
       </Animated.View>
     </View>

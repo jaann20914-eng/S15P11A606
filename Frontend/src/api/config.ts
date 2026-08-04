@@ -101,8 +101,13 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     줄을 그리지 않는다(`types/recommend.ts`).
   */
 
-  // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
-  'place/detail': true,
+  /*
+    장소 상세(GET /api/v1/places/{placeId})도 2026-08-04에 실서버로 연결했다.
+
+    `PlaceController.getPlaceDetail` → `PlaceDetailService`를 직접 읽어 확인했다. 기본정보·활성
+    핀 카드·요일 통계를 한 응답으로 준다. 여기 남겨 두면 **핀 상세만 실서버인 짝이 어긋난 상태**가
+    되어, 목업 핀 카드를 눌러 실서버에 목업 id로 조회하다가 게시물이 열리지 않았다.
+  */
 
   /*
     핀 떠났어요도 2026-08-04에 실서버로 연결했다.

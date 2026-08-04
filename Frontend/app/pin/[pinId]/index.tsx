@@ -67,18 +67,30 @@ function PinDetailContent() {
   }
 
   if (status === 'error' || !data) {
-    // 없는 핀은 재시도해도 소용없으므로 홈으로 보내고, 그 외에는 다시 시도를 준다.
     const missing = errorCode === 'PIN_NOT_FOUND';
 
     return (
       <PinDetailShell>
         <ErrorView
-          title={missing ? '영상핀을 찾을 수 없어요' : '영상핀을 불러오지 못했어요'}
-          message={error ?? '잠시 후 다시 시도해 주세요'}
+          title={missing ? '영상핀을 볼 수 없어요' : '영상핀을 불러오지 못했어요'}
+          /*
+            없는 핀과 **아직 공개되지 않은 핀**이 같은 오류로 온다.
+
+            상세 조회는 `videoStatus = ACTIVE`인 핀만 준다(`findActivePinDetailById`). 그런데
+            장소 상세의 핀 목록은 상태를 보지 않아서(`findActivePinsByPlaceId`) AI 처리 중인
+            핀도 카드로 보인다 — 그 카드를 누르면 여기로 온다. "찾을 수 없다"만 적으면 사라진
+            글로 읽히므로 두 경우를 함께 알린다.
+          */
+          message={
+            missing
+              ? '만료되거나 삭제된 핀이에요. 방금 올라온 핀이라면 아직 공개 준비 중일 수 있어요.'
+              : (error ?? '잠시 후 다시 시도해 주세요')
+          }
+          // 공개를 기다리는 경우가 있어 없는 핀에도 다시 시도를 남긴다. 다만 앞에 두지는 않는다.
           actionLabel={missing ? '홈으로 이동' : '다시 시도'}
           onAction={missing ? goHome : reload}
-          secondaryLabel={missing ? undefined : '홈으로 이동'}
-          onSecondary={goHome}
+          secondaryLabel={missing ? '다시 시도' : '홈으로 이동'}
+          onSecondary={missing ? reload : goHome}
         />
       </PinDetailShell>
     );
