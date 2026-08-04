@@ -141,8 +141,16 @@ function pickMany<T>(items: readonly T[], count: number, random: () => number): 
   return picked;
 }
 
-/** 핀을 흩어 놓는 반경(위경도 도 단위). 약 ±120m로, 장소 하나가 차지하는 넓이쯤 된다. */
-const PIN_SCATTER_DEGREES = 0.0011;
+/**
+ * 핀을 흩어 놓는 반경(위경도 도 단위). 중심에서 약 ±33m다.
+ *
+ * **축척 20m 화면에 한 장소의 핀이 모두 담겨야 한다.** 영상핀을 오르내리며 지도가 따라
+ * 움직이는 것을 보려면 마커들이 한눈에 들어와야 하기 때문이다. 예전 값(0.0011, ±60m)은
+ * 그 축척에서 화면 폭을 꽉 채워 몇 개가 밖으로 나갔다.
+ *
+ * 마커 지름이 그 축척에서 10m쯤이라 이 정도면 여섯 개가 겹치지 않고 흩어진다.
+ */
+const PIN_SCATTER_DEGREES = 0.0006;
 
 /**
  * 장소 하나의 핀을 만든다.
@@ -232,15 +240,15 @@ function toSeed(input: SeedInput): MockPlaceSeed {
 export const mockPlaceSeeds: MockPlaceSeed[] = [
   { placeId: 1, name: '성수 연무장길', address: '서울 성동구 연무장길', phone: '02-462-1024', latitude: 37.5427, longitude: 127.0559, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 6, crowdShift: 0.3 },
   { placeId: 2, name: '서울숲 산책로', address: '서울 성동구 뚝섬로 273', phone: '02-460-2905', latitude: 37.5444, longitude: 127.0374, businessHoursText: '운영중 · 24시간 이용 가능', pinCount: 6, crowdShift: -0.2 },
-  { placeId: 3, name: '뚝섬한강공원', address: '서울 광진구 강변북로 139', phone: null, latitude: 37.5295, longitude: 127.07, businessHoursText: '운영중 · 24시간 이용 가능', pinCount: 4, crowdShift: -0.5 },
-  { placeId: 4, name: '성수 카페거리', address: '서울 성동구 성수이로', phone: '02-499-3080', latitude: 37.5447, longitude: 127.0561, businessHoursText: '영업중 · 오후 11:00까지', pinCount: 5, crowdShift: 0.2 },
+  { placeId: 3, name: '뚝섬한강공원', address: '서울 광진구 강변북로 139', phone: null, latitude: 37.5295, longitude: 127.07, businessHoursText: '운영중 · 24시간 이용 가능', pinCount: 6, crowdShift: -0.5 },
+  { placeId: 4, name: '성수 카페거리', address: '서울 성동구 성수이로', phone: '02-499-3080', latitude: 37.5447, longitude: 127.0561, businessHoursText: '영업중 · 오후 11:00까지', pinCount: 6, crowdShift: 0.2 },
   { placeId: 5, name: '연무장길 팝업존', address: '서울 성동구 연무장길 24', phone: '02-461-7742', latitude: 37.5412, longitude: 127.0552, businessHoursText: '영업중 · 오후 8:00까지', pinCount: 6, crowdShift: 0.5 },
-  { placeId: 6, name: '어린이대공원', address: '서울 광진구 능동로 216', phone: '02-450-9311', latitude: 37.5487, longitude: 127.0819, businessHoursText: '운영중 · 오후 10:00까지', pinCount: 3, crowdShift: -0.6 },
+  { placeId: 6, name: '어린이대공원', address: '서울 광진구 능동로 216', phone: '02-450-9311', latitude: 37.5487, longitude: 127.0819, businessHoursText: '운영중 · 오후 10:00까지', pinCount: 6, crowdShift: -0.6 },
   { placeId: 7, name: '건대 커먼그라운드', address: '서울 광진구 아차산로 200', phone: '02-467-2747', latitude: 37.541, longitude: 127.0665, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 6, crowdShift: 0.4 },
-  { placeId: 8, name: '송정제방길', address: '서울 성동구 송정동 73-448', phone: null, latitude: 37.5486, longitude: 127.0714, businessHoursText: '운영중 · 24시간 이용 가능', pinCount: 3, crowdShift: -0.9 },
-  { placeId: 9, name: '성수 수제화거리', address: '서울 성동구 연무장7길', phone: '02-464-1114', latitude: 37.5405, longitude: 127.0575, businessHoursText: '영업중 · 오후 9:00까지', pinCount: 4, crowdShift: -0.1 },
+  { placeId: 8, name: '송정제방길', address: '서울 성동구 송정동 73-448', phone: null, latitude: 37.5486, longitude: 127.0714, businessHoursText: '운영중 · 24시간 이용 가능', pinCount: 6, crowdShift: -0.9 },
+  { placeId: 9, name: '성수 수제화거리', address: '서울 성동구 연무장7길', phone: '02-464-1114', latitude: 37.5405, longitude: 127.0575, businessHoursText: '영업중 · 오후 9:00까지', pinCount: 6, crowdShift: -0.1 },
   // 요일 집계가 군데군데 없는 장소. 그래프가 선을 끊는지 확인할 수 있게 둔다.
-  { placeId: 10, name: '서울숲 북쪽 산책로', address: '서울 성동구 서울숲2길', phone: null, latitude: 37.5471, longitude: 127.0413, businessHoursText: null, pinCount: 5, crowdShift: 0, sparseStats: true },
+  { placeId: 10, name: '서울숲 북쪽 산책로', address: '서울 성동구 서울숲2길', phone: null, latitude: 37.5471, longitude: 127.0413, businessHoursText: null, pinCount: 6, crowdShift: 0, sparseStats: true },
   // 아직 아무도 올리지 않은 장소. 빈 상태(작성 유도)를 확인할 수 있게 둔다.
   // 핀 수는 0이어야 한다 — 목록 카드는 "아직 없다"고 하는데 상세에는 핀이 있으면 어긋난다.
   { placeId: 11, name: '바나프레소 역삼점', address: '서울 광진구 동일로 60길 47 1층 (군자동)', phone: '010-1111-1111', latitude: 37.5556, longitude: 127.0791, businessHoursText: '영업중 · 오후 10:00까지', pinCount: 0, crowdShift: 0.1 },

@@ -18,11 +18,23 @@ export type SheetLevel = 0 | 1 | 2;
 /**
  * 스프링 값. 세 시트가 같은 손맛을 갖도록 한곳에 둔다.
  *
- * 감쇠비 ζ = damping / (2·√(stiffness·mass)) ≈ 0.69 로 **살짝 덜 감쇠**된 값이다.
+ * 감쇠비 ζ = damping / (2·√(stiffness·mass)) ≈ 0.62 로 **덜 감쇠**된 값이다.
  * 목표 지점을 조금 지나쳤다가 되돌아오며 멈춰 쫀득하게 붙는 느낌을 낸다.
  * 1에 가까울수록 딱 멈춰 딱딱하고, 너무 낮추면 출렁여서 값을 읽기 어려워진다.
+ *
+ * `stiffness`를 올린 것은 도착이 늦으면 그 자체가 "끊긴다"로 읽히기 때문이다 —
+ * 빨리 도착해서 한 번 튕기는 편이 천천히 스며드는 것보다 매끄럽게 느껴진다.
+ *
+ * 멈춤 판정을 기본값(0.001)보다 크게 둔다. 눈에 보이지 않는 진폭까지 따라가면 애니메이션이
+ * 필요 이상으로 오래 살아 있어, 그동안 들어온 다음 조작과 겹친다.
  */
-const SPRING = { damping: 18, stiffness: 190, mass: 0.9 } as const;
+const SPRING = {
+  damping: 17,
+  stiffness: 210,
+  mass: 0.9,
+  restDisplacementThreshold: 0.4,
+  restSpeedThreshold: 0.4,
+} as const;
 
 /**
  * 손을 떼는 순간의 속도를 얼마나 멀리 내다볼지(ms).
@@ -30,6 +42,15 @@ const SPRING = { damping: 18, stiffness: 190, mass: 0.9 } as const;
  * 이 값이 없으면 천천히 끌다 튕겨도 가장 가까운 단계로만 가서 둔하게 느껴진다.
  */
 const FLICK_PROJECTION_MS = 90;
+
+/**
+ * 제스처 속도(px/ms)를 스프링 속도(px/s)로 바꾸는 값.
+ *
+ * `PanResponder`의 `vy`는 **밀리초당** 픽셀이고, RN 스프링은 적분 간격을 초로 잡아
+ * **초당** 픽셀을 기대한다. 그대로 넘기면 1000분의 1로 줄어 사실상 정지 상태에서
+ * 출발하는 셈이 된다.
+ */
+const VELOCITY_PER_SECOND = 1000;
 
 /** 축소보다 이만큼 더 끌어내리면 닫는다. 실수로 스쳐서 닫히지 않을 만큼은 둔다. */
 const DISMISS_DRAG = 72;
@@ -57,8 +78,13 @@ export interface BottomSheetMetrics {
 
 export interface BottomSheet {
   level: SheetLevel;
-  /** 단계를 옮긴다. 스프링으로 이어서 움직인다. */
-  moveTo: (next: SheetLevel) => void;
+  /**
+   * 단계를 옮긴다. 스프링으로 이어서 움직인다.
+   *
+   * `velocity`(px/ms)를 주면 그 속도로 출발한다. 드래그를 놓는 순간의 속도를 그대로 넘기면
+   * 손가락이 하던 움직임이 스프링으로 이어져 끊긴 느낌이 없어진다.
+   */
+  moveTo: (next: SheetLevel, velocity?: number) => void;
   /** 탭할 때마다 다음 단계로 돌린다. 손잡이에 연결한다. */
   cycle: () => void;
   /** `Animated.View`의 `translateY`에 그대로 넣는다. */
@@ -104,10 +130,41 @@ export function useBottomSheet({
   const sheetY = useRef(new Animated.Value(snapPoints[1])).current;
   const dragStart = useRef(snapPoints[1]);
 
+  /** 스프링이 도는 중인지. 측정값 보정이 진행 중인 움직임을 덮지 않도록 본다. */
+  const settling = useRef(false);
+  /** 손가락이 시트를 잡고 있는지. 잡고 있는 동안은 어떤 보정도 끼어들지 않는다. */
+  const dragging = useRef(false);
+
+  /*
+    지금 시트가 실제로 놓인 y좌표.
+
+    **네이티브 드라이버로 도는 동안 JS 쪽 값은 갱신되지 않는다.** 애니메이션이 네이티브에서만
+    돌기 때문이다. 그래서 `stopAnimation`의 콜백으로 현재 값을 물어도 애니메이션 시작 전의
+    값이 올 수 있다. 리스너를 붙이면 RN이 네이티브 값을 JS로 흘려보내므로 그것을 받아 둔다.
+
+    시트 하나에 값 하나라 프레임마다 오는 비용은 문제가 되지 않는다.
+  */
+  const currentY = useRef(snapPoints[1]);
+  useEffect(() => {
+    const id = sheetY.addListener(({ value }) => {
+      currentY.current = value;
+    });
+    return () => sheetY.removeListener(id);
+  }, [sheetY]);
+
   const moveTo = useCallback(
-    (next: SheetLevel) => {
+    (next: SheetLevel, velocity = 0) => {
       setLevel(next);
-      Animated.spring(sheetY, { toValue: snapPoints[next], useNativeDriver: true, ...SPRING }).start();
+      settling.current = true;
+
+      Animated.spring(sheetY, {
+        toValue: snapPoints[next],
+        velocity: velocity * VELOCITY_PER_SECOND,
+        useNativeDriver: true,
+        ...SPRING,
+      }).start(() => {
+        settling.current = false;
+      });
     },
     [snapPoints, sheetY],
   );
@@ -128,9 +185,36 @@ export function useBottomSheet({
     if (appliedSnapPoints.current === snapPoints) return;
     appliedSnapPoints.current = snapPoints;
 
-    // 보정이므로 애니메이션 없이 곧바로 놓는다. 사용자가 시작한 이동이 아니다.
-    sheetY.setValue(snapPoints[level]);
+    /*
+      **끌고 있는 중이면 아무것도 손대지 않는다.** `dragStart`까지 포함해서다 — 그 값은 드래그
+      중에 손가락 위치를 계산하는 기준이라, 여기서 덮으면 시트가 손에서 튀어나간다.
+      놓는 순간 어차피 새 스냅 위치로 붙으므로 보정할 것도 없다.
+    */
+    if (dragging.current) return;
+
     dragStart.current = snapPoints[level];
+
+    /*
+      움직이는 중이면 값을 덮지 않고 **목표만 새 위치로 바꿔** 스프링을 이어 돌린다.
+
+      예전에는 늘 `setValue`로 곧바로 놓았다. 카드 높이 측정은 단계 전환과 거의 동시에
+      도착하는 일이 잦은데, 그때마다 도는 중인 스프링을 끊고 순간이동시켜 **전환이 뚝
+      끊겨 보였다.** 지금 속도를 알 수 없으므로 0에서 다시 출발하지만, 위치가 이어지는
+      것만으로 튀는 느낌은 사라진다.
+    */
+    if (settling.current) {
+      Animated.spring(sheetY, {
+        toValue: snapPoints[level],
+        useNativeDriver: true,
+        ...SPRING,
+      }).start(() => {
+        settling.current = false;
+      });
+      return;
+    }
+
+    // 멈춰 있을 때의 보정이므로 곧바로 놓는다. 사용자가 시작한 이동이 아니다.
+    sheetY.setValue(snapPoints[level]);
   }, [level, sheetY, snapPoints]);
 
   const panResponder = useMemo(
@@ -138,7 +222,18 @@ export function useBottomSheet({
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 5,
         onPanResponderGrant: () => {
-          dragStart.current = snapPoints[level];
+          dragging.current = true;
+
+          /*
+            도는 중인 스프링을 세우고 **지금 보이는 자리**에서 이어 잡는다.
+
+            예전에는 단계의 스냅 위치를 잡기만 했다. 전환이 끝나기 전에 다시 손을 대면 시트가
+            아직 도착하지 않았는데도 목표 지점을 기준으로 계산해, 잡는 순간 그 차이만큼
+            건너뛰었다. 애니메이션을 멈추지 않아 스프링과 손가락이 같은 값을 동시에 쓰기도 했다.
+          */
+          sheetY.stopAnimation();
+          dragStart.current = currentY.current;
+          settling.current = false;
         },
         onPanResponderMove: (_, gesture) => {
           // 확장보다 위로는 가지 않는다. 아래쪽 한계는 닫을 수 있는지에 따라 달라진다.
@@ -147,6 +242,7 @@ export function useBottomSheet({
           sheetY.setValue(next);
         },
         onPanResponderRelease: (_, gesture) => {
+          dragging.current = false;
           const projected = dragStart.current + gesture.dy + gesture.vy * FLICK_PROJECTION_MS;
 
           // 축소를 충분히 지나쳐 내렸으면 단계로 되돌리지 않고 그대로 내보낸다.
@@ -167,7 +263,17 @@ export function useBottomSheet({
               Math.abs(point - projected) < Math.abs(snapPoints[best] - projected) ? index : best,
             0,
           ) as SheetLevel;
-          moveTo(nearest);
+
+          // 놓는 순간의 속도를 그대로 넘겨 손가락의 움직임이 스프링으로 이어지게 한다.
+          moveTo(nearest, gesture.vy);
+        },
+        /*
+          손가락이 아니라 시스템이 제스처를 가져가는 경우(전화 수신, 다른 뷰가 낚아챔)다.
+          플래그를 남겨 두면 이후 보정이 영원히 건너뛰어지므로 여기서도 반드시 내린다.
+        */
+        onPanResponderTerminate: () => {
+          dragging.current = false;
+          moveTo(level);
         },
       }),
     [level, moveTo, onDismiss, snapPoints, sheetY, space],

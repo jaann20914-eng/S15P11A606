@@ -11,19 +11,24 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
-import { PLACE_FOCUS_MAP_LEVEL } from '@/components/home/kakaoMapHtml';
-import { CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
+import {
+  DEFAULT_MAP_LEVEL,
+  PLACE_FOCUS_MAP_LEVEL,
+  REVIEW_PIN_MAX_LEVEL,
+} from '@/components/home/kakaoMapHtml';
+import { CardPager, CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
+import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
-import { places } from '@/data/mock';
+import { usesMockApi } from '@/api/config';
+import { demoNearbyPlaces, places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -60,6 +65,7 @@ export default function Home() {
   const setBounds = useMapStore((state) => state.setBounds);
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
+  const pinOverlay = useMapStore((state) => state.pinOverlay);
   const [mapReady, setMapReady] = useState(false);
 
   /**
@@ -83,7 +89,7 @@ export default function Home() {
    * 한 번 더 렌더된 뒤에 옮기면 새 높이가 반영돼 있다. 검색 복귀도 같은 길을 쓰게 해서
    * 이동 경로를 하나로 둔다.
    */
-  const [pendingPan, setPendingPan] = useState<Coordinate | null>(null);
+  const [pendingPan, setPendingPan] = useState<{ coordinate: Coordinate; level: number } | null>(null);
   const mapRef = useRef<KakaoMapHandle>(null);
   // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
   const myLocation = useCurrentLocation({ auto: true });
@@ -130,14 +136,48 @@ export default function Home() {
   });
   const { level, moveTo, sheetY, coveredHeight } = sheet;
 
+  /*
+    지도에 찍을 장소.
+
+    목업 모드에서는 주변 장소들을 함께 얹는다(`demoNearbyPlaces`). 손으로 박아 둔 세 곳만으로는
+    지도가 비어 보여 시연에서 "핀이 안 나온다"로 읽힌다. 실서버 모드에서는 얹지 않는다 —
+    `GET /api/v1/places`가 붙으면 그쪽 응답이 이 자리를 대신한다.
+  */
+  const mapPlaces = useMemo(() => (usesMockApi ? [...places, ...demoNearbyPlaces] : places), []);
+
+  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
+  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
+
   const visiblePlaces = useMemo(
-    () => places.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
-    [crowdFilter],
+    () => mapPlaces.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
+    [crowdFilter, mapPlaces],
   );
 
-  const markers = useMemo(
+  /*
+    지도에 찍을 마커.
+
+    **상세 화면이 열려 있으면 그쪽 영상핀을 찍는다.** 상세는 자기 지도가 없어 이 지도를
+    반투명하게 비추고 있을 뿐이므로, 영상핀 마커도 여기서 그려야 한다(`pinOverlay`).
+    상세를 닫으면 비워지고 장소 마커로 돌아온다.
+  */
+  const placeMarkers = useMemo(
     () => visiblePlaces.map(({ id, name, latitude, longitude }) => ({ id, name, latitude, longitude })),
     [visiblePlaces],
+  );
+  const markers = pinOverlay ? pinOverlay.markers : placeMarkers;
+  const selectedMarkerId = pinOverlay ? pinOverlay.selectedPinId : selectedPlaceId;
+
+  /**
+   * 고른 장소가 목록에서 몇 번째인지. 한 장씩 넘기는 칸이 그 카드를 보여주도록 넘긴다.
+   *
+   * 지도 핀을 누르거나, 확장 목록에서 카드를 눌러 "보통" 단계로 내려올 때가 이 경우다. 이게
+   * 없으면 방금 고른 장소에 테두리는 쳐지는데 화면에는 첫 카드가 보인다.
+   *
+   * 걸러진 목록에 없으면 `-1`이고, 그때는 칸이 그대로 있는다(`CardPager`가 무시한다).
+   */
+  const selectedCardIndex = useMemo(
+    () => visiblePlaces.findIndex((place) => place.id === selectedPlaceId),
+    [selectedPlaceId, visiblePlaces],
   );
 
   /**
@@ -158,19 +198,42 @@ export default function Home() {
    */
   const focusPlace = useCallback(
     (placeId: string) => {
-      const place = places.find((item) => item.id === placeId);
+      // 목업 모드에서 함께 얹은 주변 장소도 찾을 수 있어야 한다. `places`만 보면 그 마커는 먹통이 된다.
+      const place = mapPlaces.find((item) => item.id === placeId);
       if (!place) return;
 
       selectPlace(placeId);
       // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
       if (level === 2) moveTo(1);
-      setPendingPan({ latitude: place.latitude, longitude: place.longitude });
+      setPendingPan({
+        coordinate: { latitude: place.latitude, longitude: place.longitude },
+        level: PLACE_FOCUS_MAP_LEVEL,
+      });
     },
-    [level, moveTo, selectPlace],
+    [level, mapPlaces, moveTo, selectPlace],
+  );
+
+  /**
+   * 지도 마커를 눌렀을 때.
+   *
+   * 축척을 20m까지 당긴 상태에서는 마커가 **리뷰핀**이다. 그때는 지도만 옮기지 않고 그 장소의
+   * 상세까지 연다 — 그만큼 당겼으면 누른 것이 어느 곳인지 확실하기 때문이다.
+   *
+   * 그보다 넓게 보고 있으면 지금처럼 지도만 옮긴다. 손가락 하나에 여러 장소가 걸리는 축척에서
+   * 화면까지 바뀌면 실수가 된다. 목록 카드를 누르는 것도 지도 이동까지만인 것과 같은 이유다.
+   */
+  const pressMapPin = useCallback(
+    (placeId: string) => {
+      focusPlace(placeId);
+      if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
+    },
+    [focusPlace, mapLevel, openPlace],
   );
 
   const handleViewChange = useCallback(
     (view: MapViewState) => {
+      // 마커를 리뷰핀으로 다룰지 판단하는 값이다. 지도가 멈출 때마다 갱신된다.
+      setMapLevel(view.level);
       setCenter({ latitude: view.latitude, longitude: view.longitude });
       setBounds({
         southWest: { latitude: view.bounds.swLat, longitude: view.bounds.swLng },
@@ -215,7 +278,8 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !focus) return;
-    setPendingPan(focus.coordinate);
+    // 영상핀은 20m까지 당겨야 여러 개가 겹치지 않는다. 부르는 쪽이 정한 축척을 따른다.
+    setPendingPan({ coordinate: focus.coordinate, level: focus.level ?? PLACE_FOCUS_MAP_LEVEL });
     clearFocus();
   }, [clearFocus, focus, mapReady]);
 
@@ -228,7 +292,7 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !pendingPan) return;
-    mapRef.current?.focusPlace(pendingPan, PLACE_FOCUS_MAP_LEVEL);
+    mapRef.current?.focusPlace(pendingPan.coordinate, pendingPan.level);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
 
@@ -255,6 +319,18 @@ export default function Home() {
     }, []),
   );
 
+  /**
+   * 내 위치 버튼을 보일지.
+   *
+   * 두 가지 경우에 감춘다.
+   * - **최대화 단계**: 시트가 검색바 바로 아래까지 올라와 버튼과 겹친다.
+   * - **위에 장소 상세가 올라왔을 때**: 상세는 반투명 모달이라 이 화면이 그대로 살아 있다.
+   *   상세도 같은 자리에 자기 버튼을 그리므로, 감추지 않으면 두 버튼이 겹쳐 있고 상세가
+   *   최대화되어 자기 버튼을 감춰도 **이 버튼이 상세 시트 뒤에 남아 그대로 보인다.**
+   *   상세 화면에서 버튼이 사라지지 않은 이유가 이것이었다. 시트를 감추는 것과 같은 조건이다.
+   */
+  const locationButton = useFadeToggle(onTop && level !== 2);
+
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
     <View style={s.screen} onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
@@ -267,12 +343,12 @@ export default function Home() {
           bottomInset={coveredHeight}
           places={markers}
           filter={crowdFilter}
-          selectedPlaceId={selectedPlaceId}
+          selectedPlaceId={selectedMarkerId}
           // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
           fitPlacesOnReady={!start.fromMyLocation}
           onReady={() => setMapReady(true)}
           // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
-          onPinPress={focusPlace}
+          onPinPress={pressMapPin}
           onMapPress={clearSelection}
           onViewChange={handleViewChange}
         />
@@ -293,31 +369,43 @@ export default function Home() {
           <Ionicons name="search" size={22} color={colors.gray600} />
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="현재 위치로 돌아가기"
-          accessibilityState={{ busy: myLocation.status === 'loading' }}
-          disabled={myLocation.status === 'loading'}
-          onPress={goToMyLocation}
-          style={s.location}
-        >
-          {/*
-            누른 뒤 아무 표시가 없으면 버튼이 고장난 것으로 보인다. 실제로 좌표를 받는 데
-            몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
-          */}
-          {myLocation.status === 'loading' ? (
-            <ActivityIndicator size="small" color={colors.dark} />
-          ) : (
-            <Ionicons
-              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
-              size={23}
-              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
-            />
-          )}
-        </Pressable>
+        {/*
+          최대화 단계에서는 시트가 검색바 바로 아래까지 올라와 이 버튼과 겹친다. 그래서 감춘다.
 
-        {/* 실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다. */}
-        {myLocation.message && (
+          조건을 그대로 `&&`로 걸면 툭 없어지고 툭 생긴다 — 시트는 스프링으로 부드럽게
+          움직이는데 그 위 버튼만 순간이동하면 두 움직임이 따로 노는 것으로 보인다.
+          `useFadeToggle`이 사라지는 모션을 다 보여준 뒤에 뗀다(장소 상세도 같은 훅을 쓴다).
+        */}
+        {locationButton.mounted && (
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="현재 위치로 돌아가기"
+            accessibilityState={{ busy: myLocation.status === 'loading' }}
+            disabled={myLocation.status === 'loading'}
+            onPress={goToMyLocation}
+            style={[s.location, locationButton.style]}
+          >
+            {/*
+              누른 뒤 아무 표시가 없으면 버튼이 고장난 것으로 보인다. 실제로 좌표를 받는 데
+              몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
+            */}
+            {myLocation.status === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.dark} />
+            ) : (
+              <Ionicons
+                name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+                size={23}
+                color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+              />
+            )}
+          </AnimatedPressable>
+        )}
+
+        {/*
+          실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다.
+          버튼이 감춰졌으면 함께 감춘다 — 누를 수 없는 버튼에 대한 안내가 시트 뒤에 남는다.
+        */}
+        {locationButton.mounted && myLocation.message && (
           <Text accessibilityRole="alert" style={s.locationMessage}>
             {myLocation.message}
           </Text>
@@ -326,8 +414,15 @@ export default function Home() {
 
       {/* 위에 상세가 겹쳐 있으면 감춘다. display로 빼야 레이아웃·그리기까지 건너뛴다. */}
       <Animated.View style={[s.sheet, !onTop && s.sheetHidden, { transform: [{ translateY: sheetY }] }]}>
-        <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={s.sheetTint} />
+        {/*
+          반투명 표면 한 겹. 농도는 `colors.sheetSurface`가 정하고 장소 상세 시트와 같은 값이다.
+
+          예전에는 이 위에 `BlurView`가 있었다. **안드로이드에서는 흐리게 하지 않고 흰색을
+          덧칠할 뿐이다** — `expo-blur`의 기본값이 `experimentalBlurMethod: 'none'`이고, 그때
+          `tint="light"`는 `rgba(249,249,249, 255×intensity×0.78)`을 배경색으로 깐다. intensity
+          78이면 0.61이라, 표면과 겹쳐 실제 농도가 0.95까지 올라가 거의 흰 종이로 보였다.
+        */}
+        <View style={s.sheetSurface} />
 
         <View {...sheet.panHandlers}>
           <Pressable
@@ -361,7 +456,14 @@ export default function Home() {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          scrollEnabled={level > 0}
+          /*
+            **확장 단계에서만 스크롤한다.**
+
+            "보통" 단계에서는 카드를 한 장씩 넘기므로(`CardPager`) 시트까지 함께 스크롤되면
+            둘이 같은 세로 제스처를 두고 다툰다. 그 단계 높이는 어차피 카드 한 장에 맞춰
+            잡혀 있어 스크롤할 것도 없다.
+          */
+          scrollEnabled={level === 2}
           contentContainerStyle={[
             s.list,
             /*
@@ -372,82 +474,78 @@ export default function Home() {
             { paddingHorizontal: gutter, paddingBottom: spacing.x6 + sheet.top },
           ]}
         >
-          {visiblePlaces.map((place, index) => (
-            <Pressable
-              key={place.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${place.name} 지도에서 보기`}
-              accessibilityState={{ selected: place.id === selectedPlaceId }}
-              onPress={() => focusPlace(place.id)}
-              /*
-                첫 카드만 재서 "기본" 단계 높이를 정한다. 카드 구조가 같아 하나로 충분하고,
-                모두 재면 같은 값을 여러 번 쓰게 된다. 값이 실제로 바뀔 때만 반영해 되풀이를 막는다.
-              */
-              onLayout={
-                index === 0
-                  ? (event) => {
-                      const measured = Math.round(event.nativeEvent.layout.height);
-                      setCardHeight((current) => (current === measured ? current : measured));
-                    }
-                  : undefined
-              }
-              style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
-            >
-              <View style={s.cardTop}>
-                <View style={s.placeCopy}>
-                  <Text numberOfLines={1} style={s.placeName}>
-                    {place.name}
-                  </Text>
-                  <Text style={s.hours}>영업중 · 오후 10:00까지</Text>
-                  <Text numberOfLines={1} style={s.address}>
-                    {place.address}
-                  </Text>
+          {/*
+            "보통" 단계에서는 카드를 한 장씩 넘긴다. 확장하면 목록으로 돌아간다.
+
+            **카드 높이는 `CardPager`가 알려 준다**(`onSlotHeightChange`). 예전에는 첫 카드에
+            `onLayout`을 달아 직접 쟀는데, 카드가 넘기는 칸 안에 들어가면 잰 값이 곧 칸 높이가
+            되어 둘이 서로 물린다. 재는 일은 칸을 가진 쪽이 맡는 편이 맞다.
+          */}
+          <CardPager paging={level !== 2} onSlotHeightChange={setCardHeight} activeIndex={selectedCardIndex}>
+            {visiblePlaces.map((place) => (
+              <Pressable
+                key={place.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${place.name} 지도에서 보기`}
+                accessibilityState={{ selected: place.id === selectedPlaceId }}
+                onPress={() => focusPlace(place.id)}
+                style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
+              >
+                <View style={s.cardTop}>
+                  <View style={s.placeCopy}>
+                    <Text numberOfLines={1} style={s.placeName}>
+                      {place.name}
+                    </Text>
+                    <Text numberOfLines={1} style={s.address}>
+                      {place.address}
+                    </Text>
+                  </View>
+                  {/*
+                    상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+
+                    고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
+                    예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
+                    실제로는 카드와 같은 동작이라 오해를 샀다.
+
+                    글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
+                    표적은 아이콘보다 훨씬 크게 잡는다.
+                  */}
+                  {place.id === selectedPlaceId && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${place.name} 상세 보기`}
+                      hitSlop={16}
+                      onPress={() => openPlace(place.id)}
+                      style={s.detailChevron}
+                    >
+                      <Ionicons name="chevron-forward" size={22} color={colors.dark} />
+                    </Pressable>
+                  )}
                 </View>
+                <View style={s.cardRule} />
+                {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
+                <Text style={s.pinUpload}>
+                  감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
+                </Text>
                 {/*
-                  상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+                  작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
+                  비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
+                  같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
 
-                  고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
-                  예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
-                  실제로는 카드와 같은 동작이라 오해를 샀다.
-
-                  글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
-                  표적은 아이콘보다 훨씬 크게 잡는다.
+                  장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
                 */}
-                {place.id === selectedPlaceId && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${place.name} 상세 보기`}
-                    hitSlop={16}
-                    onPress={() => openPlace(place.id)}
-                    style={s.detailChevron}
-                  >
-                    <Ionicons name="chevron-forward" size={22} color={colors.dark} />
-                  </Pressable>
-                )}
-              </View>
-              <View style={s.cardRule} />
-              {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
-              <Text style={s.pinUpload}>
-                감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
-              </Text>
-              {/*
-                작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
-                비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
-                같은 다섯 숫자를 단색 테두리에 적어, 링이 아무 정보도 주지 않았다.
-
-                장소 상세·추천 카드가 쓰는 것과 같은 컴포넌트다.
-              */}
-              <View style={s.angleRow}>
-                {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
-                  <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
-                ))}
-                {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
-                {place.pins > ANGLE_PREVIEW_COUNT && (
-                  <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
-                )}
-              </View>
-            </Pressable>
-          ))}
+                <View style={s.angleRow}>
+                  {place.angles.slice(0, ANGLE_PREVIEW_COUNT).map((angle, index) => (
+                    <ViewAvatar key={`${place.id}-${index}`} angle={angle} size={ANGLE_RING_SIZE} />
+                  ))}
+                  {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
+                  {place.pins > ANGLE_PREVIEW_COUNT && (
+                    <Text style={s.morePins}>+{place.pins - ANGLE_PREVIEW_COUNT}</Text>
+                  )}
+                </View>
+              </Pressable>
+            ))}
+          </CardPager>
           {visiblePlaces.length === 0 && (
             <View style={s.empty}>
               <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
@@ -459,6 +557,14 @@ export default function Home() {
     </View>
   );
 }
+
+/**
+ * 애니메이션을 얹을 수 있는 누를 것.
+ *
+ * `Animated.View`로 감싸는 대신 버튼 자체를 움직인다. 감싸면 `alignSelf`·`marginTop` 같은
+ * 배치 속성을 감싼 쪽으로 옮겨야 해서 스타일이 두 곳으로 갈린다.
+ */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const glassShadow = {
   shadowColor: '#282626',
@@ -507,6 +613,12 @@ const s = StyleSheet.create({
     color: colors.white,
     backgroundColor: 'rgba(40,38,38,0.82)',
   },
+  /**
+   * 반투명 시트. 흰 농도는 **`sheetSurface` 한 겹으로만** 정한다.
+   *
+   * `backgroundColor`를 두지 않는다. 표면 위아래로 흰 반투명을 더 얹으면 겹친 곳만 농도가
+   * 올라가 시트가 투톤으로 갈려 보였다.
+   */
   sheet: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
@@ -515,11 +627,22 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: 'rgba(255,255,255,0.82)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     ...glassShadow,
   },
   sheetHidden: { display: 'none' },
-  sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
+  /**
+   * 시트의 농도를 정하는 유일한 겹. 값은 장소 상세 시트와 공유한다(`colors.sheetSurface`).
+   *
+   * 위쪽 모서리를 **스스로도** 둥글게 둔다. 감싼 시트가 `overflow: 'hidden'`으로 잘라 주기는
+   * 하지만, 안드로이드에서 그 자르기가 둥근 모서리까지 따라오지 않으면 이 겹이 네모난 모서리로
+   * 덮어 버린다. 예전에는 농도가 0.04라 그래도 보이지 않았지만 이제는 그대로 드러난다.
+   */
+  sheetSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: colors.sheetSurface,
+  },
   handleArea: { paddingTop: spacing.x2, paddingBottom: spacing.x3 },
   handle: {
     width: 40,
@@ -538,16 +661,32 @@ const s = StyleSheet.create({
   },
   // flex로 남는 폭을 차지한다. 고정 폭이면 토글에 밀려 제목이 잘린다.
   sheetTitle: { ...type.body, flex: 1, fontSize: 17, lineHeight: 26, color: colors.dark, fontWeight: '600' },
-  sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
+  /**
+   * 현재 위치 줄. 제목 바로 아래에 붙인다.
+   *
+   * 위로 당기는 이유가 있다. 제목이 든 줄(`sheetHeading`)은 혼잡도 토글의 터치 영역 때문에
+   * **44px을 확보**하는데 제목 글줄은 26px뿐이라, 제목 아래에 9px의 빈 칸이 남는다. 여백을
+   * 그냥 0으로 두어도 그 9px 때문에 두 줄이 떨어져 보인다. 그만큼을 되돌려 붙인다.
+   */
+  sheetSubtitle: { ...type.caption, color: colors.gray600, marginTop: -spacing.x1 },
   list: { paddingTop: 0, gap: spacing.x3 },
+  /**
+   * 장소 카드.
+   *
+   * 테두리 자리를 **고르지 않았을 때도 미리 비워 둔다**(투명). 고를 때만 테두리를 주면 그
+   * 카드가 3px 높아져, 목록이 밀리고 한 장씩 넘기는 칸(`CardPager`)에서는 칸에 갇혀 아래
+   * 테두리가 잘린다. 색만 바뀌면 높이가 변하지 않는다.
+   */
   placeCard: {
     padding: spacing.x5,
     borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...glassShadow,
   },
   // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
-  placeCardSelected: { borderWidth: 1.5, borderColor: colors.lime },
+  placeCardSelected: { borderColor: colors.lime },
   // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
   /**
@@ -568,7 +707,6 @@ const s = StyleSheet.create({
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
-  hours: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   address: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   cardRule: { width: 64, height: 1, backgroundColor: colors.gray200, marginVertical: spacing.x3 },
   pinUpload: { ...type.caption, color: colors.gray400 },
