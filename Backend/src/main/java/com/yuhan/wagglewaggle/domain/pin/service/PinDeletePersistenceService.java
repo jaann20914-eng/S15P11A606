@@ -3,6 +3,7 @@ package com.yuhan.wagglewaggle.domain.pin.service;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobStatus;
 import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomStatusChangedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
@@ -11,8 +12,11 @@ import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -36,10 +40,19 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PinDeletePersistenceService {
 
+    // convertAndSendToUser가 /user prefix를 자동으로 붙이므로 send 시엔 prefix를 제외한다.
+    // 구독 경로 /user/queue/chat-rooms(= StompAuthChannelInterceptor.USER_CHAT_ROOMS_DESTINATION)와 대응한다.
+    private static final String USER_CHAT_ROOMS_SEND_DESTINATION = "/queue/chat-rooms";
+
     private final PinRepository pinRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final AiBlurJobRepository aiBlurJobRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     private final Clock clock;
+
+    /** 상태 변경 push 대상(라우팅용 requester id + 방 id). */
+    private record NotifyTarget(Long roomId, Long requesterId) {
+    }
 
     /**
      * 검증된 pinId·요청자에 대해 삭제를 반영한다.
@@ -65,22 +78,61 @@ public class PinDeletePersistenceService {
         Instant deletedAt = clock.instant();
         pin.softDelete(deletedAt);
 
-        List<Long> closedChatRoomIds = closeActiveChatRooms(pinId);
+        List<Long> closedChatRoomIds = closeActiveChatRooms(pinId, memberId, deletedAt);
         List<String> cleanupKeys = collectCleanupKeys(pin, pinId);
 
         return new Result(deletedAt, closedChatRoomIds, cleanupKeys);
     }
 
     /** ACTIVE 채팅방만 종료(LEFT 전환)하고 실제로 전환된 방 ID를 반환한다(이미 종료·거절된 방은 대상 아님). */
-    private List<Long> closeActiveChatRooms(UUID pinId) {
+    private List<Long> closeActiveChatRooms(UUID pinId, Long actorId, Instant changedAt) {
         List<ChatRoom> activeRooms =
                 chatRoomRepository.findByPin_IdAndStatus(pinId, ChatRoomStatus.ACTIVE);
         List<Long> closedIds = new ArrayList<>(activeRooms.size());
+        List<NotifyTarget> notifyTargets = new ArrayList<>(activeRooms.size());
         for (ChatRoom room : activeRooms) {
             room.close();
             closedIds.add(room.getId());
+            notifyTargets.add(new NotifyTarget(room.getId(), room.getRequester().getId()));
         }
+        // 종료된 방마다 상대(요청자)에게 커밋 이후 LEFT 상태 변경을 알린다.
+        scheduleStatusChangedNotify(pinId, actorId, changedAt, notifyTargets);
         return closedIds;
+    }
+
+    /**
+     * 종료된 방들에 대해 각 요청자의 개인 큐로 LEFT 상태 변경 이벤트를 커밋 이후 발행하도록 등록한다.
+     * actor(핀 소유자 = 각 방의 recipient)에게는 보내지 않으므로 수신자는 항상 requester다.
+     */
+    private void scheduleStatusChangedNotify(UUID pinId, Long actorId, Instant changedAt,
+            List<NotifyTarget> targets) {
+        if (targets.isEmpty()) {
+            return;
+        }
+        runAfterCommit(() -> {
+            for (NotifyTarget target : targets) {
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(target.requesterId()), USER_CHAT_ROOMS_SEND_DESTINATION,
+                        ChatRoomStatusChangedEvent.of(target.roomId(), pinId, actorId,
+                                ChatRoomStatus.LEFT, changedAt, clock.instant()));
+            }
+        });
+    }
+
+    /**
+     * DB 커밋 이후 실행할 후속 처리를 등록한다. 활성 트랜잭션이 없으면 즉시 실행한다.
+     */
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
 
     /**
