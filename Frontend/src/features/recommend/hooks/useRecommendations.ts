@@ -22,6 +22,8 @@ export interface RecommendationsState {
   /** 실패 문구. 성공하면 null. */
   error: string | null;
   setMode: (mode: CrowdFilter) => void;
+  /** 다시 조회한다. 빈 목록 · 실패 화면의 버튼이 부른다. */
+  reload: () => void;
 }
 
 /** 오류 코드별 안내. */
@@ -53,6 +55,9 @@ export function useRecommendations(): RecommendationsState {
 
   const { request: requestLocation } = useCurrentLocation();
 
+  /** 다시 조회하기. 값이 바뀌면 아래 이펙트가 한 번 더 돈다. */
+  const [reloadCount, setReloadCount] = useState(0);
+
   /** 이미 조회했는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
   const requested = useRef(false);
 
@@ -60,7 +65,9 @@ export function useRecommendations(): RecommendationsState {
     if (requested.current) return;
     requested.current = true;
 
-    log('화면 진입');
+    setLoading(true);
+    setError(null);
+    log(reloadCount === 0 ? '화면 진입' : '다시 조회');
 
     /*
       좌표를 못 받아도 요청은 보낸다. 그때는 서버가 캐시나 인기순으로 답한다.
@@ -90,7 +97,8 @@ export function useRecommendations(): RecommendationsState {
             : '추천 장소를 불러오지 못했어요',
         );
       });
-  }, [requestLocation]);
+    // 다음 조회를 허용한다. 좌표 · 요청이 모두 끝난 뒤라야 연타로 겹치지 않는다.
+  }, [requestLocation, reloadCount]);
 
   return {
     mode,
@@ -106,5 +114,9 @@ export function useRecommendations(): RecommendationsState {
     loading,
     error,
     setMode: useCallback((next: CrowdFilter) => setModeState(next), []),
+    reload: useCallback(() => {
+      requested.current = false;
+      setReloadCount((count) => count + 1);
+    }, []),
   };
 }

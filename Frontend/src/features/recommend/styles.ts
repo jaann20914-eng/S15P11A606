@@ -64,6 +64,50 @@ export const recommendStyles = StyleSheet.create({
   state: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
   stateText: { ...type.small, color: colors.gray600 },
 
+  /*
+    추천할 장소가 없을 때.
+
+    목록이 들어갈 자리를 그대로 쓴다. 위아래로 가운데에 두어 "여기가 비었다"가 아니라
+    "여기서 할 일이 있다"로 읽히게 한다.
+  */
+  emptyArea: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: layout.gutter,
+    paddingVertical: spacing.x8,
+  },
+  /** 3D 일러스트. 문구보다 먼저 눈에 들어오되 화면을 다 먹지 않을 크기로 둔다. */
+  emptyIllustration: { width: 132, height: 132 },
+  emptyTitle: { ...type.h3, color: colors.dark, marginTop: spacing.x4 },
+  emptyBody: {
+    ...type.small,
+    color: colors.gray600,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginTop: spacing.x2,
+  },
+  /** 이 상태에서 가장 쓸모 있는 행동. 눌러야 할 것이 하나임을 색으로 알린다. */
+  emptyPrimary: {
+    height: 48,
+    paddingHorizontal: spacing.x6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.x5,
+    borderRadius: radius.md,
+    backgroundColor: colors.dark,
+  },
+  emptyPrimaryText: { ...type.label, color: colors.lime, fontWeight: '600' },
+  /** 다시 조회. 바탕 없이 두어 위 버튼과 무게가 겹치지 않게 한다. */
+  emptySecondary: {
+    height: 40,
+    paddingHorizontal: spacing.x4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.x1,
+  },
+  emptySecondaryText: { ...type.caption, color: colors.gray400, fontWeight: '600' },
+
   /* 카드 */
   cardFrame: { borderRadius: radius.card },
   card: {
