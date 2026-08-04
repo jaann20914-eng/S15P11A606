@@ -123,19 +123,10 @@ export default function PinCreateScreen() {
         setFocused(false);
         form.reset();
 
-        /*
-          수정 표식을 지운다.
-
-          이 화면은 탭이라 파라미터가 탭 상태에 남는다. 수정하러 들어왔다가 저장하지 않고 다른
-          곳으로 가면 `pinId`가 그대로 남아, 나중에 + 탭을 눌렀을 때 새 글이 아니라 지난 수정
-          화면이 열렸다.
-        */
-        if (mode.type === 'edit') router.setParams({ pinId: undefined });
-
         // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
         if (usePinPublishStore.getState().phase === 'done') resetPublish();
       };
-    }, [form.reset, resetPublish, mode.type]),
+    }, [form.reset, resetPublish]),
   );
 
   const submit = () => {
@@ -201,15 +192,10 @@ export default function PinCreateScreen() {
             resetPublish();
 
             /*
-              수정은 그 핀의 상세에서 들어온다. 돌아갈 곳도 그 상세다.
-
-              상세를 새로 열면(`push`·`replace`) 같은 화면이 두 장 쌓여서, 뒤로 가기 한 번에
-              고치기 전 상세가 나온다. 반대로 `back()`은 이 화면이 탭 라우트라 탭의 첫 화면(홈)
-              으로 떨어진다.
-
-              그래서 스택에 이미 있는 그 상세까지 닫고 내려간다(`dismissTo`). 그 화면은 다시
-              보일 때 스스로 새로 받아 오므로 고친 내용이 반영되고, 거기서 뒤로 가면 들어올 때
-              지나온 목록(마이페이지의 오늘 등록한 핀 등)으로 이어진다.
+              수정은 그 핀의 상세 **위에 쌓여** 열린다(`/pin/{pinId}/edit`). 상세를 새로 열지
+              않고 그 상세까지 닫고 내려간다 — 새로 열면 같은 화면이 두 장 쌓여 뒤로 가기
+              한 번에 고치기 전 상세가 나온다. 상세는 다시 보일 때 스스로 새로 받아 오므로
+              고친 내용이 반영되고, 거기서 뒤로 가면 들어올 때 지나온 목록으로 이어진다.
             */
             if (mode.type === 'edit') {
               router.dismissTo(`/pin/${mode.pinId}`);
