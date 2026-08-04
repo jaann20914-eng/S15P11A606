@@ -21,7 +21,9 @@ export type CreditTransactionType =
   | 'SENT_CHAT_REQUEST_ACCEPTED'
   | 'VIDEO_VIEWED'
   | 'RECEIVED_HELPFUL_PIN_EVALUATION'
-  | 'RECEIVED_DISAPPOINTING_PIN_EVALUATION';
+  | 'RECEIVED_DISAPPOINTING_PIN_EVALUATION'
+  /** 잘못 반영된 거래를 되돌린 것. 원장은 수정하지 않으므로 반대 거래로 들어온다. */
+  | 'REVERSAL';
 
 /** 거래 한 건. 원장은 수정하지 않으므로 취소도 반대 거래로 들어온다. */
 export interface CreditTransaction {

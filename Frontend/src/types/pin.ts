@@ -200,19 +200,18 @@ export function canEvaluate(detail: PinDetail): boolean {
 /**
  * 오늘 등록한 영상핀의 처리 상태.
  *
- * `GET /api/v1/users/me/pins/today`가 주는 값이다. 백엔드 엔티티의 `VideoStatus`
- * (`PENDING`·`PROCESSING`·`COMPLETED`·`FAILED`)나 `PublisherStatus`와는 다르다 —
- * 이쪽은 응답용으로 합쳐 만든 상태로 보인다. 컨트롤러가 생기면 실제 값을 확인해야 한다.
+ * `GET /api/v1/users/me/pins/today`가 주는 값이다. 내부 상태(`VideoStatus`)를 그대로 주지 않고
+ * 화면용으로 바꿔 내려준다(백엔드 `TodayPinStatus.from`).
  *
- * - `PROCESSING`: AI 블러 처리 중. 아직 공개되지 않아 상세를 열 수 없다
+ * - `PROCESSING`: AI 검수 중. 아직 공개되지 않아 상세를 열 수 없다(내부 `PENDING`)
  * - `ACTIVE`: 공개됨
+ * - `RESHOOT`: 검수에서 걸러져 다시 찍어야 한다(내부 `REJECTED`)
+ * - `FAILED`: 처리 중 오류로 등록되지 못했다
  *
- * 명세에는 `RESHOOT`(다시 촬영해야 함)도 있지만 화면에서 아직 다루지 않기로 했다. 살릴 때는
- * 아래 주석을 풀고 `MyPinList`의 `statusLabel`에 문구를 추가하면 된다 — 그 표가
- * `Record<TodayPinStatus, string>`이라 빠뜨리면 컴파일에서 걸린다.
+ * 네 가지 모두 실제로 온다. 표에서 빠뜨리면 컴파일에서 걸리도록 `Record<TodayPinStatus, …>`로
+ * 두었다(`MyPinList`의 `statusLabel`).
  */
-export type TodayPinStatus = 'PROCESSING' | 'ACTIVE';
-// | 'RESHOOT'
+export type TodayPinStatus = 'PROCESSING' | 'ACTIVE' | 'RESHOOT' | 'FAILED';
 
 /** 오늘 등록한 영상핀 한 건. */
 export interface TodayPin {
