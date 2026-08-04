@@ -20,41 +20,22 @@ import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
+import { useMapGestures } from '@/hooks/useMapGestures';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
-/** 손잡이 영역 높이. `s.handleArea`와 같은 값을 스냅 계산에서도 쓴다. */
-const SHEET_HANDLE_HEIGHT = 28;
-
-/**
- * 축소 단계에서 카드 아래 여백을 이만큼 줄인다.
- *
- * 축소 높이에는 탭바에 가려지지 않도록 `navBarHeight`(탭바 72 + 시스템 제스처 영역)를
- * 더한다. 그런데 실기기(갤럭시 노트20, 3버튼 내비게이션)에서는 그만큼이 **카드와 탭바 사이
- * 빈 공간으로 그대로 남았다** — 시스템 내비게이션 영역은 이미 탭바가 자기 `paddingBottom`으로
- * 처리하므로 여기서 또 비워 둘 이유가 없다.
- *
- * 시트는 화면 전체를 덮는 상자를 내려 쓰기 때문에 축소 높이를 줄이면 그만큼 카드가 탭바에
- * 가까워진다. **더 붙이거나 떼려면 이 숫자 하나만 고치면 된다.**
- */
-const COLLAPSED_GAP_TRIM = spacing.x10;
-
 /**
  * 측정이 오기 전에 쓰는 어림값.
  *
- * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다.
+ * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다. 0으로 두면 시트가 화면 전체를
+ * 덮은 채 시작해 눈에 띄게 튄다.
  */
-const ESTIMATED_INFO_BODY_HEIGHT = 84;
+const ESTIMATED_HEADER_HEIGHT = 92;
 const ESTIMATED_PIN_SLOT_HEIGHT = 240;
 
-/**
- * "실시간 영상핀" 제목 줄의 높이.
- *
- * `s.sectionHead`의 `minHeight`와 같고, 그 안의 글줄(`type.title`의 lineHeight)도 같은 값이라
- * 실제 높이가 이 값으로 정해진다. 재지 않고 더할 수 있는 이유다.
- */
-const SECTION_HEAD_HEIGHT = 26;
+/** "실시간 영상핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
+const LIVE_DOT_SIZE = 7;
 
 /**
  * 장소 카드의 안쪽 여백.
@@ -86,6 +67,14 @@ export default function Place() {
   const focusOn = useMapStore((state) => state.focusOn);
   const showPinOverlay = useMapStore((state) => state.showPinOverlay);
   const clearPinOverlay = useMapStore((state) => state.clearPinOverlay);
+  /*
+    이 화면에서 지도를 끌고 당기는 길.
+
+    **손가락이 아래 홈 지도까지 닿지 않는다.** 안드로이드에서 위에 겹친 화면이 터치를 그대로
+    삼키기 때문이다(`useMapGestures`에 근거를 적어 두었다). 그래서 이 화면이 제스처를 받아
+    홈이 등록해 둔 손잡이로 넘긴다.
+  */
+  const mapGestures = useMapGestures(useMapStore((state) => state.gestureControl));
   const myLocation = useCurrentLocation();
   const navBarHeight = useAppTabBarHeight();
 
@@ -103,41 +92,33 @@ export default function Place() {
   /*
     3단계 높이를 정하는 값. 시트 움직임은 useBottomSheet이 맡는다.
 
-    - 축소 — 손잡이 + 장소 정보(이름·연락처·주소)
-    - 기본 — 거기에 실시간 영상핀 첫 카드까지
+    - 축소 — 손잡이 + 머리글(장소명·주소 + `실시간 영상핀`)
+    - 기본 — 거기에 영상핀 첫 카드까지
     - 확장 — 검색바 바로 아래까지 올려 혼잡도 차트와 목록을 훑는다
 
-    이 화면은 탭 그룹 밖이라 `<AppTabBar/>`가 절대 배치로 **화면 위에 겹친다.** 그만큼
-    더 올려야 내용이 탭바 뒤로 들어가지 않는다. 홈은 탭바가 레이아웃을 차지해 이 보정이 없다.
+    **구성이 홈 시트와 같아서 "기본" 단계 높이도 홈과 같아진다.** 홈은 `머리글 + 카드 한 장`,
+    이 화면은 `머리글 + 영상핀 카드 한 장`이다. 장소 정보 카드(연락처·주소 + 혼잡도 그래프)를
+    확장 전용으로 옮긴 것이 그 조건이었다 — 예전에는 그 카드가 축소 높이에 들어 있어 시트가
+    홈보다 두 배 가까이 높았다.
 
-    축소 높이는 **장소 정보 글줄만** 재서 카드 여백을 더해 잡는다. 카드 안에 혼잡도 그래프가
-    같이 들어 있으므로(확장 단계에서 펼쳐진다) 카드를 통째로 재면 그래프까지 셈에 들어간다.
+    이 화면은 탭 그룹 밖이라 `<AppTabBar/>`가 절대 배치로 **화면 위에 겹친다.** 홈은 탭바가
+    레이아웃을 차지해 시트 영역이 그만큼 작으므로(`space = 창 높이 - 탭바`) 보정이 없다.
+    여기는 창 높이를 그대로 쓰니 축소 높이에 탭바를 더해야 두 시트의 위쪽이 같은 자리에 온다.
   */
-  const [infoBodyHeight, setInfoBodyHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const [pinSlotHeight, setPinSlotHeight] = useState(0);
 
   const sheet = useBottomSheet({
     space: height,
-    collapsed: Math.max(
-      0,
-      SHEET_HANDLE_HEIGHT +
-        INFO_CARD_PADDING * 2 +
-        (infoBodyHeight > 0 ? infoBodyHeight : ESTIMATED_INFO_BODY_HEIGHT) +
-        navBarHeight -
-        COLLAPSED_GAP_TRIM,
-    ),
+    collapsed: navBarHeight + (headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT),
     /*
-      "기본" 단계에서 축소보다 더 보여야 하는 높이 = 제목 줄 + 그 아래 간격 + 카드 한 칸.
+      "기본" 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 칸 + 아래 여백.
 
-      예전에는 제목과 첫 카드를 감싼 상자를 통째로 쟀다. 이제 그 자리에 목록이 될 수도 있는
-      페이저가 들어가 확장 단계에서는 카드 전부의 높이가 나오므로, 잴 수 없다. 카드 한 칸의
-      높이는 페이저가 알려 주고(`onSlotHeightChange`) 제목 줄은 높이가 정해져 있어 더한다.
+      카드 한 칸의 높이는 페이저가 알려 준다(`onSlotHeightChange`) — 확장 단계에서는 같은
+      자리가 목록이 되어 카드 전부의 높이가 나오므로 화면이 직접 잴 수 없다. 머리글과 카드
+      사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
-    middleExtra:
-      SECTION_HEAD_HEIGHT +
-      spacing.x3 +
-      (pinSlotHeight > 0 ? pinSlotHeight : ESTIMATED_PIN_SLOT_HEIGHT) +
-      spacing.x4,
+    middleExtra: (pinSlotHeight > 0 ? pinSlotHeight : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
       아래로 밀어 내리면 닫고 홈 시트로 돌아간다. 이 화면은 홈 위에 겹쳐 있으므로
@@ -271,6 +252,16 @@ export default function Place() {
     // 배경을 두지 않는다. 아래 깔린 홈 지도가 그대로 보여야 한다.
     // box-none이라 지도 영역의 터치가 아래 홈 지도로 지나간다. 시트와 상단 컨트롤은 자식이라 그대로 받는다.
     <View pointerEvents="box-none" style={s.overlay}>
+      {/*
+        지도 제스처를 받는 자리. 화면 전체를 덮되 **가장 먼저 그려 맨 아래에 깔린다** —
+        시트·상단 컨트롤·탭바는 뒤에 그려지므로 그 영역의 터치는 그쪽이 먼저 받는다. 결과적으로
+        지도가 드러난 자리에서만 여기로 온다.
+
+        아래 홈 지도로 터치를 통과시키는 것이 아니라 **받아서 명령으로 넘긴다.** 안드로이드에서
+        통과가 되지 않기 때문이다(`useMapGestures` 참고).
+      */}
+      <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
+
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
         pointerEvents="box-none"
@@ -324,14 +315,57 @@ export default function Place() {
         */}
         <View style={s.sheetSurface} />
         <View {...sheet.panHandlers}>
+          {/*
+            머리글. 홈 시트와 같은 자리에 같은 구성으로 둔다 — 손잡이, 굵은 제목 한 줄,
+            그 아래 작은 글씨 한 줄. 높이를 고정하지 않고 재서(`onLayout`) 스냅 계산에 넘기므로
+            글꼴 크기 설정이나 화면 폭이 달라도 카드가 어중간하게 걸리지 않는다.
+          */}
           <Pressable
             accessibilityRole="adjustable"
             accessibilityLabel="장소 정보 높이"
             accessibilityHint="탭하거나 위아래로 끌어 높이를 변경하세요"
             onPress={sheet.cycle}
-            style={s.handleArea}
+            onLayout={(event) => setHeaderHeight(Math.round(event.nativeEvent.layout.height))}
+            style={[s.handleArea, { paddingHorizontal: gutter }]}
           >
             <View style={s.handle} />
+            <View style={s.headingRow}>
+              {/*
+                장소명이 제목 자리를 갖는다. 연락처는 적지 않는다 — 지도 위 시트에서 전화번호는
+                읽을 일이 없고, 확장하면 정보 카드에 그대로 남아 있다.
+              */}
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.gray600} style={s.headingBusy} />
+              ) : (
+                <Text numberOfLines={1} style={s.headingName}>
+                  {place?.name ?? '장소'}
+                </Text>
+              )}
+              {/*
+                `실시간 영상핀`은 제목 자리를 장소명에 내주고 **같은 줄 반대편으로** 옮긴다.
+                아래 카드 묶음이 무엇인지 알려 주는 이름표라 작은 글씨로 두고, 왼쪽 파란 점으로
+                "지금 올라오는 중"임을 표시한다.
+              */}
+              <View style={s.liveLabel}>
+                <View style={s.liveDot} />
+                <Text style={s.liveText}>실시간 영상핀</Text>
+              </View>
+            </View>
+            {/*
+              주소는 제목 아래 작은 글씨 한 줄. 카카오에서 실시간으로 채우므로 비어 있을 수 있고,
+              장소를 아예 불러오지 못했으면 그 자리에 이유를 적는다 — 빈 줄만 남으면 고장으로 읽힌다.
+            */}
+            {place !== null ? (
+              place.address.length > 0 && (
+                <Text numberOfLines={1} style={s.headingAddress}>
+                  {place.address}
+                </Text>
+              )
+            ) : loading ? null : (
+              <Text accessibilityRole="alert" style={s.headingAddress}>
+                {error ?? '장소 정보를 불러오지 못했어요.'}
+              </Text>
+            )}
           </Pressable>
         </View>
 
@@ -359,51 +393,72 @@ export default function Place() {
           ]}
         >
           {/*
-            장소 정보와 요일별 혼잡도가 **한 장의 카드**다.
+            영상핀 카드 묶음. 머리글 오른쪽의 `실시간 영상핀`이 이 묶음의 이름표다.
 
-            예전에는 둘이 각자 카드였다. 같은 질문("이 장소는 어떤 곳인가")에 답하는 정보라
-            한 장으로 묶는 편이 읽기 쉽고, 확장할 때 카드가 자라는 모션도 그래야 성립한다.
-            추천 상세(`RecommendPlaceInfo`)가 이미 같은 구성이라 두 화면 모양도 맞는다.
+            "보통" 단계는 높이가 **머리글 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
+            아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
+            한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 목록으로 바뀐다.
+
+            **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
+            목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
+            끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
           */}
-          <View style={s.infoCard}>
-            <View onLayout={(event) => setInfoBodyHeight(Math.round(event.nativeEvent.layout.height))}>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.gray600} />
-              ) : place !== null ? (
-                <>
-                  <Text style={s.placeName}>{place.name}</Text>
-                  {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
-                  {place.phone !== null && place.phone.length > 0 && (
-                    <Text style={s.placeMeta}>{place.phone}</Text>
-                  )}
-                  {place.address.length > 0 && <Text style={s.placeAddress}>{place.address}</Text>}
-                </>
-              ) : (
-                <Text accessibilityRole="alert" style={s.placeAddress}>
-                  {error ?? '장소 정보를 불러오지 못했어요.'}
-                </Text>
+          {level > 0 && pins.length > 0 && (
+            <PinCardPager
+              pins={pins}
+              paging={!expanded}
+              onSlotHeightChange={setPinSlotHeight}
+              selectedIndex={pinIndex}
+              onIndexChange={setPinIndex}
+              onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
+            />
+          )}
+
+          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
+          {level > 0 && !loading && detail !== null && pins.length === 0 && (
+            <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
+          )}
+
+          {/*
+            장소 정보와 요일별 혼잡도가 한 장의 카드다. **확장 단계 전용이다.**
+
+            같은 질문("이 장소는 어떤 곳인가")에 답하는 정보라 한 장으로 묶는 편이 읽기 쉽고,
+            확장할 때 카드가 자라는 모션도 그래야 성립한다. 추천 상세(`RecommendPlaceInfo`)가
+            이미 같은 구성이라 두 화면 모양도 맞는다.
+
+            **보통 단계에서는 그리지 않는다.** 그래야 시트가 `머리글 + 카드 한 장`이 되어 홈
+            시트와 같은 높이가 된다. 붙는 자리는 영상핀 **아래**다 — 위에 끼우면 확장할 때마다
+            보고 있던 영상핀이 카드 높이만큼 아래로 밀려 내려간다.
+
+            그래프와 같은 값(`chartReveal`)으로 흐리게 나타난다. 접히는 것을 다 보여준 뒤에
+            떼어 내므로(`chartMounted`) 툭 사라지지 않는다.
+          */}
+          {chartMounted && detail !== null && (
+            <Animated.View style={[s.infoCard, { opacity: chartReveal }]}>
+              <Text style={s.placeName}>{detail.place.name}</Text>
+              {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
+              {detail.place.phone !== null && detail.place.phone.length > 0 && (
+                <Text style={s.placeMeta}>{detail.place.phone}</Text>
               )}
-            </View>
+              {detail.place.address.length > 0 && <Text style={s.placeAddress}>{detail.place.address}</Text>}
 
-            {/*
-              요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
+              {/*
+                요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
 
-              `surface`를 켜지 않는다 — 이제 이 카드 안에 들어가므로 자기 배경을 그리면 카드가
-              겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`INFO_CARD_PADDING`)으로
-              맞춰 뒀다.
+                `surface`를 켜지 않는다 — 이 카드 안에 들어가므로 자기 배경을 그리면 카드가
+                겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`INFO_CARD_PADDING`)으로
+                맞춰 뒀다.
 
-              높이를 0에서 제 높이까지 늘려 **카드가 자라면서** 드러나게 한다. 제 높이는 아래
-              `chartProbe`가 미리 재 둔다. 아직 못 쟀으면 높이를 지정하지 않는다 — 부드럽지
-              않을 뿐 그래프는 제 높이로 보인다.
-            */}
-            {chartMounted && detail !== null && (
+                높이를 0에서 제 높이까지 늘려 **카드가 자라면서** 드러나게 한다. 제 높이는 아래
+                `chartProbe`가 미리 재 둔다. 아직 못 쟀으면 높이를 지정하지 않는다 — 부드럽지
+                않을 뿐 그래프는 제 높이로 보인다.
+              */}
               <Animated.View
                 style={[
                   s.chartReveal,
                   chartHeight > 0 && {
                     height: chartReveal.interpolate({ inputRange: [0, 1], outputRange: [0, chartHeight] }),
                   },
-                  { opacity: chartReveal },
                 ]}
               >
                 {/* 창은 제자리에 두고 안쪽이 미끄러져 들어온다. 늘어나는 것과 함께 읽힌다. */}
@@ -425,58 +480,27 @@ export default function Place() {
                   <CrowdChart stats={detail.weeklyCrowdStats} />
                 </Animated.View>
               </Animated.View>
-            )}
-
-            {/*
-              그래프의 제 높이를 재는 자리. 재고 나면 떼어 낸다.
-
-              **위 그래프를 그대로 재면 안 된다** — 늘어나는 상자 안에 있어 잘린 높이가 나온다.
-              그 실수로 예전에 그래프가 아예 보이지 않았다. 절대 배치는 흐름 밖이라 상자 높이에
-              묶이지 않고 제 높이로 눕고, 카드 배치에도 영향을 주지 않는다. 그리지 않고 누르지도
-              못하게 두므로 화면에는 나타나지 않는다.
-            */}
-            {chartHeight === 0 && detail !== null && (
-              <View aria-hidden pointerEvents="none" style={s.chartProbe}>
-                {/* 늘어나는 쪽과 **같은 안쪽 스타일**을 써야 잰 높이가 그대로 목표가 된다. */}
-                <View
-                  style={s.chartInner}
-                  onLayout={(event) => setChartHeight(Math.round(event.nativeEvent.layout.height))}
-                >
-                  <CrowdChart stats={detail.weeklyCrowdStats} />
-                </View>
-              </View>
-            )}
-          </View>
-
-          {level > 0 && pins.length > 0 && (
-            <View style={s.videoSection}>
-              <View style={s.sectionHead}>
-                <Text style={s.sectionTitle}>실시간 영상핀</Text>
-              </View>
 
               {/*
-                "보통" 단계는 높이가 **제목 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
-                아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
-                한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 목록으로 바뀐다.
+                그래프의 제 높이를 재는 자리. 재고 나면 떼어 낸다.
 
-                **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
-                목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
-                끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
+                **위 그래프를 그대로 재면 안 된다** — 늘어나는 상자 안에 있어 잘린 높이가 나온다.
+                그 실수로 예전에 그래프가 아예 보이지 않았다. 절대 배치는 흐름 밖이라 상자 높이에
+                묶이지 않고 제 높이로 눕고, 카드 배치에도 영향을 주지 않는다. 그리지 않고 누르지도
+                못하게 두므로 화면에는 나타나지 않는다.
               */}
-              <PinCardPager
-                pins={pins}
-                paging={!expanded}
-                onSlotHeightChange={setPinSlotHeight}
-                selectedIndex={pinIndex}
-                onIndexChange={setPinIndex}
-                onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
-              />
-            </View>
-          )}
-
-          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
-          {level > 0 && !loading && detail !== null && pins.length === 0 && (
-            <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
+              {chartHeight === 0 && (
+                <View aria-hidden pointerEvents="none" style={s.chartProbe}>
+                  {/* 늘어나는 쪽과 **같은 안쪽 스타일**을 써야 잰 높이가 그대로 목표가 된다. */}
+                  <View
+                    style={s.chartInner}
+                    onLayout={(event) => setChartHeight(Math.round(event.nativeEvent.layout.height))}
+                  >
+                    <CrowdChart stats={detail.weeklyCrowdStats} />
+                  </View>
+                </View>
+              )}
+            </Animated.View>
           )}
         </ScrollView>
       </Animated.View>
@@ -507,6 +531,8 @@ const s = StyleSheet.create({
    * 배경 없이 두면 홈 지도가 그대로 보이고, 시트만 바뀐 것처럼 읽힌다.
    */
   overlay: { flex: 1, overflow: 'hidden' },
+  /** 지도 제스처를 받는 자리. 아무것도 그리지 않고 손가락만 받는다. */
+  mapGestureArea: StyleSheet.absoluteFillObject,
   topControls: { position: 'absolute' },
   /**
    * 검색바는 불투명한 흰색이다.
@@ -565,8 +591,50 @@ const s = StyleSheet.create({
     borderTopRightRadius: radius.hero,
     backgroundColor: colors.sheetSurface,
   },
-  handleArea: { height: 40, alignItems: 'center', paddingTop: spacing.x3 },
-  handle: { width: 40, height: 4, borderRadius: radius.pill, backgroundColor: 'rgba(59,56,56,0.32)' },
+  /**
+   * 손잡이와 머리글. **높이를 고정하지 않는다** — 내용이 정하게 두고 그 값을 재서 스냅 계산에
+   * 넘긴다. 여백은 홈 시트의 머리글과 같은 값이라 두 시트의 첫 줄이 같은 높이에 놓인다.
+   */
+  handleArea: { paddingTop: spacing.x2, paddingBottom: spacing.x3 },
+  handle: {
+    width: 40,
+    height: 4,
+    alignSelf: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(59,56,56,0.32)',
+    marginBottom: spacing.x1,
+  },
+  /** 장소명과 `실시간 영상핀` 이름표가 양끝으로 갈리는 줄. */
+  headingRow: {
+    minHeight: type.h3.lineHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.x3,
+  },
+  /**
+   * 장소명. flex로 남는 폭을 차지해 이름표에 밀려 잘리지 않게 한다.
+   *
+   * `minWidth: 0`이 없으면 긴 이름이 이름표를 화면 밖으로 밀어낸다.
+   */
+  headingName: { ...type.h3, flex: 1, minWidth: 0, fontWeight: '700', color: colors.dark },
+  /** 이름을 기다리는 동안. 이름 자리를 그대로 차지해 도착할 때 줄이 움직이지 않는다. */
+  headingBusy: { flex: 1, alignItems: 'flex-start' },
+  liveLabel: { flexDirection: 'row', alignItems: 'center', gap: spacing.x1 },
+  liveDot: {
+    width: LIVE_DOT_SIZE,
+    height: LIVE_DOT_SIZE,
+    borderRadius: LIVE_DOT_SIZE / 2,
+    backgroundColor: colors.blue,
+  },
+  liveText: { ...type.caption, color: colors.gray600 },
+  /**
+   * 주소 줄. 제목 바로 아래에 붙인다.
+   *
+   * 위로 당기는 이유는 홈 시트와 같다 — 제목 줄이 글줄보다 조금 높게 잡혀 있어 그 차이만큼
+   * 두 줄이 떨어져 보인다. 그만큼을 되돌려 붙인다.
+   */
+  headingAddress: { ...type.caption, color: colors.gray400, marginTop: -spacing.x1 },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: spacing.x6 },
   /**
@@ -601,7 +669,4 @@ const s = StyleSheet.create({
   placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
   emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
-  videoSection: { gap: spacing.x3 },
-  sectionHead: { minHeight: 26, flexDirection: 'row', alignItems: 'center' },
-  sectionTitle: { ...type.title, color: colors.dark },
 });

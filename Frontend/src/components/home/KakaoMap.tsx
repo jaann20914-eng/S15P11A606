@@ -144,6 +144,10 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         send('focusPlace', [latitude, longitude, targetLevel, Math.round(insetRef.current / 2)]),
       searchPlace: (keyword: string) => send('searchPlace', [keyword, Math.round(insetRef.current / 2)]),
       setLevel: (level: number) => send('setLevel', [level]),
+      // 지도를 갖지 않은 화면(장소 상세)이 넘긴 제스처. 자세한 이유는 `MapGestureControl` 참고.
+      dragBy: (dx: number, dy: number) => send('dragBy', [dx, dy]),
+      dragEnd: () => send('dragEnd'),
+      zoomBy: (step: number) => send('zoomBy', [step]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),
       relayout: () => send('relayout'),
     }),

@@ -66,6 +66,7 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
+  const setGestureControl = useMapStore((state) => state.setGestureControl);
   const [mapReady, setMapReady] = useState(false);
 
   /**
@@ -74,10 +75,10 @@ export default function Home() {
    * `KakaoMap`은 최초 중심을 첫 렌더에 HTML로 심으므로, 나중에 옮기면 엉뚱한 동네 타일을
    * 받아 놓고 버리게 된다. 그래서 좌표를 먼저 기다린다.
    *
-   * 내 위치를 얻었으면 그 자리에서 시작하고 핀 맞춤은 하지 않는다 — 핀에 맞추면 방금 잡은
-   * 중심을 곧바로 덮어써 버린다. 못 얻었으면 기존 동작(기본 중심 + 핀 맞춤)으로 돌아간다.
+   * 내 위치를 얻었으면 그 자리에서, 못 얻었으면 기본 중심에서 시작한다. 어느 쪽이든 준비된
+   * 뒤에 핀 전체가 담기도록 맞춘다(`fitPlacesOnReady` 참고) — 그래야 첫 화면이 비지 않는다.
    */
-  const [start, setStart] = useState<{ center: Coordinate; fromMyLocation: boolean } | null>(null);
+  const [start, setStart] = useState<Coordinate | null>(null);
 
   /**
    * 옮겨 갈 좌표를 한 렌더 동안 들고 있는다.
@@ -259,14 +260,11 @@ export default function Home() {
     if (start) return;
 
     if (myLocation.coordinate) {
-      setStart({ center: myLocation.coordinate, fromMyLocation: true });
+      setStart(myLocation.coordinate);
       return;
     }
 
-    const timer = setTimeout(
-      () => setStart({ center: DEFAULT_CENTER, fromMyLocation: false }),
-      MY_LOCATION_WAIT_MS,
-    );
+    const timer = setTimeout(() => setStart(DEFAULT_CENTER), MY_LOCATION_WAIT_MS);
     return () => clearTimeout(timer);
   }, [myLocation.coordinate, start]);
 
@@ -295,6 +293,30 @@ export default function Home() {
     mapRef.current?.focusPlace(pendingPan.coordinate, pendingPan.level);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
+
+  /*
+    상세를 닫으면 장소 마커가 다시 **여러 개** 보이는 축척으로 넓힌다.
+
+    상세는 영상핀을 20m까지 당겨 보여준다. 그 상태로 홈에 돌아오면 마커는 장소로 되돌아오지만
+    그 축척에는 장소 하나밖에 들어오지 않아, 핀이 하나뿐인 지도가 기본 화면으로 남는다.
+    장소용 축척(250m)으로 넓혀 주변 장소가 함께 보이게 한다.
+
+    이미 그보다 넓게 보고 있으면 건드리지 않는다 — 사용자가 손으로 잡은 축척을 되돌리지 않는다.
+  */
+  const hadPinOverlay = useRef(false);
+  useEffect(() => {
+    if (pinOverlay !== null) {
+      hadPinOverlay.current = true;
+      return;
+    }
+    if (!hadPinOverlay.current) return;
+
+    hadPinOverlay.current = false;
+    if (mapLevel < PLACE_FOCUS_MAP_LEVEL) mapRef.current?.setLevel(PLACE_FOCUS_MAP_LEVEL);
+  }, [mapLevel, pinOverlay]);
+
+  /* 홈이 사라지면 이 지도도 없다. 손잡이를 남겨 두면 없는 WebView에 명령을 보낸다. */
+  useEffect(() => () => setGestureControl(null), [setGestureControl]);
 
   /**
    * 이 화면이 맨 위인지.
@@ -338,15 +360,35 @@ export default function Home() {
         <KakaoMap
           ref={mapRef}
           fullScreen
-          center={start.center}
+          center={start}
           myLocation={myLocation.coordinate}
           bottomInset={coveredHeight}
           places={markers}
           filter={crowdFilter}
           selectedPlaceId={selectedMarkerId}
-          // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
-          fitPlacesOnReady={!start.fromMyLocation}
-          onReady={() => setMapReady(true)}
+          /*
+            **첫 화면은 언제나 핀 전체가 담기도록 맞춘다.**
+
+            예전에는 내 위치를 얻었으면 맞추지 않았다(`!start.fromMyLocation`) — 방금 잡은 중심을
+            덮어쓰지 않으려는 것이었다. 그런데 장소들은 성수·광진 일대에 모여 있어서, 그 밖에서
+            앱을 열면 **핀이 하나도 없는 지도**가 기본 화면이 됐다. 실기기에서 강남에서 열었을 때
+            바로 그랬다. 지도에 아무것도 없으면 "핀이 안 나온다"가 되고, 그게 첫 화면이다.
+
+            내 위치는 마커로 그대로 남고 버튼 한 번으로 돌아갈 수 있다. 반대로 핀이 화면 밖에
+            있으면 그것을 되찾을 방법이 사용자에게 없다.
+          */
+          fitPlacesOnReady
+          onReady={() => {
+            setMapReady(true);
+            /*
+              지도 손잡이를 저장소에 등록한다.
+
+              **위에 겹치는 장소 상세가 이것으로 이 지도를 끌고 당긴다.** 그 화면은 자기 지도가
+              없고, 안드로이드에서는 겹친 화면이 터치를 삼켜 손가락이 이 WebView까지 닿지 않는다.
+              등록해 두면 상세가 받은 제스처가 명령으로 바뀌어 여기로 온다(`useMapGestures`).
+            */
+            setGestureControl(mapRef.current);
+          }}
           // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
           onPinPress={pressMapPin}
           onMapPress={clearSelection}

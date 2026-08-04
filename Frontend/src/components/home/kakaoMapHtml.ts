@@ -204,9 +204,20 @@ export function buildKakaoMapHtml({
     }
   }
 
+  /** 카카오 확대 레벨의 양 끝. 이 밖으로 나가면 SDK가 요청을 무시한다. */
+  var MIN_LEVEL = 1;
+  var MAX_LEVEL = 14;
+
   var map = null;
   var overlays = [];
   var meOverlay = null;
+  /**
+   * RN이 넘겨 준 손가락으로 지도를 끌고 있는지.
+   *
+   * 끄는 동안에는 프레임마다 중심을 옮기므로 SDK의 idle이 그만큼 쏟아진다. 그때마다 RN이
+   * 다시 렌더되면 끄는 손이 무거워지므로, 손을 뗄 때('dragEnd') 한 번만 알린다.
+   */
+  var manualDrag = false;
   var state = { places: [], filter: 'relaxed', selectedPlaceId: null, myLocation: null };
   /** 핀이 도착하기 전에 들어온 fitPlaces 요청. 첫 렌더 직후 처리한다. */
   var pendingFitInset = null;
@@ -601,6 +612,49 @@ export function buildKakaoMapHtml({
       }
       fitToPlaces(bottomInsetPx);
     },
+    /**
+     * 화면 픽셀만큼 지도를 끈다. 손가락이 간 방향으로 지도가 따라온다.
+     *
+     * **장소 상세 화면이 쓴다.** 그 화면은 이 지도를 반투명하게 비추고 있을 뿐이라 손가락이
+     * WebView까지 닿지 않는다 — 안드로이드에서 위에 겹친 화면(react-native-screens의 'Screen')이
+     * 터치를 그대로 삼키기 때문이다. 그래서 상세가 제스처를 받아 이 명령으로 넘긴다.
+     *
+     * 중심을 옮길 뿐이라 확대 레벨과 무관하게 손가락과 지도가 같은 거리를 간다.
+     */
+    dragBy: function (dx, dy) {
+      if (!map) return;
+      // 진행 중인 이동은 버린다. 손보다 지도가 앞서 가면 안 된다('dragstart'와 같은 이유다).
+      cancelPan();
+      manualDrag = true;
+
+      var projection = map.getProjection();
+      var point = projection.containerPointFromCoords(map.getCenter());
+      // 지도가 손가락을 따라가려면 중심은 반대로 움직여야 한다.
+      map.setCenter(projection.coordsFromContainerPoint(new kakao.maps.Point(point.x - dx, point.y - dy)));
+    },
+    /** 끄는 손을 뗐을 때. 멈춘 자리를 한 번만 알린다. */
+    dragEnd: function () {
+      if (!map) return;
+      manualDrag = false;
+      sendIdle();
+    },
+    /**
+     * 지금 중심을 그대로 두고 한 단계 당기거나 넓힌다. 'step'이 양수면 당긴다.
+     *
+     * 두 손가락으로 벌리는 동작을 대신한다. 'setLevel'과 달리 목표 레벨을 모르는 쪽에서 부를 수
+     * 있어야 한다 — 부르는 쪽(상세 화면)은 지금 축척을 알지 못한다.
+     */
+    zoomBy: function (step) {
+      if (!map) return;
+      cancelPan();
+
+      var next = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, map.getLevel() - step));
+      if (next === map.getLevel()) return;
+
+      map.setLevel(next, { animate: true });
+      // 축척은 곧바로 바뀌므로 여기서 알린다. 애니메이션이 끝나며 한 번 더 오는 것은 무해하다.
+      sendIdle();
+    },
     setLevel: function (level) {
       if (!map) return;
       // 확대와 이동이 겹치면 서로 목표를 덮어써 화면이 튄다. 이동을 먼저 끊는다.
@@ -696,7 +750,7 @@ export function buildKakaoMapHtml({
       화면이 멈춘 뒤 한 번만 보내면 되므로, 움직이는 동안은 건너뛰고 centerOn이 끝낼 때 보낸다.
     */
     kakao.maps.event.addListener(map, 'idle', function () {
-      if (panFrame === null) sendIdle();
+      if (panFrame === null && !manualDrag) sendIdle();
     });
 
     // 사용자가 직접 밀기 시작하면 진행 중인 이동을 멈춘다. 손보다 지도가 앞서 가면 안 된다.
@@ -736,7 +790,16 @@ export function buildKakaoMapHtml({
 }
 
 export type MapCommand =
-  'update' | 'panTo' | 'focusPlace' | 'searchPlace' | 'setLevel' | 'fitPlaces' | 'relayout';
+  | 'update'
+  | 'panTo'
+  | 'focusPlace'
+  | 'searchPlace'
+  | 'setLevel'
+  | 'fitPlaces'
+  | 'relayout'
+  | 'dragBy'
+  | 'dragEnd'
+  | 'zoomBy';
 
 /** 지도 안의 `window.WagleMap` 메서드를 호출하는 명령을 직렬화한다. */
 export function serializeMapCommand(method: MapCommand, ...args: unknown[]): string {
