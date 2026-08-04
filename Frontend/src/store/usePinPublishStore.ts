@@ -104,6 +104,13 @@ function toRequest(
 
 /** 오류 코드별 안내. 사용자가 다음에 무엇을 해야 하는지가 다르다. */
 const messageByCode: Record<string, string> = {
+  /*
+    필수값 누락 · 타입 · 범위 오류. 화면이 미리 막고 있어 실제로는 잘 나오지 않지만, 서버가
+    길이 제한을 조이거나 필드가 늘어나면 이 코드로 온다. 원문이 그대로 뜨면 사용자가 무엇을
+    고쳐야 하는지 알 수 없다.
+  */
+  INVALID_REQUEST: '입력한 내용을 다시 확인해 주세요.',
+  UNAUTHORIZED: '다시 로그인한 뒤 등록해 주세요.',
   LOCATION_OUT_OF_RANGE: `선택한 장소와 촬영 위치가 너무 멀어요. ${MAX_PLACE_DISTANCE_METERS}m 안의 장소를 골라 주세요.`,
   VIDEO_NOT_ACCESSIBLE: '영상을 올리지 못했어요. 다시 촬영해 주세요.',
   VIDEO_ALREADY_REGISTERED: '이미 등록에 사용한 영상이에요. 다시 촬영해 주세요.',
