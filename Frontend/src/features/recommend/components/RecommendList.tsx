@@ -43,7 +43,7 @@ export function RecommendList({ places, mode, loading, error, onRetry }: Recomme
           비어 있는 것이 흔한 상태다 — 추천은 영상핀이 달린 장소만 대상으로 하므로 주변에 아직
           올라온 것이 없으면 빈 목록이 온다. 그래서 실패와 구분해 따로 그린다.
         */
-        <RecommendEmpty onRetry={onRetry} />
+        <RecommendEmpty mode={mode} onRetry={onRetry} />
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={s.list}>
           {places.map((place) => (

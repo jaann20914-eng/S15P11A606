@@ -77,8 +77,12 @@ export const recommendStyles = StyleSheet.create({
     paddingHorizontal: layout.gutter,
     paddingVertical: spacing.x8,
   },
-  /** 3D 일러스트. 문구보다 먼저 눈에 들어오되 화면을 다 먹지 않을 크기로 둔다. */
-  emptyIllustration: { width: 132, height: 132 },
+  /**
+   * 3D 일러스트. 문구보다 먼저 눈에 들어오되 화면을 다 먹지 않을 크기로 둔다.
+   *
+   * 원본이 104px이라 그보다 크게 그리면 흐려진다. 더 키우려면 원본을 2~3배로 다시 받아야 한다.
+   */
+  emptyIllustration: { width: 96, height: 96 },
   emptyTitle: { ...type.h3, color: colors.dark, marginTop: spacing.x4 },
   emptyBody: {
     ...type.small,
