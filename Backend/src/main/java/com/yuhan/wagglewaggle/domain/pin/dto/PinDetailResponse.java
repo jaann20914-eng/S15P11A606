@@ -14,13 +14,14 @@ import java.util.UUID;
  * 작성자의 내부 memberId, 원본 영상 URL. 블러 영상·썸네일은 요청 시점마다 발급한 Presigned GET URL
  * ({@code videoUrl}·{@code thumbnailUrl})로만 노출한다.</p>
  *
- * <p>{@code createdAt}은 UTC ISO 8601 형식으로 직렬화한다. 태그가 없으면 빈 배열이다.</p>
+ * <p>{@code createdAt}·{@code expiresAt}은 UTC ISO 8601 형식으로 직렬화한다. 태그가 없으면 빈 배열이다.</p>
  */
 public record PinDetailResponse(
         UUID pinId,
         BigDecimal authorViewAngle,
         String authorNickname,
         Instant createdAt,
+        Instant expiresAt,
         PlaceDetail place,
         CrowdLevel crowdLevel,
         String detailLocation,

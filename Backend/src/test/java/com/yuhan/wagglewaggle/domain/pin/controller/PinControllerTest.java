@@ -295,6 +295,7 @@ class PinControllerTest {
                 java.math.BigDecimal.valueOf(90),
                 "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
+                Instant.parse("2026-07-28T04:20:00Z"),
                 new PinDetailResponse.PlaceDetail(
                         1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
                 CrowdLevel.WAGLE,
@@ -321,6 +322,7 @@ class PinControllerTest {
                 .andExpect(jsonPath("$.data.authorViewAngle").value(90))
                 .andExpect(jsonPath("$.data.authorNickname").value("와글러"))
                 .andExpect(jsonPath("$.data.createdAt").value("2026-07-28T03:20:00Z"))
+                .andExpect(jsonPath("$.data.expiresAt").value("2026-07-28T04:20:00Z"))
                 .andExpect(jsonPath("$.data.place.placeId").value(1))
                 .andExpect(jsonPath("$.data.place.kakaoPlaceId").value("1372855768"))
                 .andExpect(jsonPath("$.data.place.name").value("바나프레소 테헤란로점"))
@@ -364,6 +366,7 @@ class PinControllerTest {
         PinDetailResponse res = new PinDetailResponse(
                 java.util.UUID.fromString(PIN_ID), java.math.BigDecimal.valueOf(90), "와글러",
                 Instant.parse("2026-07-28T03:20:00Z"),
+                Instant.parse("2026-07-28T04:20:00Z"),
                 new PinDetailResponse.PlaceDetail(1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625),
                 CrowdLevel.WAGLE, null, null, List.of(),
                 VideoAccessLevel.OWNER, null,
