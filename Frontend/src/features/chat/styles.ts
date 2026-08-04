@@ -199,7 +199,6 @@ export const chatListStyles = StyleSheet.create({
     minHeight: DECISION_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    // 시각 바로 옆에 붙인다. 양끝으로 벌리면 버튼이 글 묶음에서 떨어져 보인다.
     gap: spacing.x3,
     /*
       위 글에 바로 이어 붙인다.
@@ -225,8 +224,13 @@ export const chatListStyles = StyleSheet.create({
   ended: { color: colors.gray400 },
   unread: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.lime },
 
-  /** 대기 중인 요청에 붙는 수락 · 거절. 마지막 줄에서 시각 오른쪽에 나란히 놓인다. */
-  decisions: { flexDirection: 'row', gap: spacing.x2 },
+  /**
+   * 대기 중인 요청에 붙는 수락 · 거절.
+   *
+   * 줄 오른쪽 끝에 고정한다. 시각 옆에 붙여 두면 첫 메시지가 도착해 시각이 생기는 순간 버튼이
+   * 옆으로 밀린다 — 같은 목록에서 줄마다 버튼 위치가 다르면 누르려던 자리가 어긋난다.
+   */
+  decisions: { marginLeft: 'auto', flexDirection: 'row', gap: spacing.x2 },
   decision: {
     width: 72,
     height: DECISION_HEIGHT,

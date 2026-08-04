@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,14 +11,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ViewAvatar } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { useChatDecision } from '@/features/chat/hooks/useChatDecision';
 import { useChatRoom } from '@/features/chat/hooks/useChatRoom';
 import { useChatSocket } from '@/features/chat/hooks/useChatSocket';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import type { ChatRoomStatus, ChatWarning } from '@/types/chat';
 import { splitAddress } from '@/utils/address';
 import { formatTimeOfDay } from '@/utils/datetime';
@@ -65,6 +67,66 @@ export default function Room() {
   const sendable = room.canSend && text.trim().length > 0;
 
   /*
+    방 안에서도 수락 · 거절할 수 있게 한다. 요청 카드에서 대화 내용을 읽고 나면 답하고 싶은
+    자리가 바로 여기인데, 목록으로 돌아가야만 답할 수 있으면 두 번 오가게 된다.
+    처리 후에는 이력을 다시 받아 상태(요청 카드 → 대화)를 맞춘다. 목록은 화면으로 돌아갈 때
+    스스로 다시 받는다.
+  */
+  const decision = useChatDecision(room.reload);
+
+  useEffect(() => {
+    if (decision.error === null) return;
+
+    Alert.alert('요청을 처리하지 못했어요', decision.error, [
+      { text: '확인', onPress: decision.dismissError },
+    ]);
+  }, [decision.error, decision.dismissError]);
+
+  /*
+    키보드가 덮는 만큼 화면을 접는다.
+
+    `KeyboardAvoidingView`는 안드로이드에서 창이 줄어드는 것에 기대는데, 이 앱은 화면 끝까지
+    그리는 방식이라 창이 줄지 않는다 — 키보드가 입력칸을 그대로 덮어 무엇을 쓰는지 보이지
+    않았다. 등록 화면과 같은 방식으로 겹치는 높이를 직접 재서 아래 여백으로 만든다.
+  */
+  const screenRef = useRef<View>(null);
+  const keyboardOverlap = useKeyboardOverlap(screenRef);
+
+  /*
+    메시지 목록의 스크롤 위치.
+
+    - 이력을 받아 처음 그릴 때는 **맨 아래**로 간다. 마지막 대화가 이어 갈 지점이다.
+    - 새 메시지가 붙을 때는 바닥 근처를 보고 있을 때만 따라 내려간다. 위로 올려 지난 대화를
+      읽는 중이라면 끌어내리지 않는다.
+    - 키보드가 열려 화면이 접힐 때도 바닥을 유지한다.
+  */
+  const scrollRef = useRef<ScrollView>(null);
+  const nearBottomRef = useRef(true);
+  const renderedOnceRef = useRef(false);
+
+  const followBottom = () => {
+    if (!renderedOnceRef.current) {
+      scrollRef.current?.scrollToEnd({ animated: false });
+      renderedOnceRef.current = true;
+      return;
+    }
+
+    if (nearBottomRef.current) scrollRef.current?.scrollToEnd({ animated: true });
+  };
+
+  const trackScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+
+    nearBottomRef.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 80;
+  };
+
+  useEffect(() => {
+    if (keyboardOverlap > 0 && nearBottomRef.current) {
+      scrollRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [keyboardOverlap]);
+
+  /*
     들어올 때마다 지난 경고를 한 번 짚어 준다.
 
     경고 팝업은 도착할 때 한 번 뜨고 마는데, 그것만으로는 방을 다시 열었을 때 이 대화에 경고가
@@ -85,10 +147,7 @@ export default function Room() {
   }, [room.loading, lastWarning]);
 
   /** 주소 끝 괄호(법정동)는 헤더에서 떼어 낸다. 한 줄뿐이라 도로명이 먼저 보여야 한다. */
-  const address = useMemo(
-    () => (room.info === null ? null : splitAddress(room.info.address)),
-    [room.info],
-  );
+  const address = useMemo(() => (room.info === null ? null : splitAddress(room.info.address)), [room.info]);
 
   const send = (value: string) => {
     room.send(value);
@@ -97,10 +156,7 @@ export default function Room() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView
-        style={s.screen}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View ref={screenRef} style={[s.screen, { paddingBottom: keyboardOverlap }]}>
         <View style={s.header}>
           <Pressable accessibilityRole="button" onPress={() => router.back()} style={s.back}>
             <Ionicons name="chevron-back" size={24} color={colors.gray400} />
@@ -110,9 +166,7 @@ export default function Room() {
 
           <View style={s.headerCopy}>
             <Text numberOfLines={1} style={s.headerTitle}>
-              {room.info === null
-                ? '대화'
-                : `${room.info.placeName} · ${room.info.otherUserNickname}`}
+              {room.info === null ? '대화' : `${room.info.placeName} · ${room.info.otherUserNickname}`}
             </Text>
             {address !== null && (
               <Text numberOfLines={1} style={s.headerMeta}>
@@ -135,7 +189,14 @@ export default function Room() {
             </Pressable>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.messages}>
+          <ScrollView
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.messages}
+            onContentSizeChange={followBottom}
+            onScroll={trackScroll}
+            scrollEventThrottle={100}
+          >
             {status === 'PENDING' && (
               <View style={s.requestCard}>
                 <Text style={s.requestTitle}>
@@ -143,9 +204,38 @@ export default function Room() {
                 </Text>
                 <Text style={s.requestText}>
                   {isOwner
-                    ? '요청을 수락하면 요청자에게서 5크레딧이 차감되고 나에게 5크레딧이 적립돼요. 수락은 목록에서 할 수 있어요.'
+                    ? '요청을 수락하면 요청자에게서 5크레딧이 차감되고 나에게 5크레딧이 적립돼요.'
                     : '먼저 궁금한 것을 남겨 두면 상대가 수락할 때 함께 전달돼요.'}
                 </Text>
+
+                {isOwner && (
+                  <View style={s.requestActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={decision.busyRoomId !== null}
+                      onPress={() => decision.decide(roomId, 'REJECT')}
+                      style={[
+                        s.requestAction,
+                        s.requestReject,
+                        decision.busyRoomId !== null && s.requestBusy,
+                      ]}
+                    >
+                      <Text style={s.requestRejectText}>거절</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={decision.busyRoomId !== null}
+                      onPress={() => decision.decide(roomId, 'ACCEPT')}
+                      style={[
+                        s.requestAction,
+                        s.requestAccept,
+                        decision.busyRoomId !== null && s.requestBusy,
+                      ]}
+                    >
+                      <Text style={s.requestAcceptText}>수락</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
 
@@ -199,18 +289,9 @@ export default function Room() {
 
         <View style={s.composer}>
           {room.canSend && room.messages.length === 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.quickRow}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.quickRow}>
               {quickMessages.map((item) => (
-                <Pressable
-                  accessibilityRole="button"
-                  key={item}
-                  onPress={() => send(item)}
-                  style={s.quick}
-                >
+                <Pressable accessibilityRole="button" key={item} onPress={() => send(item)} style={s.quick}>
                   <Text style={s.quickText}>{item}</Text>
                 </Pressable>
               ))}
@@ -224,6 +305,10 @@ export default function Room() {
           )}
 
           <View style={s.inputRow}>
+            {/*
+              보낼 수 없는 방은 입력칸을 회색으로 채워 눌러볼 여지를 없앤다. 흰 칸에 안내만 있으면
+              "지금은 안 되는 것"이 아니라 "눌러 보면 될 것"처럼 읽힌다.
+            */}
             <TextInput
               value={text}
               onChangeText={setText}
@@ -231,7 +316,7 @@ export default function Room() {
               placeholder={status === null ? '' : placeholderByStatus(status, isOwner)}
               placeholderTextColor={colors.gray400}
               onSubmitEditing={() => send(text)}
-              style={s.input}
+              style={[s.input, !room.canSend && s.inputDisabled]}
             />
             <Pressable
               accessibilityRole="button"
@@ -243,7 +328,7 @@ export default function Room() {
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       {/*
         방금 도착한 경고는 팝업으로 막아 세운다. 대화 중에 바로 알아야 하는 내용이고, 흐르는
@@ -257,19 +342,12 @@ export default function Room() {
       >
         <View style={s.backdrop}>
           <View style={s.warningCard}>
-            <Image
-              source={require('../../assets/images/chat-warning-3d.png')}
-              style={s.warningImage}
-            />
+            <Image source={require('../../assets/images/chat-warning-3d.png')} style={s.warningImage} />
             <Text style={s.warningTitle}>잠깐 확인해 주세요</Text>
             <Text style={s.warningText}>{room.arrivedWarning?.content}</Text>
             <Text style={s.warningMeta}>AI 실시간 감지 · 자동 안내</Text>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={room.dismissWarning}
-              style={s.warningButton}
-            >
+            <Pressable accessibilityRole="button" onPress={room.dismissWarning} style={s.warningButton}>
               <Text style={s.warningButtonText}>알겠어요</Text>
             </Pressable>
           </View>
@@ -324,6 +402,20 @@ const s = StyleSheet.create({
   },
   requestTitle: { ...type.title, color: colors.dark },
   requestText: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
+  /** 요청 카드 안의 수락 · 거절. 목록의 버튼과 같은 순서(거절 왼쪽 · 수락 오른쪽)를 쓴다. */
+  requestActions: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x4 },
+  requestAction: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
+  requestAccept: { backgroundColor: colors.lime },
+  requestAcceptText: { ...type.label, color: colors.dark, fontWeight: '600' },
+  requestReject: { backgroundColor: colors.gray100 },
+  requestRejectText: { ...type.label, color: colors.gray600, fontWeight: '600' },
+  requestBusy: { opacity: 0.6 },
   endedCard: {
     padding: spacing.x4,
     borderWidth: 1,
@@ -401,6 +493,8 @@ const s = StyleSheet.create({
     ...type.body,
     color: colors.dark,
   },
+  /** 보낼 수 없는 방의 입력칸. 회색으로 채워 입력할 곳이 아님을 모양으로 알린다. */
+  inputDisabled: { backgroundColor: colors.gray100, borderColor: colors.gray100 },
   send: {
     width: 48,
     height: 48,
