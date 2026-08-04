@@ -12,6 +12,7 @@ import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.geo.GeoDistanceCalculator;
 import com.yuhan.wagglewaggle.global.jackson.PatchField;
+import com.yuhan.wagglewaggle.global.text.GraphemeCounter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.locationtech.jts.geom.Point;
@@ -151,8 +152,8 @@ public class PinUpdateValidator {
             throw new CustomException(ErrorCode.INVALID_PIN_UPDATE_REQUEST);
         }
 
-        // memo: null=삭제 허용, 값이면 50자 이하.
-        if (r.memo().hasValue() && r.memo().value().length() > MAX_MEMO_LENGTH) {
+        // memo: null=삭제 허용, 값이면 50자 이하(사람이 보는 글자 수 = 자소 클러스터 기준).
+        if (r.memo().hasValue() && GraphemeCounter.count(r.memo().value()) > MAX_MEMO_LENGTH) {
             throw new CustomException(ErrorCode.INVALID_PIN_UPDATE_REQUEST);
         }
 
