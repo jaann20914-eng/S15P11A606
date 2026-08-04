@@ -106,7 +106,7 @@ class PlaceSearchConfirmServiceTest {
     void DB에_없지만_카카오에_매칭되면_place만_채우고_핀과_통계는_빈배열이며_place는_null로_저장한다() {
         Document matched = new Document(
                 KAKAO_PLACE_ID, "카카오 카페 A", "서울 강남구 지번",
-                "서울 강남구 도로명 123", "02-987-6543", "127.02", "37.50", null);
+                "서울 강남구 도로명 123", null, null, null, "02-987-6543", "127.02", "37.50", null);
 
         given(placeRepository.findByKakaoPlaceId(KAKAO_PLACE_ID)).willReturn(Optional.empty());
         given(kakaoLocalClient.searchKeywordOnly(PLACE_NAME, 1, 1, "accuracy"))
@@ -138,7 +138,7 @@ class PlaceSearchConfirmServiceTest {
     @Test
     void DB에_없고_카카오_top1의_id가_다르면_PLACE_NOT_FOUND이고_검색기록을_저장하지_않는다() {
         Document other = new Document(
-                "9999999999", "다른 카페", "지번", "도로명", "02-000-0000", "127.02", "37.50", null);
+                "9999999999", "다른 카페", "지번", "도로명", null, null, null, "02-000-0000", "127.02", "37.50", null);
 
         given(placeRepository.findByKakaoPlaceId(KAKAO_PLACE_ID)).willReturn(Optional.empty());
         given(kakaoLocalClient.searchKeywordOnly(PLACE_NAME, 1, 1, "accuracy"))

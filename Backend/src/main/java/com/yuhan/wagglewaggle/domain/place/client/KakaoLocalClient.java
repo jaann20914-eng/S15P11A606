@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 public class KakaoLocalClient {
 
     private static final String KEYWORD_SEARCH_PATH = "/v2/local/search/keyword.json";
+    private static final String CATEGORY_SEARCH_PATH = "/v2/local/search/category.json";
 
     private final RestClient kakaoRestClient;
 
@@ -60,6 +61,26 @@ public class KakaoLocalClient {
                         .queryParam("y", latitude)
                         .queryParam("radius", radius)
                         .queryParam("page", page)
+                        .queryParam("size", size)
+                        .queryParam("sort", sort)
+                        .build())
+                .retrieve()
+                .body(KakaoKeywordResponse.class);
+    }
+
+    /**
+     * 특정 좌표 주변을 카카오 카테고리 그룹 코드(예: CE7, FD6)로 검색한다.
+     * 반경 50m 내 장소 조회에서 카테고리별 후보를 얻기 위해 사용한다.
+     */
+    public KakaoKeywordResponse searchCategory(
+            String categoryGroupCode, double latitude, double longitude, int radius, int size, String sort) {
+        return kakaoRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(CATEGORY_SEARCH_PATH)
+                        .queryParam("category_group_code", categoryGroupCode)
+                        .queryParam("x", longitude)
+                        .queryParam("y", latitude)
+                        .queryParam("radius", radius)
                         .queryParam("size", size)
                         .queryParam("sort", sort)
                         .build())
