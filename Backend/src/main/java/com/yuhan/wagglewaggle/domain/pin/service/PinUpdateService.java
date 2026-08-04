@@ -7,7 +7,6 @@ import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinUpdate;
-import com.yuhan.wagglewaggle.domain.place.service.PlaceScoreRecalculationPort;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,7 @@ import java.util.List;
  *
  * <p>요청 검증({@link PinUpdateValidator}) → (영상 교체 시) 외부 영상 객체 검증
  * ({@link ReplacementVideoValidator}) → 반영 트랜잭션({@link PinUpdatePersistenceService})
- * → 커밋 이후 RabbitMQ 발행·장소 점수 재계산 순으로 오케스트레이션한다.</p>
+ * → 커밋 이후 RabbitMQ 발행 순으로 오케스트레이션한다.</p>
  *
  * <p>외부 I/O(S3 HEAD) 검증은 트랜잭션 밖에서 끝내고, DB 변경만 한 트랜잭션으로 처리한다.
  * 저장 실패(예상치 못한 오류)는 롤백 후 PIN_UPDATE_FAILED(500)로 매핑한다.
@@ -37,7 +36,6 @@ public class PinUpdateService {
     private final AiBlurJobRepository aiBlurJobRepository;
     private final PinUpdatePersistenceService pinUpdatePersistenceService;
     private final AiBlurJobPublisher aiBlurJobPublisher;
-    private final PlaceScoreRecalculationPort placeScoreRecalculationPort;
 
     public PinUpdateResponse update(Long memberId, String rawPinId, PinUpdateRequest request) {
         // 1. pinId 형식 · Pin 존재/작성자/상태 · 요청 필드 · 최종 장소/좌표/거리 검증
@@ -77,15 +75,6 @@ public class PinUpdateService {
             } catch (Exception e) {
                 log.error("ai.blur.request 교체 최초 발행 실패 (requestId={}). 재발행 스케줄러가 재시도한다.",
                         result.aiBlurJob().getRequestId(), e);
-            }
-        }
-
-        // 10. 커밋 이후 장소 점수 재계산(경계만; 현재 미구현). 실패해도 수정 결과에 영향을 주지 않는다.
-        for (Long placeId : result.placeIdsToRecalculate()) {
-            try {
-                placeScoreRecalculationPort.recalculate(placeId);
-            } catch (Exception e) {
-                log.error("장소 점수 재계산 실패 (placeId={})", placeId, e);
             }
         }
 

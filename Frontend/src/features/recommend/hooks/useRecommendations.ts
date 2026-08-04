@@ -4,7 +4,10 @@ import { getRecommendations } from '@/api/recommend/places';
 import type { CrowdFilter } from '@/constants/crowdLevels';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import type { RecommendationsResponse, RecommendedPlace } from '@/types/recommend';
+import { createDevLogger } from '@/utils/devLog';
 import { withMinimumDuration } from '@/utils/promise';
+
+const log = createDevLogger('recommend');
 
 export interface RecommendationsState {
   /** 지금 고른 계열. 여유·와글 토글이 이 값을 바꾼다. */
@@ -19,6 +22,8 @@ export interface RecommendationsState {
   /** 실패 문구. 성공하면 null. */
   error: string | null;
   setMode: (mode: CrowdFilter) => void;
+  /** 다시 조회한다. 빈 목록 · 실패 화면의 버튼이 부른다. */
+  reload: () => void;
 }
 
 /** 오류 코드별 안내. */
@@ -50,6 +55,9 @@ export function useRecommendations(): RecommendationsState {
 
   const { request: requestLocation } = useCurrentLocation();
 
+  /** 다시 조회하기. 값이 바뀌면 아래 이펙트가 한 번 더 돈다. */
+  const [reloadCount, setReloadCount] = useState(0);
+
   /** 이미 조회했는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
   const requested = useRef(false);
 
@@ -57,10 +65,22 @@ export function useRecommendations(): RecommendationsState {
     if (requested.current) return;
     requested.current = true;
 
-    // 좌표를 못 받아도 요청은 보낸다. 그때는 서버가 캐시나 인기순으로 답한다.
-    const load = requestLocation().then((coordinate) =>
-      getRecommendations(coordinate === null ? {} : coordinate),
-    );
+    setLoading(true);
+    setError(null);
+    log(reloadCount === 0 ? '화면 진입' : '다시 조회');
+
+    /*
+      좌표를 못 받아도 요청은 보낸다. 그때는 서버가 캐시나 인기순으로 답한다.
+
+      좌표 단계를 따로 남긴다 — 목록이 비어 있을 때 위치를 못 잡은 것인지, 요청이 실패한
+      것인지, 주변에 핀이 없는 것인지 화면만 보고는 구분할 수 없다. 권한 대화상자에서
+      사용자가 아무것도 누르지 않으면 이 단계에서 그대로 멈추기도 한다.
+    */
+    const load = requestLocation().then((coordinate) => {
+      log('좌표 단계 끝', { 좌표: coordinate === null ? '없음(생략하고 요청)' : '확보' });
+
+      return getRecommendations(coordinate === null ? {} : coordinate);
+    });
 
     withMinimumDuration(load, MIN_LOADING_MS)
       .then((received) => {
@@ -68,6 +88,8 @@ export function useRecommendations(): RecommendationsState {
         setLoading(false);
       })
       .catch((cause: unknown) => {
+        log('실패', { 코드: cause instanceof ApiError ? cause.code : '없음' });
+
         setLoading(false);
         setError(
           cause instanceof ApiError
@@ -75,15 +97,26 @@ export function useRecommendations(): RecommendationsState {
             : '추천 장소를 불러오지 못했어요',
         );
       });
-  }, [requestLocation]);
+    // 다음 조회를 허용한다. 좌표 · 요청이 모두 끝난 뒤라야 연타로 겹치지 않는다.
+  }, [requestLocation, reloadCount]);
 
   return {
     mode,
-    places: data?.recommendations[mode] ?? [],
+    /*
+      계열 키가 없으면 빈 목록으로 둔다.
+
+      서버가 목록 이름을 바꾸면(`relaxed`·`wagle`) 여기서 조용히 비어 버린다. 그 경우를
+      화면에서 알아볼 수 있도록 요청 기록에 계열별 개수를 함께 남겨 둔다(`api/recommend/log`).
+    */
+    places: data?.recommendations?.[mode] ?? [],
     generatedAt: data?.generatedAt ?? null,
     isFallback: data?.recommendationType === 'POPULAR_FALLBACK',
     loading,
     error,
     setMode: useCallback((next: CrowdFilter) => setModeState(next), []),
+    reload: useCallback(() => {
+      requested.current = false;
+      setReloadCount((count) => count + 1);
+    }, []),
   };
 }

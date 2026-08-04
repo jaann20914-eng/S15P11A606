@@ -14,6 +14,7 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -33,6 +34,7 @@ class RabbitAiBlurJobPublisherTest {
     @Mock private RabbitTemplate rabbitTemplate;
     @Captor private ArgumentCaptor<AiBlurRequestMessage> messageCaptor;
     @Captor private ArgumentCaptor<MessagePostProcessor> postProcessorCaptor;
+    @Captor private ArgumentCaptor<CorrelationData> correlationCaptor;
 
     private RabbitAiBlurJobPublisher publisher;
 
@@ -54,18 +56,21 @@ class RabbitAiBlurJobPublisherTest {
     }
 
     @Test
-    void 지정한_Exchange와_RoutingKey로_메시지_본문을_발행한다() {
+    void 지정한_Exchange와_RoutingKey로_메시지_본문과_CorrelationData를_발행한다() {
         publisher.publish(job());
 
         verify(rabbitTemplate).convertAndSend(
                 eq("ai.blur.exchange"), eq("ai.blur.request"),
-                messageCaptor.capture(), postProcessorCaptor.capture());
+                messageCaptor.capture(), postProcessorCaptor.capture(), correlationCaptor.capture());
 
         AiBlurRequestMessage message = messageCaptor.getValue();
         assertThat(message.requestId()).isEqualTo(REQUEST_ID);
         assertThat(message.pinId()).isEqualTo(PIN_ID);
         assertThat(message.originalVideoKey()).isEqualTo(KEY);
         assertThat(message.requestedAt()).isEqualTo(NOW);
+
+        // confirm/return이 어느 작업인지 식별하도록 CorrelationData id에 requestId를 싣는다.
+        assertThat(correlationCaptor.getValue().getId()).isEqualTo(REQUEST_ID.toString());
     }
 
     @Test
@@ -73,7 +78,7 @@ class RabbitAiBlurJobPublisherTest {
         publisher.publish(job());
         verify(rabbitTemplate).convertAndSend(
                 eq("ai.blur.exchange"), eq("ai.blur.request"),
-                messageCaptor.capture(), postProcessorCaptor.capture());
+                messageCaptor.capture(), postProcessorCaptor.capture(), correlationCaptor.capture());
 
         Message processed = postProcessorCaptor.getValue()
                 .postProcessMessage(new Message("body".getBytes(), new MessageProperties()));

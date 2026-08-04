@@ -8,6 +8,7 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.ReturnedMessage;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -123,13 +124,25 @@ public class RabbitConfig {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(aiBlurMessageConverter);
         rabbitTemplate.setMandatory(true);
+        // 발행 결과를 requestId(CorrelationData id) 단위로 해석한다.
+        // NACK(브로커 미수신) 또는 unroutable 반환(라우팅 실패)은 발행 성공으로 처리하지 않고 ERROR로 남긴다.
+        // 작업은 ai_blur_jobs.status=PENDING으로 남아 재발행 스케줄러가 회수한다(여기서 상태를 바꾸지 않는다).
         rabbitTemplate.setConfirmCallback((correlation, ack, cause) -> {
+            String requestId = (correlation != null) ? correlation.getId() : null;
             if (!ack) {
-                log.error("RabbitMQ Publisher Confirm NACK (cause={})", cause);
+                log.error("ai.blur.request Publisher Confirm NACK - 발행 실패 처리(PENDING 유지) (requestId={}, cause={})",
+                        requestId, cause);
+                return;
+            }
+            ReturnedMessage returned = (correlation != null) ? correlation.getReturned() : null;
+            if (returned != null) {
+                log.error("ai.blur.request unroutable 반환 - 발행 실패 처리(PENDING 유지) "
+                                + "(requestId={}, routingKey={}, replyText={})",
+                        requestId, returned.getRoutingKey(), returned.getReplyText());
             }
         });
         rabbitTemplate.setReturnsCallback(returned ->
-                log.error("RabbitMQ mandatory 반환 (routingKey={}, replyText={})",
+                log.error("ai.blur.request mandatory 반환 (routingKey={}, replyText={})",
                         returned.getRoutingKey(), returned.getReplyText()));
         return rabbitTemplate;
     }
