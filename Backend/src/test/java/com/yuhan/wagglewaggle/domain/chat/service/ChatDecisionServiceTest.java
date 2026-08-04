@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatDecisionResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomStatusChangedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
@@ -25,8 +26,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +39,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -49,6 +55,7 @@ class ChatDecisionServiceTest {
     @Mock private MemberRepository memberRepository;
     @Mock private CreditTransactionRepository creditTransactionRepository;
     @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
+    @Mock private SimpMessagingTemplate messagingTemplate;
 
     private ChatDecisionService service;
 
@@ -57,11 +64,16 @@ class ChatDecisionServiceTest {
     private static final Long RECIPIENT_ID = 42L; // 요청 수신자 = 결정 주체
     private static final UUID PIN_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
     private static final int ACCEPT_CREDIT = 5;
+    private static final String USER_QUEUE = "/queue/chat-rooms";
+
+    private static final Instant NOW = Instant.parse("2026-08-04T00:00:00Z");
+    private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         service = new ChatDecisionService(
-                chatRoomRepository, memberRepository, creditTransactionRepository, chatRoomMemberRepository);
+                chatRoomRepository, memberRepository, creditTransactionRepository, chatRoomMemberRepository,
+                messagingTemplate, clock);
     }
 
     private ChatDecisionRequest req(String decision) {
@@ -82,6 +94,14 @@ class ChatDecisionServiceTest {
         given(room.getRecipient()).willReturn(recipient);
         given(room.getStatus()).willReturn(ChatRoomStatus.PENDING);
         return room;
+    }
+
+    /** 상태 변경 push가 참조하는 requester·pin을 스텁한다(발행까지 도달하는 흐름용). */
+    private void givenRequesterAndPin(ChatRoom room, Member requester) {
+        given(room.getRequester()).willReturn(requester);
+        Pin pin = mock(Pin.class);
+        given(pin.getId()).willReturn(PIN_ID);
+        given(room.getPin()).willReturn(pin);
     }
 
     @Test
@@ -129,6 +149,25 @@ class ChatDecisionServiceTest {
         assertThat(received.getChangeAmount()).isEqualTo(ACCEPT_CREDIT);
         assertThat(received.getBalanceAfter()).isEqualTo(8);
         assertThat(received.getPinId()).isEqualTo(PIN_ID);
+
+        // 상태 변경을 상대(요청자) 개인 큐로 push한다: status=ACTIVE, senderId=actor(수신자).
+        ChatRoomStatusChangedEvent event = captureStatusEvent();
+        assertThat(event.eventType()).isEqualTo("CHAT_ROOM_STATUS_CHANGED");
+        assertThat(event.data().roomId()).isEqualTo(ROOM_ID);
+        assertThat(event.data().pinId()).isEqualTo(PIN_ID);
+        assertThat(event.data().senderId()).isEqualTo(RECIPIENT_ID);
+        assertThat(event.data().status()).isEqualTo(ChatRoomStatus.ACTIVE);
+        assertThat(event.data().changedAt()).isEqualTo(NOW);
+        assertThat(event.occurredAt()).isEqualTo(NOW);
+    }
+
+    /** 요청자 개인 큐로 발행된 상태 변경 이벤트 1건을 캡처한다. */
+    private ChatRoomStatusChangedEvent captureStatusEvent() {
+        ArgumentCaptor<ChatRoomStatusChangedEvent> captor =
+                ArgumentCaptor.forClass(ChatRoomStatusChangedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(REQUESTER_ID)), eq(USER_QUEUE), captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -157,6 +196,7 @@ class ChatDecisionServiceTest {
         Member requester = member(REQUESTER_ID, 10);
         Member recipient = member(RECIPIENT_ID, 3);
         ChatRoom room = givenPendingRoom(requester, recipient);
+        givenRequesterAndPin(room, requester);
 
         ChatDecisionResponse response = service.decide(RECIPIENT_ID, ROOM_ID, req("REJECT"));
 
@@ -166,6 +206,9 @@ class ChatDecisionServiceTest {
         verify(room, never()).accept();
         verify(memberRepository, never()).findByIdForUpdate(any());
         verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository);
+
+        // 상태 변경(REFUSED)을 요청자 개인 큐로 push한다.
+        assertThat(captureStatusEvent().data().status()).isEqualTo(ChatRoomStatus.REFUSED);
     }
 
     @Test
@@ -174,6 +217,7 @@ class ChatDecisionServiceTest {
         Member requester = member(REQUESTER_ID, 10);
         Member recipient = member(RECIPIENT_ID, 3);
         ChatRoom room = givenPendingRoom(requester, recipient);
+        givenRequesterAndPin(room, requester);
 
         ChatDecisionResponse response = service.decide(RECIPIENT_ID, ROOM_ID, req("LEFT"));
 
@@ -182,6 +226,9 @@ class ChatDecisionServiceTest {
         verify(room).leave();
         verify(memberRepository, never()).findByIdForUpdate(any());
         verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository);
+
+        // 상태 변경(LEFT)을 요청자 개인 큐로 push한다.
+        assertThat(captureStatusEvent().data().status()).isEqualTo(ChatRoomStatus.LEFT);
     }
 
     @Test
@@ -191,7 +238,7 @@ class ChatDecisionServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CHAT_DECISION);
         verifyNoInteractions(chatRoomRepository, memberRepository,
-                creditTransactionRepository, chatRoomMemberRepository);
+                creditTransactionRepository, chatRoomMemberRepository, messagingTemplate);
     }
 
     @Test
@@ -200,7 +247,7 @@ class ChatDecisionServiceTest {
         assertThatThrownBy(() -> service.decide(RECIPIENT_ID, ROOM_ID, req("MAYBE")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_CHAT_DECISION);
-        verifyNoInteractions(chatRoomRepository);
+        verifyNoInteractions(chatRoomRepository, messagingTemplate);
     }
 
     @Test
@@ -211,6 +258,7 @@ class ChatDecisionServiceTest {
         assertThatThrownBy(() -> service.decide(RECIPIENT_ID, ROOM_ID, req("ACCEPT")))
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CHAT_REQUEST_NOT_FOUND);
+        verifyNoInteractions(messagingTemplate);
     }
 
     @Test
@@ -226,7 +274,7 @@ class ChatDecisionServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CHAT_REQUEST_DECISION_FORBIDDEN);
         verify(room, never()).accept();
-        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository);
+        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository, messagingTemplate);
     }
 
     @Test
@@ -242,7 +290,7 @@ class ChatDecisionServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CHAT_REQUEST_ALREADY_DECIDED);
         verify(room, never()).accept();
-        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository);
+        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository, messagingTemplate);
     }
 
     @Test
@@ -262,6 +310,6 @@ class ChatDecisionServiceTest {
         assertThat(requester.getCreditBalance()).isEqualTo(4); // 미차감
         assertThat(recipient.getCreditBalance()).isEqualTo(3); // 미적립
         verify(room, never()).accept();
-        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository);
+        verifyNoInteractions(creditTransactionRepository, chatRoomMemberRepository, messagingTemplate);
     }
 }
