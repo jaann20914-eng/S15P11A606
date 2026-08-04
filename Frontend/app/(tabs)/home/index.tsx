@@ -121,6 +121,18 @@ export default function Home() {
   const sheetSpace = screenHeight > 0 ? screenHeight : Math.max(0, height - navBarHeight);
 
   /*
+    잰 값을 위에 겹치는 장소 상세에도 나눠 준다.
+
+    그 화면은 탭 그룹 밖이라 자기가 잴 수 있는 것이 창 높이뿐이고, 거기서 탭바를 빼도 이 값과
+    같지 않았다 — 실기기에서 상세 시트가 홈보다 눈에 띄게 높았던 이유다. 재는 쪽 값을 그대로
+    쓰면 두 시트가 같은 자리에 놓인다.
+  */
+  const setHomeSheetSpace = useMapStore((state) => state.setHomeSheetSpace);
+  useEffect(() => {
+    if (screenHeight > 0) setHomeSheetSpace(screenHeight);
+  }, [screenHeight, setHomeSheetSpace]);
+
+  /*
     3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
 
     - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.

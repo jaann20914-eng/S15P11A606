@@ -21,6 +21,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
+import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -43,7 +44,7 @@ const LIVE_DOT_SIZE = 7;
  * `CrowdChart`가 자기 배경을 그리지 않을 때 **감싸는 카드의 여백이 이 값이어야 한다** —
  * 선을 그릴 폭을 그 전제로 계산한다(`CrowdChart`의 `CARD_PADDING`·`PLOT_INSET`).
  */
-const INFO_CARD_PADDING = spacing.x5;
+const CHART_CARD_PADDING = spacing.x5;
 
 /** 혼잡도 그래프가 펼쳐지는 데 걸리는 시간(ms). 접히는 쪽은 조금 빠르게 끝낸다. */
 const CHART_REVEAL_MS = 320;
@@ -59,6 +60,9 @@ const CHART_RISE = 12;
  * 배치 속성을 감싼 쪽으로 옮겨야 해서 스타일이 두 곳으로 갈린다.
  */
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** 카드와 지도가 함께 움직이는지 터미널에서 따라갈 수 있게 한다. */
+const log = createDevLogger('place-detail');
 
 export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
@@ -97,20 +101,23 @@ export default function Place() {
     - 확장 — 검색바 바로 아래까지 올려 혼잡도 차트와 목록을 훑는다
 
     **구성이 홈 시트와 같아서 "기본" 단계 높이도 홈과 같아진다.** 홈은 `머리글 + 카드 한 장`,
-    이 화면은 `머리글 + 영상핀 카드 한 장`이다. 장소 정보 카드(연락처·주소 + 혼잡도 그래프)를
-    확장 전용으로 옮긴 것이 그 조건이었다 — 예전에는 그 카드가 축소 높이에 들어 있어 시트가
-    홈보다 두 배 가까이 높았다.
+    이 화면은 `머리글 + 영상핀 카드 한 장`이다. 요일별 혼잡도를 확장 전용으로 옮긴 것이 그
+    조건이었다 — 예전에는 그 카드가 축소 높이에 들어 있어 시트가 홈보다 두 배 가까이 높았다.
 
-    이 화면은 탭 그룹 밖이라 `<AppTabBar/>`가 절대 배치로 **화면 위에 겹친다.** 홈은 탭바가
-    레이아웃을 차지해 시트 영역이 그만큼 작으므로(`space = 창 높이 - 탭바`) 보정이 없다.
-    여기는 창 높이를 그대로 쓰니 축소 높이에 탭바를 더해야 두 시트의 위쪽이 같은 자리에 온다.
+    **기준 영역은 홈이 재서 올린 값을 그대로 쓴다**(`homeSheetSpace`). 이 화면은 탭 그룹 밖이라
+    스스로 잴 수 있는 것이 창 높이뿐이고, 거기서 탭바를 빼도 홈이 잰 값과 같지 않았다 — 같은
+    식으로 계산했는데도 상세 시트가 홈보다 눈에 띄게 높았던 이유다. 재는 쪽 값을 나눠 쓰면
+    어긋날 여지가 없고, 두 화면이 탭바·시스템 내비게이션 높이를 각자 더하고 빼지 않아도 된다.
+
+    홈을 거치지 않고 이 주소로 바로 들어오면 아직 잰 값이 없으므로 창 높이에서 탭바를 뺀다.
   */
+  const homeSheetSpace = useMapStore((state) => state.homeSheetSpace);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [pinSlotHeight, setPinSlotHeight] = useState(0);
 
   const sheet = useBottomSheet({
-    space: height,
-    collapsed: navBarHeight + (headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT),
+    space: homeSheetSpace > 0 ? homeSheetSpace : Math.max(0, height - navBarHeight),
+    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
     /*
       "기본" 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 칸 + 아래 여백.
 
@@ -217,14 +224,38 @@ export default function Place() {
     개가 한 점처럼 겹쳐 어느 것이 중앙인지 알 수 없다.
   */
   useEffect(() => {
-    if (focusedPin === null || focusedPin.latitude === null || focusedPin.longitude === null) return;
+    if (focusedPin === null) return;
+
+    if (focusedPin.latitude === null || focusedPin.longitude === null) {
+      /*
+        좌표가 없으면 옮길 곳이 없다. **조용히 넘기지 않는다** — 화면에는 "카드를 넘겨도 지도가
+        가만히 있다"로만 보이고 이유가 어디에도 남지 않는다. 실서버에서는 핀 카드 응답에 좌표가
+        없어 목록 API에서 붙이는데(`usePlaceDetail`), 그 목록에 없는 핀은 여기서 비어 있다.
+      */
+      log('카드 전환 — 좌표 없어 지도를 옮기지 못함', {
+        번째: `${pinIndex + 1}/${pins.length}`,
+        pinId: focusedPin.pinId,
+      });
+      return;
+    }
+
+    /*
+      한 장소의 핀들은 몇 미터 안에 모여 있을 수 있다. 그러면 옮겨도 화면이 거의 그대로여서
+      동작하지 않는 것으로 보이므로, 어디로 옮겼는지 좌표를 남긴다. 마커 모양(물방울/동그라미)이
+      바뀌는 것이 그때는 유일한 단서다.
+    */
+    log('카드 전환 — 지도 이동', {
+      번째: `${pinIndex + 1}/${pins.length}`,
+      작성자: focusedPin.nickname,
+      좌표: `${focusedPin.latitude.toFixed(6)}, ${focusedPin.longitude.toFixed(6)}`,
+    });
 
     focusOn({
       coordinate: { latitude: focusedPin.latitude, longitude: focusedPin.longitude },
       name: focusedPin.nickname,
       level: REVIEW_PIN_MAX_LEVEL,
     });
-  }, [focusOn, focusedPin]);
+  }, [focusOn, focusedPin, pinIndex, pins.length]);
 
   useEffect(() => {
     if (expanded) setChartMounted(true);
@@ -393,60 +424,26 @@ export default function Place() {
           ]}
         >
           {/*
-            영상핀 카드 묶음. 머리글 오른쪽의 `실시간 영상핀`이 이 묶음의 이름표다.
+            요일별 혼잡도 한 장. **확장 단계 전용이고, 머리글 바로 아래 첫 줄에 놓인다.**
 
-            "보통" 단계는 높이가 **머리글 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
-            아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
-            한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 목록으로 바뀐다.
+            보통 단계에서는 그리지 않는다 — 그래야 시트가 `머리글 + 카드 한 장`이 되어 홈 시트와
+            같은 높이가 된다. 확장하면 `실시간 영상핀` 이름표 바로 아랫줄에서 펼쳐져, 이 장소가
+            어떤 곳인지 먼저 읽고 아래로 핀을 훑는 순서가 된다.
 
-            **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
-            목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
-            끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
-          */}
-          {level > 0 && pins.length > 0 && (
-            <PinCardPager
-              pins={pins}
-              paging={!expanded}
-              onSlotHeightChange={setPinSlotHeight}
-              selectedIndex={pinIndex}
-              onIndexChange={setPinIndex}
-              onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
-            />
-          )}
-
-          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
-          {level > 0 && !loading && detail !== null && pins.length === 0 && (
-            <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
-          )}
-
-          {/*
-            장소 정보와 요일별 혼잡도가 한 장의 카드다. **확장 단계 전용이다.**
-
-            같은 질문("이 장소는 어떤 곳인가")에 답하는 정보라 한 장으로 묶는 편이 읽기 쉽고,
-            확장할 때 카드가 자라는 모션도 그래야 성립한다. 추천 상세(`RecommendPlaceInfo`)가
-            이미 같은 구성이라 두 화면 모양도 맞는다.
-
-            **보통 단계에서는 그리지 않는다.** 그래야 시트가 `머리글 + 카드 한 장`이 되어 홈
-            시트와 같은 높이가 된다. 붙는 자리는 영상핀 **아래**다 — 위에 끼우면 확장할 때마다
-            보고 있던 영상핀이 카드 높이만큼 아래로 밀려 내려간다.
+            **장소명·주소·연락처는 넣지 않는다.** 이름과 주소는 이미 머리글에 있어 바로 위에서
+            같은 글자를 두 번 읽게 되고, 연락처는 지도 위 시트에서 쓸 일이 없다(카카오 재조회가
+            실패하면 빈 문자열로 오기도 한다).
 
             그래프와 같은 값(`chartReveal`)으로 흐리게 나타난다. 접히는 것을 다 보여준 뒤에
             떼어 내므로(`chartMounted`) 툭 사라지지 않는다.
           */}
           {chartMounted && detail !== null && (
-            <Animated.View style={[s.infoCard, { opacity: chartReveal }]}>
-              <Text style={s.placeName}>{detail.place.name}</Text>
-              {/* 연락처·주소는 카카오에서 실시간으로 채우므로 비어 있을 수 있다. */}
-              {detail.place.phone !== null && detail.place.phone.length > 0 && (
-                <Text style={s.placeMeta}>{detail.place.phone}</Text>
-              )}
-              {detail.place.address.length > 0 && <Text style={s.placeAddress}>{detail.place.address}</Text>}
-
+            <Animated.View style={[s.chartCard, { opacity: chartReveal }]}>
               {/*
                 요일별 혼잡도는 추천 상세와 같은 공용 그래프다(`components/place/CrowdChart`).
 
                 `surface`를 켜지 않는다 — 이 카드 안에 들어가므로 자기 배경을 그리면 카드가
-                겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`INFO_CARD_PADDING`)으로
+                겹친다. 대신 이 카드의 안쪽 여백을 그래프가 전제하는 값(`CHART_CARD_PADDING`)으로
                 맞춰 뒀다.
 
                 높이를 0에서 제 높이까지 늘려 **카드가 자라면서** 드러나게 한다. 제 높이는 아래
@@ -501,6 +498,33 @@ export default function Place() {
                 </View>
               )}
             </Animated.View>
+          )}
+
+          {/*
+            영상핀 카드 묶음. 머리글 오른쪽의 `실시간 영상핀`이 이 묶음의 이름표다.
+
+            "보통" 단계는 높이가 **머리글 + 카드 한 장**으로 잡혀 있어 목록을 훑는 자리가
+            아니다. 스크롤로 두면 카드가 반쯤 걸친 채 멈춰 어느 쪽도 제대로 보이지 않으므로
+            한 장씩 넘긴다. 끝까지 올린 "확장" 단계는 훑는 자리라 목록으로 바뀐다.
+
+            **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
+            목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
+            끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
+          */}
+          {level > 0 && pins.length > 0 && (
+            <PinCardPager
+              pins={pins}
+              paging={!expanded}
+              onSlotHeightChange={setPinSlotHeight}
+              selectedIndex={pinIndex}
+              onIndexChange={setPinIndex}
+              onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
+            />
+          )}
+
+          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
+          {level > 0 && !loading && detail !== null && pins.length === 0 && (
+            <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
           )}
         </ScrollView>
       </Animated.View>
@@ -604,9 +628,15 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(59,56,56,0.32)',
     marginBottom: spacing.x1,
   },
-  /** 장소명과 `실시간 영상핀` 이름표가 양끝으로 갈리는 줄. */
+  /**
+   * 장소명과 `실시간 영상핀` 이름표가 양끝으로 갈리는 줄.
+   *
+   * 높이를 글줄보다 넉넉히 잡고 가운데 정렬한다. 홈 시트의 제목 줄(`sheetHeading`)이 혼잡도
+   * 토글 때문에 44를 확보하는 것과 같은 값이라, 두 시트의 첫 줄이 같은 높이에 앉는다. 손잡이
+   * 바로 밑에 글자가 붙어 있던 것도 이 여유로 풀린다.
+   */
   headingRow: {
-    minHeight: type.h3.lineHeight,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -629,22 +659,22 @@ const s = StyleSheet.create({
   },
   liveText: { ...type.caption, color: colors.gray600 },
   /**
-   * 주소 줄. 제목 바로 아래에 붙인다.
+   * 주소 줄.
    *
-   * 위로 당기는 이유는 홈 시트와 같다 — 제목 줄이 글줄보다 조금 높게 잡혀 있어 그 차이만큼
-   * 두 줄이 떨어져 보인다. 그만큼을 되돌려 붙인다.
+   * 홈의 `현재 위치` 줄처럼 음수 여백으로 당겨 붙이지 않는다. 이쪽은 장소명이 굵고 커서
+   * (`type.h3`) 바로 아래 붙으면 두 줄이 한 덩어리로 뭉쳐 읽힌다. 한 칸 띄워 둔다.
    */
-  headingAddress: { ...type.caption, color: colors.gray400, marginTop: -spacing.x1 },
+  headingAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: spacing.x6 },
   /**
-   * 장소 정보와 혼잡도 그래프를 함께 담는 한 장. 여백은 그래프가 전제하는 값이다.
+   * 요일별 혼잡도를 담는 한 장. 여백은 그래프가 전제하는 값이다.
    *
    * 그림자를 둔다 — 반투명 시트 위에 놓이므로 없으면 시트 바닥과 붙어 한 덩어리로 보인다.
    * 영상핀 카드(`PlacePinCard`)와 같은 값이라 두 카드가 같은 높이에 떠 보인다.
    */
-  infoCard: {
-    padding: INFO_CARD_PADDING,
+  chartCard: {
+    padding: CHART_CARD_PADDING,
     borderRadius: radius.hero,
     backgroundColor: colors.white,
     shadowColor: colors.dark,
@@ -661,12 +691,16 @@ const s = StyleSheet.create({
    * 들어가지 않아 창이 열리는 순간 그만큼 툭 뛴다. 위 여백은 안쪽(`chartInner`)이 갖는다.
    */
   chartReveal: { overflow: 'hidden' },
-  /** 창 안쪽. 위 여백을 여기 둬서 재는 높이에 포함시킨다. 재는 쪽도 같은 스타일을 쓴다. */
-  chartInner: { paddingTop: spacing.x5 },
+  /**
+   * 창 안쪽. 늘어나는 쪽과 재는 쪽이 **같은 스타일을 써야** 잰 높이가 그대로 목표가 된다.
+   *
+   * 위 여백이 없다. 카드에 그래프만 들어가므로 카드 자신의 여백으로 충분하다 — 예전에는 위에
+   * 장소명·주소가 있어서 그 사이를 띄우려고 여백을 여기 뒀다. 여백을 다시 둘 일이 생기면
+   * `margin`이 아니라 `padding`으로 둔다. `margin`은 잰 높이에 들어가지 않아 창이 열리는
+   * 순간 그만큼 툭 뛴다.
+   */
+  chartInner: {},
   /** 그래프 높이를 재는 자리. 흐름 밖에 두어 카드 배치에 영향을 주지 않는다. */
   chartProbe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
-  placeName: { ...type.h3, fontWeight: '700', color: colors.dark },
-  placeMeta: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
-  placeAddress: { ...type.small, color: colors.gray400, marginTop: spacing.x1 },
   emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
 });
