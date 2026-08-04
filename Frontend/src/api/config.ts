@@ -87,13 +87,11 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
     버킷 환경변수와 자격증명(또는 IAM 역할)이 채워지면 코드 변경 없이 다시 시도해 확인한다.
   */
 
-  // 핀 상세·수정·열람·평가·삭제는 아직 없다. 등록 3종(발급·등록·상태)만 열려 있다.
-  'pin/detail': true,
-  // PATCH /api/v1/pins/{pinId} 는 명세만 나왔다. PinController에 아직 매핑이 없다.
-  'pin/update': true,
-  'pin/unlock': true,
-  'pin/evaluate': true,
-  'pin/remove': true,
+  /*
+    핀 상세 계열 5종(상세 · 수정 · 열람 · 평가 · 삭제)은 2026-08-04에 전부 실서버로 연결했다.
+    `PinController`에서 확인했다 — GET·PATCH·DELETE /pins/{pinId},
+    POST /pins/{pinId}/unlock, POST /pins/{pinId}/evaluation.
+  */
 
   // GET /api/v1/recommendations/places 도 아직 없다. recommendation 컨트롤러가 없다.
   'recommend/places': true,
@@ -102,10 +100,12 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
   'place/detail': true,
 
   /*
-    채팅 요청과 응답은 ChatController에 들어와 실서버로 연결했다(2026-08-03).
-    핀 떠났어요(POST /chat/pins/{pinId}/rooms/leave)만 아직 컨트롤러가 없다.
+    핀 떠났어요도 2026-08-04에 실서버로 연결했다.
+
+    명세의 `POST /chat/pins/{pinId}/rooms/leave`가 아니라 `POST /pins/{pinId}/leave`로
+    나왔다(`PinController.leavePin`). 응답 모양은 명세와 같다 — 상태 `LEFT`와 이번에 종료된
+    채팅방 목록을 준다.
   */
-  'chat/leave': true,
   /*
     목록 3종(GET /chat/rooms, /chat/rooms/{pinId}, /chat/pins)도 아직 없다.
 

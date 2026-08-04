@@ -2,9 +2,10 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { evaluateMockPin } from '@/mocks/pin';
 import type { PinId, PinEvaluationResult, PinRating } from '@/types/pin';
+import { tracePin } from './log';
 
 /**
- * 핀 평가 등록 — `POST /api/v1/pins/{pinId}/evaluations`
+ * 핀 평가 등록 — `POST /api/v1/pins/{pinId}/evaluation`
  *
  * 열람 권한이 있는 사용자만, 핀당 한 번만 가능하다. 작성자는 본인 핀을 평가할 수 없다.
  * 정상 평가 시 1 크레딧이 지급되고 작성자 뷰 각도가 함께 조정된다.
@@ -15,11 +16,17 @@ import type { PinId, PinEvaluationResult, PinRating } from '@/types/pin';
 function requestEvaluatePin(pinId: PinId, rating: PinRating): Promise<PinEvaluationResult> {
   return apiRequest<PinEvaluationResult>({
     method: 'POST',
-    url: `/api/v1/pins/${pinId}/evaluations`,
+    url: `/api/v1/pins/${pinId}/evaluation`,
     data: { rating },
   });
 }
 
 export function evaluatePin(pinId: PinId, rating: PinRating): Promise<PinEvaluationResult> {
-  return usesMock('pin/evaluate') ? evaluateMockPin(pinId, rating) : requestEvaluatePin(pinId, rating);
+  return tracePin(
+    '게시글 평가',
+    'pin/evaluate',
+    () =>
+      usesMock('pin/evaluate') ? evaluateMockPin(pinId, rating) : requestEvaluatePin(pinId, rating),
+    (result) => ({ pinId, 평가: result.rating, 지급크레딧: result.rewardCredit }),
+  );
 }

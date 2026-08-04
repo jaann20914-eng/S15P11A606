@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { deleteMockPin } from '@/mocks/pin';
 import type { PinId, PinDeleteResult } from '@/types/pin';
+import { tracePin } from './log';
 
 /**
  * 핀 삭제 — `DELETE /api/v1/pins/{pinId}`
@@ -27,5 +28,15 @@ function requestDeletePin(pinId: PinId): Promise<PinDeleteResult> {
 }
 
 export function deletePin(pinId: PinId): Promise<PinDeleteResult> {
-  return usesMock('pin/remove') ? deleteMockPin(pinId) : requestDeletePin(pinId);
+  return tracePin(
+    '게시글 삭제',
+    'pin/remove',
+    () => (usesMock('pin/remove') ? deleteMockPin(pinId) : requestDeletePin(pinId)),
+    (result) => ({
+      pinId,
+      상태: result.status,
+      닫힌채팅방: result.closedChatRoomIds.length,
+      삭제시각: result.deletedAt,
+    }),
+  );
 }

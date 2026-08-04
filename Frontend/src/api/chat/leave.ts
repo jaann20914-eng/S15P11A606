@@ -21,7 +21,7 @@ import type { PinId } from '@/types/pin';
 function requestLeavePinChats(pinId: PinId): Promise<PinChatLeaveResult> {
   return apiRequest<PinChatLeaveResult>({
     method: 'POST',
-    url: `/api/v1/chat/pins/${pinId}/rooms/leave`,
+    url: `/api/v1/pins/${pinId}/leave`,
   });
 }
 
