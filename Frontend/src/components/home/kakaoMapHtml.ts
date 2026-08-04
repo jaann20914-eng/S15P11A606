@@ -66,6 +66,21 @@ export const DEFAULT_MAP_LEVEL = 5;
  */
 export const PLACE_FOCUS_MAP_LEVEL = 5;
 
+/**
+ * 마커가 **리뷰핀**으로 동작하기 시작하는 확대 레벨. 축척 막대가 **20m**를 가리키는 단계다.
+ *
+ * 이 값 이하로 당기면 마커를 눌렀을 때 지도만 옮기지 않고 그 장소의 상세까지 연다. 그보다
+ * 넓게 보고 있을 때는 지금처럼 지도만 옮긴다 — 넓은 축척에서는 손가락 하나에 여러 장소가
+ * 걸려 눌린 것이 내가 노린 곳인지 확신할 수 없고, 그 상태로 화면이 바뀌면 실수가 된다.
+ *
+ * **지도에 따로 표시하지는 않는다.** 이 축척은 카카오맵이 이미 상호명까지 그려 주는 단계라,
+ * 우리가 이름을 한 번 더 적으면 그 글자들과 겹쳐 오히려 읽기 어려워진다.
+ *
+ * 위 `PLACE_FOCUS_MAP_LEVEL`의 대응표를 따른다. 레벨 5가 축척 250m인 것은 실기기에서
+ * 확인했으므로 레벨 1이 20m다. 더 넓은 축척에서도 이렇게 동작하길 원하면 이 숫자만 올린다.
+ */
+export const REVIEW_PIN_MAX_LEVEL = 1;
+
 const pinTone: Record<CrowdFilter, { fill: string; ring: string }> = {
   relaxed: { fill: color.pin.relaxed.strong, ring: color.pin.relaxed.soft },
   wagle: { fill: color.pin.wagle.strong, ring: color.pin.wagle.soft },

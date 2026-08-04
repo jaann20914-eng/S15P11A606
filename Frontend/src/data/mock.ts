@@ -1,8 +1,9 @@
 import { colors } from '@/constants/theme';
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
+import { averageCrowdLevelOf, mockPlaceSeeds } from '@/mocks/placeSeeds';
 
-type MockPlace = {
+export type MockPlace = {
   id: string;
   name: string;
   address: string;
@@ -16,8 +17,9 @@ type MockPlace = {
    * 값이 제각각이어야 링 채움 비율이 달라 보인다 — 같은 각도만 넣으면 링이 아무 정보를 주지 않는다.
    */
   angles: number[];
-  distance: string;
-  tag: string;
+  /** 화면에 그리지 않는 값이다. 세 곳에만 남아 있어 선택으로 둔다. */
+  distance?: string;
+  tag?: string;
   /** 지도 핀 좌표 (WGS84). 실제 연동 시 `/places` 응답의 좌표로 대체한다. */
   latitude: number;
   longitude: number;
@@ -49,7 +51,12 @@ export const places: MockPlace[] = [
     longitude: 127.0374,
   },
   {
-    id: '3',
+    /*
+      목업 장소 시드에서 어린이대공원은 `6`번이다. `3`번은 뚝섬한강공원이라,
+      예전에는 이 카드를 눌러 상세로 들어가면 **뚝섬한강공원이 열렸다.**
+      아래 `demoNearbyPlaces`가 그 3번을 함께 찍기 시작하면서 id까지 겹쳤다.
+    */
+    id: '6',
     name: '어린이대공원',
     address: '서울 광진구 능동로 216',
     crowdLevel: 4,
@@ -61,6 +68,43 @@ export const places: MockPlace[] = [
     longitude: 127.0817,
   },
 ];
+
+/**
+ * 위 세 곳과 같은 자리를 가리키는 목업 시드. 같은 장소를 두 번 찍지 않으려고 걸러 낸다.
+ *
+ * `1` 성수 연무장길 · `2` 서울숲(시드 이름은 "서울숲 산책로") · `6` 어린이대공원.
+ */
+const ANCHOR_SEED_IDS = new Set([1, 2, 6]);
+
+/**
+ * 지도에 함께 찍는 주변 장소들. **목업 모드에서만 얹는다**(홈 화면이 판단한다).
+ *
+ * 위 세 곳만으로는 지도가 비어 보여 시연할 때 "핀이 안 나온다"로 읽힌다. 와이어프레임처럼
+ * 여러 마커가 흩어져 있어야 필터를 바꿀 때 색과 개수가 달라지는 것을 보여줄 수 있다.
+ *
+ * **직접 적지 않고 장소 목업 시드에서 가져온다.** 그 표가 장소 상세도 함께 만들기 때문에,
+ * 여기서 좌표와 이름을 따로 적으면 같은 `placeId`인데 지도와 상세가 어긋난다(그 파일이 경고하는
+ * 바로 그 상황이다). 시드에서 가져오면 **마커를 누르면 그 장소의 상세가 그대로 열린다.**
+ *
+ * 핀이 없는 장소는 뺀다. 지도에 찍혀도 열면 "올라온 영상핀이 없어요"만 나온다.
+ */
+export const demoNearbyPlaces: MockPlace[] = mockPlaceSeeds
+  .filter((seed) => !ANCHOR_SEED_IDS.has(seed.placeId) && seed.pins.length > 0)
+  .map((seed) => {
+    const average = averageCrowdLevelOf(seed);
+
+    return {
+      id: String(seed.placeId),
+      name: seed.name,
+      address: seed.address,
+      // 요일 평균은 소수(2.4 등)라 가장 가까운 단계로 맞춘다. 혼잡도 필터가 이 값을 본다.
+      crowdLevel: average === null ? 2 : getCrowdLevelByValue(average).level,
+      pins: seed.activePinCount,
+      angles: seed.pins.map((pin) => pin.viewAngle),
+      latitude: seed.latitude,
+      longitude: seed.longitude,
+    };
+  });
 
 /** 혼잡도 라벨/색은 단계 값에서 파생한다 (표시 문자열을 데이터에 중복 저장하지 않는다). */
 export function getPlaceCrowd(place: MockPlace) {
