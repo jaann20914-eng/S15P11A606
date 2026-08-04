@@ -30,7 +30,7 @@ import java.util.function.Supplier;
 public class PlaceNearbyService {
 
     // 반경은 50m로 고정한다(요청에서 radius를 받지 않는다).
-    private static final int RADIUS_METERS = 50;
+    private static final int RADIUS_METERS = 1000;
     // 카테고리(또는 키워드)별 최대 후보 수.
     private static final int MAX_PER_CATEGORY = 2;
     // 가까운 순으로 후보를 받기 위해 거리 정렬을 사용한다.

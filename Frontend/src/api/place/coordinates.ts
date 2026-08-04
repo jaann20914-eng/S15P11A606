@@ -87,6 +87,20 @@ const NEARBY_SPAN_DEGREES = 0.003;
  */
 const LOOKUP_SPAN_DEGREES = 0.1;
 
+export interface ResolveOptions {
+  /**
+   * 기억해 둔 값을 쓰지 않고 목록을 다시 물어볼지.
+   *
+   * 받아 둔 값은 **그 순간의 활성 핀**이다. 방금 올라온 핀이나 그 뒤에 활성이 된 핀은 그 안에
+   * 없어서, 장소 상세의 카드에는 있는데 지도에는 마커가 없는 상태가 된다. 상세 화면이 그런
+   * 핀을 발견했을 때 이 옵션으로 한 번 더 묻는다.
+   *
+   * 서버가 같은 범위를 30초 캐시하므로(`PlacePinService.CACHE_TTL`) 곧바로 다시 물으면 같은
+   * 값이 올 수 있다. 그래도 손해는 요청 한 번이고, 대개는 그 사이에 갱신된다.
+   */
+  refresh?: boolean;
+}
+
 /**
  * 장소 하나의 지도 정보(장소 좌표와 활성 핀 좌표)를 구한다.
  *
@@ -103,12 +117,18 @@ const LOOKUP_SPAN_DEGREES = 0.1;
 export async function resolvePlaceMapData(
   placeId: number,
   placeCoordinate?: Coordinate | null,
+  options?: ResolveOptions,
 ): Promise<PlaceMapData | null> {
   const remembered = recallPlaceMapData(placeId);
-  if (remembered !== null) return remembered;
+  if (remembered !== null && options?.refresh !== true) return remembered;
 
-  const known = placeCoordinate != null && isPlottableCoordinate(placeCoordinate);
-  const center = known ? placeCoordinate : DEFAULT_CENTER;
+  /*
+    다시 물을 때는 기억해 둔 좌표를 기준으로 삼는다. 부르는 쪽이 좌표를 모르더라도 한 번 받아
+    둔 것이 있으면 그 자리를 좁게 물을 수 있다 — 넓게 훑는 경로보다 확실하다.
+  */
+  const around = placeCoordinate ?? remembered?.coordinate ?? null;
+  const known = around != null && isPlottableCoordinate(around);
+  const center = known ? around : DEFAULT_CENTER;
   const span = known ? NEARBY_SPAN_DEGREES : LOOKUP_SPAN_DEGREES;
 
   try {
@@ -132,12 +152,12 @@ export async function resolvePlaceMapData(
       코드: error instanceof ApiError ? error.code : '알수없음',
       대체: known ? '좌표만 사용' : '지도 없음',
     });
-    return known ? { coordinate: placeCoordinate, activePins: [] } : null;
+    return known ? { coordinate: around, activePins: [] } : null;
   }
 
   const found = recallPlaceMapData(placeId);
   if (found !== null) return found;
 
   // 목록에 없더라도 좌표를 알고 있으면 지도는 그릴 수 있다. 핀만 비운다.
-  return known ? { coordinate: placeCoordinate, activePins: [] } : null;
+  return known ? { coordinate: around, activePins: [] } : null;
 }

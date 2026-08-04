@@ -27,8 +27,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
-import { usesMockApi } from '@/api/config';
-import { demoNearbyPlaces, places } from '@/data/mock';
+import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -66,6 +65,7 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
+  const setGestureControl = useMapStore((state) => state.setGestureControl);
   const [mapReady, setMapReady] = useState(false);
 
   /**
@@ -74,10 +74,10 @@ export default function Home() {
    * `KakaoMap`은 최초 중심을 첫 렌더에 HTML로 심으므로, 나중에 옮기면 엉뚱한 동네 타일을
    * 받아 놓고 버리게 된다. 그래서 좌표를 먼저 기다린다.
    *
-   * 내 위치를 얻었으면 그 자리에서 시작하고 핀 맞춤은 하지 않는다 — 핀에 맞추면 방금 잡은
-   * 중심을 곧바로 덮어써 버린다. 못 얻었으면 기존 동작(기본 중심 + 핀 맞춤)으로 돌아간다.
+   * 내 위치를 얻었으면 그 자리에서, 못 얻었으면 기본 중심에서 시작한다. 어느 쪽이든 준비된
+   * 뒤에 핀 전체가 담기도록 맞춘다(`fitPlacesOnReady` 참고) — 그래야 첫 화면이 비지 않는다.
    */
-  const [start, setStart] = useState<{ center: Coordinate; fromMyLocation: boolean } | null>(null);
+  const [start, setStart] = useState<Coordinate | null>(null);
 
   /**
    * 옮겨 갈 좌표를 한 렌더 동안 들고 있는다.
@@ -121,6 +121,18 @@ export default function Home() {
   const sheetSpace = screenHeight > 0 ? screenHeight : Math.max(0, height - navBarHeight);
 
   /*
+    잰 값을 위에 겹치는 장소 상세에도 나눠 준다.
+
+    그 화면은 탭 그룹 밖이라 자기가 잴 수 있는 것이 창 높이뿐이고, 거기서 탭바를 빼도 이 값과
+    같지 않았다 — 실기기에서 상세 시트가 홈보다 눈에 띄게 높았던 이유다. 재는 쪽 값을 그대로
+    쓰면 두 시트가 같은 자리에 놓인다.
+  */
+  const setHomeSheetSpace = useMapStore((state) => state.setHomeSheetSpace);
+  useEffect(() => {
+    if (screenHeight > 0) setHomeSheetSpace(screenHeight);
+  }, [screenHeight, setHomeSheetSpace]);
+
+  /*
     3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
 
     - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
@@ -137,20 +149,32 @@ export default function Home() {
   const { level, moveTo, sheetY, coveredHeight } = sheet;
 
   /*
-    지도에 찍을 장소.
+    지도에 찍을 장소. **지도에 보이는 범위를 서버에 물어 받는다**(`GET /api/v1/places`).
 
-    목업 모드에서는 주변 장소들을 함께 얹는다(`demoNearbyPlaces`). 손으로 박아 둔 세 곳만으로는
-    지도가 비어 보여 시연에서 "핀이 안 나온다"로 읽힌다. 실서버 모드에서는 얹지 않는다 —
-    `GET /api/v1/places`가 붙으면 그쪽 응답이 이 자리를 대신한다.
+    예전에는 손으로 박아 둔 배열(`@/data/mock`)을 직접 읽었다. 목업 모드에서는 그럴듯하게
+    보였지만 실서버로 돌리면 **없는 장소 세 곳이 지도에 남고, 그 id로 상세를 열어 404가 났다.**
+    목업/실서버 판정은 API 경계 한 곳(`api/place/list.ts`)이 하므로 이 화면은 어느 쪽인지 모른다.
+
+    응답의 좌표는 훅이 함께 기억해 둔다 — 장소 상세와 핀 카드에는 좌표가 없어서, 상세 화면이
+    영상핀을 지도에 찍으려면 이 응답이 유일한 출처다.
   */
-  const mapPlaces = useMemo(() => (usesMockApi ? [...places, ...demoNearbyPlaces] : places), []);
+  const bounds = useMapStore((state) => state.bounds);
+  const inView = usePlacesInView(bounds);
 
   /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
   const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
+  /*
+    혼잡도 필터로 거른다. **평균 혼잡도가 없는 장소는 어느 필터에도 들지 않는다** — 최근 1시간에
+    올라온 핀이 없어 여유인지 와글인지 판단할 근거가 없다. 서버 필터도 같은 규칙이다
+    (`PlacePinService.matchesFilter`가 `null`을 탈락시킨다).
+  */
   const visiblePlaces = useMemo(
-    () => mapPlaces.filter((place) => matchesCrowdFilter(place.crowdLevel, crowdFilter)),
-    [crowdFilter, mapPlaces],
+    () =>
+      inView.places.filter(
+        (place) => place.crowdLevel !== null && matchesCrowdFilter(place.crowdLevel, crowdFilter),
+      ),
+    [crowdFilter, inView.places],
   );
 
   /*
@@ -186,8 +210,29 @@ export default function Home() {
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
    * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
    * 이어지는 일이 없다.
+   *
+   * **넘어가면서 그 장소를 영상핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
+   * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
+   * 단계씩 이어 붙인다 — `zoomStepwise`). 예전에는 상세가 열려 핀을 받은 뒤에야 당기기
+   * 시작해서, 시트만 툭 덮이고 지도는 한참 뒤에 따로 움직였다.
+   *
+   * 핀 목록이 도착하면 상세가 첫 게시물의 핀으로 중심만 다시 맞춘다. 이미 같은 축척이라
+   * 그때는 짧게 미끄러질 뿐이다.
    */
-  const openPlace = useCallback((placeId: string) => router.push(`/place/${placeId}`), []);
+  const openPlace = useCallback(
+    (placeId: string) => {
+      const place = inView.places.find((item) => item.id === placeId);
+      if (place) {
+        setPendingPan({
+          coordinate: { latitude: place.latitude, longitude: place.longitude },
+          level: REVIEW_PIN_MAX_LEVEL,
+        });
+      }
+
+      router.push(`/place/${placeId}`);
+    },
+    [inView.places],
+  );
 
   /**
    * 카드나 지도 핀을 눌렀을 때. 상세로 넘어가지 않고 그 장소를 보여주기만 한다.
@@ -198,8 +243,11 @@ export default function Home() {
    */
   const focusPlace = useCallback(
     (placeId: string) => {
-      // 목업 모드에서 함께 얹은 주변 장소도 찾을 수 있어야 한다. `places`만 보면 그 마커는 먹통이 된다.
-      const place = mapPlaces.find((item) => item.id === placeId);
+      /*
+        걸러진 목록이 아니라 **받아 둔 전부**에서 찾는다. 필터를 바꾸는 순간에도 방금 누른 마커의
+        좌표를 알 수 있어야 한다.
+      */
+      const place = inView.places.find((item) => item.id === placeId);
       if (!place) return;
 
       selectPlace(placeId);
@@ -210,7 +258,7 @@ export default function Home() {
         level: PLACE_FOCUS_MAP_LEVEL,
       });
     },
-    [level, mapPlaces, moveTo, selectPlace],
+    [level, moveTo, inView.places, selectPlace],
   );
 
   /**
@@ -224,10 +272,22 @@ export default function Home() {
    */
   const pressMapPin = useCallback(
     (placeId: string) => {
+      /*
+        **받아 둔 장소가 아니면 아무것도 하지 않는다.**
+
+        이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
+        대신 그리고(`pinOverlay`), 그때 눌린 id는 `pinId`(UUID)다. 그대로 상세로 넘기면
+        `/place/<UUID>`가 되어 숫자로 읽히지 않는 화면이 열린다 — 사용자에게는 "장소를 찾을 수
+        없어요"만 보인다. 지금은 상세가 지도 위 터치를 자기가 받아 여기까지 오지 않지만,
+        경계에서 한 번 걸러 두면 그 구조가 바뀌어도 깨지지 않는다.
+      */
+      const known = inView.places.some((place) => place.id === placeId);
+      if (!known) return;
+
       focusPlace(placeId);
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, mapLevel, openPlace],
+    [focusPlace, inView.places, mapLevel, openPlace],
   );
 
   const handleViewChange = useCallback(
@@ -259,14 +319,11 @@ export default function Home() {
     if (start) return;
 
     if (myLocation.coordinate) {
-      setStart({ center: myLocation.coordinate, fromMyLocation: true });
+      setStart(myLocation.coordinate);
       return;
     }
 
-    const timer = setTimeout(
-      () => setStart({ center: DEFAULT_CENTER, fromMyLocation: false }),
-      MY_LOCATION_WAIT_MS,
-    );
+    const timer = setTimeout(() => setStart(DEFAULT_CENTER), MY_LOCATION_WAIT_MS);
     return () => clearTimeout(timer);
   }, [myLocation.coordinate, start]);
 
@@ -295,6 +352,30 @@ export default function Home() {
     mapRef.current?.focusPlace(pendingPan.coordinate, pendingPan.level);
     setPendingPan(null);
   }, [mapReady, pendingPan]);
+
+  /*
+    상세를 닫으면 장소 마커가 다시 **여러 개** 보이는 축척으로 넓힌다.
+
+    상세는 영상핀을 20m까지 당겨 보여준다. 그 상태로 홈에 돌아오면 마커는 장소로 되돌아오지만
+    그 축척에는 장소 하나밖에 들어오지 않아, 핀이 하나뿐인 지도가 기본 화면으로 남는다.
+    장소용 축척(250m)으로 넓혀 주변 장소가 함께 보이게 한다.
+
+    이미 그보다 넓게 보고 있으면 건드리지 않는다 — 사용자가 손으로 잡은 축척을 되돌리지 않는다.
+  */
+  const hadPinOverlay = useRef(false);
+  useEffect(() => {
+    if (pinOverlay !== null) {
+      hadPinOverlay.current = true;
+      return;
+    }
+    if (!hadPinOverlay.current) return;
+
+    hadPinOverlay.current = false;
+    if (mapLevel < PLACE_FOCUS_MAP_LEVEL) mapRef.current?.setLevel(PLACE_FOCUS_MAP_LEVEL);
+  }, [mapLevel, pinOverlay]);
+
+  /* 홈이 사라지면 이 지도도 없다. 손잡이를 남겨 두면 없는 WebView에 명령을 보낸다. */
+  useEffect(() => () => setGestureControl(null), [setGestureControl]);
 
   /**
    * 이 화면이 맨 위인지.
@@ -338,15 +419,35 @@ export default function Home() {
         <KakaoMap
           ref={mapRef}
           fullScreen
-          center={start.center}
+          center={start}
           myLocation={myLocation.coordinate}
           bottomInset={coveredHeight}
           places={markers}
           filter={crowdFilter}
           selectedPlaceId={selectedMarkerId}
-          // 내 위치에서 시작했으면 핀에 맞추지 않는다. 맞추면 그 중심을 곧바로 덮어쓴다.
-          fitPlacesOnReady={!start.fromMyLocation}
-          onReady={() => setMapReady(true)}
+          /*
+            **첫 화면은 언제나 핀 전체가 담기도록 맞춘다.**
+
+            예전에는 내 위치를 얻었으면 맞추지 않았다(`!start.fromMyLocation`) — 방금 잡은 중심을
+            덮어쓰지 않으려는 것이었다. 그런데 장소들은 성수·광진 일대에 모여 있어서, 그 밖에서
+            앱을 열면 **핀이 하나도 없는 지도**가 기본 화면이 됐다. 실기기에서 강남에서 열었을 때
+            바로 그랬다. 지도에 아무것도 없으면 "핀이 안 나온다"가 되고, 그게 첫 화면이다.
+
+            내 위치는 마커로 그대로 남고 버튼 한 번으로 돌아갈 수 있다. 반대로 핀이 화면 밖에
+            있으면 그것을 되찾을 방법이 사용자에게 없다.
+          */
+          fitPlacesOnReady
+          onReady={() => {
+            setMapReady(true);
+            /*
+              지도 손잡이를 저장소에 등록한다.
+
+              **위에 겹치는 장소 상세가 이것으로 이 지도를 끌고 당긴다.** 그 화면은 자기 지도가
+              없고, 안드로이드에서는 겹친 화면이 터치를 삼켜 손가락이 이 WebView까지 닿지 않는다.
+              등록해 두면 상세가 받은 제스처가 명령으로 바뀌어 여기로 온다(`useMapGestures`).
+            */
+            setGestureControl(mapRef.current);
+          }}
           // 지도 핀도 카드와 같다. 고르고 지도를 맞출 뿐, 상세로 넘어가지는 않는다.
           onPinPress={pressMapPin}
           onMapPress={clearSelection}
@@ -523,10 +624,14 @@ export default function Home() {
                   )}
                 </View>
                 <View style={s.cardRule} />
-                {/* 링의 첫 번째가 대표 업로더이므로 문구는 그 하나를 뺀 수를 센다. */}
-                <Text style={s.pinUpload}>
-                  감지카메라 외 {Math.max(place.pins - 1, 0)}명이 핀을 업로드했습니다
-                </Text>
+                {/*
+                  올라온 핀 수만 적는다.
+
+                  예전에는 `감지카메라 외 N명`이라고 적었다. `감지카메라`는 **목업의 대표 작성자
+                  이름**이고, 목록 응답(`GET /places`)에는 작성자 닉네임이 없다(뷰 각도만 온다).
+                  실서버에서는 있지도 않은 사람 이름을 모든 장소에 붙이는 셈이었다.
+                */}
+                <Text style={s.pinUpload}>지금 영상핀 {place.pins}개가 올라와 있어요</Text>
                 {/*
                   작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
                   비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
@@ -546,12 +651,34 @@ export default function Home() {
               </Pressable>
             ))}
           </CardPager>
-          {visiblePlaces.length === 0 && (
-            <View style={s.empty}>
-              <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
-              <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
-            </View>
-          )}
+          {/*
+            비어 있는 이유를 구분해서 적는다.
+
+            불러오는 중 · 불러오지 못함 · 이 범위에 없음 · 필터에 걸림이 화면에는 모두 "카드가
+            없다"로 똑같이 보인다. 사용자가 할 일이 각각 다르므로(기다린다 / 다시 시도한다 /
+            지도를 옮긴다 / 필터를 바꾼다) 문구를 나눈다.
+          */}
+          {visiblePlaces.length === 0 &&
+            (inView.loading ? (
+              <View style={s.empty}>
+                <ActivityIndicator color={colors.gray600} />
+              </View>
+            ) : inView.error !== null ? (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
+                <Text style={s.emptyText}>{inView.error}</Text>
+              </View>
+            ) : inView.places.length === 0 ? (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
+                <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
+              </View>
+            ) : (
+              <View style={s.empty}>
+                <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
+                <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
+              </View>
+            ))}
         </ScrollView>
       </Animated.View>
     </View>
