@@ -272,7 +272,7 @@ class VideoService:
             raise
 
         #if detected == 0:
-            reasons.add("NO_FACE_DETECTED")
+            #reasons.add("NO_FACE_DETECTED")
 
         if detected > 0 and validated == 0:
             reasons.add("NO_FACE_VALIDATED")
