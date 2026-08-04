@@ -12,6 +12,7 @@ import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomListResponse;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatDecisionService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatHistoryService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatPinListService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatPinRoomListService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatReadService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatRequestService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatRoomListService;
@@ -29,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/chat")
@@ -40,6 +43,7 @@ public class ChatController {
     private final ChatHistoryService chatHistoryService;
     private final ChatRoomListService chatRoomListService;
     private final ChatPinListService chatPinListService;
+    private final ChatPinRoomListService chatPinRoomListService;
 
     /**
      * 내가 보낸(요청한) 채팅방 목록을 조회한다. 현재 사용자가 요청자인 방을 최근 활동 시각 내림차순으로
@@ -67,6 +71,21 @@ public class ChatController {
     ) {
         ChatPinListResponse data = chatPinListService.getMyReceivedChatPins(memberId, cursor, limit);
         return ApiResponse.success(HttpStatus.OK.value(), "채팅 핀 목록 조회가 완료되었습니다.", data);
+    }
+
+    /**
+     * 특정 핀에 대해 현재 사용자가 참여한 채팅방 목록을 조회한다(핀 → 방 드릴다운). 최근 활동 시각 내림차순으로
+     * 커서 페이지네이션하여 반환한다. 미참여·없는 핀이면 빈 배열이며, cursor·limit 오류는 INVALID_PAGINATION(400)이다.
+     */
+    @GetMapping("/rooms/{pinId}")
+    public ApiResponse<ChatRoomListResponse> pinRooms(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable UUID pinId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        ChatRoomListResponse data = chatPinRoomListService.getPinChatRooms(memberId, pinId, cursor, limit);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅방 목록 조회가 완료되었습니다.", data);
     }
 
     /**

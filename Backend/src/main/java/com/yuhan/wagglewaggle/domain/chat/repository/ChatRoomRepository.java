@@ -138,6 +138,61 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             Pageable pageable
     );
 
+    // ===== 특정 핀의 채팅방 목록(커서 페이지네이션) =====
+    // 대상 = 지정 핀에 속하고 현재 사용자가 참여자(요청자 또는 수신자)인 방 전부(상태 무관).
+    //        소유자(수신자)면 여러 요청자와의 방이, 요청자면 최대 1방이 조회된다. 삭제 핀의 종료된 방도 포함한다.
+    // 정렬·최근 활동 시각 계산은 sent 목록과 동일하다. 상대방 판별에 requester/recipient 모두 fetch join 한다.
+
+    /**
+     * 특정 핀에 대해 현재 사용자가 참여한 채팅방의 첫 페이지를 조회한다(커서 없음).
+     */
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            JOIN FETCH cr.pin p
+            JOIN FETCH p.place
+            JOIN FETCH cr.requester
+            JOIN FETCH cr.recipient
+            WHERE cr.pin.id = :pinId
+              AND (cr.requester.id = :memberId OR cr.recipient.id = :memberId)
+            ORDER BY COALESCE(
+                         (SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr),
+                         cr.createdAt) DESC,
+                     cr.id DESC
+            """)
+    List<ChatRoom> findPinRoomsFirstPage(
+            @Param("pinId") UUID pinId,
+            @Param("memberId") Long memberId,
+            Pageable pageable
+    );
+
+    /**
+     * 특정 핀에 대해 현재 사용자가 참여한 채팅방의 커서 이후 페이지를 조회한다.
+     * 정렬(최근 활동 시각 DESC, roomId DESC)과 동일한 타이브레이커로, 커서보다 "뒤"에 오는 방만 조회한다.
+     */
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            JOIN FETCH cr.pin p
+            JOIN FETCH p.place
+            JOIN FETCH cr.requester
+            JOIN FETCH cr.recipient
+            WHERE cr.pin.id = :pinId
+              AND (cr.requester.id = :memberId OR cr.recipient.id = :memberId)
+              AND ( COALESCE((SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr), cr.createdAt) < :cursorActivityAt
+                 OR ( COALESCE((SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr), cr.createdAt) = :cursorActivityAt
+                      AND cr.id < :cursorRoomId ) )
+            ORDER BY COALESCE(
+                         (SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr),
+                         cr.createdAt) DESC,
+                     cr.id DESC
+            """)
+    List<ChatRoom> findPinRoomsAfterCursor(
+            @Param("pinId") UUID pinId,
+            @Param("memberId") Long memberId,
+            @Param("cursorActivityAt") Instant cursorActivityAt,
+            @Param("cursorRoomId") Long cursorRoomId,
+            Pageable pageable
+    );
+
     /**
      * 주어진 핀들 중, 현재 사용자가 수신자인 채팅방에 읽지 않은 상대 메시지가 하나라도 있는 핀의 id를 조회한다.
      * 채팅 핀 목록의 핀 단위 안읽음(hasUnread) 집계를 DB에서 처리한다:
