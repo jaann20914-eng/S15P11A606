@@ -1,4 +1,9 @@
-import type { ChatRoomListItem, ChatRoomStatus, ChatRoomSummaryStatus } from '@/types/chat';
+import type {
+  ChatPinListItem,
+  ChatRoomListItem,
+  ChatRoomStatus,
+  ChatRoomSummaryStatus,
+} from '@/types/chat';
 import type { UserChatEvent } from '@/types/chatSocket';
 
 /**
@@ -15,10 +20,23 @@ export function applyUserChatEvent(
   event: UserChatEvent,
 ): ChatRoomListItem[] {
   if (event.eventType === 'CHAT_ROOM_UPDATED') {
-    const { roomId, lastMessage, lastMessageAt, hasUnread } = event.data;
+    const { roomId, lastMessage, lastMessageAt } = event.data;
 
+    /*
+      안 읽음은 **항상 켠다.** 이 이벤트에는 안 읽음 여부가 담겨 오지 않는다 — 서버는 이번
+      메시지를 보내지 않은 쪽에게만 보내므로, 받았다는 것 자체가 "상대가 보낸 새 메시지가 있다"는
+      뜻이다.
+
+      전에는 오지 않는 `hasUnread`를 그대로 담아 `undefined`로 덮어써서, 이벤트가 도착할 때마다
+      오히려 점이 꺼졌다(2026-08-05).
+    */
     return sortByRecent(
-      replace(rooms, roomId, (room) => ({ ...room, lastMessage, lastMessageAt, hasUnread })),
+      replace(rooms, roomId, (room) => ({
+        ...room,
+        lastMessage,
+        lastMessageAt,
+        hasUnread: true,
+      })),
     );
   }
 
@@ -43,6 +61,28 @@ export function applyUserChatEvent(
  */
 export function needsReload(event: UserChatEvent): boolean {
   return event.eventType === 'CHAT_ROOM_REQUESTED';
+}
+
+/**
+ * 게시글 목록에 새 메시지를 반영한다.
+ *
+ * 요청받은 대화 탭은 방이 아니라 **글**로 묶여 있어 방 목록과 같은 손질을 쓸 수 없다. 이벤트에
+ * 담긴 `pinId`로 줄을 찾아 점만 켠다 — 이 목록은 마지막 메시지를 보여주지 않는다.
+ *
+ * 전에는 이 목록이 새 메시지 이벤트를 아예 무시해서, 요청받은 쪽에서 대화가 와도 아무 표시가
+ * 없었다(2026-08-05).
+ */
+export function applyUserChatEventToPins(
+  pins: ChatPinListItem[],
+  event: UserChatEvent,
+): ChatPinListItem[] {
+  if (event.eventType !== 'CHAT_ROOM_UPDATED') return pins;
+
+  const { pinId } = event.data;
+
+  if (!pins.some((pin) => pin.pinId === pinId && !pin.hasUnread)) return pins;
+
+  return pins.map((pin) => (pin.pinId === pinId ? { ...pin, hasUnread: true } : pin));
 }
 
 function replace(

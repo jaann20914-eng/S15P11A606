@@ -5,7 +5,7 @@ import { getChatPins } from '@/api/chat/pins';
 import { getChatRooms, getPinChatRooms } from '@/api/chat/rooms';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
 import type { PinId } from '@/types/pin';
-import { applyUserChatEvent, needsReload } from '../roomListUpdates';
+import { applyUserChatEvent, applyUserChatEventToPins, needsReload } from '../roomListUpdates';
 import { useUserChatEvents } from './useChatEvents';
 
 /** 목록 하나의 상태. 화면은 이것만 보고 그린다. */
@@ -121,10 +121,16 @@ export function useMyChatRooms(): ListState<ChatRoomListItem> {
 /** 요청이 온 내 게시글 목록. 새 요청이 오면 다시 받는다 — 없던 글이 생길 수 있다. */
 export function useChatPins(): ListState<ChatPinListItem> {
   const list = useList(getChatPins);
-  const { reload } = list;
+  const { reload, setItems } = list;
 
   useUserChatEvents((event) => {
-    if (needsReload(event)) reload();
+    if (needsReload(event)) {
+      reload();
+      return;
+    }
+
+    // 새 메시지는 글 단위로 점만 켠다. 이 목록은 마지막 메시지를 보여주지 않는다.
+    setItems((pins) => applyUserChatEventToPins(pins, event));
   });
 
   return list;

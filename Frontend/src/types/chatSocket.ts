@@ -76,14 +76,22 @@ interface UserChatEventBase<TType extends string, TData> {
 
 export interface ChatRoomUpdatedData {
   roomId: number;
+  /**
+   * 그 방이 달린 게시글.
+   *
+   * 받는 사람이 방 목록을 보고 있을 수도, 게시글 목록을 보고 있을 수도 있어 서버가 둘 다 담아
+   * 준다. 요청받은 대화 탭은 방이 아니라 글로 묶여 있어 이 값이 있어야 어느 줄인지 안다.
+   */
+  pinId: string;
+  /** 보낸 사람. 받는 쪽에서는 항상 상대다(서버가 발신자에게는 이 이벤트를 보내지 않는다). */
+  senderId: number;
   lastMessage: string;
   lastMessageAt: string;
-  /** 이 이벤트를 받는 사용자 기준으로 계산된 값이다. */
-  hasUnread: boolean;
 }
 
 export interface ChatRoomStatusChangedData {
   roomId: number;
+  pinId: string;
   status: ChatRoomStatus;
   changedAt: string;
 }

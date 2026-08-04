@@ -9,6 +9,9 @@ import {
   chatRoomTopic,
 } from '@/api/chat/socket/destinations';
 import type { ChatRoomEvent, SubscriptionFailedEvent, UserChatEvent } from '@/types/chatSocket';
+import { createDevLogger } from '@/utils/devLog';
+
+const log = createDevLogger('chat-socket');
 
 /**
  * 사용자 전용 채팅방 목록 이벤트를 듣는다.
@@ -17,7 +20,14 @@ import type { ChatRoomEvent, SubscriptionFailedEvent, UserChatEvent } from '@/ty
  * 마지막 메시지·안 읽음·상태를 갱신한다.
  */
 export function useUserChatEvents(onEvent: (event: UserChatEvent) => void): void {
-  useJsonSubscription(USER_CHAT_ROOMS_SUBSCRIPTION_ID, USER_CHAT_ROOMS_QUEUE, onEvent);
+  useJsonSubscription<UserChatEvent>(USER_CHAT_ROOMS_SUBSCRIPTION_ID, USER_CHAT_ROOMS_QUEUE, (event) => {
+    /*
+      도착한 것을 남긴다. 이 로그가 없으면 "이벤트가 오지 않았다"와 "왔는데 목록에 반영되지
+      않았다"를 가릴 수 없다 — 둘 다 화면에서는 똑같이 아무 일도 일어나지 않은 것으로 보인다.
+    */
+    log('목록 이벤트', { 종류: event.eventType, 내용: event.data });
+    onEvent(event);
+  });
 }
 
 /**
