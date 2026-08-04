@@ -210,8 +210,29 @@ export default function Home() {
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
    * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
    * 이어지는 일이 없다.
+   *
+   * **넘어가면서 그 장소를 영상핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
+   * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
+   * 단계씩 이어 붙인다 — `zoomStepwise`). 예전에는 상세가 열려 핀을 받은 뒤에야 당기기
+   * 시작해서, 시트만 툭 덮이고 지도는 한참 뒤에 따로 움직였다.
+   *
+   * 핀 목록이 도착하면 상세가 첫 게시물의 핀으로 중심만 다시 맞춘다. 이미 같은 축척이라
+   * 그때는 짧게 미끄러질 뿐이다.
    */
-  const openPlace = useCallback((placeId: string) => router.push(`/place/${placeId}`), []);
+  const openPlace = useCallback(
+    (placeId: string) => {
+      const place = inView.places.find((item) => item.id === placeId);
+      if (place) {
+        setPendingPan({
+          coordinate: { latitude: place.latitude, longitude: place.longitude },
+          level: REVIEW_PIN_MAX_LEVEL,
+        });
+      }
+
+      router.push(`/place/${placeId}`);
+    },
+    [inView.places],
+  );
 
   /**
    * 카드나 지도 핀을 눌렀을 때. 상세로 넘어가지 않고 그 장소를 보여주기만 한다.

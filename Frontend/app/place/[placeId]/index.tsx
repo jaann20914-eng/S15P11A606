@@ -726,20 +726,43 @@ const s = StyleSheet.create({
    * 그래프가 드러나는 창. 확장 단계에서만 붙는다.
    *
    * 높이를 0에서 제 높이까지 늘리므로 `overflow: hidden`이 있어야 늘어나는 동안 그래프가
-   * 카드 밖으로 비어져 나오지 않는다. **여백을 여기 두지 않는다** — `margin`은 잰 높이에
-   * 들어가지 않아 창이 열리는 순간 그만큼 툭 뛴다. 위 여백은 안쪽(`chartInner`)이 갖는다.
+   * 카드 밖으로 비어져 나오지 않는다.
+   *
+   * **RN의 `overflow: hidden`은 세로만 자를 수 없다 — 좌우까지 함께 자른다.** 그래서 이 창이
+   * 그래프의 단계 이름(`기록 없음` 등)을 잘라 먹었다. 그 이름은 고른 요일의 점 **중앙**에
+   * 놓이는데, 월·일처럼 끝 요일에서는 점이 그래프 양 끝에 있어 이름의 절반이 그래프 폭을
+   * 벗어난다(`CrowdChart`의 `LABEL_OVERHANG`). 카드 여백 안이라 원래는 보일 자리인데 이 창의
+   * 경계에 걸려 월요일은 왼쪽 글자가, 일요일은 오른쪽 글자가 잘렸다.
+   *
+   * 창을 좌우로 그만큼 넓히고 안쪽(`chartInner`)이 같은 값을 되돌려, **그래프 폭은 그대로 두고
+   * 잘리는 경계만 카드 가장자리로 밀어낸다**(`CardPager`가 카드 그림자에 쓰는 것과 같은 수법).
+   *
+   * 위아래 여백은 여기 두지 않는다 — `margin`은 잰 높이에 들어가지 않아 창이 열리는 순간
+   * 그만큼 툭 뛴다.
    */
-  chartReveal: { overflow: 'hidden' },
+  chartReveal: { overflow: 'hidden', marginHorizontal: -CHART_CARD_PADDING },
   /**
    * 창 안쪽. 늘어나는 쪽과 재는 쪽이 **같은 스타일을 써야** 잰 높이가 그대로 목표가 된다.
    *
-   * 위 여백이 없다. 카드에 그래프만 들어가므로 카드 자신의 여백으로 충분하다 — 예전에는 위에
-   * 장소명·주소가 있어서 그 사이를 띄우려고 여백을 여기 뒀다. 여백을 다시 둘 일이 생기면
-   * `margin`이 아니라 `padding`으로 둔다. `margin`은 잰 높이에 들어가지 않아 창이 열리는
-   * 순간 그만큼 툭 뛴다.
+   * 넓힌 창을 되돌려 그래프 폭을 카드 안쪽 폭으로 되돌린다(`chartReveal` 참고). 그래프는 이
+   * 폭을 재서 선을 그리므로, 되돌리지 않으면 카드보다 넓게 그려져 좌우 여백이 어긋난다.
+   *
+   * 위 여백은 없다. 카드에 그래프만 들어가므로 카드 자신의 여백으로 충분하다 — 다시 둘 일이
+   * 생기면 `margin`이 아니라 `padding`으로 둔다. `margin`은 잰 높이에 들어가지 않는다.
    */
-  chartInner: {},
-  /** 그래프 높이를 재는 자리. 흐름 밖에 두어 카드 배치에 영향을 주지 않는다. */
-  chartProbe: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
+  chartInner: { paddingHorizontal: CHART_CARD_PADDING },
+  /**
+   * 그래프 높이를 재는 자리. 흐름 밖에 두어 카드 배치에 영향을 주지 않는다.
+   *
+   * **늘어나는 창과 같은 폭이어야 한다.** 창을 좌우로 넓혀 둔 만큼 여기도 넓힌다 — 폭이 다르면
+   * 글줄이 다르게 접혀 잰 높이가 실제와 어긋나고, 그 값이 그대로 창의 목표 높이가 된다.
+   */
+  chartProbe: {
+    position: 'absolute',
+    left: -CHART_CARD_PADDING,
+    right: -CHART_CARD_PADDING,
+    top: 0,
+    opacity: 0,
+  },
   emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
 });

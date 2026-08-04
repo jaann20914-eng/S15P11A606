@@ -149,7 +149,12 @@ export function buildKakaoMapHtml({
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
-  #map { width: 100%; height: 100%; }
+  /*
+   * 배율의 기준점을 한가운데로 못 박는다. 확대 전환이 이 요소를 늘렸다 되돌리는데(zoomSmoothly),
+   * 기준점이 어디냐에 따라 늘어나는 방향이 달라진다. will-change로 합성 레이어를 미리 잡아
+   * 첫 프레임에서 끊기지 않게 한다.
+   */
+  #map { width: 100%; height: 100%; transform-origin: 50% 50%; will-change: transform; }
   /*
    * 핀은 순수 표시 요소다. 오버레이 레이어가 지도 드래그 레이어 위에 있어서 핀이 터치를 받으면
    * 핀에서 시작한 드래그가 지도로 전달되지 않는다. 이벤트를 전부 지도로 흘려보내고,
@@ -449,9 +454,164 @@ export function buildKakaoMapHtml({
     if (done) done();
   }
 
+  /**
+   * 시작과 끝이 느린 사인 곡선. 확대가 쓴다.
+   *
+   * 아래 3차 곡선보다 가운데가 덜 급하다(최고 속도가 평균의 1.57배, 3차는 2배). 확대는 배율이
+   * 곱으로 커져서 가장 빠른 구간의 체감이 이동보다 훨씬 세다 — 3차로 두면 그 구간에서 타일이
+   * 따라오지 못하고 한 번 훑고 지나간 것처럼 보인다.
+   */
+  function easeInOutSine(t) {
+    return -(Math.cos(Math.PI * t) - 1) / 2;
+  }
+
   /** 시작과 끝이 느리고 가운데가 빠른 곡선. 손으로 밀어 놓는 느낌에 가깝다. */
   function easeInOutCubic(t) {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  /**
+   * 한 단계(배율 2배)를 지나는 데 쓰는 시간(ms). 전체 시간은 지나갈 단계 수를 곱해 정한다.
+   *
+   * 네 단계면 800ms다. 손으로 벌릴 때의 속도에 가깝다 — 더 짧으면 가장 빠른 구간에서 배율이
+   * 한 프레임에 20% 넘게 뛰어 타일이 따라오지 못하고 뿌옇게 지나간다.
+   */
+  var ZOOM_LEVEL_MS = 200;
+
+  /**
+   * 타일을 한 번에 몇 단계까지 늘렸다가 바꿀지.
+   *
+   * 늘리는 동안에는 갖고 있던 타일을 잡아 늘리므로 그만큼 뿌옇고, 축척을 바꾸는 순간 그 축척의
+   * 타일을 새로 받는다. **그 교체가 한 번의 마디로 보인다** — 예전에는 한 단계마다 바꿔서
+   * 네 단계를 가는 동안 마디가 세 번 생겼고, 그게 "세 번 반복되는" 느낌이었다.
+   *
+   * 두 단계(4배)가 경계다. 더 크게 잡으면 늘어난 타일의 흐릿함이 눈에 띄고, 더 작게 잡으면
+   * 교체가 잦아져 다시 마디가 된다. 네 단계를 갈 때 교체는 중간에 한 번, 끝에 한 번뿐이고
+   * 끝의 교체는 움직임이 멈추는 자리라 눈에 띄지 않는다.
+   */
+  var ZOOM_CHUNK_LEVELS = 2;
+
+  /** 배율을 그리고 있는 프레임 id. 없으면 null. */
+  var zoomFrame = null;
+
+  /** 중간에 끊길 때 자리를 잡을 축척. 진행하면서 갱신한다. 없으면 null. */
+  var zoomSettleLevel = null;
+
+  /**
+   * 확대가 도는 동안인지.
+   *
+   * 카카오는 축척이 바뀔 때마다 idle을 보낸다. 그대로 흘리면 도는 동안 RN이 여러 번 다시
+   * 그리고, 그때마다 화면 범위가 바뀐 줄 알고 장소 목록까지 다시 부른다. 도는 동안에는 막고
+   * 끝난 자리를 한 번만 알린다(끄는 손을 다룰 때와 같은 방식이다).
+   */
+  var zoomStepping = false;
+
+  /**
+   * 진행 중인 확대를 멈춘다. **반쯤 늘어난 채로 두지 않는다.**
+   *
+   * 배율을 1로 되돌리고, 그 순간 화면에 보이던 것과 가장 가까운 축척으로 자리를 잡는다.
+   * 그러지 않으면 화면은 1.4배로 늘어난 채인데 지도는 이전 축척인 상태가 남아, 손으로 끌면
+   * 엉뚱한 거리만큼 움직인다.
+   */
+  function cancelZoom() {
+    if (zoomFrame !== null) {
+      cancelAnimationFrame(zoomFrame);
+      zoomFrame = null;
+    }
+
+    var element = document.getElementById('map');
+    if (element) element.style.transform = '';
+
+    if (zoomSettleLevel !== null) {
+      if (map.getLevel() !== zoomSettleLevel) map.setLevel(zoomSettleLevel);
+      zoomSettleLevel = null;
+    }
+
+    zoomStepping = false;
+  }
+
+  /**
+   * 목표 축척까지 **한 번의 움직임으로** 당기거나 넓힌다. 두 손가락으로 벌리는 그 동작이다.
+   *
+   * 카카오의 setLevel(level, {animate})에 맡기면 단계마다 자기 이징으로 가속했다 멈춘다.
+   * 여러 단계를 이어 붙이면 그 정지가 단계 수만큼 반복돼 뚝뚝 끊긴다.
+   *
+   * 그래서 **배율을 직접 그린다.** 지나갈 단계 수만큼 시간을 잡고, 그 시간 전체에 곡선 하나를
+   * 씌워 배율을 밀어 올린다(easeInOutCubic) — 시작과 끝이 느리고 가운데가 빠른, 손으로 미는
+   * 그 속도다. 배율은 2의 거듭제곱으로 움직인다. 곧게 더하면 처음엔 두 배 빠르고 끝에선 절반으로
+   * 느려진다 — 눈은 배율의 **비율** 변화를 속도로 읽기 때문이다.
+   *
+   * 타일 교체는 ZOOM_CHUNK_LEVELS마다 한 번만 한다. 교체 순간 크기는 정확히 같으므로 화면이
+   * 튀지 않고, 바뀌는 것은 선명도뿐이다.
+   *
+   * 배율의 기준점은 요소의 한가운데다. 확대 전에 중심을 맞춰 두므로 그 자리를 향해 당겨진다.
+   */
+  function zoomSmoothly(targetLevel, onDone) {
+    if (!map || typeof targetLevel !== 'number') return;
+
+    cancelZoom();
+
+    var element = document.getElementById('map');
+    var startLevel = map.getLevel();
+    var totalLevels = Math.abs(targetLevel - startLevel);
+
+    if (!element || totalLevels === 0) {
+      if (onDone) onDone();
+      return;
+    }
+
+    // 카카오 레벨은 숫자가 작을수록 당겨진 상태다.
+    var zoomingIn = targetLevel < startLevel;
+    var direction = zoomingIn ? -1 : 1;
+    var duration = ZOOM_LEVEL_MS * totalLevels;
+    var appliedLevels = 0;
+    var startedAt = null;
+
+    zoomStepping = true;
+    zoomSettleLevel = startLevel;
+    zoomFrame = requestAnimationFrame(frame);
+
+    function frame(now) {
+      if (startedAt === null) startedAt = now;
+
+      var progress = Math.min(1, (now - startedAt) / duration);
+      /** 지금까지 지나온 단계. 정수가 아니라 소수다 — 그 소수가 곧 배율이 된다. */
+      var traversed = easeInOutSine(progress) * totalLevels;
+
+      /*
+        타일에 반영할 단계 수를 고른다.
+
+        당길 때는 **지나온 뒤에** 바꾼다(늘렸다가 그 크기의 타일로 갈아 끼운다). 넓힐 때는
+        **먼저** 바꾸고 줄인다 — 배율이 1보다 작아지면 지도 요소 자체가 줄어 가장자리에 빈 자리가
+        생기고, 멀어지는 것이 아니라 카드처럼 작아져 보인다.
+      */
+      var chunk = Math.floor(traversed / ZOOM_CHUNK_LEVELS) * ZOOM_CHUNK_LEVELS;
+      var wanted = zoomingIn ? chunk : Math.min(chunk + ZOOM_CHUNK_LEVELS, totalLevels);
+      if (progress >= 1) wanted = totalLevels;
+
+      if (wanted !== appliedLevels) {
+        appliedLevels = wanted;
+        map.setLevel(startLevel + direction * appliedLevels);
+      }
+
+      // 지나온 것과 타일에 반영한 것의 차이가 지금 늘려 두어야 할 배율이다. 언제나 1 이상이다.
+      element.style.transform = 'scale(' + Math.pow(2, Math.abs(traversed - appliedLevels)) + ')';
+      // 손이 끼어들면 지금 보이는 것과 가장 가까운 축척에서 멈춘다.
+      zoomSettleLevel = startLevel + direction * Math.round(traversed);
+
+      if (progress < 1) {
+        zoomFrame = requestAnimationFrame(frame);
+        return;
+      }
+
+      zoomFrame = null;
+      zoomSettleLevel = null;
+      element.style.transform = '';
+      zoomStepping = false;
+      // 다 왔다는 것을 한 번만 알린다. 도는 동안 막아 둔 idle을 여기서 갚는다.
+      sendIdle();
+      if (onDone) onDone();
+    }
   }
 
   /**
@@ -737,6 +897,7 @@ export function buildKakaoMapHtml({
     zoomBy: function (step) {
       if (!map) return;
       cancelPan();
+      cancelZoom();
 
       var next = Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, map.getLevel() - step));
       if (next === map.getLevel()) return;
@@ -749,7 +910,8 @@ export function buildKakaoMapHtml({
       if (!map) return;
       // 확대와 이동이 겹치면 서로 목표를 덮어써 화면이 튄다. 이동을 먼저 끊는다.
       cancelPan();
-      map.setLevel(level, { animate: true });
+      // 한 단계씩 이어 붙여 손으로 오므리고 벌리는 흐름으로 보이게 한다.
+      zoomSmoothly(level);
     },
     /**
      * 한 장소를 화면 중앙으로 데려오고, 필요하면 그만큼 당겨 본다.
@@ -794,13 +956,11 @@ export function buildKakaoMapHtml({
 
       centerOn(target, (liftPx || 0) / shrink, true, function () {
         // 확대는 중심을 유지한다. 방금 맞춘 자리가 그대로 남는다.
-        map.setLevel(targetLevel, { animate: true });
+        zoomSmoothly(targetLevel);
         /*
-          바뀐 축척을 곧바로 알린다. 애니메이션이 끝나며 지도가 idle을 한 번 더 보내지만,
-          그것만 믿으면 알림이 오지 않았을 때 화면 쪽이 여전히 "덜 당겨진 상태"로 알고 있어
-          같은 카드를 눌러도 상세로 넘어가지 못한다.
+          단계마다 알리지 않고 끝난 뒤 한 번만 알린다(zoomSmoothly가 맡는다). 화면 쪽이
+          "덜 당겨진 상태"로 남지 않게 하려면 그 한 번이면 충분하다.
         */
-        sendIdle();
       });
     },
     relayout: function () {
@@ -840,11 +1000,15 @@ export function buildKakaoMapHtml({
       화면이 멈춘 뒤 한 번만 보내면 되므로, 움직이는 동안은 건너뛰고 centerOn이 끝낼 때 보낸다.
     */
     kakao.maps.event.addListener(map, 'idle', function () {
-      if (panFrame === null && !manualDrag) sendIdle();
+      if (panFrame === null && !manualDrag && !zoomStepping) sendIdle();
     });
 
     // 사용자가 직접 밀기 시작하면 진행 중인 이동을 멈춘다. 손보다 지도가 앞서 가면 안 된다.
-    kakao.maps.event.addListener(map, 'dragstart', cancelPan);
+    kakao.maps.event.addListener(map, 'dragstart', function () {
+      cancelPan();
+      // 손이 개입하면 진행 중인 단계 확대도 그 자리에서 멈춘다.
+      cancelZoom();
+    });
 
     /*
       확대가 바뀌면 겹침을 다시 계산한다.
