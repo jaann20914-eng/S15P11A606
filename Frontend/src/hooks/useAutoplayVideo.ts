@@ -36,7 +36,25 @@ export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayV
     // 구독보다 준비가 먼저 끝났을 수 있다.
     player.play();
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+
+      /*
+        화면에서 사라질 때 재생을 멈춘다.
+
+        플레이어가 정리되기 전까지 소리가 계속 들리는 경우가 있다 — 수정 화면에서 기존 영상을
+        보다가 "다시 촬영"으로 바꾸거나 뒤로 나갔을 때 소리만 남았다. 소리를 켜고 재생하는
+        화면이라(`muted: false`) 그 잔상이 그대로 들린다.
+
+        이미 정리된 플레이어에 손대면 예외가 나므로 감싼다 — 멈추는 것이 목적이고, 못 멈췄다면
+        이미 정리된 것이라 할 일이 없다.
+      */
+      try {
+        player.pause();
+      } catch {
+        // 이미 정리된 플레이어다.
+      }
+    };
   }, [player]);
 
   return player;
