@@ -22,6 +22,41 @@ AnalysisStatus = Literal[
     "FAILED",
 ]
 
+MAX_CONTENT_LENGTH = 500
+
+
+def _require_timezone(value: datetime, field_name: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{field_name} must include a timezone.")
+    return value
+
+
+class ChatMessageItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    senderId: int = Field(ge=1)
+
+    content: str = Field(min_length=1, max_length=MAX_CONTENT_LENGTH)
+
+
+class ChatAnalysisBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Back의 AiChatJob PK. 콜백에 그대로 실어 어느 배치의 결과인지 알린다.
+    requestId: UUID
+
+    roomId: int = Field(ge=1)
+
+    sentAt: datetime
+
+    # 분석할 내용이 없는 배치는 발행 측 버그라 받아주지 않는다.
+    chatMessages: list[ChatMessageItem] = Field(min_length=1)
+
+    @field_validator("sentAt")
+    @classmethod
+    def sent_at_must_have_timezone(cls, value: datetime) -> datetime:
+        return _require_timezone(value, "sentAt")
+
 
 class PatternResultCallback(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -42,9 +77,7 @@ class PatternResultCallback(BaseModel):
     @field_validator("analyzedAt")
     @classmethod
     def analyzed_at_must_have_timezone(cls, value: datetime) -> datetime:
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("analyzedAt must include a timezone.")
-        return value
+        return _require_timezone(value, "analyzedAt")
 
     @model_validator(mode="after")
     def status_must_match_result_fields(self) -> "PatternResultCallback":
