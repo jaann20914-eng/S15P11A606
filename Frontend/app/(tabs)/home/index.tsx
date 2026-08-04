@@ -27,7 +27,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
-import { useNearbyPlaces } from '@/features/home/hooks/useNearbyPlaces';
+import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -147,7 +147,7 @@ export default function Home() {
     영상핀을 지도에 찍으려면 이 응답이 유일한 출처다.
   */
   const bounds = useMapStore((state) => state.bounds);
-  const nearby = useNearbyPlaces(bounds);
+  const inView = usePlacesInView(bounds);
 
   /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
   const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
@@ -159,10 +159,10 @@ export default function Home() {
   */
   const visiblePlaces = useMemo(
     () =>
-      nearby.places.filter(
+      inView.places.filter(
         (place) => place.crowdLevel !== null && matchesCrowdFilter(place.crowdLevel, crowdFilter),
       ),
-    [crowdFilter, nearby.places],
+    [crowdFilter, inView.places],
   );
 
   /*
@@ -214,7 +214,7 @@ export default function Home() {
         걸러진 목록이 아니라 **받아 둔 전부**에서 찾는다. 필터를 바꾸는 순간에도 방금 누른 마커의
         좌표를 알 수 있어야 한다.
       */
-      const place = nearby.places.find((item) => item.id === placeId);
+      const place = inView.places.find((item) => item.id === placeId);
       if (!place) return;
 
       selectPlace(placeId);
@@ -225,7 +225,7 @@ export default function Home() {
         level: PLACE_FOCUS_MAP_LEVEL,
       });
     },
-    [level, moveTo, nearby.places, selectPlace],
+    [level, moveTo, inView.places, selectPlace],
   );
 
   /**
@@ -614,16 +614,16 @@ export default function Home() {
             지도를 옮긴다 / 필터를 바꾼다) 문구를 나눈다.
           */}
           {visiblePlaces.length === 0 &&
-            (nearby.loading ? (
+            (inView.loading ? (
               <View style={s.empty}>
                 <ActivityIndicator color={colors.gray600} />
               </View>
-            ) : nearby.error !== null ? (
+            ) : inView.error !== null ? (
               <View style={s.empty}>
                 <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
-                <Text style={s.emptyText}>{nearby.error}</Text>
+                <Text style={s.emptyText}>{inView.error}</Text>
               </View>
-            ) : nearby.places.length === 0 ? (
+            ) : inView.places.length === 0 ? (
               <View style={s.empty}>
                 <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
                 <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>

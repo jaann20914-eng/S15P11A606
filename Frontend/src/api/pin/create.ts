@@ -25,14 +25,11 @@ function requestPinCreate(body: PinCreateRequest): Promise<PinCreateResult> {
   return apiRequest<PinCreateResult>({ method: 'POST', url: '/api/v1/pins', data: body });
 }
 
-/**
- * 등록과 상세 조회가 **같은 쪽을 보게 되었다.**
- *
- * 예전에는 등록만 실서버로 가고 상세는 목업이라, 방금 만든 핀으로 넘어가면 목업 표에 없는
- * 식별자여서 "영상핀을 찾을 수 없어요"가 떴다. 그래서 결과 id를 목업 표에 끼워 넣는 보정이
- * 있었다. 지금은 `pin/detail`도 실서버라 그 보정이 필요 없다 — 목업 모드에서는 등록도 목업이다.
- */
-export async function createPin(body: PinCreateRequest): Promise<PinCreateResult> {
-  if (usesMock('pin/create')) return createMockPin(body);
-  return requestPinCreate(body);
+export function createPin(body: PinCreateRequest): Promise<PinCreateResult> {
+  /*
+    등록한 핀을 목업 표에 넣어 주던 처리를 걷어냈다. 상세 조회가 목업이던 동안에는 등록 직후
+    상세로 넘어가면 "찾을 수 없어요"가 떴는데, 지금은 상세도 실서버라 그럴 일이 없다.
+    목업 모드에서는 등록도 목업이므로 짝이 맞는다.
+  */
+  return usesMock('pin/create') ? createMockPin(body) : requestPinCreate(body);
 }

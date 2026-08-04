@@ -2,7 +2,10 @@ package com.yuhan.wagglewaggle.domain.chat.repository;
 
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -29,4 +32,43 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
      * 특정 채팅방의 전체 메시지를 id 오름차순(=생성 순서)으로 조회한다(메시지 이력 조회용).
      */
     List<ChatMessage> findByChatRoom_IdOrderByIdAsc(Long roomId);
+
+    /**
+     * 여러 방의 마지막 메시지를 한 번에 조회한다(채팅방 목록의 최근 메시지 미리보기용).
+     * 방마다 최대 id 메시지(=가장 최근 메시지)만 골라 로드해 목록 조회 시 N+1을 방지한다.
+     * 메시지가 하나도 없는 방은 결과에 포함되지 않는다(호출부에서 null 처리).
+     */
+    @Query("""
+            SELECT m FROM ChatMessage m
+            WHERE m.id IN (
+                SELECT MAX(m2.id) FROM ChatMessage m2
+                WHERE m2.chatRoom.id IN :roomIds
+                GROUP BY m2.chatRoom.id
+            )
+            """)
+    List<ChatMessage> findLastMessagesByRoomIds(@Param("roomIds") Collection<Long> roomIds);
+
+    /**
+     * 여러 방에 대해 "상대방이 보낸 메시지" 중 최대 id를 방별로 조회한다(안읽음 여부 계산용).
+     * 이 값이 현재 사용자의 last_read_message_id보다 크면 읽지 않은 상대 메시지가 존재한다.
+     * 상대 메시지가 없는 방은 결과에 포함되지 않는다.
+     */
+    @Query("""
+            SELECT m.chatRoom.id AS roomId, MAX(m.id) AS maxOtherMessageId
+            FROM ChatMessage m
+            WHERE m.chatRoom.id IN :roomIds
+              AND m.sender.id <> :memberId
+            GROUP BY m.chatRoom.id
+            """)
+    List<RoomOtherMessageId> findMaxOtherSenderMessageIds(
+            @Param("roomIds") Collection<Long> roomIds,
+            @Param("memberId") Long memberId
+    );
+
+    /** 방별 상대방 발신 최대 메시지 id 투영. */
+    interface RoomOtherMessageId {
+        Long getRoomId();
+
+        Long getMaxOtherMessageId();
+    }
 }

@@ -8,14 +8,20 @@ import type { MapBounds } from '@/store/useMapStore';
 import type { PlaceListItem } from '@/types/place';
 
 /**
- * 홈 지도에 찍을 주변 장소. `GET /api/v1/places`가 준 것을 화면이 쓰는 모양으로 정리한다.
+ * 홈 지도에 찍을 장소. **지도에 보이는 범위**(`GET /api/v1/places`)를 화면이 쓰는 모양으로 정리한다.
+ *
+ * **`pin-create`의 `useNearbyPlaces`와 다른 것이다.** 그쪽은 등록 화면이 쓰는
+ * `GET /api/v1/places/nearby` — 내가 서 있는 자리 반경 50m의 **카카오 장소 후보**이고, 값도 등록
+ * 요청에 그대로 실을 모양(`kakaoPlaceId`·`placeName`)이다. 이 훅은 우리 DB에 있는 장소와 활성
+ * 핀을 지도 경계로 받는다. 이름을 `usePlacesInView`로 둔 이유가 그것이다 — 둘 다 "주변"이라
+ * 부르면 어느 API를 부르는지 코드에서 구분되지 않는다.
  *
  * **목업 모드에서도 같은 길을 쓴다.** `api/place/list.ts`가 경계 한 곳에서 목업과 실서버를
  * 가르므로(`usesMock('place/list')`), 화면은 어느 쪽인지 알지 않는다. 예전에는 홈만 `@/data/mock`
  * 의 손으로 박은 배열을 직접 읽어서, 실서버로 돌려도 **가짜 장소 세 곳이 그대로 보이고 그 id로
  * 상세를 열어 404가 났다.**
  */
-export interface NearbyPlace {
+export interface PlaceInView {
   /** 마커 id와 라우팅에 쓰는 문자열 식별자. 지도 마커가 문자열 id로 다룬다. */
   id: string;
   placeId: number;
@@ -36,8 +42,8 @@ export interface NearbyPlace {
   angles: number[];
 }
 
-export interface NearbyPlacesState {
-  places: NearbyPlace[];
+export interface PlacesInViewState {
+  places: PlaceInView[];
   loading: boolean;
   /** 실패 문구. 성공하면 null. 이전 결과는 지우지 않는다. */
   error: string | null;
@@ -95,7 +101,7 @@ function boundsKey({ southWest, northEast }: MapBounds): string {
     .join(',');
 }
 
-function toNearbyPlace(item: PlaceListItem): NearbyPlace {
+function toPlaceInView(item: PlaceListItem): PlaceInView {
   return {
     id: String(item.placeId),
     placeId: item.placeId,
@@ -119,8 +125,8 @@ function toNearbyPlace(item: PlaceListItem): NearbyPlace {
  * 실패해도 이전 결과를 지우지 않는다. 지도를 조금 옮긴 것 때문에 이미 보고 있던 핀이 사라지면
  * 사용자에게는 장소가 없어진 것으로 보인다.
  */
-export function useNearbyPlaces(bounds: MapBounds | null): NearbyPlacesState {
-  const [places, setPlaces] = useState<NearbyPlace[]>([]);
+export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
+  const [places, setPlaces] = useState<PlaceInView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,7 +172,7 @@ export function useNearbyPlaces(bounds: MapBounds | null): NearbyPlacesState {
         const usable = response.places.filter(isPlottableCoordinate);
         rememberPlaceMapData(usable);
 
-        setPlaces(usable.map(toNearbyPlace));
+        setPlaces(usable.map(toPlaceInView));
         setError(null);
         setLoading(false);
       })
