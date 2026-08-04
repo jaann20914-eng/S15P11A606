@@ -74,12 +74,12 @@ services:
       retries: 5
       start_period: 30s
 
-# 앱 컨테이너(Jenkins 배포)와 공유하는 네트워크. compose 가 소유/생성한다.
-# 이미 존재하면 삭제하지 않고 그대로 재사용한다(앱 컨테이너 연결 유지).
+# 앱 컨테이너(Jenkins 배포)와 Jenkins 가 이미 만들어 둔 네트워크를 공유한다.
+# compose 밖에서 생성/관리하므로 external 로 참조한다(직접 만들지 않음).
+# 새 호스트라면 미리 `docker network create waggle-network` 필요.
 networks:
   waggle-network:
-    name: waggle-network
-    driver: bridge
+    external: true
 
 # 운영 중인 기존 볼륨을 그대로 재사용한다. 이름이 정확해야 데이터를 물고 간다.
 volumes:
