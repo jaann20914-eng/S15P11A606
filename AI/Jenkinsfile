@@ -160,8 +160,9 @@ pipeline {
                             return 1
                         fi
 
+                        # 워커가 늘어나면 앞부분 문구가 바뀌므로 끝부분만 확인한다.
                         docker logs "$WORKER_CONTAINER_NAME" 2>&1 \
-                            | grep -q "AI blur worker started."
+                            | grep -q "chat risk workers started."
                     }
 
                     # 네트워크는 Backend 배포가 먼저 만들어 두지만, 없을 때 원인이 불분명해지므로 확인한다.
