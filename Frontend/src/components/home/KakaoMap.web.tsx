@@ -96,6 +96,13 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         send('focusPlace', latitude, longitude, targetLevel, Math.round(insetRef.current / 2)),
       searchPlace: (keyword: string) => send('searchPlace', keyword, Math.round(insetRef.current / 2)),
       setLevel: (level: number) => send('setLevel', level),
+      /*
+        지도를 갖지 않은 화면이 넘긴 제스처. 웹에서는 iframe이 터치를 그대로 받으므로 실제로
+        쓰이지 않지만, 같은 손잡이를 구현해 둬야 화면 코드가 플랫폼을 따지지 않는다.
+      */
+      dragBy: (dx: number, dy: number) => send('dragBy', dx, dy),
+      dragEnd: () => send('dragEnd'),
+      zoomBy: (step: number) => send('zoomBy', step),
       fitPlaces: () => send('fitPlaces', insetRef.current),
       relayout: () => send('relayout'),
     }),

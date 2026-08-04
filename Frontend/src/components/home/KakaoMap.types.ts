@@ -74,7 +74,26 @@ export interface PanOptions {
   animate?: boolean;
 }
 
-export interface KakaoMapHandle {
+/**
+ * 손가락으로 지도를 직접 다루는 부분만 따로 뽑은 것.
+ *
+ * **지도를 갖지 않은 화면이 쓴다.** 장소 상세는 홈 지도를 반투명하게 비추고 있을 뿐이라 손가락이
+ * WebView까지 닿지 않는다(안드로이드에서 위에 겹친 화면이 터치를 삼킨다). 그래서 상세가 제스처를
+ * 받아 이 세 가지로 넘긴다 — 지도 쪽 구현은 `kakaoMapHtml.ts`의 같은 이름 메서드에 있다.
+ *
+ * `KakaoMapHandle`이 이 모양을 그대로 갖는다. 지도 저장소(`useMapStore`)는 컴포넌트를 알 필요가
+ * 없도록 이 최소 모양만 들고 있는다.
+ */
+export interface MapGestureControl {
+  /** 화면 픽셀만큼 지도를 끈다. 손가락이 간 방향으로 지도가 따라온다. */
+  dragBy: (dx: number, dy: number) => void;
+  /** 끄는 손을 뗐다. 멈춘 자리를 지도가 알린다. */
+  dragEnd: () => void;
+  /** 중심을 그대로 두고 한 단계 당기거나(양수) 넓힌다(음수). */
+  zoomBy: (step: number) => void;
+}
+
+export interface KakaoMapHandle extends MapGestureControl {
   /** 좌표를 보이는 영역의 중앙으로 옮긴다. 기본은 부드럽게 이어서 움직인다. */
   panTo: (coordinate: Coordinate, options?: PanOptions) => void;
   /**

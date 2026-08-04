@@ -29,6 +29,7 @@ export function createPin(body: PinCreateRequest): Promise<PinCreateResult> {
   /*
     등록한 핀을 목업 표에 넣어 주던 처리를 걷어냈다. 상세 조회가 목업이던 동안에는 등록 직후
     상세로 넘어가면 "찾을 수 없어요"가 떴는데, 지금은 상세도 실서버라 그럴 일이 없다.
+    목업 모드에서는 등록도 목업이므로 짝이 맞는다.
   */
   return usesMock('pin/create') ? createMockPin(body) : requestPinCreate(body);
 }
