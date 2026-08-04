@@ -331,7 +331,11 @@ export function usePinDetailScreen(
           받으려고 사용자를 기다리게 한다.
         */
         rememberEditablePin(detail);
-        router.push({ pathname: '/(tabs)/write', params: { pinId: detail.pinId } });
+        /*
+          수정은 상세 위에 쌓이는 제 화면으로 연다. 작성 탭으로 보내면 탭 이동이 상세를
+          스택에서 치워 버려, 수정에서 뒤로 가면 홈으로 떨어진다(라우트 주석 참고).
+        */
+        router.push(`/pin/${detail.pinId}/edit`);
       }, [detail, menu]),
     },
     purchase,

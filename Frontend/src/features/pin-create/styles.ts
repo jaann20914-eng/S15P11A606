@@ -203,14 +203,12 @@ export const pinCreateStyles = StyleSheet.create({
   addText: { ...type.label, color: colors.gray600 },
 
   /* 내 위치 */
-  placeInput: {
-    height: 52,
-    paddingHorizontal: spacing.x4,
-    borderRadius: radius.md,
-    backgroundColor: colors.gray100,
-    ...type.body,
-    color: colors.dark,
-  },
+  /**
+   * 아직 고르지 않은 줄의 글자.
+   *
+   * 입력칸의 안내문과 같은 색으로 둔다 — 눌러서 채워야 하는 자리라는 점이 같다.
+   */
+  placePlaceholder: { ...type.body, color: colors.gray400 },
   /** 선택 완료 상태. 입력창이 아니라 고른 장소를 보여주는 줄이 된다. */
   placeSelected: {
     height: 52,
@@ -223,13 +221,16 @@ export const pinCreateStyles = StyleSheet.create({
   },
   placeSelectedText: { ...type.body, color: colors.dark },
   /**
-   * 검색 결과 목록.
+   * 장소 후보 목록.
    *
-   * 결과가 많아도 화면을 밀지 않도록 최대 높이를 두고 안에서 스크롤한다.
+   * 높이를 제한하지 않는다. 예전에는 200으로 묶고 안에서 스크롤했는데, 폼 자체가 스크롤 화면이라
+   * 그 안의 스크롤이 잘 잡히지 않아 세 줄 아래가 있는지조차 보이지 않았다. 받은 만큼 그대로
+   * 펼치고 넘치는 만큼은 폼이 스크롤한다.
+   *
+   * 후보는 많아도 열 몇 개다 — 서버가 반경 50m 안에서 유형별로 두 곳까지만 준다.
    */
   placeList: {
     marginTop: spacing.x2,
-    maxHeight: 200,
     overflow: 'hidden',
     borderRadius: radius.md,
     borderWidth: 1,
@@ -245,6 +246,8 @@ export const pinCreateStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
   },
+  /** 줄 안에서 이름 · 주소 묶음. 오른쪽 거리 표시에 자리를 내주고 남은 폭을 쓴다. */
+  placeRowCopy: { flex: 1, paddingRight: spacing.x3 },
   placeName: { ...type.label, color: colors.dark },
   placeAddress: { ...type.caption, color: colors.gray400, marginTop: 2 },
   /** 수정 화면의 장소 후보 거리. 검색 결과의 거리 표시와 같은 자리다. */

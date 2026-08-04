@@ -39,13 +39,21 @@ export interface PinDraft {
 }
 
 /**
- * 등록에서 고른 장소. 카카오 검색 결과 그대로다.
+ * 등록에서 고른 장소. 주변 조회(`GET /places/nearby`)가 준 카카오 장소다.
  *
  * 내부 `placeId`가 아닌 `kakaoPlaceId`로 식별한다. 그 장소가 우리 DB에 없을 수 있고,
  * 등록 시점에 서버가 만들기 때문이다. 좌표까지 들고 있어야 등록 요청에 실을 수 있다.
+ *
+ * 카테고리 · 전화 · 지번 주소도 함께 들고 다닌다. 서버가 그 장소를 처음 저장할 때 쓰는 값이라
+ * 등록 요청에 그대로 실어 보낸다 — 고른 것을 옮겨 담는 자리를 늘리지 않기 위해 화면이 아니라
+ * 이 타입이 갖고 있는다.
  */
 export interface KakaoDraftPlace extends PlaceSearchItem {
   source: 'kakao';
+  categoryGroupCode: string;
+  categoryGroupName: string;
+  categoryName: string;
+  phone: string;
 }
 
 /**
@@ -248,6 +256,18 @@ export interface PinCreateRequest {
   placeName: string;
   kakaoPlaceLatitude: number;
   kakaoPlaceLongitude: number;
+  /**
+   * 고른 장소의 카카오 분류 · 전화 · 지번 주소.
+   *
+   * 주변 조회가 준 값을 그대로 돌려보낸다. 서버가 그 장소를 아직 저장하지 않았을 때 만드는 데
+   * 쓴다. 카카오에 값이 없는 장소도 있어 빈 문자열이 올 수 있고, 그때는 그대로 보낸다 —
+   * 프론트가 판단해 빼면 서버가 다시 카카오에 물어봐야 한다.
+   */
+  categoryGroupCode?: string;
+  categoryGroupName?: string;
+  categoryName?: string;
+  phone?: string;
+  addressName?: string;
   /** 영상을 찍은 자리의 좌표. 장소 좌표와 50m 이내여야 한다. */
   latitude: number;
   longitude: number;

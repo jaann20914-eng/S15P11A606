@@ -15,11 +15,12 @@ import type { PinDraft } from '@/types/pinCreate';
  * 상세를 거치지 않고 들어온 경우(주소로 바로 열기)에는 비어 있고, 그때는 수정 화면이 직접
  * 조회한다.
  */
-let handoff: { pinId: PinId; draft: Partial<PinDraft> } | null = null;
+let handoff: { pinId: PinId; draft: Partial<PinDraft>; videoUrl: string | null } | null = null;
 
 /** 상세에서 받은 핀을 수정 시작값으로 바꿔 적어 둔다. */
 export function rememberEditablePin(detail: PinDetail): void {
-  handoff = { pinId: detail.pinId, draft: toDraft(detail) };
+  // 지금 등록된 영상도 함께 넘긴다. 수정 화면이 그것을 먼저 보여줘야 다시 찍을 일이 없다.
+  handoff = { pinId: detail.pinId, draft: toDraft(detail), videoUrl: detail.videoUrl };
 }
 
 /**
@@ -27,12 +28,14 @@ export function rememberEditablePin(detail: PinDetail): void {
  *
  * 남겨 두면 다음에 다른 핀을 수정할 때 지난 값이 먼저 보인다. 꺼내는 즉시 비운다.
  */
-export function takeEditablePin(pinId: PinId): Partial<PinDraft> | null {
+export function takeEditablePin(
+  pinId: PinId,
+): { draft: Partial<PinDraft>; videoUrl: string | null } | null {
   if (handoff === null || handoff.pinId !== pinId) return null;
 
-  const { draft } = handoff;
+  const { draft, videoUrl } = handoff;
   handoff = null;
-  return draft;
+  return { draft, videoUrl };
 }
 
 /**

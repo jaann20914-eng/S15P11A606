@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { getPinDetail } from '@/api/pin/detail';
 import { ApiError } from '@/api/client';
 import type { AsyncStatus } from '@/types/common';
@@ -65,9 +66,13 @@ export function usePinDetail(pinId: PinId | null): UsePinDetailResult {
       });
   }, [pinId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  /*
+    화면이 다시 보일 때마다 새로 받는다.
+
+    이 화면에서 수정으로 갔다가 돌아오는 길이 있다. 처음 받은 값을 그대로 두면 고친 내용이
+    반영되지 않은 화면이 남아, 수정이 안 된 것으로 읽힌다.
+  */
+  useFocusEffect(load);
 
   const patchDetail = useCallback((patch: Partial<PinDetail>) => {
     setState((prev) => (prev.data ? { ...prev, data: { ...prev.data, ...patch } } : prev));
