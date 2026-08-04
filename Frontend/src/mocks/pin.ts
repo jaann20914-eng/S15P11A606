@@ -54,7 +54,6 @@ const scenarioByPinId: Record<PinId, PinDetailScenario> = {
 /** 결제 실패 화면을 확인하기 위한 핀. 상세는 정상이지만 잠금 해제에서 잔액 부족이 난다. */
 const INSUFFICIENT_CREDIT_PIN_IDS = new Set([mockPinId(5)]);
 
-
 /**
  * 짧은 번호를 목업 식별자로 맞춘다.
  *
@@ -360,12 +359,7 @@ export async function createMockPin(body: PinCreateRequest): Promise<PinCreateRe
   }
 
   // 좌표 네 개는 모두 필수다. 하나라도 없으면 서버가 거리 검증을 할 수 없다.
-  const coordinates = [
-    body.latitude,
-    body.longitude,
-    body.kakaoPlaceLatitude,
-    body.kakaoPlaceLongitude,
-  ];
+  const coordinates = [body.latitude, body.longitude, body.kakaoPlaceLatitude, body.kakaoPlaceLongitude];
   if (coordinates.some((value) => !Number.isFinite(value))) {
     throw new ApiError(400, 'INVALID_REQUEST', '핀 등록 요청이 올바르지 않습니다.');
   }
@@ -461,10 +455,7 @@ const replacingPinIds = new Set<PinId>();
  * `권한없음` → 403, `수정불가` → 409 상태 오류, `교체중` → 409 교체 진행 중,
  * `범위밖` → 422 위치 초과.
  */
-export async function updateMockPin(
-  pinId: PinId,
-  body: PinUpdateRequest,
-): Promise<PinUpdateResult> {
+export async function updateMockPin(pinId: PinId, body: PinUpdateRequest): Promise<PinUpdateResult> {
   pinId = canonicalMockPinId(pinId);
 
   await delay(MOCK_LATENCY_MS);
@@ -515,9 +506,7 @@ export async function updateMockPin(
     pinId,
     videoStatus: 'ACTIVE',
     updatedFields,
-    ...(replacing
-      ? { videoReplacementStatus: 'PENDING' as const, pendingFields: ['originalVideoKey'] }
-      : {}),
+    ...(replacing ? { videoReplacementStatus: 'PENDING' as const, pendingFields: ['originalVideoKey'] } : {}),
   };
 }
 
