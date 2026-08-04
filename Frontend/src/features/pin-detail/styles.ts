@@ -135,8 +135,11 @@ export const pinDetailStyles = StyleSheet.create({
   /**
    * 영상이 준비되기 전 프레임을 채우는 층.
    *
-   * 영상 위에 얹되 음소거 버튼보다 아래에 온다(그리는 순서). 가운데에 회전 표시를 두어
+   * 영상 위에 얹되 음소거 버튼보다 아래에 온다(그리는 순서). 판 위로 빛줄기가 지나가며
    * 받는 중임을 알린다.
+   *
+   * 바탕은 테마의 회색보다 진하게 둔다. 옅은 회색은 흰 화면에 묻혀 빈 자리처럼 보이고,
+   * 그 위를 지나는 흰 빛줄기도 드러나지 않는다.
    */
   mediaLoading: {
     position: 'absolute',
@@ -146,7 +149,7 @@ export const pinDetailStyles = StyleSheet.create({
     left: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.gray200,
+    backgroundColor: '#6D6D6D',
   },
   /** 회색 판 위를 지나가는 빛줄기. 폭과 가로 위치는 화면이 프레임 너비로 정한다. */
   mediaLoadingBand: { position: 'absolute', top: 0, bottom: 0, left: 0 },
