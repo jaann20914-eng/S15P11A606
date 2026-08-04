@@ -112,6 +112,8 @@ export type PinDetailResponse = {
   authorViewAngle: number;
   authorNickname: string;
   createdAt: string;
+  /** 공개가 끝나는 시각(ISO 8601). 만료 뒤에는 작성자만 열람할 수 있다(2026-08-05 추가). */
+  expiresAt: string;
   place: PinPlaceSummary;
   crowdLevel: PinCrowdLevel;
   detailLocation: string | null;

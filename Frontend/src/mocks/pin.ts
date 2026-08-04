@@ -104,6 +104,8 @@ function createBaseDetail(): PinDetailResponse {
     authorViewAngle: 92,
     authorNickname: '역삼동 익명러',
     createdAt: new Date(Date.now() - 40_000).toISOString(),
+    // 등록 40초 뒤 기준으로 1시간 공개가 남아 있는 핀이다.
+    expiresAt: new Date(Date.now() + 3_560_000).toISOString(),
     crowdLevel: 'WAGLE',
     detailLocation: '2층 창가석',
     memo: '2층 창가석에 앉아있습니다. 지금 사람이 엄청 많네요. 혹시 노트북 자리가 필요하신 분이 계시다면 3시반까지는 채팅 편하게 주세요.',
