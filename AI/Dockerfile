@@ -32,6 +32,7 @@ COPY tests/ tests/
 
 # Settings가 필수로 요구하는 값이라 검증 중에만 더미를 넣는다. 이미지에는 남지 않는다.
 RUN export INTERNAL_API_KEY=dummy-for-test \
+    && export INTERNAL_API_SECRET=dummy-for-test \
     && mypy app/ \
     && pytest \
     && ruff check .

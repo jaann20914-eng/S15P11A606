@@ -84,7 +84,7 @@ def test_sends_callback_with_auth_header_and_spec_payload() -> None:
     request = recorded[0]
 
     assert request.url.path == PATTERN_RESULT_PATH
-    assert request.headers["x-internal-api-key"] == settings.internal_api_key
+    assert request.headers["X-Internal-Secret"] == settings.internal_api_secret
     assert json.loads(request.content) == {
         "requestId": str(REQUEST_ID),
         "roomId": ROOM_ID,
