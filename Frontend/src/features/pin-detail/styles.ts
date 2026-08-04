@@ -148,10 +148,9 @@ export const pinDetailStyles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.gray200,
   },
-  mediaLoadingFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.gray200 },
-  /** 열람 전에는 썸네일도 가린다. 영상만 가리고 썸네일을 보여주면 가린 뜻이 없다. */
-  mediaLoadingBlurred: { filter: [{ blur: 18 }] },
-  mediaLoadingImage: { width: '100%', height: '100%' },
+  /** 회색 판 위를 지나가는 빛줄기. 폭과 가로 위치는 화면이 프레임 너비로 정한다. */
+  mediaLoadingBand: { position: 'absolute', top: 0, bottom: 0, left: 0 },
+  mediaLoadingBandFill: { flex: 1 },
 
   /**
    * 시안 영상 전용 배치. 프레임보다 크게 잡아 아래에 붙이고 위를 잘라낸다.
