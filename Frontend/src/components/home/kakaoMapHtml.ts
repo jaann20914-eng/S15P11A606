@@ -357,9 +357,48 @@ export function buildKakaoMapHtml({
     return offsets;
   }
 
+  /**
+   * 지금 화면에 그려 둔 마커 요소들. 지도 배율이 바뀔 때 크기를 되돌리려고 들고 있는다.
+   *
+   * 각 항목은 요소와 겹침 보정값(dx, dy)이다.
+   */
+  var pinElements = [];
+
+  /** 내 위치 마커 요소. 같은 이유로 들고 있는다. 없으면 null. */
+  var meElementRef = null;
+
+  /**
+   * 확대 전환이 지금 지도 요소에 걸어 둔 배율. 도는 중이 아니면 1이다.
+   */
+  var mapScale = 1;
+
+  /**
+   * 마커를 지도 배율의 **역수만큼** 되돌린다.
+   *
+   * 확대 전환은 지도 요소를 통째로 늘렸다 되돌리는데, 마커도 그 안에 있어 함께 4배로 커졌다가
+   * 원래대로 돌아왔다. 지도는 이어져 보여도 **사용자가 보는 것은 마커**라, 커졌다 작아지는 그
+   * 움직임이 확대와 축소가 반복되는 것으로 읽혔다.
+   *
+   * 실제 지도에서도 두 손가락으로 벌릴 때 마커는 크기를 유지한다. 위치만 좌표를 따라 벌어진다.
+   *
+   * 겹침 보정도 함께 나눈다. 그 값은 화면 픽셀 기준인데 부모가 늘어난 만큼 곱해지기 때문이다.
+   */
+  function applyOverlayScale() {
+    var inverse = 1 / mapScale;
+
+    for (var i = 0; i < pinElements.length; i += 1) {
+      var pin = pinElements[i];
+      pin.element.style.transform =
+        'translate(' + pin.dx * inverse + 'px,' + pin.dy * inverse + 'px) scale(' + inverse + ')';
+    }
+
+    if (meElementRef) meElementRef.style.transform = 'scale(' + inverse + ')';
+  }
+
   function renderPlaces() {
     if (!map) return;
     clearOverlays();
+    pinElements = [];
     var tone = toneOf(state.filter);
     spreadOffsets = computeSpread();
 
@@ -369,11 +408,15 @@ export function buildKakaoMapHtml({
       var element = selected ? dropElement(tone) : circleElement(tone);
       element.setAttribute('aria-label', place.name);
 
-      // 겹친 마커는 화면에서 조금씩 밀어 놓는다. 좌표는 그대로 두고 그림만 옮긴다.
+      /*
+        겹친 마커는 화면에서 조금씩 밀어 놓는다. 좌표는 그대로 두고 그림만 옮긴다.
+
+        크기를 되돌릴 때 기준점이 필요하다. 물방울은 뾰족한 끝이, 동그라미는 한가운데가 좌표에
+        맞으므로(yAnchor) 그 자리를 기준으로 삼아야 줄여도 가리키는 지점이 움직이지 않는다.
+      */
       var offset = spreadOffsets[place.id];
-      if (offset) {
-        element.style.transform = 'translate(' + offset.dx + 'px,' + offset.dy + 'px)';
-      }
+      element.style.transformOrigin = selected ? '50% 100%' : '50% 50%';
+      pinElements.push({ element: element, dx: offset ? offset.dx : 0, dy: offset ? offset.dy : 0 });
 
       var overlay = new kakao.maps.CustomOverlay({
         map: map,
@@ -387,6 +430,9 @@ export function buildKakaoMapHtml({
       });
       overlays.push(overlay);
     }
+
+    // 전환 도중에 다시 그려졌을 수 있다. 지금 배율에 맞춰 크기를 되돌려 둔다.
+    applyOverlayScale();
 
     if (pendingFitInset !== null && state.places.length > 0) {
       var inset = pendingFitInset;
@@ -478,24 +524,17 @@ export function buildKakaoMapHtml({
    */
   var ZOOM_LEVEL_MS = 200;
 
-  /**
-   * 타일을 한 번에 몇 단계까지 늘렸다가 바꿀지.
-   *
-   * 늘리는 동안에는 갖고 있던 타일을 잡아 늘리므로 그만큼 뿌옇고, 축척을 바꾸는 순간 그 축척의
-   * 타일을 새로 받는다. **그 교체가 한 번의 마디로 보인다** — 예전에는 한 단계마다 바꿔서
-   * 네 단계를 가는 동안 마디가 세 번 생겼고, 그게 "세 번 반복되는" 느낌이었다.
-   *
-   * 두 단계(4배)가 경계다. 더 크게 잡으면 늘어난 타일의 흐릿함이 눈에 띄고, 더 작게 잡으면
-   * 교체가 잦아져 다시 마디가 된다. 네 단계를 갈 때 교체는 중간에 한 번, 끝에 한 번뿐이고
-   * 끝의 교체는 움직임이 멈추는 자리라 눈에 띄지 않는다.
-   */
-  var ZOOM_CHUNK_LEVELS = 2;
-
   /** 배율을 그리고 있는 프레임 id. 없으면 null. */
   var zoomFrame = null;
 
   /** 중간에 끊길 때 자리를 잡을 축척. 진행하면서 갱신한다. 없으면 null. */
   var zoomSettleLevel = null;
+
+  /** 진행 중인 확대가 향하는 축척. 없으면 null. 같은 목표로 다시 부르는 것을 걸러 낸다. */
+  var zoomTargetLevel = null;
+
+  /** 확대가 끝난 뒤 옮길 자리. 도는 동안 들어온 중심 이동 요청을 여기 모아 둔다. */
+  var afterZoomCenter = null;
 
   /**
    * 확대가 도는 동안인지.
@@ -521,12 +560,16 @@ export function buildKakaoMapHtml({
 
     var element = document.getElementById('map');
     if (element) element.style.transform = '';
+    mapScale = 1;
+    applyOverlayScale();
 
     if (zoomSettleLevel !== null) {
       if (map.getLevel() !== zoomSettleLevel) map.setLevel(zoomSettleLevel);
       zoomSettleLevel = null;
     }
 
+    zoomTargetLevel = null;
+    afterZoomCenter = null;
     zoomStepping = false;
   }
 
@@ -537,17 +580,26 @@ export function buildKakaoMapHtml({
    * 여러 단계를 이어 붙이면 그 정지가 단계 수만큼 반복돼 뚝뚝 끊긴다.
    *
    * 그래서 **배율을 직접 그린다.** 지나갈 단계 수만큼 시간을 잡고, 그 시간 전체에 곡선 하나를
-   * 씌워 배율을 밀어 올린다(easeInOutCubic) — 시작과 끝이 느리고 가운데가 빠른, 손으로 미는
-   * 그 속도다. 배율은 2의 거듭제곱으로 움직인다. 곧게 더하면 처음엔 두 배 빠르고 끝에선 절반으로
-   * 느려진다 — 눈은 배율의 **비율** 변화를 속도로 읽기 때문이다.
+   * 씌워 배율을 밀어 올린다(easeInOutSine) — 시작과 끝이 느린, 손으로 미는 그 속도다. 배율은
+   * 2의 거듭제곱으로 움직인다. 곧게 더하면 처음엔 두 배 빠르고 끝에선 절반으로 느려진다 —
+   * 눈은 배율의 **비율** 변화를 속도로 읽기 때문이다.
    *
-   * 타일 교체는 ZOOM_CHUNK_LEVELS마다 한 번만 한다. 교체 순간 크기는 정확히 같으므로 화면이
-   * 튀지 않고, 바뀌는 것은 선명도뿐이다.
+   * **타일 교체는 전체를 통틀어 한 번뿐이다.** 축척을 바꾸면 그 축척의 타일을 새로 받는데, 그
+   * 타일들이 하나씩 도착하며 마커 주변이 다다다 바뀐다. 움직이는 도중에 그러면 화면이 끊기는
+   * 것으로 보인다. 그래서 바꾸는 자리를 **움직임이 멈춰 있는 가장자리**로 몰았다 — 당길 때는
+   * 다 늘린 끝에서, 넓힐 때는 시작에서. 그 사이에는 갖고 있던 타일을 늘려 보여줄 뿐이라
+   * 아무것도 새로 그려지지 않는다.
+   *
+   * 대신 목표에 가까워질수록 늘어난 타일이 뿌옇다. 실제로 두 손가락으로 벌릴 때와 같은 모습이고,
+   * 손을 떼면(=움직임이 멈추면) 그 자리에서 또렷해진다.
    *
    * 배율의 기준점은 요소의 한가운데다. 확대 전에 중심을 맞춰 두므로 그 자리를 향해 당겨진다.
    */
   function zoomSmoothly(targetLevel, onDone) {
     if (!map || typeof targetLevel !== 'number') return;
+
+    // 같은 곳으로 이미 가는 중이면 그대로 둔다. 다시 시작하면 그 자리에서 한 번 끊긴다.
+    if (zoomStepping && zoomTargetLevel === targetLevel) return;
 
     cancelZoom();
 
@@ -564,10 +616,24 @@ export function buildKakaoMapHtml({
     var zoomingIn = targetLevel < startLevel;
     var direction = zoomingIn ? -1 : 1;
     var duration = ZOOM_LEVEL_MS * totalLevels;
-    var appliedLevels = 0;
     var startedAt = null;
 
+    /*
+      타일을 갈아 끼우는 **단 한 번**을 어디에 둘지 정한다.
+
+      당길 때는 **끝**이다. 갖고 있던 타일을 목표 배율까지 늘려 보여주다가, 다 늘린 자리에서
+      그 축척의 타일로 바꾼다. 넓힐 때는 **시작**이다 — 배율이 1보다 작아지면 지도 요소 자체가
+      줄어 가장자리에 빈 자리가 생기므로, 먼저 넓은 축척으로 바꿔 놓고 그 화면을 늘려 둔 뒤
+      1까지 줄인다.
+
+      어느 쪽이든 **움직이는 동안에는 타일이 바뀌지 않는다.** 바뀌는 순간은 움직임이 멈춰 있는
+      가장자리 한 번뿐이다.
+    */
+    var appliedLevels = zoomingIn ? 0 : totalLevels;
+    if (!zoomingIn) map.setLevel(targetLevel);
+
     zoomStepping = true;
+    zoomTargetLevel = targetLevel;
     zoomSettleLevel = startLevel;
     zoomFrame = requestAnimationFrame(frame);
 
@@ -579,23 +645,19 @@ export function buildKakaoMapHtml({
       var traversed = easeInOutSine(progress) * totalLevels;
 
       /*
-        타일에 반영할 단계 수를 고른다.
-
-        당길 때는 **지나온 뒤에** 바꾼다(늘렸다가 그 크기의 타일로 갈아 끼운다). 넓힐 때는
-        **먼저** 바꾸고 줄인다 — 배율이 1보다 작아지면 지도 요소 자체가 줄어 가장자리에 빈 자리가
-        생기고, 멀어지는 것이 아니라 카드처럼 작아져 보인다.
+        **움직이는 동안에는 축척을 건드리지 않는다.** 갈아 끼우는 것은 딱 한 번, 움직임의 끝
+        (당길 때)이나 시작(넓힐 때)이다. 그 판단은 이 반복문 밖에서 이미 끝냈다.
       */
-      var chunk = Math.floor(traversed / ZOOM_CHUNK_LEVELS) * ZOOM_CHUNK_LEVELS;
-      var wanted = zoomingIn ? chunk : Math.min(chunk + ZOOM_CHUNK_LEVELS, totalLevels);
-      if (progress >= 1) wanted = totalLevels;
-
-      if (wanted !== appliedLevels) {
-        appliedLevels = wanted;
-        map.setLevel(startLevel + direction * appliedLevels);
+      if (progress >= 1 && appliedLevels !== totalLevels) {
+        appliedLevels = totalLevels;
+        map.setLevel(targetLevel);
       }
 
       // 지나온 것과 타일에 반영한 것의 차이가 지금 늘려 두어야 할 배율이다. 언제나 1 이상이다.
-      element.style.transform = 'scale(' + Math.pow(2, Math.abs(traversed - appliedLevels)) + ')';
+      mapScale = Math.pow(2, Math.abs(traversed - appliedLevels));
+      element.style.transform = 'scale(' + mapScale + ')';
+      // 마커는 그 배율을 되돌려 제 크기를 지킨다. 실제 지도에서도 마커는 커지지 않는다.
+      applyOverlayScale();
       // 손이 끼어들면 지금 보이는 것과 가장 가까운 축척에서 멈춘다.
       zoomSettleLevel = startLevel + direction * Math.round(traversed);
 
@@ -606,10 +668,24 @@ export function buildKakaoMapHtml({
 
       zoomFrame = null;
       zoomSettleLevel = null;
+      zoomTargetLevel = null;
       element.style.transform = '';
+      mapScale = 1;
+      applyOverlayScale();
       zoomStepping = false;
       // 다 왔다는 것을 한 번만 알린다. 도는 동안 막아 둔 idle을 여기서 갚는다.
       sendIdle();
+
+      /*
+        도는 동안 들어온 중심 이동을 이제 처리한다. 확대가 끝난 축척에서 계산되므로 보정값이
+        맞고, 대개 몇 미터라 짧게 미끄러지고 끝난다.
+      */
+      if (afterZoomCenter !== null) {
+        var pending = afterZoomCenter;
+        afterZoomCenter = null;
+        centerOn(pending.latLng, pending.liftPx, true);
+      }
+
       if (onDone) onDone();
     }
   }
@@ -715,7 +791,7 @@ export function buildKakaoMapHtml({
   function renderMyLocation() {
     if (!map) return;
     if (!state.myLocation) {
-      if (meOverlay) { meOverlay.setMap(null); meOverlay = null; }
+      if (meOverlay) { meOverlay.setMap(null); meOverlay = null; meElementRef = null; }
       return;
     }
     var position = new kakao.maps.LatLng(state.myLocation.latitude, state.myLocation.longitude);
@@ -723,10 +799,12 @@ export function buildKakaoMapHtml({
       meOverlay.setPosition(position);
       return;
     }
+    meElementRef = meElement();
+    applyOverlayScale();
     meOverlay = new kakao.maps.CustomOverlay({
       map: map,
       position: position,
-      content: meElement(),
+      content: meElementRef,
       yAnchor: 0.5,
       xAnchor: 0.5,
       zIndex: 5
@@ -937,6 +1015,23 @@ export function buildKakaoMapHtml({
       if (!map) return;
 
       var target = new kakao.maps.LatLng(lat, lng);
+
+      /*
+        **이미 같은 곳으로 당기는 중이면 다시 시작하지 않는다.**
+
+        상세로 들어갈 때 이 명령이 두 번 온다. 하나는 화면을 열면서(장소 자리, 영상핀 축척),
+        하나는 핀 목록이 도착한 뒤(첫 게시물의 핀, 같은 축척)다. 뒤엣것이 확대를 다시 시작하면
+        그 자리에서 축척이 한 번 정해지고 다시 당겨져 — 사용자에게는 확대가 한 번 더 반복되는
+        것으로 보인다. 실제로 그렇게 보였다.
+
+        중심만 옮기면 되므로 그 자리를 적어 두고 확대가 끝난 뒤에 옮긴다. 확대 도중에 중심을
+        옮기면 화면이 늘어난 상태라 실제보다 몇 배 크게 미끄러진다.
+      */
+      if (zoomStepping && zoomTargetLevel === targetLevel) {
+        afterZoomCenter = { latLng: target, liftPx: liftPx || 0 };
+        return;
+      }
+
       var currentLevel = map.getLevel();
       var needsZoom = typeof targetLevel === 'number' && currentLevel > targetLevel;
 
