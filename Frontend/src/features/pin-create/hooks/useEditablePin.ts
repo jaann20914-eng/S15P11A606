@@ -10,6 +10,14 @@ import type { PinDraft } from '@/types/pinCreate';
 export interface EditablePin {
   /** 수정 시작값. 아직 못 받았으면 null. */
   initial: Partial<PinDraft> | null;
+  /**
+   * 지금 등록돼 있는 영상.
+   *
+   * 폼에 담지 않는다 — 폼의 값은 "무엇이 바뀌었는지"를 가리기 위한 것이고, 이 영상은 서버에
+   * 이미 있는 것이라 비교 대상이 아니다. 화면은 이 값을 촬영 자리에 보여주고, 사용자가 다시
+   * 찍었을 때만 교체 요청이 된다.
+   */
+  existingVideoUrl: string | null;
   loading: boolean;
   /** 실패 문구. 성공하면 null. */
   error: string | null;
@@ -42,8 +50,11 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
     수정은 게시글 상세에서만 들어오고, 그 화면은 이미 같은 핀을 받아 두었다. 다시 조회하면
     같은 값을 한 번 더 받으려고 사용자를 기다리게 하는 셈이다.
   */
-  const [initial, setInitial] = useState<Partial<PinDraft> | null>(() =>
-    pinId === null ? null : takeEditablePin(pinId),
+  const [handedOff] = useState(() => (pinId === null ? null : takeEditablePin(pinId)));
+
+  const [initial, setInitial] = useState<Partial<PinDraft> | null>(handedOff?.draft ?? null);
+  const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(
+    handedOff?.videoUrl ?? null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +78,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
         }
 
         setInitial(toDraft(detail));
+        setExistingVideoUrl(detail.videoUrl);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -79,5 +91,5 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
       });
   }, [initial, pinId]);
 
-  return { initial, loading, error };
+  return { initial, existingVideoUrl, loading, error };
 }

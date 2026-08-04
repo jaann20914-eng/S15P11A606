@@ -34,6 +34,7 @@ export type ApiModule =
   | 'pin/videoUploadTask'
   | 'place/detail'
   | 'place/list'
+  | 'place/nearby'
   | 'place/search'
   | 'place/search-confirm'
   | 'place/search-recent'
@@ -103,6 +104,13 @@ const MOCK_OVERRIDES: Partial<Record<ApiModule, boolean>> = {
 
   // GET /api/v1/places/{placeId} 는 명세만 나왔다. 목록(/places)은 있어 별도 지정을 두지 않는다.
   'place/detail': true,
+  /*
+    등록 화면의 "현재 위치"가 쓰는 주변 조회는 2026-08-04에 실서버로 연결했다.
+
+    `GET /places/search`의 `q`를 선택으로 바꾸는 대신 별도 경로가 나왔다 —
+    `GET /places/nearby`(`PlaceController.getNearbyPlaces`). 좌표만 받고 반경 50m 안을
+    거리순으로 주며, 등록 요청에 실을 카카오 메타까지 함께 온다.
+  */
 
   /*
     핀 떠났어요도 2026-08-04에 실서버로 연결했다.
