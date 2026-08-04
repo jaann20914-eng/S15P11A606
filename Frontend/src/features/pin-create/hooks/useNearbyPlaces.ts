@@ -2,14 +2,14 @@ import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getNearbyPlaces } from '@/api/place/nearby';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
-import type { PlaceSearchItem } from '@/types/place';
+import type { PlaceNearbyItem } from '@/types/place';
 import { createDevLogger } from '@/utils/devLog';
 
 const log = createDevLogger('place-nearby');
 
 export interface NearbyPlaces {
   /** 지금 자리의 장소들. 가까운 순이다. 아직 찾지 않았으면 빈 배열. */
-  places: PlaceSearchItem[];
+  places: PlaceNearbyItem[];
   /** 한 번이라도 찾아봤는지. 누르기 전에는 목록 자리를 비워 둔다. */
   asked: boolean;
   loading: boolean;
@@ -44,7 +44,7 @@ const RETRYABLE_CODES = new Set(['EXTERNAL_PLACE_API_UNAVAILABLE']);
  * 일이라 맥락이 없다(`useCurrentLocation` 주석 참고).
  */
 export function useNearbyPlaces(): NearbyPlaces {
-  const [places, setPlaces] = useState<PlaceSearchItem[]>([]);
+  const [places, setPlaces] = useState<PlaceNearbyItem[]>([]);
   const [asked, setAsked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

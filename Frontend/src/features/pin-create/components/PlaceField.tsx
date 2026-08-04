@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import type { PlaceSearchItem } from '@/types/place';
+import type { PlaceNearbyItem } from '@/types/place';
 import type { PinDraftPlace } from '@/types/pinCreate';
 import { useNearbyPlaces } from '../hooks/useNearbyPlaces';
 import { pinCreateStyles as s } from '../styles';
@@ -27,9 +27,27 @@ export interface PlaceFieldProps {
 export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFieldProps) {
   const nearby = useNearbyPlaces();
 
-  const select = (found: PlaceSearchItem) => {
-    // 카카오 검색 결과다. 수정에서 쓰는 내부 장소와 구분해 표시를 남긴다.
-    onSelect({ source: 'kakao', ...found });
+  const select = (found: PlaceNearbyItem) => {
+    /*
+      응답의 이름을 화면이 쓰는 이름으로 옮긴다.
+
+      주변 조회는 등록 요청과 같은 이름을 쓰지만(`placeName`·`kakaoPlaceLatitude`), 폼은 수정에서
+      고르는 내부 장소와 같은 모양이어야 한다 — 거리 검사·표시가 두 경우를 함께 다룬다.
+      카카오 메타는 등록 요청에 그대로 실려 가므로 함께 들고 간다.
+    */
+    onSelect({
+      source: 'kakao',
+      kakaoPlaceId: found.kakaoPlaceId,
+      name: found.placeName,
+      address: found.addressName,
+      latitude: found.kakaoPlaceLatitude,
+      longitude: found.kakaoPlaceLongitude,
+      distanceMeters: found.distanceMeters,
+      categoryGroupCode: found.categoryGroupCode,
+      categoryGroupName: found.categoryGroupName,
+      categoryName: found.categoryName,
+      phone: found.phone,
+    });
     nearby.reset();
   };
 
@@ -112,8 +130,8 @@ export function PlaceField({ place, onSelect, droppedPlaceName = null }: PlaceFi
                   style={s.placeRow}
                 >
                   <View style={s.placeRowCopy}>
-                    <Text style={s.placeName}>{found.name}</Text>
-                    <Text style={s.placeAddress}>{found.address}</Text>
+                    <Text style={s.placeName}>{found.placeName}</Text>
+                    <Text style={s.placeAddress}>{found.addressName}</Text>
                   </View>
                   {/* 가까운 순으로 오므로 거리를 함께 두면 무엇을 먼저 볼지 판단이 선다. */}
                   <Text style={s.placeDistance}>{found.distanceMeters}m</Text>

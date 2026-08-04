@@ -86,6 +86,12 @@ function toRequest(
     placeName: draft.place.name,
     kakaoPlaceLatitude: draft.place.latitude,
     kakaoPlaceLongitude: draft.place.longitude,
+    // 주변 조회가 준 값을 그대로 돌려보낸다. 서버가 장소를 처음 저장할 때 쓴다.
+    categoryGroupCode: draft.place.categoryGroupCode,
+    categoryGroupName: draft.place.categoryGroupName,
+    categoryName: draft.place.categoryName,
+    phone: draft.place.phone,
+    addressName: draft.place.address,
     latitude: captured.latitude,
     longitude: captured.longitude,
     crowdLevel: toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key),

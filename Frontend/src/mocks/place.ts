@@ -5,6 +5,7 @@ import type {
   PlaceDetailResponse,
   PlaceListItem,
   PlacePinCardResponse,
+  PlaceNearbyItem,
   PlaceSearchConfirmResponse,
   PlaceSearchItem,
   PlacesQuery,
@@ -445,20 +446,32 @@ export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsRespon
 /**
  * 지금 자리의 장소 목업.
  *
- * 등록 화면의 "현재 위치" 버튼이 쓴다. 서버가 아직 검색어 없는 조회를 받지 않아, 화면 흐름을
- * 이 데이터로 돌린다(`api/place/nearby`).
+ * 서버가 붙었으니 평소에는 쓰이지 않는다(목업 스위치에서 뺐다). 서버 주소가 없는 환경에서
+ * 화면 흐름을 확인할 때만 쓴다.
  *
  * 좌표는 실제 API와 시그니처를 맞추기 위해 받기만 한다. 반경 판정과 거리 계산은 서버가 하므로
- * 목업은 고정된 `distanceMeters`를 그대로 준다.
- *
- * 가까운 셋만 준다. 실제로 반경 50m 안에 있는 장소는 그 정도이고, 목록이 길면 고르는 화면이
- * 아니라 검색 결과처럼 보인다.
+ * 목업은 고정된 거리를 그대로 준다.
  */
 export async function listMockNearbyPlaces(
   _latitude: number,
   _longitude: number,
-): Promise<PlaceSearchItem[]> {
+): Promise<PlaceNearbyItem[]> {
   await delay(MOCK_LATENCY_MS);
 
-  return [...places].sort((a, b) => a.distanceMeters - b.distanceMeters).slice(0, 3);
+  return [...places]
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, 3)
+    .map((place) => ({
+      kakaoPlaceId: place.kakaoPlaceId,
+      placeName: place.name,
+      kakaoPlaceLatitude: place.latitude,
+      kakaoPlaceLongitude: place.longitude,
+      // 카카오 메타는 등록 요청에 실려 가는 값이라 형식만 그럴듯하게 채운다.
+      categoryGroupCode: 'CE7',
+      categoryGroupName: '카페',
+      categoryName: '음식점 > 카페',
+      phone: '02-000-0000',
+      addressName: place.address,
+      distanceMeters: place.distanceMeters,
+    }));
 }

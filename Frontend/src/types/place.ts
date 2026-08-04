@@ -315,3 +315,38 @@ export interface PlaceSearchOptions {
    */
   fallbackCoordinate?: { latitude: number; longitude: number };
 }
+
+/**
+ * 지금 서 있는 자리의 장소 후보 — `GET /api/v1/places/nearby`
+ *
+ * 검색 결과(`PlaceSearchItem`)와 값의 성격이 다르다. 이쪽은 **핀 등록 요청에 실어 보낼 값을
+ * 그대로** 준다 — 카카오 식별자와 이름·좌표뿐 아니라 카테고리·전화·지번 주소까지 온다.
+ * 서버가 그 장소를 처음 저장할 때 쓰는 값이라, 프론트는 고른 것을 그대로 들고 있다가 등록에
+ * 넘기기만 한다.
+ *
+ * 그래서 필드 이름도 검색 결과와 다르다(`placeName`·`kakaoPlaceLatitude`). 등록 요청의 이름과
+ * 같게 맞춰 둔 것이므로 화면 편의로 바꾸지 않는다 — 옮겨 담는 자리가 늘면 한쪽만 고치는 일이
+ * 생긴다.
+ *
+ * 반경 50m 안만 오고 거리 오름차순이다. 그 반경이 곧 등록 가능 범위다(촬영 좌표도 그 안이어야
+ * 한다).
+ */
+export interface PlaceNearbyItem {
+  kakaoPlaceId: string;
+  placeName: string;
+  kakaoPlaceLatitude: number;
+  kakaoPlaceLongitude: number;
+  /** 카카오 카테고리 분류. 없는 장소도 있어 빈 문자열이 올 수 있다. */
+  categoryGroupCode: string;
+  categoryGroupName: string;
+  categoryName: string;
+  phone: string;
+  /** 지번 주소(카카오 `address_name`). */
+  addressName: string;
+  distanceMeters: number;
+}
+
+/** `GET /api/v1/places/nearby` 응답의 `data`. */
+export interface PlaceNearbyResponse {
+  places: PlaceNearbyItem[];
+}
