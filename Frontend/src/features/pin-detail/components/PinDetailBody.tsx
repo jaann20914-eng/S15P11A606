@@ -6,6 +6,7 @@ import { CrowdLevelBadge, ViewAvatar } from '@/components/common';
 import { useAppTabBarHeight } from '@/components/common/AppTabBar';
 import { colors, spacing } from '@/constants/theme';
 import { getChatRooms } from '@/api/chat/rooms';
+import { focusReceivedPin } from '@/features/chat/receivedFocus';
 import { isOwnPin, isVideoUnlocked } from '@/types/pin';
 import type { PinDetail, PinId, PinRating } from '@/types/pin';
 import type { EvaluationState } from '../hooks/usePinDetailScreen';
@@ -116,7 +117,9 @@ export function PinDetailBody({
             한 줄 둔다.
           */}
           {!detail.memo && detail.tags.length === 0 && (
-            <Text style={s.emptyBody}>작성자가 따로 남긴 설명이 없어요. 영상으로 현장을 확인해 보세요.</Text>
+            <Text style={s.emptyBody}>
+              {'작성자가 따로 남긴 설명이 없어요.\n영상으로 현장을 확인해 보세요.'}
+            </Text>
           )}
         </View>
       </ScrollView>
@@ -258,13 +261,16 @@ function OwnerFooter({ pinId, left, onLeave }: { pinId: PinId; left: boolean; on
         </Text>
       </Pressable>
       {/*
-        이 글의 방 목록까지 바로 들어가도록 핀 식별자를 실어 보낸다. 목록 첫 화면에 내려 두면
-        어느 글의 대화인지 다시 찾아 들어가야 한다. 받는 쪽(채팅 목록)이 param을 한 번 쓰고
-        지우므로 탭으로 다시 열 때 되살아나지 않는다.
+        이 글의 방 목록까지 바로 들어가도록 핀을 남겨 두고 이동한다. 목록 첫 화면에 내려 두면
+        어느 글의 대화인지 다시 찾아 들어가야 한다. param이 아니라 모듈 핸드오프를 쓰는 이유는
+        `receivedFocus.ts`에 적어 두었다.
       */}
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push({ pathname: '/(tabs)/chat/received', params: { pinId } })}
+        onPress={() => {
+          focusReceivedPin(pinId);
+          router.push('/(tabs)/chat/received');
+        }}
         style={[s.footerButton, s.goChatButton]}
       >
         <Text style={s.goChatButtonText}>채팅방으로 이동</Text>

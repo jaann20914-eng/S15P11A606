@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams, usePathname } from 'expo-router';
+import { router, useFocusEffect, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ScreenHeader } from '@/components/common';
@@ -12,7 +12,9 @@ import { ChatRoomRow } from '@/features/chat/components/ChatRoomRow';
 import { useChatDecision, usePinLeave } from '@/features/chat/hooks/useChatDecision';
 import { useChatPins, useMyChatRooms, usePinChatRooms } from '@/features/chat/hooks/useChatLists';
 import { chatListStyles as s } from '@/features/chat/styles';
+import { consumeReceivedPinFocus } from '@/features/chat/receivedFocus';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
+import type { PinId } from '@/types/pin';
 import { formatTimeOfDay } from '@/utils/datetime';
 
 type Tab = '요청한 대화' | '요청받은 대화';
@@ -50,26 +52,39 @@ export default function Chat() {
   const pinRooms = usePinChatRooms(selectedPin?.pinId ?? null);
 
   /*
-    핀 상세의 "채팅방으로 이동"이 실어 보낸 핀. 목록이 도착하면 그 글의 방 목록까지 바로 연다.
+    핀 상세의 "채팅방으로 이동"이 남긴 핀. 목록에서 그 글을 찾는 대로 방 목록까지 바로 연다.
 
-    param은 **한 번 쓰고 지운다.** 탭 라우트의 param은 화면에 남아, 지우지 않으면 나중에 탭
-    버튼으로 열 때마다 그 글로 다시 끌려 들어간다(등록 화면의 `pinId`가 그랬다).
+    초점을 받을 때 꺼낸다(꺼내면 사라진다 — `receivedFocus.ts`). 목록이 아직 그 글을 모르면
+    (방금 첫 요청이 온 경우) 기다렸다가, 재조회가 목록을 채우는 순간 들어간다. 화면을 떠나면
+    기다림도 버린다 — 다음에 탭으로 열 때 끌려 들어가면 안 된다.
   */
-  const { pinId: requestedPinId } = useLocalSearchParams<{ pinId?: string }>();
+  const [pendingPinId, setPendingPinId] = useState<PinId | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const requested = consumeReceivedPinFocus();
+
+      if (requested !== null) {
+        setTab('요청받은 대화');
+        setSelectedPin(null);
+        setQuery('');
+        setPendingPinId(requested);
+      }
+
+      return () => setPendingPinId(null);
+    }, []),
+  );
 
   useEffect(() => {
-    if (!requestedPinId || pins.loading) return;
+    if (pendingPinId === null) return;
 
-    const target = pins.items.find((pin) => pin.pinId === requestedPinId);
+    const target = pins.items.find((pin) => pin.pinId === pendingPinId);
 
-    if (target) {
-      setSelectedPin(target);
-      setTab('요청받은 대화');
-      setQuery('');
-    }
+    if (target === undefined) return;
 
-    router.setParams({ pinId: '' });
-  }, [requestedPinId, pins.loading, pins.items]);
+    setSelectedPin(target);
+    setPendingPinId(null);
+  }, [pendingPinId, pins.items]);
 
   /*
     수락·거절·떠났어요 뒤에는 방 목록과 함께 **글 목록도** 다시 받는다. 글 줄의 점은 대기 중인
