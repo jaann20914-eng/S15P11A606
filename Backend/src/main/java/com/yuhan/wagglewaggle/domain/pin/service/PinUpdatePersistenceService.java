@@ -74,13 +74,11 @@ public class PinUpdatePersistenceService {
         }
 
         List<String> updatedFields = new ArrayList<>();
-        // 커밋 이후 점수 재계산 대상 placeId(중복 제거).
-        Set<Long> placeIdsToRecalculate = new LinkedHashSet<>();
 
-        applyPlace(pin, validated, updatedFields, placeIdsToRecalculate);
+        applyPlace(pin, validated, updatedFields);
         applyCaptureLocation(pin, validated, updatedFields);
         applyDetailLocation(pin, validated, updatedFields);
-        applyCrowdLevel(pin, validated, updatedFields, placeIdsToRecalculate);
+        applyCrowdLevel(pin, validated, updatedFields);
         applyMemo(pin, validated, updatedFields);
         applyTags(pin, validated, updatedFields);
 
@@ -91,8 +89,7 @@ public class PinUpdatePersistenceService {
             aiBlurJobRepository.save(aiBlurJob);
         }
 
-        return new Result(pin.getVideoStatus(), List.copyOf(updatedFields), aiBlurJob,
-                List.copyOf(placeIdsToRecalculate));
+        return new Result(pin.getVideoStatus(), List.copyOf(updatedFields), aiBlurJob);
     }
 
     private void reverifyEditable(Pin pin, Long memberId) {
@@ -111,9 +108,8 @@ public class PinUpdatePersistenceService {
         return expiresAt != null && !expiresAt.isAfter(Instant.now());
     }
 
-    /** placeId가 실제로 바뀌면 반영하고, 기존·새 Place를 점수 재계산 대상에 넣는다. */
-    private void applyPlace(Pin pin, ValidatedPinUpdate validated,
-                            List<String> updatedFields, Set<Long> placeIdsToRecalculate) {
+    /** placeId가 실제로 바뀌면 반영한다. */
+    private void applyPlace(Pin pin, ValidatedPinUpdate validated, List<String> updatedFields) {
         if (!validated.placeChanged()) {
             return;
         }
@@ -125,8 +121,6 @@ public class PinUpdatePersistenceService {
         Place newPlace = placeRepository.getReferenceById(newPlaceId);
         pin.changePlace(newPlace);
         updatedFields.add("placeId");
-        placeIdsToRecalculate.add(oldPlaceId);
-        placeIdsToRecalculate.add(newPlaceId);
     }
 
     /** 촬영 좌표가 실제로 바뀌면 반영한다(변경된 축만 updatedFields에 담는다). */
@@ -165,9 +159,8 @@ public class PinUpdatePersistenceService {
         }
     }
 
-    /** crowdLevel이 실제로 바뀌면 반영하고 최종 Place를 점수 재계산 대상에 넣는다. */
-    private void applyCrowdLevel(Pin pin, ValidatedPinUpdate validated,
-                                 List<String> updatedFields, Set<Long> placeIdsToRecalculate) {
+    /** crowdLevel이 실제로 바뀌면 반영한다. */
+    private void applyCrowdLevel(Pin pin, ValidatedPinUpdate validated, List<String> updatedFields) {
         if (!validated.crowdLevel().isPresent()) {
             return;
         }
@@ -175,8 +168,6 @@ public class PinUpdatePersistenceService {
         if (pin.getCrowdLevel() != newValue) {
             pin.changeCrowdLevel(newValue);
             updatedFields.add("crowdLevel");
-            // 최종 Place(placeId가 함께 바뀌었다면 새 Place)의 점수를 재계산한다.
-            placeIdsToRecalculate.add(pin.getPlace().getId());
         }
     }
 
@@ -226,16 +217,14 @@ public class PinUpdatePersistenceService {
     /**
      * 반영 결과.
      *
-     * @param videoStatus           변경되지 않은 현재 영상 상태(ACTIVE)
-     * @param updatedFields         실제 DB 값이 바뀐 필드
-     * @param aiBlurJob             영상 교체로 생성된 PENDING 작업(없으면 null)
-     * @param placeIdsToRecalculate 커밋 이후 점수 재계산 대상 placeId
+     * @param videoStatus   변경되지 않은 현재 영상 상태(ACTIVE)
+     * @param updatedFields 실제 DB 값이 바뀐 필드
+     * @param aiBlurJob     영상 교체로 생성된 PENDING 작업(없으면 null)
      */
     public record Result(
             VideoStatus videoStatus,
             List<String> updatedFields,
-            AiBlurJob aiBlurJob,
-            List<Long> placeIdsToRecalculate
+            AiBlurJob aiBlurJob
     ) {
     }
 }
