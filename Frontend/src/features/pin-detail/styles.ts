@@ -123,6 +123,10 @@ export const pinDetailStyles = StyleSheet.create({
   },
   menuRule: { height: 1, backgroundColor: colors.gray200 },
   menuText: { ...type.label, color: colors.gray600 },
+  /** 잠긴 메뉴 줄의 글자. 지우는 대신 눌러도 안 된다는 것이 모양으로 보이게 한다. */
+  menuTextDisabled: { color: colors.gray400 },
+  /** 잠긴 이유를 적는 작은 줄. */
+  menuHint: { ...type.caption, fontSize: 10, color: colors.gray400 },
 
   /* 영상 */
   videoFrame: { height: 294, position: 'relative', overflow: 'hidden', backgroundColor: colors.gray200 },

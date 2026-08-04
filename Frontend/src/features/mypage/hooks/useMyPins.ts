@@ -38,6 +38,16 @@ export const TODAY_PIN_PAGE_SIZE = 20;
 /** 첫 조회에서 로딩 표시를 최소한 이만큼 유지한다. 이유는 `withMinimumDuration` 참고. */
 const MIN_LOADING_MS = 500;
 
+/**
+ * 핀이 공개되는 시간(ms). 서버 규칙은 "AI 검수 통과 시각 + 1시간"이다.
+ *
+ * 목록 응답에는 만료 시각(`expiresAt`)이 없어 등록 시각으로 근사한다 — 검수가 몇 초 안에
+ * 끝나 오차가 작고, 이르게 "만료"로 읽는 쪽이라 만료된 글을 살아 있다고 보여주는 것보다
+ * 낫다. 정확한 판정은 상세 화면이 응답의 `expiresAt`으로 한다. 서버가 목록에도 그 값을
+ * 주기 시작하면 이 근사를 지운다.
+ */
+const PIN_LIFETIME_MS = 60 * 60 * 1000;
+
 /** 서버 핀을 화면이 쓰는 모양으로 바꾼다. */
 function toMyPin(pin: TodayPin): MyPin {
   return {
@@ -47,6 +57,8 @@ function toMyPin(pin: TodayPin): MyPin {
     // 주소가 비어서 오면 목록에서 그 줄을 그리지 않는다. 빈 줄이 자리만 차지한다.
     placeAddress: pin.placeAddress?.trim() ?? '',
     status: pin.status,
+    // 공개된 적 없는 핀(검수 중·재촬영·실패)에는 만료라는 개념이 없다.
+    expired: pin.status === 'ACTIVE' && Date.parse(pin.createdAt) + PIN_LIFETIME_MS <= Date.now(),
   };
 }
 

@@ -147,6 +147,8 @@ export type PinDetail = {
   authorNickname: string;
   /** 핀 등록 시각(ISO 8601). "40초 전 업로드" 표기에 쓴다. */
   createdAt: string;
+  /** 공개가 끝나는 시각(ISO 8601). 지나면 작성자만 볼 수 있고 수정은 서버가 거절한다. */
+  expiresAt: string;
   crowdLevel: CrowdLevelKey;
   /** 층·좌석 등 장소 내부 위치. 없으면 null. */
   detailLocation: string | null;
@@ -215,6 +217,19 @@ export type PinUnlockResult = {
 /** 내가 쓴 핀인지. 수정·삭제·떠났어요 노출 기준이다. */
 export function isOwnPin(detail: PinDetail): boolean {
   return detail.videoAccess === 'OWNER';
+}
+
+/**
+ * 공개가 끝난 핀인지. 수정을 잠그는 기준이다(삭제는 만료돼도 할 수 있다).
+ *
+ * 만료된 핀의 상세는 작성자에게만 열리므로, 이 판정이 참인 화면은 곧 내 핀이다.
+ * 수정을 여기서 막지 않으면 수정 화면까지 들어간 뒤에야 서버 거절(`PIN_NOT_FOUND`)을 본다.
+ */
+export function isPinExpired(detail: PinDetail, now: number = Date.now()): boolean {
+  const expiresAt = Date.parse(detail.expiresAt);
+
+  // 값이 깨져 읽을 수 없으면 만료로 다루지 않는다 — 수정이 막힐 이유를 화면이 설명할 수 없다.
+  return !Number.isNaN(expiresAt) && expiresAt <= now;
 }
 
 /** 블러 없이 원본을 볼 수 있는지. */
