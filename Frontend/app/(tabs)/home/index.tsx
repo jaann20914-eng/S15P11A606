@@ -22,6 +22,7 @@ import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
+import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { matchesCrowdFilter } from '@/constants/crowdLevels';
 import { places } from '@/data/mock';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -152,6 +153,9 @@ export default function Home() {
     () => visiblePlaces.findIndex((place) => place.id === selectedPlaceId),
     [selectedPlaceId, visiblePlaces],
   );
+
+  /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
+  const locationButton = useFadeToggle(level !== 2);
 
   /**
    * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
@@ -306,31 +310,43 @@ export default function Home() {
           <Ionicons name="search" size={22} color={colors.gray600} />
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="현재 위치로 돌아가기"
-          accessibilityState={{ busy: myLocation.status === 'loading' }}
-          disabled={myLocation.status === 'loading'}
-          onPress={goToMyLocation}
-          style={s.location}
-        >
-          {/*
-            누른 뒤 아무 표시가 없으면 버튼이 고장난 것으로 보인다. 실제로 좌표를 받는 데
-            몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
-          */}
-          {myLocation.status === 'loading' ? (
-            <ActivityIndicator size="small" color={colors.dark} />
-          ) : (
-            <Ionicons
-              name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
-              size={23}
-              color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
-            />
-          )}
-        </Pressable>
+        {/*
+          최대화 단계에서는 시트가 검색바 바로 아래까지 올라와 이 버튼과 겹친다. 그래서 감춘다.
 
-        {/* 실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다. */}
-        {myLocation.message && (
+          조건을 그대로 `&&`로 걸면 툭 없어지고 툭 생긴다 — 시트는 스프링으로 부드럽게
+          움직이는데 그 위 버튼만 순간이동하면 두 움직임이 따로 노는 것으로 보인다.
+          `useFadeToggle`이 사라지는 모션을 다 보여준 뒤에 뗀다(장소 상세도 같은 훅을 쓴다).
+        */}
+        {locationButton.mounted && (
+          <AnimatedPressable
+            accessibilityRole="button"
+            accessibilityLabel="현재 위치로 돌아가기"
+            accessibilityState={{ busy: myLocation.status === 'loading' }}
+            disabled={myLocation.status === 'loading'}
+            onPress={goToMyLocation}
+            style={[s.location, locationButton.style]}
+          >
+            {/*
+              누른 뒤 아무 표시가 없으면 버튼이 고장난 것으로 보인다. 실제로 좌표를 받는 데
+              몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
+            */}
+            {myLocation.status === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.dark} />
+            ) : (
+              <Ionicons
+                name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
+                size={23}
+                color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
+              />
+            )}
+          </AnimatedPressable>
+        )}
+
+        {/*
+          실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다.
+          버튼이 감춰졌으면 함께 감춘다 — 누를 수 없는 버튼에 대한 안내가 시트 뒤에 남는다.
+        */}
+        {locationButton.mounted && myLocation.message && (
           <Text accessibilityRole="alert" style={s.locationMessage}>
             {myLocation.message}
           </Text>
@@ -339,8 +355,19 @@ export default function Home() {
 
       {/* 위에 상세가 겹쳐 있으면 감춘다. display로 빼야 레이아웃·그리기까지 건너뛴다. */}
       <Animated.View style={[s.sheet, !onTop && s.sheetHidden, { transform: [{ translateY: sheetY }] }]}>
+        {/*
+          흐림 한 겹 + 표면 한 겹.
+
+          예전에는 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
+          `backgroundColor`, 그리고 그 위 `sheetTint`. 겹치는 곳마다 흰 농도가 달라져 시트가
+          **투톤으로 갈려 보였다.** 지금은 농도를 정하는 겹이 `sheetSurface` 하나뿐이고,
+          장소 상세 시트와 같은 값을 쓴다.
+
+          흐림은 남겨 둔다. 안드로이드에서는 실제로 흐려지지 않지만(`expo-blur`의 기본값
+          `experimentalBlurMethod: 'none'`) iOS에서는 표면 아래가 흐려진다.
+        */}
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
-        <View style={s.sheetTint} />
+        <View style={s.sheetSurface} />
 
         <View {...sheet.panHandlers}>
           <Pressable
@@ -477,6 +504,14 @@ export default function Home() {
   );
 }
 
+/**
+ * 애니메이션을 얹을 수 있는 누를 것.
+ *
+ * `Animated.View`로 감싸는 대신 버튼 자체를 움직인다. 감싸면 `alignSelf`·`marginTop` 같은
+ * 배치 속성을 감싼 쪽으로 옮겨야 해서 스타일이 두 곳으로 갈린다.
+ */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 const glassShadow = {
   shadowColor: '#282626',
   shadowOffset: { width: 0, height: 6 },
@@ -524,6 +559,12 @@ const s = StyleSheet.create({
     color: colors.white,
     backgroundColor: 'rgba(40,38,38,0.82)',
   },
+  /**
+   * 반투명 시트. 흰 농도는 **`sheetSurface` 한 겹으로만** 정한다.
+   *
+   * `backgroundColor`를 두지 않는다. 표면 위아래로 흰 반투명을 더 얹으면 겹친 곳만 농도가
+   * 올라가 시트가 투톤으로 갈려 보였다.
+   */
   sheet: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
@@ -532,11 +573,22 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: 'rgba(255,255,255,0.82)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     ...glassShadow,
   },
   sheetHidden: { display: 'none' },
-  sheetTint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.04)' },
+  /**
+   * 시트의 농도를 정하는 유일한 겹. 값은 장소 상세 시트와 공유한다(`colors.sheetSurface`).
+   *
+   * 위쪽 모서리를 **스스로도** 둥글게 둔다. 감싼 시트가 `overflow: 'hidden'`으로 잘라 주기는
+   * 하지만, 안드로이드에서 그 자르기가 둥근 모서리까지 따라오지 않으면 이 겹이 네모난 모서리로
+   * 덮어 버린다. 예전에는 농도가 0.04라 그래도 보이지 않았지만 이제는 그대로 드러난다.
+   */
+  sheetSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: colors.sheetSurface,
+  },
   handleArea: { paddingTop: spacing.x2, paddingBottom: spacing.x3 },
   handle: {
     width: 40,

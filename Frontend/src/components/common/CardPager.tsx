@@ -1,6 +1,7 @@
 import { Children, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { spacing } from '@/constants/theme';
 
 /**
  * 카드를 한 장씩 위아래로 넘겨 보는 칸.
@@ -58,6 +59,18 @@ const SPRING = {
  * (`onSlotHeightChange`). 0이면 시트가 한 번 접혔다 펴진다.
  */
 const ESTIMATED_CARD_HEIGHT = 240;
+
+/**
+ * 카드 사이 간격.
+ *
+ * 예전에는 칸 높이를 카드 높이와 똑같이 잡아, 넘기는 도중 두 카드가 **맞붙어 보였다** — 홈
+ * 카드는 그림자까지 있어 아래 카드에 겹쳐 얹혔다. 칸을 카드보다 이만큼 크게 잡아 늘 이 간격이
+ * 사이에 들어가게 한다.
+ *
+ * 목록(확장 단계)의 카드 사이 간격과 같은 값이다. 같은 카드가 단계에 따라 다른 간격으로
+ * 놓이면 넘길 때와 훑을 때의 리듬이 달라진다.
+ */
+const SLOT_GAP = spacing.x3;
 
 export interface CardPagerProps {
   /** 넘겨 볼 카드들. 각자 `key`를 가져야 한다. */
@@ -127,11 +140,22 @@ export function CardPager({ children, paging = true, onSlotHeightChange, activeI
     떨어지면 칸 높이가 한 번 튀고 그 값으로 시트 높이가 정해져 시트까지 들썩인다. 다시 잴
     동안에는 직전 값을 그대로 쓴다.
   */
-  const [slotHeight, setSlotHeight] = useState(ESTIMATED_CARD_HEIGHT);
+  const [cardHeight, setCardHeight] = useState(ESTIMATED_CARD_HEIGHT);
   useEffect(() => {
     if (!measured) return;
-    setSlotHeight(Math.max(...heights));
+    setCardHeight(Math.max(...heights));
   }, [heights, measured]);
+
+  /*
+    한 칸의 높이 = 가장 큰 카드 + 사이 간격.
+
+    카드는 칸 맨 위에 놓이므로 남는 간격이 아래에 붙는다. 넘길 거리가 이 값이라, 카드와 카드
+    사이에는 늘 `SLOT_GAP`이 들어간다 — 맞붙거나 그림자가 겹칠 수 없다.
+
+    창 높이도 같은 값이다. 그러면 다음 카드의 윗변이 창 아래끝에 정확히 걸려 밖에서 기다리므로
+    쉬는 동안에는 한 장만 보이고, 그 간격만큼은 카드 그림자가 잘리지 않고 퍼질 자리가 된다.
+  */
+  const slotHeight = cardHeight + SLOT_GAP;
 
   /*
     값이 실제로 바뀔 때만 알린다.

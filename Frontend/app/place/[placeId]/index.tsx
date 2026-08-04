@@ -20,6 +20,7 @@ import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
+import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapStore } from '@/store/useMapStore';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -61,6 +62,14 @@ const CHART_HIDE_MS = 180;
 
 /** 펼쳐질 때 그래프가 위에서 내려앉는 거리(px). 카드가 자라는 느낌을 만든다. */
 const CHART_RISE = 12;
+
+/**
+ * 애니메이션을 얹을 수 있는 누를 것.
+ *
+ * `Animated.View`로 감싸는 대신 버튼 자체를 움직인다. 감싸면 `alignSelf`·`marginTop` 같은
+ * 배치 속성을 감싼 쪽으로 옮겨야 해서 스타일이 두 곳으로 갈린다.
+ */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function Place() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
@@ -160,6 +169,9 @@ export default function Place() {
   const [chartMounted, setChartMounted] = useState(false);
   const expanded = level === 2;
 
+  /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
+  const locationButton = useFadeToggle(!expanded);
+
   useEffect(() => {
     if (expanded) setChartMounted(true);
 
@@ -190,14 +202,21 @@ export default function Place() {
           <Ionicons name="search" size={22} color={colors.gray600} />
           <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
         </Pressable>
-        {level !== 2 && (
-          <Pressable
+        {/*
+          최대화 단계에서는 시트가 검색바 바로 아래까지 올라와 이 버튼과 겹친다. 그래서 감춘다.
+
+          조건을 그대로 `&&`로 걸면 툭 없어지고 툭 생긴다 — 시트는 스프링으로 부드럽게
+          움직이는데 그 위 버튼만 순간이동하면 두 움직임이 따로 노는 것으로 보인다.
+          `useFadeToggle`이 사라지는 모션을 다 보여준 뒤에 뗀다.
+        */}
+        {locationButton.mounted && (
+          <AnimatedPressable
             accessibilityRole="button"
             accessibilityLabel="현재 위치로 이동"
             accessibilityState={{ busy: myLocation.status === 'loading' }}
             disabled={myLocation.status === 'loading'}
             onPress={goToMyLocation}
-            style={s.location}
+            style={[s.location, locationButton.style]}
           >
             {/* 홈과 같은 이유로 기다리는 중임을 드러낸다. 표시가 없으면 먹통으로 보인다. */}
             {myLocation.status === 'loading' ? (
@@ -209,19 +228,23 @@ export default function Place() {
                 color={myLocation.status === 'denied' ? colors.gray400 : colors.dark}
               />
             )}
-          </Pressable>
+          </AnimatedPressable>
         )}
       </View>
 
       <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
         {/*
-          흐림 한 겹만 깐다.
+          흐림 한 겹 + 표면 한 겹.
 
-          예전에는 여기에 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
+          예전에는 흰 반투명이 세 겹 겹쳐 있었다 — 흐림의 `tint="light"`, 시트 자체의
           `backgroundColor`, 그리고 그 위 `sheetTint`. 겹치는 곳마다 흰 농도가 달라져 시트가
-          **투톤으로 갈려 보였다.** 농도는 흐림 한 겹으로만 정한다.
+          **투톤으로 갈려 보였다.** 지금은 농도를 정하는 겹이 `sheetSurface` 하나뿐이다.
+
+          흐림은 남겨 둔다. 안드로이드에서는 실제로 흐려지지 않지만(`expo-blur`의 기본값
+          `experimentalBlurMethod: 'none'`) iOS에서는 표면 아래가 흐려진다.
         */}
         <BlurView intensity={78} tint="light" style={StyleSheet.absoluteFill} />
+        <View style={s.sheetSurface} />
         <View {...sheet.panHandlers}>
           <Pressable
             accessibilityRole="adjustable"
@@ -422,10 +445,10 @@ const s = StyleSheet.create({
     ...shadow,
   },
   /**
-   * 반투명 시트. 흰 농도는 **흐림 한 겹으로만** 정한다(`BlurView`).
+   * 반투명 시트. 흰 농도는 **`sheetSurface` 한 겹으로만** 정한다.
    *
-   * `backgroundColor`를 두지 않는다. 흐림 위에 흰 반투명을 더 얹으면 겹친 곳만 농도가 올라가
-   * 시트가 투톤으로 갈려 보였다.
+   * `backgroundColor`를 두지 않는다. 표면 위아래로 흰 반투명을 더 얹으면 겹친 곳만 농도가
+   * 올라가 시트가 투톤으로 갈려 보였다.
    */
   sheet: {
     ...StyleSheet.absoluteFillObject,
@@ -436,6 +459,19 @@ const s = StyleSheet.create({
     borderBottomWidth: 0,
     borderColor: 'rgba(255,255,255,0.82)',
     ...shadow,
+  },
+  /**
+   * 시트의 농도를 정하는 유일한 겹. 값은 홈 시트와 공유한다(`colors.sheetSurface`).
+   *
+   * 위쪽 모서리를 **스스로도** 둥글게 둔다. 감싼 시트가 `overflow: 'hidden'`으로 잘라 주기는
+   * 하지만, 안드로이드에서 그 자르기가 둥근 모서리까지 따라오지 않으면 이 겹이 네모난 모서리로
+   * 덮어 버린다.
+   */
+  sheetSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: radius.hero,
+    borderTopRightRadius: radius.hero,
+    backgroundColor: colors.sheetSurface,
   },
   handleArea: { height: 40, alignItems: 'center', paddingTop: spacing.x3 },
   handle: { width: 40, height: 4, borderRadius: radius.pill, backgroundColor: 'rgba(59,56,56,0.32)' },

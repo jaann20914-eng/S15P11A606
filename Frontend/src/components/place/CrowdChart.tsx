@@ -239,13 +239,14 @@ export function CrowdChart({ stats, today = todayOfWeek(), onSelectDay, surface 
                   s.activeBand,
                   {
                     left: dotX(activeIndex) - BAND_WIDTH / 2,
-                    // 띠는 계열만 구분한다. 글자만큼 진하면 그 위의 선이 읽히지 않는다.
-                    backgroundColor:
-                      activeStage === null
-                        ? colors.gray100
-                        : activeStage.group === 'WAGLE'
-                          ? colors.coralSoft
-                          : colors.limeSoft,
+                    /*
+                      **네 단계를 각자의 색으로 구분한다.**
+
+                      예전에는 여유 계열·와글 계열 두 색뿐이어서, 유유자적과 여유가 같은
+                      색으로 보였다. 단계마다 색이 있는데(공통DESIGN §4.2의 혼잡도 4색)
+                      둘로 뭉개면 그래프에서 단계를 읽을 수 없다.
+                    */
+                    backgroundColor: activeStage?.color ?? colors.gray100,
                   },
                 ]}
               />

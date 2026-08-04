@@ -309,6 +309,15 @@ export const colors = {
   warning: palette.warning,
   success: palette.success,
   sky: palette.sky,
+  /**
+   * 지도 위 바텀시트의 표면.
+   *
+   * 카드용 글래스(`color.surface.glass`, 0.92)보다 조금 투명하지만 **면적이 훨씬 넓다.**
+   * 넓은 면을 옅게 두면 아래 지도의 글자·선이 그대로 배어 나와 시트 안 내용과 섞여 읽힌다.
+   * 홈 시트와 장소 상세가 같은 값을 쓴다 — 두 화면이 나란히 이어지므로 농도가 다르면
+   * 화면을 옮길 때 눈에 띈다. **농도를 바꾸려면 이 값 하나만 고친다.**
+   */
+  sheetSurface: 'rgba(255,255,255,0.88)',
   limeSoft: palette.limeSoft,
   /**
    * 와글(붐빔) 계열의 옅은 배경. `limeSoft`와 짝이다.
