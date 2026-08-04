@@ -23,11 +23,18 @@ type RawChatRoomListItem = Omit<ChatRoomListItem, 'hasUnread'> & {
  *
  * 둘 다 없으면 "읽었다"로 본다. 없는 값을 안 읽음으로 두면 목록 전체에 배지가 붙어, 진짜 안 읽은
  * 방을 찾을 수 없게 된다.
+ *
+ * **종료된 방은 항상 "읽었다"로 만든다.** 서버의 안 읽음 계산은 방 상태를 보지 않아서, 거절하거나
+ * 떠난 방에 남은 메시지가 영원히 안 읽음으로 남는다 — 그 방은 다시 열 일이 없는데 점만 남아
+ * 거절을 해도 알림이 꺼지지 않는 것처럼 보였다(2026-08-05).
  */
 function toRoomItem(raw: RawChatRoomListItem): ChatRoomListItem {
   const { hasUnread, isRead, ...rest } = raw;
 
-  return { ...rest, hasUnread: hasUnread ?? (isRead === undefined ? false : !isRead) };
+  return {
+    ...rest,
+    hasUnread: rest.status === 'CLOSED' ? false : (hasUnread ?? (isRead === undefined ? false : !isRead)),
+  };
 }
 
 function toRoomPage(page: CursorPage<RawChatRoomListItem>): CursorPage<ChatRoomListItem> {
@@ -61,11 +68,16 @@ function loadChatRooms(query: CursorQuery) {
 
 /** 내가 요청한 채팅방 전체. 무한 스크롤을 두지 않기로 해서 커서를 끝까지 따라간다. */
 export function getChatRooms(): Promise<ChatRoomListItem[]> {
-  return traceChat('내 채팅방 목록', 'chat/rooms', () => fetchAllPages(loadChatRooms), (rooms) => ({
-    건수: rooms.length,
-    안읽음: rooms.filter((room) => room.hasUnread).length,
-    상태: rooms.map((room) => room.status).join(', ') || '없음',
-  }));
+  return traceChat(
+    '내 채팅방 목록',
+    'chat/rooms',
+    () => fetchAllPages(loadChatRooms),
+    (rooms) => ({
+      건수: rooms.length,
+      안읽음: rooms.filter((room) => room.hasUnread).length,
+      상태: rooms.map((room) => room.status).join(', ') || '없음',
+    }),
+  );
 }
 
 /**
@@ -76,10 +88,7 @@ export function getChatRooms(): Promise<ChatRoomListItem[]> {
  *
  * 오류 코드: 위와 같다.
  */
-async function requestPinChatRooms(
-  pinId: PinId,
-  query: CursorQuery,
-): Promise<CursorPage<ChatRoomListItem>> {
+async function requestPinChatRooms(pinId: PinId, query: CursorQuery): Promise<CursorPage<ChatRoomListItem>> {
   const page = await apiRequest<CursorPage<RawChatRoomListItem>>({
     method: 'GET',
     url: `/api/v1/chat/rooms/${pinId}`,
@@ -90,9 +99,7 @@ async function requestPinChatRooms(
 }
 
 function loadPinChatRooms(pinId: PinId, query: CursorQuery) {
-  return usesMock('chat/rooms')
-    ? listMockPinChatRooms(pinId, query)
-    : requestPinChatRooms(pinId, query);
+  return usesMock('chat/rooms') ? listMockPinChatRooms(pinId, query) : requestPinChatRooms(pinId, query);
 }
 
 /** 이 게시글에 달린 채팅방 전체. */

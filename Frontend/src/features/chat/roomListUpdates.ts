@@ -43,8 +43,15 @@ export function applyUserChatEvent(rooms: ChatRoomListItem[], event: UserChatEve
     /*
       목록은 상태를 세 가지로 줄여서 갖는다. 이벤트는 네 가지를 그대로 주므로 같은 기준으로
       바꿔 담는다 — 거절과 나감은 목록에서 구분하지 않는다.
+
+      끝난 방의 점은 함께 끈다. 다시 열 일이 없는 대화에 안 읽음만 남으면 지울 방법이 없다
+      (목록 조회 쪽도 같은 규칙이다 — `api/chat/rooms.ts`).
     */
-    return replace(rooms, roomId, (room) => ({ ...room, status: toSummaryStatus(status) }));
+    return replace(rooms, roomId, (room) => {
+      const summary = toSummaryStatus(status);
+
+      return { ...room, status: summary, hasUnread: summary === 'CLOSED' ? false : room.hasUnread };
+    });
   }
 
   return rooms;

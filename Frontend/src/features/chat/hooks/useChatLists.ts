@@ -23,6 +23,9 @@ interface EditableList<TItem> extends ListState<TItem> {
   setItems: Dispatch<SetStateAction<TItem[]>>;
 }
 
+/** 새 요청을 알아채는 주기(ms). 서버가 요청 이벤트를 발행하기 시작하면 주기 조회는 지운다. */
+const POLL_INTERVAL_MS = 10_000;
+
 /**
  * 목록을 한 번 받아 둔다.
  *
@@ -31,8 +34,12 @@ interface EditableList<TItem> extends ListState<TItem> {
  *
  * `load`는 렌더마다 새로 만들어지는 함수라 의존값에 넣지 않는다. 다시 받는 시점은 `reload`가
  * 올리는 값이 정한다.
+ *
+ * `poll`을 켜면 화면이 떠 있는 동안 주기적으로 다시 받는다. **새 채팅 요청 때문이다** — 요청은
+ * 방만 만들고 실시간 이벤트를 발행하지 않아, 목록을 보고 기다리는 사람에게 알려 줄 길이 조회밖에
+ * 없다. 서버가 요청 이벤트를 쏘기 시작하면 끈다.
  */
-function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableList<TItem> {
+function useList<TItem>(load: () => Promise<TItem[]>, enabled = true, poll = false): EditableList<TItem> {
   const [items, setItems] = useState<TItem[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
@@ -43,16 +50,23 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableL
   const loadRef = useRef(load);
   loadRef.current = load;
 
+  /**
+   * 한 번이라도 받아 봤는지. 받아 본 뒤의 재조회는 로딩을 보여주지 않는다 — 초점 복귀와 주기
+   * 조회가 잦아져서, 그때마다 목록이 스피너로 바뀌면 화면이 계속 깜빡인다.
+   */
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
     if (!enabled) {
       setItems([]);
       setLoading(false);
+      hasLoadedRef.current = false;
       return;
     }
 
     let alive = true;
 
-    setLoading(true);
+    setLoading(!hasLoadedRef.current);
     setError(null);
 
     loadRef
@@ -60,6 +74,7 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableL
       .then((result) => {
         if (!alive) return;
 
+        hasLoadedRef.current = true;
         setItems(result);
         setLoading(false);
       })
@@ -74,6 +89,17 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableL
       alive = false;
     };
   }, [enabled, requestedAt]);
+
+  // 주기 조회는 화면이 초점을 가진 동안만 돈다. 다른 탭에서까지 돌릴 이유가 없다.
+  useFocusEffect(
+    useCallback(() => {
+      if (!poll || !enabled) return;
+
+      const timer = setInterval(reload, POLL_INTERVAL_MS);
+
+      return () => clearInterval(timer);
+    }, [poll, enabled, reload]),
+  );
 
   /*
     화면으로 돌아올 때 다시 받는다.
@@ -142,9 +168,14 @@ export function useMyChatRooms(): ListState<ChatRoomListItem> {
   return list;
 }
 
-/** 요청이 온 내 게시글 목록. 새 요청이 오면 다시 받는다 — 없던 글이 생길 수 있다. */
+/**
+ * 요청이 온 내 게시글 목록. 새 요청이 오면 다시 받는다 — 없던 글이 생길 수 있다.
+ *
+ * 주기 조회를 켠다. 요청 도착은 실시간 이벤트가 없어, 이 목록을 보며 기다리는 사람에게
+ * 조회 말고는 알려 줄 길이 없다.
+ */
 export function useChatPins(): ListState<ChatPinListItem> {
-  const list = useList(getChatPins);
+  const list = useList(getChatPins, true, true);
   const { reload, setItems } = list;
 
   useUserChatEvents((event) => {
@@ -193,7 +224,12 @@ export function useChatPins(): ListState<ChatPinListItem> {
  * `pinId`가 null이면 아직 고르지 않은 상태라 요청하지 않는다.
  */
 export function usePinChatRooms(pinId: PinId | null): ListState<ChatRoomListItem> {
-  const list = useList(() => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)), pinId !== null);
+  // 주기 조회를 켠다 — 이 글에 새 요청이 들어와도 이벤트가 없어 조회로만 나타난다.
+  const list = useList(
+    () => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)),
+    pinId !== null,
+    true,
+  );
   const { reload, setItems } = list;
 
   useUserChatEvents((event) => {

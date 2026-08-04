@@ -41,9 +41,7 @@ export default function Chat() {
     알 수 없다(핀 상세의 "채팅방으로 이동"이 그랬다).
   */
   const pathname = usePathname();
-  const [tab, setTab] = useState<Tab>(
-    pathname.endsWith('/received') ? '요청받은 대화' : '요청한 대화',
-  );
+  const [tab, setTab] = useState<Tab>(pathname.endsWith('/received') ? '요청받은 대화' : '요청한 대화');
   const [query, setQuery] = useState('');
   const [selectedPin, setSelectedPin] = useState<ChatPinListItem | null>(null);
 
@@ -51,8 +49,17 @@ export default function Chat() {
   const pins = useChatPins();
   const pinRooms = usePinChatRooms(selectedPin?.pinId ?? null);
 
-  const decision = useChatDecision(pinRooms.reload);
-  const leave = usePinLeave(selectedPin?.pinId ?? null, pinRooms.reload);
+  /*
+    수락·거절·떠났어요 뒤에는 방 목록과 함께 **글 목록도** 다시 받는다. 글 줄의 점은 대기 중인
+    요청이 있는지로 계산하는데, 방 목록만 새로 받으면 방금 처리한 요청이 글 줄에는 남는다.
+  */
+  const reloadBothLists = () => {
+    pinRooms.reload();
+    pins.reload();
+  };
+
+  const decision = useChatDecision(reloadBothLists);
+  const leave = usePinLeave(selectedPin?.pinId ?? null, reloadBothLists);
 
   // 처리 결과는 그 자리에서 알린다. 목록만 조용히 바뀌면 눌린 것인지 알 수 없다.
   useEffect(() => {
@@ -66,16 +73,11 @@ export default function Chat() {
   useEffect(() => {
     if (leave.error === null) return;
 
-    Alert.alert('채팅방을 종료하지 못했어요', leave.error, [
-      { text: '확인', onPress: leave.dismissError },
-    ]);
+    Alert.alert('채팅방을 종료하지 못했어요', leave.error, [{ text: '확인', onPress: leave.dismissError }]);
   }, [leave.error, leave.dismissError]);
 
   const filteredMyRooms = useMemo(() => filterRooms(myRooms.items, query), [myRooms.items, query]);
-  const filteredPinRooms = useMemo(
-    () => filterRooms(pinRooms.items, query),
-    [pinRooms.items, query],
-  );
+  const filteredPinRooms = useMemo(() => filterRooms(pinRooms.items, query), [pinRooms.items, query]);
   const filteredPins = useMemo(
     () => pins.items.filter((pin) => `${pin.placeName}${pin.placeAddress}`.includes(query)),
     [pins.items, query],
@@ -154,9 +156,7 @@ export default function Chat() {
                 loading={pinRooms.loading}
                 error={pinRooms.error}
                 isEmpty={filteredPinRooms.length === 0}
-                emptyText={
-                  query === '' ? '아직 이 게시글에 온 대화가 없어요' : '검색 결과가 없어요'
-                }
+                emptyText={query === '' ? '아직 이 게시글에 온 대화가 없어요' : '검색 결과가 없어요'}
                 onRetry={pinRooms.reload}
               />
 

@@ -29,27 +29,31 @@ function loadChatPins(query: CursorQuery) {
 }
 
 /**
- * 아직 응답하지 않은 요청이 있는 글에도 점을 켠다.
+ * 글의 안 읽음 점을 방 목록으로 다시 계산한다.
  *
- * 서버의 `hasUnread`는 **안 읽은 상대 메시지**만 센다 — 집계 쿼리가 `chat_messages`를 조인한다.
- * 그런데 채팅 요청은 방(`PENDING`)만 만들고 메시지는 만들지 않아서, 요청이 도착해도 이 값이
- * false다. 정작 가장 먼저 봐야 하는 글에 아무 표시가 없었다(2026-08-05). 요청 시점에는 실시간
- * 이벤트도 오지 않아 다른 데서 알 방법이 없다.
+ * 서버의 글 단위 `hasUnread`는 두 가지가 어긋난다:
  *
- * 그래서 방 목록을 보고 `PENDING`이 하나라도 있으면 켠다. 이미 켜진 글은 다시 묻지 않고,
- * 조회가 실패한 글은 서버 값을 그대로 둔다 — 점을 켜려다 목록 자체가 실패하면 안 된다.
+ * - **안 읽은 상대 메시지**만 센다 — 채팅 요청은 방(`PENDING`)만 만들고 메시지는 만들지
+ *   않아서, 요청이 와도 켜지지 않는다. 정작 가장 먼저 봐야 하는 글에 표시가 없었다.
+ * - 방 상태를 보지 않는다 — 거절하거나 떠난 방에 남은 메시지를 계속 세서, **거절해도 점이
+ *   꺼지지 않았다**(2026-08-05).
  *
- * 서버가 요청까지 세어 주기 시작하면 이 함수를 지운다.
+ * 그래서 서버 값 대신 글마다 방 목록을 받아 "응답 대기 중인 요청이 있거나, 열려 있는 방에
+ * 안 읽은 메시지가 있으면" 켠다(방 목록 쪽에서 이미 종료된 방의 안 읽음을 지워 준다).
+ * 조회가 실패한 글은 서버 값을 그대로 둔다 — 점 하나 때문에 목록이 실패하면 안 된다.
+ *
+ * 서버 집계가 요청을 세고 종료된 방을 빼기 시작하면 이 함수를 지운다.
  */
-function markPendingRequests(pins: ChatPinListItem[]): Promise<ChatPinListItem[]> {
+function resolveUnreadDots(pins: ChatPinListItem[]): Promise<ChatPinListItem[]> {
   return Promise.all(
     pins.map(async (pin) => {
-      if (pin.hasUnread) return pin;
-
       try {
         const rooms = await getPinChatRooms(pin.pinId);
 
-        return rooms.some((room) => room.status === 'PENDING') ? { ...pin, hasUnread: true } : pin;
+        return {
+          ...pin,
+          hasUnread: rooms.some((room) => room.status === 'PENDING' || room.hasUnread),
+        };
       } catch {
         return pin;
       }
@@ -62,7 +66,7 @@ export function getChatPins(): Promise<ChatPinListItem[]> {
   return traceChat(
     '채팅 게시글 목록',
     'chat/pins',
-    async () => markPendingRequests(await fetchAllPages(loadChatPins)),
+    async () => resolveUnreadDots(await fetchAllPages(loadChatPins)),
     (pins) => ({
       건수: pins.length,
       표시: pins.filter((pin) => pin.hasUnread).length,
