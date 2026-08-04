@@ -61,7 +61,7 @@ export function RecommendCard({ place }: RecommendCardProps) {
           <View style={s.placeCopy}>
             <Text style={s.placeName}>{place.name}</Text>
             {/* 영업시간을 확인할 수 없으면 서버가 null을 준다. 그때는 줄을 그리지 않는다. */}
-            {place.businessHoursText !== null && (
+            {place.businessHoursText !== null && place.businessHoursText !== undefined && (
               <Text style={s.hours}>{place.businessHoursText}</Text>
             )}
             <Text style={s.address}>{place.address}</Text>
@@ -101,7 +101,7 @@ export function RecommendCard({ place }: RecommendCardProps) {
               {previews.map((preview) => (
                 <ViewAvatar
                   key={preview.pinId}
-                  angle={preview.uploaderViewReliability}
+                  angle={preview.uploaderViewAngle}
                   size={ANGLE_RING_SIZE}
                 />
               ))}
