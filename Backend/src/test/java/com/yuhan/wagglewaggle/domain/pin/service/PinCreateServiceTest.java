@@ -230,7 +230,7 @@ class PinCreateServiceTest {
                 org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyInt()))
                 .willReturn(new KakaoKeywordResponse(List.of(
                         new KakaoKeywordResponse.Document(
-                                KAKAO_PLACE_ID, "카카오 장소", "주소", "도로명", "02-000",
+                                KAKAO_PLACE_ID, "카카오 장소", "주소", "도로명", null, null, null, "02-000",
                                 String.valueOf(PLACE_LNG), String.valueOf(PLACE_LAT), null))));
 
         ValidatedPinCreation result = service.validate(MEMBER_ID, request(PLACE_LAT, PLACE_LNG));
