@@ -62,5 +62,8 @@ import 경로만 보고 어떤 요청인지 알 수 있어야 한다(`@/api/pin/
   있어서 `usePlaceDetail`이 `pinId`로 맞춰 붙인다.
 - **썸네일** — `PinCardAssembler`가 S3 객체 키를 그대로 넣는다(핀 상세처럼 presigned URL로 바꾸지
   않는다). `api/place/detail.ts`가 URL이 아닌 값을 `null`로 걸러 자리만 비운다.
+- **받은 요청은 안 읽음으로 세지 않는다** — `GET /chat/pins`의 `hasUnread` 집계가 `chat_messages`를
+  조인해서, 메시지를 만들지 않는 채팅 요청은 잡히지 않는다. 요청 시점에 실시간 이벤트도 없다.
+  `api/chat/pins.ts`가 핀별 방 목록을 보고 `PENDING`이 있으면 켠다(핀 수만큼 추가 요청).
 - **공개 전 핀이 목록에 섞인다** — 장소 상세의 핀 목록은 `videoStatus`를 보지 않아 AI 처리 중인
   핀도 카드로 온다. 그 카드를 열면 상세는 `PIN_NOT_FOUND`다(상세는 `ACTIVE`만 준다).

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { getChatPins } from '@/api/chat/pins';
 import { getChatRooms, getPinChatRooms } from '@/api/chat/rooms';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
@@ -72,6 +73,28 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableL
       alive = false;
     };
   }, [enabled, requestedAt]);
+
+  /*
+    화면으로 돌아올 때 다시 받는다.
+
+    채팅 목록 화면은 탭을 옮겨도 살아 있어서, 마운트 때 한 번 받고 끝나면 그 뒤에 생긴 일이
+    보이지 않는다. 실시간 이벤트가 메우는 것도 있지만 **채팅 요청은 이벤트가 오지 않는다** —
+    요청을 받아도 목록이 그대로였다.
+
+    첫 초점은 건너뛴다. 위 효과가 방금 받아 온 직후라 같은 요청을 두 번 보내게 된다.
+  */
+  const focused = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!focused.current) {
+        focused.current = true;
+        return;
+      }
+
+      if (enabled) reload();
+    }, [enabled, reload]),
+  );
 
   return { items, setItems, loading, error, reload };
 }
