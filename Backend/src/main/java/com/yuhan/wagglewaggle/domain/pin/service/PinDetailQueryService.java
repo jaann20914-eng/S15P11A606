@@ -50,18 +50,6 @@ public class PinDetailQueryService {
     private final ChatRoomRepository chatRoomRepository;
 
     /**
-     * 조회 가능한 핀의 상세 기본 데이터만 조회한다(현재 사용자 기준 정보 제외).
-     *
-     * <p>핀 판정(ACTIVE·미삭제·미만료)은 조회 쿼리에서 한 번에 수행하며, 조회 결과가 없으면
-     * 실제 존재 여부·사유를 구분하지 않고 PIN_NOT_FOUND(404)로 처리한다.</p>
-     */
-    @Transactional(readOnly = true)
-    public PinDetail getPinDetail(UUID pinId) {
-        Pin pin = loadActivePin(pinId);
-        return toPinDetail(pin, loadTags(pinId));
-    }
-
-    /**
      * 조회 가능한 핀의 상세 기본 데이터와 현재 사용자 기준의 접근·상호작용 정보를 함께 조회한다.
      *
      * <p>작성자·장소는 조회 쿼리의 fetch join으로 로딩하고, 태그·열람 권한·평가 여부·채팅 상태는
@@ -69,18 +57,35 @@ public class PinDetailQueryService {
      */
     @Transactional(readOnly = true)
     public PinDetailView getPinDetail(UUID pinId, Long currentMemberId) {
-        Pin pin = loadActivePin(pinId);
+        Pin pin = loadActivePin(pinId, currentMemberId);
         PinDetail detail = toPinDetail(pin, loadTags(pinId));
         PinViewerAccess access = resolveViewerAccess(pin, currentMemberId);
         return new PinDetailView(detail, access);
     }
 
     /**
-     * 조회 가능한(ACTIVE·미삭제·미만료) 핀을 로딩한다. 없으면 PIN_NOT_FOUND.
+     * 상세 조회 대상 핀(ACTIVE·미삭제)을 로딩하고 만료 기준 접근을 판정한다.
+     *
+     * <p>미만료(expiresAt이 현재 시각 이후)면 누구나 조회할 수 있고, 만료됐으면 작성자 본인만 조회할 수 있다.
+     * 조회 대상이 없거나(존재하지 않음·PENDING·REJECTED·FAILED·삭제됨) 만료 핀을 비작성자가 요청하면,
+     * 실제 사유를 구분해 노출하지 않고 모두 동일하게 PIN_NOT_FOUND로 처리한다.</p>
      */
-    private Pin loadActivePin(UUID pinId) {
-        return pinRepository.findActivePinDetailById(pinId, Instant.now())
+    private Pin loadActivePin(UUID pinId, Long currentMemberId) {
+        Pin pin = pinRepository.findActivePinDetailByIdIncludingExpired(pinId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PIN_NOT_FOUND));
+
+        if (isExpired(pin, Instant.now()) && !isAuthor(pin, currentMemberId)) {
+            throw new CustomException(ErrorCode.PIN_NOT_FOUND);
+        }
+        return pin;
+    }
+
+    /**
+     * 핀이 기준 시각에 만료됐는지 판정한다(expiresAt이 현재 시각 이후가 아니면 만료).
+     * ACTIVE 핀은 expiresAt이 항상 설정되지만, 방어적으로 null이면 만료로 보지 않는다.
+     */
+    private boolean isExpired(Pin pin, Instant now) {
+        return pin.getExpiresAt() != null && !pin.getExpiresAt().isAfter(now);
     }
 
     /**
