@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
+import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
@@ -79,6 +80,13 @@ export default function PinCreateScreen() {
   */
   const formRef = useRef<View>(null);
   const keyboardOverlap = useKeyboardOverlap(formRef);
+
+  /*
+    수정 라우트는 탭 밖이라 하단 바를 네비게이터가 그려 주지 않는다. 작성과 같은 모양이 되도록
+    상세 화면처럼 직접 그리고, 바가 차지하는 만큼 아래 여백을 올린다. 작성(탭 안)에서는 0이다.
+  */
+  const tabBarHeight = useAppTabBarHeight();
+  const editTabBarOffset = mode.type === 'edit' ? tabBarHeight : 0;
 
   /*
     입력칸을 누르면 그 칸이 보이도록 스크롤을 맞춘다.
@@ -260,7 +268,10 @@ export default function PinCreateScreen() {
                 것도 그때만 끝에 세게 닿기 때문이다.
               */
               overScrollMode="never"
-              contentContainerStyle={[s.content, { paddingBottom: actionBarHeight + spacing.x4 }]}
+              contentContainerStyle={[
+                s.content,
+                { paddingBottom: actionBarHeight + editTabBarOffset + spacing.x4 },
+              ]}
             >
               <CrowdLevelSegment value={form.draft.crowdLevel} onChange={form.setCrowdLevel} />
 
@@ -322,12 +333,15 @@ export default function PinCreateScreen() {
               pointerEvents="none"
               colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
               locations={FADE_STOPS}
-              style={[s.actionFade, { bottom: keyboardOverlap + actionBarHeight - ACTION_FADE_DROP }]}
+              style={[
+                s.actionFade,
+                { bottom: keyboardOverlap + editTabBarOffset + actionBarHeight - ACTION_FADE_DROP },
+              ]}
             />
 
             <View
               onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
-              style={[s.actionBar, { bottom: keyboardOverlap }]}
+              style={[s.actionBar, { bottom: keyboardOverlap + editTabBarOffset }]}
             >
               <Pressable accessibilityRole="button" onPress={submit} style={s.submit}>
                 <Text style={s.submitText}>{copy.submitLabel}</Text>
@@ -336,6 +350,9 @@ export default function PinCreateScreen() {
           </View>
         )}
       </View>
+
+      {/* 탭 밖(수정 라우트)에서는 하단 바를 직접 그린다. 상세 화면과 같은 방식이다. */}
+      {mode.type === 'edit' && <AppTabBar />}
     </SafeAreaView>
   );
 }
