@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
-index fc56526..601e122 100644
+index fc56526..b80b3bc 100644
 --- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
 +++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
 @@ -132,6 +132,8 @@ class ExpoCameraView(
@@ -11,15 +11,3 @@ index fc56526..601e122 100644
    }
    private val scope = CoroutineScope(Dispatchers.Main)
    private var shouldCreateCamera = false
-@@ -248,6 +250,11 @@ class ExpoCameraView(
-     val width = right - left
-     val height = bottom - top
-     if (width != lastWidth || height != lastHeight) {
-+      // TextureView 경로에서는 measure 를 다시 하지 않으면 자식이 이전 크기로 남아 왼쪽 위에 작게 그려진다.
-+      previewView.measure(
-+        MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-+        MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
-+      )
-       previewView.layout(0, 0, width, height)
-       glSurfaceTexture?.setDefaultBufferSize(width, height)
-       lastWidth = width
