@@ -151,6 +151,27 @@ export default function Room() {
   };
 
   /*
+    onLayout을 놓치는 첫 진입의 뒷받침.
+
+    처음 들어와 곧바로 입력칸을 누르면, 이력이 그려지는 레이아웃과 키보드로 접히는 레이아웃이
+    한 패스에 합쳐져 onLayout이 "줄어들었다"를 보지 못할 수 있다(이전 높이가 없다). 그때를
+    위해 접힘 값이 생기면 두 프레임 뒤 — 접힌 레이아웃이 반영된 뒤 — 바닥을 한 번 더 잡는다.
+    onLayout이 이미 처리했다면 같은 자리라 아무 일도 일어나지 않는다.
+
+    바닥을 보고 있을 때만이다. 중간을 읽는 경우의 이동량 계산은 onLayout 쪽만 맡는다 —
+    두 곳에서 옮기면 두 번 밀린다.
+  */
+  useEffect(() => {
+    if (keyboardOverlap === 0 || !nearBottomRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: false }));
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [keyboardOverlap]);
+
+  /*
     들어올 때마다 지난 경고를 한 번 짚어 준다.
 
     경고 팝업은 도착할 때 한 번 뜨고 마는데, 그것만으로는 방을 다시 열었을 때 이 대화에 경고가
@@ -176,6 +197,14 @@ export default function Room() {
   const send = (value: string) => {
     room.send(value);
     setText('');
+
+    /*
+      보낸 순간 바닥으로 돌아간다. 중간을 읽다가 보냈어도, 보낸 사람이 확인하고 싶은 것은
+      방금 자기가 한 말이다. 지금 끝까지 내려 두면 서버가 메시지를 되돌려 붙일 때도
+      "바닥을 보는 중"이라 따라 내려간다.
+    */
+    nearBottomRef.current = true;
+    scrollRef.current?.scrollToEnd({ animated: true });
   };
 
   return (
