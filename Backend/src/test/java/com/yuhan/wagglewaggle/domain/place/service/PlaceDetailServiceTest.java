@@ -294,7 +294,7 @@ class PlaceDetailServiceTest {
     }
 
     private static Document doc(String id, String roadAddress, String address, String phone) {
-        return new Document(id, "장소명", address, roadAddress, phone, "127.030", "37.500", "10");
+        return new Document(id, "장소명", address, roadAddress, null, null, null, phone, "127.030", "37.500", "10");
     }
 
     /** 요일별 혼잡 통계 native 프로젝션(WeeklyCrowdStatRow)의 테스트용 구현. dow: 0=일 ... 6=토. */
