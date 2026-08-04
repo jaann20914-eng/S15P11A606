@@ -2,6 +2,7 @@ import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockMyProfile } from '@/mocks/mypage';
 import type { ActivityMonth, MyProfileResponse } from '@/types/user';
+import { traceUser } from './log';
 
 /**
  * 내 프로필 요약 조회 — `GET /api/v1/users/me`
@@ -24,7 +25,17 @@ function requestMyProfile(month?: ActivityMonth): Promise<MyProfileResponse> {
   });
 }
 
-export async function getMyProfile(month?: ActivityMonth): Promise<MyProfileResponse> {
-  if (usesMock('user/me')) return fetchMockMyProfile(month);
-  return requestMyProfile(month);
+export function getMyProfile(month?: ActivityMonth): Promise<MyProfileResponse> {
+  return traceUser(
+    '내 프로필',
+    'user/me',
+    () => (usesMock('user/me') ? fetchMockMyProfile(month) : requestMyProfile(month)),
+    (profile) => ({
+      연월: `${profile.monthlyActivity.year}-${profile.monthlyActivity.month}`,
+      뷰신뢰도: profile.viewReliability,
+      크레딧: profile.creditBalance,
+      오늘핀: profile.todayVideoPinCount,
+      이용상태: profile.serviceAccess,
+    }),
+  );
 }

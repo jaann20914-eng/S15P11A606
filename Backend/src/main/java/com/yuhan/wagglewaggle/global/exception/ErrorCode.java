@@ -146,6 +146,11 @@ public enum ErrorCode {
     PIN_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "핀을 삭제할 권한이 없습니다."),
     PIN_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "영상 핀 삭제 중 오류가 발생했습니다."),
 
+    // Pin Publisher Leave (제보자 떠남 처리)
+    // INVALID_PIN_ID(400)·PIN_NOT_FOUND(404)·UNAUTHORIZED(401)는 기존 정의를 재사용한다.
+    PIN_LEAVE_FORBIDDEN(HttpStatus.FORBIDDEN, "해당 핀의 떠남 처리를 할 권한이 없습니다."),
+    PIN_LEAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "핀 떠남 처리 중 오류가 발생했습니다."),
+
     // WebSocket / Chat Realtime
     // WebSocket은 REST 공통 응답을 쓰지 않고 STOMP ERROR 프레임/SUBSCRIPTION_FAILED 이벤트에 code만 실어 전달한다.
     // status는 규약 통일을 위해 유지하되, 실제 전송 본문에는 name()과 message만 사용한다.

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,12 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
      * 삭제 트랜잭션에서 조회한 ACTIVE 방만 CLOSED로 전환하고, 이미 종료·거절·나간 방은 대상에서 제외한다.
      */
     List<ChatRoom> findByPin_IdAndStatus(UUID pinId, ChatRoomStatus status);
+
+    /**
+     * 특정 핀에 속한 여러 상태의 채팅방을 조회한다(제보자 떠남 처리 시 PENDING·ACTIVE·REFUSED 방 일괄 종료용).
+     * 떠남 트랜잭션에서 조회한 방만 LEFT로 전환하고, 이미 종료(LEFT)된 방은 대상에서 제외한다.
+     */
+    List<ChatRoom> findByPin_IdAndStatusIn(UUID pinId, Collection<ChatRoomStatus> statuses);
 
     /**
      * 현재 사용자가 요청자(requester)인, 해당 핀에 대한 채팅방 상태를 조회한다(핀 상세 채팅 상태 판정용).

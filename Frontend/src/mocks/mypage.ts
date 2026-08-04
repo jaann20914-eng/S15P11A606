@@ -97,7 +97,7 @@ export async function fetchMockMyProfile(month?: ActivityMonth): Promise<MyProfi
         createdVideoPinCount: days.reduce((sum, day) => sum + day.videoPinCount, 0),
         // 활동이 없는 달은 집계값도 0이다.
         earnedCredit: empty ? 0 : 220,
-        helpfulViewCount: empty ? 0 : 97,
+        helpfulEvaluationCount: empty ? 0 : 97,
       },
     },
   };
@@ -120,9 +120,15 @@ const todayPinPlaces = [
  * 상태를 돌려 쓰는 순서.
  *
  * 최근 등록한 것이 아직 처리 중이고 오래된 것이 공개된 상태가 자연스럽다.
- * 명세의 `RESHOOT`은 화면에서 다루지 않기로 해 넣지 않는다.
+ * 검수 탈락(`RESHOOT`)도 하나 섞어 그 줄이 어떻게 보이는지 확인할 수 있게 둔다.
  */
-const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'ACTIVE', 'ACTIVE'];
+const todayPinStatuses: TodayPinStatus[] = [
+  'PROCESSING',
+  'ACTIVE',
+  'RESHOOT',
+  'ACTIVE',
+  'ACTIVE',
+];
 
 /** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
 const TODAY_PIN_COUNT = 26;
