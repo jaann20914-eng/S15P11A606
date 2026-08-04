@@ -257,10 +257,25 @@ async function waitForCompletion(
 }
 
 /**
+ * 서명을 뗀 영상 주소.
+ *
+ * Presigned URL은 부를 때마다 서명이 달라져 그대로 비교할 수 없다. 물음표 앞의 경로가 곧
+ * 객체 키라, 그 부분만 보면 같은 영상인지 알 수 있다.
+ */
+function videoKeyOf(videoUrl: string | null): string | null {
+  return videoUrl === null ? null : videoUrl.split('?')[0];
+}
+
+/**
  * 영상 교체 결과를 기다린다.
  *
  * 등록과 다른 값을 본다. 교체가 도는 동안에도 기존 영상은 공개 중이라 `videoStatus`는 계속
- * `ACTIVE`다. 새 영상의 진행은 `videoReplacementStatus`에만 나타난다.
+ * `ACTIVE`다.
+ *
+ * **진행 상태를 알려 주는 필드가 아직 응답에 없다.** 명세에는 `videoReplacementStatus`가 있지만
+ * 상태 조회 응답(`pinId`·`videoStatus`·`videoUrl`·`thumbnailUrl`)에는 담겨 오지 않는다. 그래서
+ * 영상 주소가 새 것으로 바뀌는 것을 보고 끝을 판단한다 — 교체가 반영되면 객체 키가 달라진다.
+ * 서버가 그 필드를 주기 시작하면 그쪽을 먼저 본다.
  *
  * 실패해도 핀은 살아 있다. 기존 영상이 그대로 남으므로 "수정은 됐고 영상만 안 바뀌었다"로
  * 알린다 — 등록 실패와 달리 처음부터 다시 할 일이 아니다.
@@ -272,17 +287,44 @@ async function waitForReplacement(
 ): Promise<void> {
   const deadline = Date.now() + STATUS_POLL_TIMEOUT_MS;
 
+  /*
+    바뀌었는지 견줄 기준. 교체를 걸기 전의 영상 키다.
+
+    한 번 더 조회해서 얻는다 — 수정 요청의 응답에는 영상 주소가 없다. 이 조회가 실패하면
+    기준이 없으므로 키 비교를 쓰지 않고 필드만 본다.
+  */
+  let previousKey: string | null = null;
+
+  try {
+    previousKey = videoKeyOf((await getPinVideoStatus(pinId)).videoUrl);
+    logPublish('교체 전 영상', { 키: previousKey ?? '없음' });
+  } catch {
+    logPublish('교체 전 영상 조회 실패', { 비고: '주소 비교 없이 기다린다' });
+  }
+
   while (Date.now() < deadline) {
     await sleep(STATUS_POLL_INTERVAL_MS);
     if (!alive()) return;
 
-    const { videoReplacementStatus } = await getPinVideoStatus(pinId);
+    const { videoReplacementStatus, videoUrl } = await getPinVideoStatus(pinId);
     if (!alive()) return;
 
-    logPublish('교체 상태', { videoReplacementStatus: videoReplacementStatus ?? '없음' });
+    const currentKey = videoKeyOf(videoUrl);
+
+    logPublish('교체 상태', {
+      videoReplacementStatus: videoReplacementStatus ?? '없음(응답에 없는 필드)',
+      영상바뀜: previousKey !== null && currentKey !== null && currentKey !== previousKey,
+    });
+
+    // 필드가 없어도 영상이 새 것으로 바뀌면 반영된 것이다.
+    if (previousKey !== null && currentKey !== null && currentKey !== previousKey) {
+      logPublish('영상 교체 완료', { pinId, 판단: '영상 주소가 바뀜' });
+      set({ phase: 'done' });
+      return;
+    }
 
     if (videoReplacementStatus === 'PASS') {
-      logPublish('영상 교체 완료', { pinId });
+      logPublish('영상 교체 완료', { pinId, 판단: 'videoReplacementStatus' });
       set({ phase: 'done' });
       return;
     }
@@ -308,9 +350,17 @@ async function waitForReplacement(
 
   if (!alive()) return;
 
+  /*
+    시간이 다 됐는데 영상이 그대로다.
+
+    검수에서 걸러진 것과 아직 처리 중인 것을 구분할 수 없다 — 그 차이를 알려 주는 필드가 응답에
+    없기 때문이다. 그래서 둘 다 아우르는 문구를 쓴다. 기존 영상은 그대로 공개 중이므로 사용자가
+    급히 할 일은 없다.
+  */
   set({
     phase: 'idle',
-    error: '교체 처리가 오래 걸리고 있어요. 요청은 접수됐으니 잠시 후 확인해 주세요.',
+    error:
+      '새 영상이 아직 반영되지 않았어요. 검수에 걸렸거나 처리가 늦어지는 중이니 잠시 후 다시 확인해 주세요. 기존 영상은 그대로 남아 있어요.',
     retryable: false,
   });
 }
