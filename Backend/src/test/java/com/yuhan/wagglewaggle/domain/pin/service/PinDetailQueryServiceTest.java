@@ -113,17 +113,18 @@ class PinDetailQueryServiceTest {
     }
 
     // ---------------------------------------------------------------------
-    // 기본 데이터 조회 (getPinDetail(UUID))
+    // 기본 데이터 매핑 (getPinDetail(UUID, memberId)의 detail 부분)
+    // 작성자(AUTHOR_ID)로 조회해 구매·평가 조회 없이 매핑만 검증한다.
     // ---------------------------------------------------------------------
 
     @Nested
-    class 기본_데이터_조회 {
+    class 기본_데이터_매핑 {
 
         @Test
         void 조회_가능한_핀이_없으면_PIN_NOT_FOUND() {
             given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.getPinDetail(PIN_ID))
+            assertThatThrownBy(() -> service.getPinDetail(PIN_ID, AUTHOR_ID))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.PIN_NOT_FOUND);
             verifyNoInteractions(pinTagRepository);
@@ -135,7 +136,7 @@ class PinDetailQueryServiceTest {
             given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of(
                     pinTag("카페"), pinTag("조용함")));
 
-            PinDetail detail = service.getPinDetail(PIN_ID);
+            PinDetail detail = service.getPinDetail(PIN_ID, AUTHOR_ID).detail();
 
             assertThat(detail.pinId()).isEqualTo(PIN_ID);
             assertThat(detail.authorNickname()).isEqualTo("author");
@@ -160,7 +161,7 @@ class PinDetailQueryServiceTest {
             given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.of(activePin()));
             given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of());
 
-            PinDetail detail = service.getPinDetail(PIN_ID);
+            PinDetail detail = service.getPinDetail(PIN_ID, AUTHOR_ID).detail();
 
             assertThat(detail.tags()).isEmpty();
         }
@@ -201,7 +202,7 @@ class PinDetailQueryServiceTest {
             given(pinRepository.findActivePinDetailByIdIncludingExpired(any()))
                     .willReturn(Optional.of(expiredPin()));
 
-            assertThatThrownBy(() -> service.getPinDetail(PIN_ID))
+            assertThatThrownBy(() -> service.getPinDetail(PIN_ID, null))
                     .isInstanceOf(CustomException.class)
                     .extracting("errorCode").isEqualTo(ErrorCode.PIN_NOT_FOUND);
             verifyNoInteractions(pinTagRepository);

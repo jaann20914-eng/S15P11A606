@@ -50,18 +50,6 @@ public class PinDetailQueryService {
     private final ChatRoomRepository chatRoomRepository;
 
     /**
-     * 조회 가능한 핀의 상세 기본 데이터만 조회한다(현재 사용자 기준 정보 제외).
-     *
-     * <p>핀 판정(ACTIVE·미삭제·미만료)은 조회 쿼리에서 한 번에 수행하며, 조회 결과가 없으면
-     * 실제 존재 여부·사유를 구분하지 않고 PIN_NOT_FOUND(404)로 처리한다.</p>
-     */
-    @Transactional(readOnly = true)
-    public PinDetail getPinDetail(UUID pinId) {
-        Pin pin = loadActivePin(pinId, null);
-        return toPinDetail(pin, loadTags(pinId));
-    }
-
-    /**
      * 조회 가능한 핀의 상세 기본 데이터와 현재 사용자 기준의 접근·상호작용 정보를 함께 조회한다.
      *
      * <p>작성자·장소는 조회 쿼리의 fetch join으로 로딩하고, 태그·열람 권한·평가 여부·채팅 상태는
