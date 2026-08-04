@@ -19,6 +19,7 @@ import com.yuhan.wagglewaggle.global.properties.PinRegistrationProperties;
 import com.yuhan.wagglewaggle.global.properties.PinUploadProperties;
 import com.yuhan.wagglewaggle.global.s3.S3ObjectInspector;
 import com.yuhan.wagglewaggle.global.s3.S3VideoObjectMetadata;
+import com.yuhan.wagglewaggle.global.text.GraphemeCounter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -182,7 +183,7 @@ public class PinCreateService {
                 || !isValidLatitude(r.kakaoPlaceLatitude()) || !isValidLongitude(r.kakaoPlaceLongitude())
                 || !isValidLatitude(r.latitude()) || !isValidLongitude(r.longitude())
                 || (r.detailLocation() != null && r.detailLocation().length() > MAX_DETAIL_LOCATION_LENGTH)
-                || (r.memo() != null && r.memo().length() > MAX_MEMO_LENGTH)
+                || GraphemeCounter.count(r.memo()) > MAX_MEMO_LENGTH
                 || exceedsLength(r.categoryGroupCode(), MAX_CATEGORY_GROUP_CODE_LENGTH)
                 || exceedsLength(r.categoryGroupName(), MAX_CATEGORY_GROUP_NAME_LENGTH)
                 || exceedsLength(r.categoryName(), MAX_CATEGORY_NAME_LENGTH)

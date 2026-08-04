@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     blur_dead_letter_routing_key: str = "ai.blur.dead-letter"
 
     # SCRFD
-    model_name: str = "buffalo_sc"
+    model_name: str = "buffalo_m"
     det_threshold: float = 0.3
     det_width: int = 640
     det_height: int = 640
