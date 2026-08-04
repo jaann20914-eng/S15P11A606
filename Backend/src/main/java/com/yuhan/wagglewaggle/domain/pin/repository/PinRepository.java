@@ -305,4 +305,52 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             @Param("cursorId") UUID cursorId,
             Pageable pageable
     );
+
+    // ===== 요청받은 채팅이 있는 핀 목록(커서 페이지네이션) =====
+    // 대상 = 현재 사용자가 수신자(recipient=핀 소유자)인 채팅방이 1건 이상 존재하는, 삭제되지 않은 핀.
+    //        상태(PENDING·ACTIVE·REFUSED·LEFT)는 구분하지 않는다. EXISTS 서브쿼리로 핀당 1건만 반환한다(중복 제거).
+    // 정렬 = createdAt DESC, id DESC. 장소명·주소 노출에 place를 쓰므로 fetch join으로 N+1을 방지한다(ToOne).
+    // limit+1건을 조회해 다음 페이지 존재 여부를 판단한다(nextCursor 발급용).
+
+    /**
+     * 요청받은 채팅이 있는 핀의 첫 페이지를 조회한다(커서 없음).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.place
+            WHERE p.deletedAt IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM ChatRoom cr
+                  WHERE cr.pin = p AND cr.recipient.id = :memberId
+              )
+            ORDER BY p.createdAt DESC, p.id DESC
+            """)
+    List<Pin> findReceivedChatPinsFirstPage(
+            @Param("memberId") Long memberId,
+            Pageable pageable
+    );
+
+    /**
+     * 요청받은 채팅이 있는 핀의 커서 이후 페이지를 조회한다.
+     * 정렬(createdAt DESC, id DESC)과 동일한 타이브레이커로, 커서보다 "뒤"에 오는 핀만 조회한다:
+     * createdAt이 더 이르거나, createdAt이 같으면 id가 더 작은 핀.
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.place
+            WHERE p.deletedAt IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM ChatRoom cr
+                  WHERE cr.pin = p AND cr.recipient.id = :memberId
+              )
+              AND ( p.createdAt < :cursorCreatedAt
+                 OR (p.createdAt = :cursorCreatedAt AND p.id < :cursorId) )
+            ORDER BY p.createdAt DESC, p.id DESC
+            """)
+    List<Pin> findReceivedChatPinsAfterCursor(
+            @Param("memberId") Long memberId,
+            @Param("cursorCreatedAt") Instant cursorCreatedAt,
+            @Param("cursorId") UUID cursorId,
+            Pageable pageable
+    );
 }

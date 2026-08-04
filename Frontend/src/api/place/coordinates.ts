@@ -1,6 +1,10 @@
 import { getPlaces } from './list';
+import { ApiError } from '../client';
+import { createDevLogger } from '@/utils/devLog';
 import type { PlaceActivePin, PlaceListItem } from '@/types/place';
 import { DEFAULT_CENTER, type Coordinate } from '@/store/useMapStore';
+
+const log = createDevLogger('place-coords');
 
 /**
  * 장소의 지도 정보 저장소.
@@ -66,8 +70,12 @@ export function recallPlaceMapData(placeId: number): PlaceMapData | null {
  * 장소 좌표를 알 때 물어볼 범위(위경도 도 단위). 약 ±330m로, 그 장소와 바로 옆만 들어온다.
  *
  * 목록 API는 지도 경계로 묻는 API지만, 어디인지 알고 있으면 그 자리를 경계로 삼으면 된다.
- * 좁게 물을수록 정확하다 — 서버가 중심에서 가까운 순으로 주고 개수 상한이 있어서, 넓게
- * 물으면 정작 찾는 장소가 목록에서 밀려날 수 있다.
+ * 좁게 물을수록 정확하다 — 서버가 **활성 핀이 많은 순**으로 최대 10건만 주고 거리는 동점일
+ * 때만 보므로(`PlacePinService`), 넓게 물으면 정작 찾는 장소가 목록에서 밀려날 수 있다.
+ * 특히 **활성 핀이 없는 장소는 늘 맨 뒤로 밀린다** — 상세로 들어오는 장소가 그럴 수 있다.
+ *
+ * 이 경로는 필터를 지정하지 않는다. 필터를 걸면 평균 혼잡도가 없는 장소가 응답에서 빠져
+ * 활성 핀 없는 장소의 좌표를 영영 못 받는다(`api/place/list.ts`의 `NO_FILTER`).
  */
 const NEARBY_SPAN_DEGREES = 0.003;
 
@@ -111,8 +119,19 @@ export async function resolvePlaceMapData(
       northEastLongitude: center.longitude + span,
     });
     rememberPlaceMapData(places);
-  } catch {
-    // 목록을 못 받은 것뿐이다. 좌표를 알고 있으면 핀 없이 장소만이라도 지도에 찍는다.
+  } catch (error) {
+    /*
+      목록을 못 받은 것뿐이다. 좌표를 알고 있으면 핀 없이 장소만이라도 지도에 찍는다.
+
+      다만 **삼키기만 하면 실기기에서 원인을 찾을 수 없다** — 화면에는 "지도가 비었다"로만
+      보이고 오류였다는 사실이 어디에도 남지 않는다. 실제로 `filter` 누락으로 400이 오던
+      동안 이 catch가 그것을 가리고 있었다. 그래서 코드만 한 줄 남긴다.
+    */
+    log('목록 조회 실패', {
+      placeId,
+      코드: error instanceof ApiError ? error.code : '알수없음',
+      대체: known ? '좌표만 사용' : '지도 없음',
+    });
     return known ? { coordinate: placeCoordinate, activePins: [] } : null;
   }
 

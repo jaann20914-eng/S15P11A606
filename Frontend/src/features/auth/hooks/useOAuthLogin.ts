@@ -59,6 +59,15 @@ function logOAuth(step: string, detail?: Record<string, unknown>): void {
   console.log(`[oauth] ${step}`, detail ?? '');
 }
 
+/**
+ * 로그인 응답이 어디서 오는지. 다른 구역의 진단 로그와 같은 이름(`출처`)으로 남긴다.
+ *
+ * 예전에는 목업 모드에서도 `백엔드 호출`과 실제 URL을 그대로 찍었다. 실제로는 네트워크를
+ * 타지 않는데 로그만 보면 실서버로 로그인한 것과 구별할 수 없어, **목업이 동작하지 않는 것으로
+ * 읽혔다.** 로그가 실제 동작과 어긋나면 없는 것보다 나쁘다.
+ */
+const LOGIN_SOURCE = usesMockApi ? '목업' : '실서버';
+
 /** 민감한 값을 동일성 확인용으로만 줄인다. */
 function mask(value: string | null): string {
   if (value === null) return 'null';
@@ -176,7 +185,12 @@ export function useOAuthLogin(): OAuthLoginState {
         router.replace(authStatus === 'AUTHENTICATED' ? '/(tabs)/home' : '/(onboarding)/age');
       };
 
-      logOAuth('시작', { provider, mock: usesMockApi, redirectUri: oauthRedirectUri(provider) });
+      // 목업 모드에서는 브라우저를 열지 않으므로 복귀 주소가 쓰이지 않는다. 적으면 오해를 부른다.
+      logOAuth('시작', {
+        provider,
+        출처: LOGIN_SOURCE,
+        ...(usesMockApi ? {} : { redirectUri: oauthRedirectUri(provider) }),
+      });
 
       const notifyStillWaiting = () =>
         setNotice('브라우저에서 로그인을 마치면 자동으로 이어져요. 앱을 끄지 말아 주세요');
@@ -192,11 +206,14 @@ export function useOAuthLogin(): OAuthLoginState {
             return null;
           }
 
-          logOAuth('백엔드 호출', { url: `POST /api/v1/auth/oauth/${provider}` });
+          logOAuth('로그인 요청', {
+            출처: LOGIN_SOURCE,
+            ...(usesMockApi ? {} : { 요청: `POST /api/v1/auth/oauth/${provider}` }),
+          });
 
           return signInWithOAuth(provider, authorization.code, authorization.state)
             .then((result) => {
-              logOAuth('백엔드 응답', { authStatus: result.authStatus });
+              logOAuth('로그인 응답', { 출처: LOGIN_SOURCE, authStatus: result.authStatus });
               return completeOAuthLogin(result);
             })
             .then(goNext);

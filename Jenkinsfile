@@ -22,6 +22,9 @@ pipeline {
         DB_USERNAME = 'waggle'
         ES_URIS = 'http://waggle-elasticsearch:9200'
 
+        // AI 추천점수 API 호출 대상. waggle-network 안에서 컨테이너 이름(waggle-ai)의 내부 포트 8000으로 접근한다.
+        AI_RECOMMENDATION_BASE_URL = 'http://waggle-ai:8000'
+
         HOST_PORT = '8990'
 
         // Jenkins Global Credentials
@@ -34,6 +37,10 @@ pipeline {
         AWS_ACCESS_KEY_ID     = credentials('waggle-aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('waggle-aws-secret-access-key')
         RABBITMQ_PASSWORD     = credentials('waggle-rabbitmq-password')
+
+        // Back↔AI 내부 통신 공유 키(x-internal-api-key). AI의 INTERNAL_API_KEY와 반드시 동일해야 하므로
+        // AI 파이프라인과 같은 크리덴셜(waggle-ai-internal-api-key)을 사용한다.
+        INTERNAL_API_KEY      = credentials('waggle-ai-internal-api-key')
 
         // 비밀값이 아니므로 직접 작성 가능
         KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
@@ -135,6 +142,8 @@ pipeline {
                         -e DB_USERNAME="$DB_USER" \
                         -e DB_PASSWORD="$DB_PASSWORD" \
                         -e ES_URIS="$ES_URIS" \
+                        -e AI_RECOMMENDATION_BASE_URL="$AI_RECOMMENDATION_BASE_URL" \
+                        -e INTERNAL_API_KEY="$INTERNAL_API_KEY" \
                         -e RABBITMQ_HOST="$RABBITMQ_HOST" \
                         -e RABBITMQ_PORT="$RABBITMQ_PORT" \
                         -e RABBITMQ_USERNAME="$RABBITMQ_USERNAME" \

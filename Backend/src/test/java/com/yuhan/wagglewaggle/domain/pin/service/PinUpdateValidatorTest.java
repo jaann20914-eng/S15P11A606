@@ -48,6 +48,8 @@ class PinUpdateValidatorTest {
     private static final String PIN_ID = "11111111-2222-3333-4444-555555555555";
     private static final double PLACE_LAT = 37.500000;
     private static final double PLACE_LNG = 127.030000;
+    /** 😀 U+1F600: 자소 클러스터 1개, UTF-16 기준 2코드유닛. */
+    private static final String EMOJI = "😀";
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -190,6 +192,19 @@ class PinUpdateValidatorTest {
     @Test
     void memo가_50자를_초과하면_INVALID_PIN_UPDATE_REQUEST() {
         assertError(memoOnly("a".repeat(51)), ErrorCode.INVALID_PIN_UPDATE_REQUEST);
+    }
+
+    @Test
+    void memo가_이모지_50자면_통과한다() {
+        // String.length() 기준이면 100(=2×50)이라 거부됐지만, 자소 클러스터 기준 50자라 통과한다.
+        ValidatedPinUpdate result = validate(memoOnly(EMOJI.repeat(50)));
+
+        assertThat(result.memo().value()).isEqualTo(EMOJI.repeat(50));
+    }
+
+    @Test
+    void memo가_이모지_51자를_초과하면_INVALID_PIN_UPDATE_REQUEST() {
+        assertError(memoOnly(EMOJI.repeat(51)), ErrorCode.INVALID_PIN_UPDATE_REQUEST);
     }
 
     @Test
