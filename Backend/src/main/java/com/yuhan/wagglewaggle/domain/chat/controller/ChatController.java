@@ -7,10 +7,12 @@ import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatReadResponse;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomListResponse;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatDecisionService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatHistoryService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatReadService;
 import com.yuhan.wagglewaggle.domain.chat.service.ChatRequestService;
+import com.yuhan.wagglewaggle.domain.chat.service.ChatRoomListService;
 import com.yuhan.wagglewaggle.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -33,6 +36,21 @@ public class ChatController {
     private final ChatDecisionService chatDecisionService;
     private final ChatReadService chatReadService;
     private final ChatHistoryService chatHistoryService;
+    private final ChatRoomListService chatRoomListService;
+
+    /**
+     * 내가 보낸(요청한) 채팅방 목록을 조회한다. 현재 사용자가 요청자인 방을 최근 활동 시각 내림차순으로
+     * 커서 페이지네이션하여 반환한다. cursor·limit 오류는 INVALID_PAGINATION(400)으로 처리한다.
+     */
+    @GetMapping("/rooms")
+    public ApiResponse<ChatRoomListResponse> rooms(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) String limit
+    ) {
+        ChatRoomListResponse data = chatRoomListService.getMySentChatRooms(memberId, cursor, limit);
+        return ApiResponse.success(HttpStatus.OK.value(), "채팅방 목록 조회가 완료되었습니다.", data);
+    }
 
     /**
      * 채팅 요청을 생성한다. 구매 완료한 타인 소유의 활성 핀에 대해 PENDING 채팅방을 만든다.

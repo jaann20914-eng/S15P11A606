@@ -3,11 +3,13 @@ package com.yuhan.wagglewaggle.domain.chat.repository;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -83,4 +85,56 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             WHERE cr.id = :roomId
             """)
     Optional<ChatRoom> findDetailById(@Param("roomId") Long roomId);
+
+    // ===== 내가 보낸(sent) 채팅방 목록(커서 페이지네이션) =====
+    // 대상 = 현재 사용자가 요청자(requester)인 방 전부(PENDING·ACTIVE·REFUSED·LEFT 모두 포함).
+    // 정렬 = 최근 활동 시각 DESC, roomId DESC. 최근 활동 시각 = 마지막 메시지 createdAt, 없으면 방 createdAt.
+    //        (상관 서브쿼리 MAX(m.createdAt)를 COALESCE로 방 생성 시각으로 대체)
+    // 응답용 상대방(recipient)·장소(pin→place)는 ToOne fetch join으로 N+1을 방지한다.
+    // limit+1건을 조회해 다음 페이지 존재 여부를 판단한다(nextCursor 발급용).
+
+    /**
+     * 내가 보낸 채팅방의 첫 페이지를 조회한다(커서 없음).
+     */
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            JOIN FETCH cr.pin p
+            JOIN FETCH p.place
+            JOIN FETCH cr.recipient
+            WHERE cr.requester.id = :requesterId
+            ORDER BY COALESCE(
+                         (SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr),
+                         cr.createdAt) DESC,
+                     cr.id DESC
+            """)
+    List<ChatRoom> findSentRoomsFirstPage(
+            @Param("requesterId") Long requesterId,
+            Pageable pageable
+    );
+
+    /**
+     * 내가 보낸 채팅방의 커서 이후 페이지를 조회한다.
+     * 정렬(최근 활동 시각 DESC, roomId DESC)과 동일한 타이브레이커로, 커서보다 "뒤"에 오는 방만 조회한다:
+     * 최근 활동 시각이 더 이르거나, 같으면 roomId가 더 작은 방.
+     */
+    @Query("""
+            SELECT cr FROM ChatRoom cr
+            JOIN FETCH cr.pin p
+            JOIN FETCH p.place
+            JOIN FETCH cr.recipient
+            WHERE cr.requester.id = :requesterId
+              AND ( COALESCE((SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr), cr.createdAt) < :cursorActivityAt
+                 OR ( COALESCE((SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr), cr.createdAt) = :cursorActivityAt
+                      AND cr.id < :cursorRoomId ) )
+            ORDER BY COALESCE(
+                         (SELECT MAX(m.createdAt) FROM ChatMessage m WHERE m.chatRoom = cr),
+                         cr.createdAt) DESC,
+                     cr.id DESC
+            """)
+    List<ChatRoom> findSentRoomsAfterCursor(
+            @Param("requesterId") Long requesterId,
+            @Param("cursorActivityAt") Instant cursorActivityAt,
+            @Param("cursorRoomId") Long cursorRoomId,
+            Pageable pageable
+    );
 }
