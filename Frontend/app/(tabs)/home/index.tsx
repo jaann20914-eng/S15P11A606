@@ -86,6 +86,19 @@ export default function Home() {
   const [mapReady, setMapReady] = useState(false);
 
   /**
+   * 이 화면이 맨 위인지.
+   *
+   * 장소 상세는 반투명 모달로 **홈 위에 겹친다.** 그때 홈 시트를 그대로 두면 두 시트가
+   * 반투명하게 서로 비쳐 글자가 겹쳐 읽힌다. 위에 무언가 올라오면 홈 시트를 감춘다.
+   *
+   * 감추기만 하고 언마운트하지 않는다 — 스크롤 위치와 재측정을 잃지 않아야 상세를 닫았을 때
+   * 있던 자리로 정확히 돌아온다.
+   *
+   * **지도 마커를 눌렀을 때 화면을 바꿀지도 이 값으로 가른다**(`pressMapPin`).
+   */
+  const [onTop, setOnTop] = useState(true);
+
+  /**
    * 지도를 시작할 지점. 정해지기 전에는 지도를 띄우지 않는다.
    *
    * `KakaoMap`은 최초 중심을 첫 렌더에 HTML로 심으므로, 나중에 옮기면 엉뚱한 동네 타일을
@@ -374,9 +387,23 @@ export default function Home() {
       if (!known) return;
 
       focusPlace(placeId);
+
+      /*
+        **위에 다른 화면이 있으면 새 화면을 열지 않는다.**
+
+        이 알림은 홈이 눌린 것이 아니라 **위에 겹친 화면이 넘긴 탭**일 수 있다(`tapAt`) —
+        그 화면들은 지도가 없어 손가락을 받아 이 지도로 보내기 때문이다. 그때 여기서 상세를
+        열면 **이미 열려 있는 그 화면 위에 같은 화면이 한 겹 더 쌓인다.** 쌓일 때마다 장소를
+        다시 조회하고 카드 수만큼 썸네일을 다시 받으므로, 몇 번만 눌려도 화면과 요청이 불어난다.
+
+        영상핀 겹이 올라와 있으면 위에서 이미 돌아갔으므로, 여기 오는 것은 겹이 없는 경우다 —
+        상세가 좌표를 못 받아 마커를 하나도 올리지 못한 장소가 그렇다.
+      */
+      if (!onTop) return;
+
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, inView.places, mapLevel, openPlace, pinOverlay, showPinOverlay],
+    [focusPlace, inView.places, mapLevel, onTop, openPlace, pinOverlay, showPinOverlay],
   );
 
   const handleViewChange = useCallback(
@@ -466,18 +493,9 @@ export default function Home() {
   /* 홈이 사라지면 이 지도도 없다. 손잡이를 남겨 두면 없는 WebView에 명령을 보낸다. */
   useEffect(() => () => setGestureControl(null), [setGestureControl]);
 
-  /**
-   * 이 화면이 맨 위인지.
-   *
-   * 장소 상세는 반투명 모달로 **홈 위에 겹친다.** 그때 홈 시트를 그대로 두면 두 시트가
-   * 반투명하게 서로 비쳐 글자가 겹쳐 읽힌다. 위에 무언가 올라오면 홈 시트를 감춘다.
-   *
-   * 감추기만 하고 언마운트하지 않는다 — 스크롤 위치와 재측정을 잃지 않아야 상세를 닫았을 때
-   * 있던 자리로 정확히 돌아온다.
-   */
-  const [onTop, setOnTop] = useState(true);
-
   /*
+    맨 위인지 여부(`onTop`)는 위에서 선언한다 — 지도 마커 처리(`pressMapPin`)가 그 값을 본다.
+
     다시 앞으로 나올 때 지도에 크기를 다시 알린다. 가려져 있는 동안 레이아웃이 바뀌면
     SDK가 모르고 있어 타일과 중심이 어긋난 채로 남는다.
   */
