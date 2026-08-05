@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -24,6 +25,14 @@ import { colors } from '@/constants/theme';
  *
  * `(tabs)` 안에 있으므로 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
+/**
+ * "지금 보고 있는 카드"를 판정하는 화면 위쪽 기준선(px).
+ *
+ * 마커로 이동할 때 카드를 이 자리에 세우고, 스크롤을 훑을 때도 이 선을 지난 마지막 카드를
+ * 보고 있는 것으로 본다. 두 곳이 같은 값을 써야 마커로 간 카드가 그대로 선택으로 읽힌다.
+ */
+const SCROLL_ANCHOR = 96;
+
 export default function RecommendPlaceScreen() {
   const { placeId, latitude, longitude, filter } = useLocalSearchParams<{
     placeId: string;
@@ -73,6 +82,24 @@ export default function RecommendPlaceScreen() {
     cardPositionsRef.current[pinId] = y;
   }, []);
 
+  /*
+    처음에는 첫 카드를 골라 둔다. 홈의 영상핀 보기와 같은 규칙이다 — 화면이 열리면 지금 보고
+    있는 핀이 지도에 뾰족한 핀으로 이미 서 있어야, 지도와 목록이 짝이라는 것이 바로 읽힌다.
+  */
+  useEffect(() => {
+    const first = detail?.pins[0]?.pinId;
+
+    if (first !== undefined) setSelectedPinId((current) => current ?? first);
+  }, [detail]);
+
+  /**
+   * 마커를 눌러 스크롤을 옮기는 동안은 스크롤 추적을 잠근다.
+   *
+   * 프로그램이 미는 스크롤도 같은 이벤트를 내므로, 잠그지 않으면 목표 카드까지 가는 길에
+   * 지나치는 카드들이 차례로 선택돼 하이라이트가 튄다. 값은 잠금이 풀리는 시각이다.
+   */
+  const trackingPausedUntilRef = useRef(0);
+
   const selectPin = useCallback((pinId: string) => {
     setSelectedPinId(pinId);
 
@@ -81,11 +108,41 @@ export default function RecommendPlaceScreen() {
     // 좌표가 있는데 카드가 없는 핀(집계 어긋남)일 수 있다. 그때는 표시만 하고 머문다.
     if (cardY === undefined) return;
 
+    trackingPausedUntilRef.current = Date.now() + 700;
     scrollRef.current?.scrollTo({
-      y: Math.max(0, pinSectionYRef.current + cardY - 12),
+      y: Math.max(0, pinSectionYRef.current + cardY - SCROLL_ANCHOR),
       animated: true,
     });
   }, []);
+
+  /*
+    스크롤을 훑는 동안 "지금 보고 있는 카드"를 따라간다. 홈의 목록 단계와 같은 규칙이다 —
+    화면 위쪽 기준선을 지난 마지막 카드가 지금 보는 카드이고, 그 마커가 뾰족한 핀이 된다.
+    아래로 내리면 한 칸씩 다음 카드로 넘어가고, 올리면 되돌아온다.
+  */
+  const trackScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (Date.now() < trackingPausedUntilRef.current) return;
+
+      const pins = detail?.pins ?? [];
+      if (pins.length === 0) return;
+
+      const anchor = event.nativeEvent.contentOffset.y + SCROLL_ANCHOR;
+
+      let current = pins[0].pinId;
+
+      for (const pin of pins) {
+        const cardY = cardPositionsRef.current[pin.pinId];
+
+        if (cardY === undefined) continue;
+        if (pinSectionYRef.current + cardY <= anchor) current = pin.pinId;
+        else break;
+      }
+
+      setSelectedPinId((previous) => (previous === current ? previous : current));
+    },
+    [detail],
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.detailSafe}>
@@ -119,6 +176,8 @@ export default function RecommendPlaceScreen() {
             style={s.detailScroll}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={s.detail}
+            onScroll={trackScroll}
+            scrollEventThrottle={80}
           >
             <View style={s.detailBody}>
               {/*
@@ -135,6 +194,7 @@ export default function RecommendPlaceScreen() {
                 <RecommendPlacePins
                   pins={detail.pins}
                   placeName={detail.place.name}
+                  filter={pinFilter}
                   selectedPinId={selectedPinId}
                   onCardPosition={rememberCardPosition}
                 />

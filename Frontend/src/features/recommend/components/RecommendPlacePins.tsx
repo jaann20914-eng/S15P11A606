@@ -1,6 +1,8 @@
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { PlacePinCard } from '@/components/place';
+import type { CrowdFilter } from '@/constants/crowdLevels';
+import { colors } from '@/constants/theme';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
 import { recommendStyles as s } from '../styles';
 
@@ -8,7 +10,9 @@ export interface RecommendPlacePinsProps {
   pins: PlacePinCardData[];
   /** 빈 상태 안내에 쓰는 장소 이름. */
   placeName: string;
-  /** 지도에서 골라 둔 핀. 그 카드에 라임 테두리를 두른다. */
+  /** 핀 색 계열. 선택 테두리가 지도 핀과 같은 계열이어야 짝으로 읽힌다. */
+  filter: CrowdFilter;
+  /** 지도에서 골라 둔 핀. 그 카드에 계열 색 테두리를 두른다. */
   selectedPinId?: string | null;
   /**
    * 카드가 목록 안에서 어디에 놓였는지 알린다(목록 윗변 기준 y).
@@ -28,9 +32,13 @@ export interface RecommendPlacePinsProps {
 export function RecommendPlacePins({
   pins,
   placeName,
+  filter,
   selectedPinId = null,
   onCardPosition,
 }: RecommendPlacePinsProps) {
+  // 와글은 지도 핀과 같은 붉은 계열로 두른다. 여유는 기본(라임)이라 넘기지 않는다.
+  const selectedColor = filter === 'wagle' ? colors.crowdedActive : undefined;
+
   if (pins.length === 0) {
     return (
       <Pressable
@@ -52,6 +60,7 @@ export function RecommendPlacePins({
           <PlacePinCard
             pin={pin}
             selected={pin.pinId === selectedPinId}
+            selectedColor={selectedColor}
             onPress={() => router.push(`/pin/${pin.pinId}`)}
           />
         </View>
