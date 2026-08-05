@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ViewAvatar } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 import { ChatWarningSheet } from '@/features/chat/components/ChatWarningSheet';
+import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
 import { useChatDecision } from '@/features/chat/hooks/useChatDecision';
 import { useChatRoom } from '@/features/chat/hooks/useChatRoom';
 import { useChatSocket } from '@/features/chat/hooks/useChatSocket';
@@ -32,7 +34,7 @@ import { formatTimeOfDay } from '@/utils/datetime';
 const quickMessages = ['좌석 남아있나요?', '지금 웨이팅 얼마나 돼요?', '주차되나요?'];
 
 /** 지난 경고 안내가 떠 있는 시간. 읽고 사라질 만큼만 둔다. */
-const TOAST_MS = 5000;
+const TOAST_MS = 3000;
 
 /** 보낼 수 없는 상태에서 입력칸에 놓는 안내. 왜 못 쓰는지 그 자리에서 알려 준다. */
 function placeholderByStatus(status: ChatRoomStatus, isOwner: boolean): string {
@@ -253,9 +255,19 @@ export default function Room() {
     });
   };
 
+  /*
+    경고 시트가 오르내리는 동안 뒤 화면을 흐린다. 핀 상세의 결제·채팅 요청 시트와 같은
+    처리다(`useBackdropBlur` — 단계별로 짙어지고 옅어지는 이유도 거기 적혀 있다).
+    시트는 이 묶음 밖에 있어 또렷하게 남는다.
+  */
+  const blurRadius = useBackdropBlur((room.arrivedWarning ?? devWarning) !== null);
+
   return (
     <SafeAreaView style={s.safe}>
-      <View ref={screenRef} style={[s.screen, { paddingBottom: keyboardOverlap }]}>
+      <View
+        ref={screenRef}
+        style={[s.screen, { paddingBottom: keyboardOverlap }, { filter: [{ blur: blurRadius }] }]}
+      >
         <View style={s.header}>
           <Pressable accessibilityRole="button" onPress={() => router.back()} style={s.back}>
             <Ionicons name="chevron-back" size={24} color={colors.gray400} />
@@ -452,20 +464,22 @@ export default function Room() {
   );
 }
 
-/** 토스트가 화면에 머무는 시간(ms). 나오고 들어가는 시간은 별도다. */
+/** 토스트가 나오고 들어가는 시간(ms). 머무는 시간은 `TOAST_MS`다. */
 const TOAST_ENTER_MS = 260;
 const TOAST_EXIT_MS = 220;
-/** 토스트 폭. 이동 거리를 계산해야 해서 고정한다. */
-const TOAST_WIDTH = 300;
 
 /**
  * 지난 경고 요약 토스트.
  *
  * 왼쪽 화면 밖에서 미끄러져 나와 잠깐 머물고 같은 길로 돌아간다. 시트처럼 화면을 막지
  * 않는다 — 다시 들어온 사람에게 필요한 것은 "이 방에 경고가 있었다"는 사실뿐이다.
+ *
+ * 폭은 화면을 그대로 따른다(좌우 여백만 남긴다). 이동 거리도 화면 폭으로 잡아, 어느
+ * 기기에서든 완전히 밖에서 출발해 완전히 밖으로 돌아간다.
  */
 function WarningToast({ count, onDone }: { count: number; onDone: () => void }) {
-  const translateX = useRef(new Animated.Value(-(TOAST_WIDTH + layout.gutter))).current;
+  const { width } = useWindowDimensions();
+  const translateX = useRef(new Animated.Value(-width)).current;
 
   useEffect(() => {
     const animation = Animated.sequence([
@@ -477,7 +491,7 @@ function WarningToast({ count, onDone }: { count: number; onDone: () => void }) 
       }),
       Animated.delay(TOAST_MS),
       Animated.timing(translateX, {
-        toValue: -(TOAST_WIDTH + layout.gutter),
+        toValue: -width,
         duration: TOAST_EXIT_MS,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
@@ -600,23 +614,23 @@ const s = StyleSheet.create({
   time: { ...type.caption, fontSize: 10, color: colors.gray400 },
 
   /** 지난 경고 안내. 입력칸 위에 얹는다. */
-  /** 왼쪽에서 나오는 토스트. 이동 거리를 계산해야 해서 폭이 고정이다(`TOAST_WIDTH`). */
+  /**
+   * 왼쪽에서 나오는 토스트. 좌우 여백만 남기고 화면 폭을 그대로 따른다.
+   *
+   * 그림자를 걸지 않고 바탕도 반투명 연두만 살짝 깐다 — 떠 있는 판이 아니라 화면 위를
+   * 지나가는 안내 줄로 읽히게 한다. 뒤 대화가 비쳐도 글자는 진해서 읽힌다.
+   */
   toast: {
     position: 'absolute',
     left: layout.gutter,
-    width: TOAST_WIDTH,
+    right: layout.gutter,
     bottom: 104,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x3,
     padding: spacing.x3,
     borderRadius: radius.md,
-    backgroundColor: '#F3F8DF',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: 'rgba(216,235,106,0.4)',
   },
   /** 흰 판 위에 그림을 얹어 연둣빛 바탕에서 도드라지게 한다. */
   toastImage: {

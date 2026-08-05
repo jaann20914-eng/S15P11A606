@@ -81,7 +81,8 @@ export function ChatWarningSheet({ warning, onClose }: ChatWarningSheetProps) {
         </View>
 
         <Text style={s.title}>{titleByReason[shown.reasonCode]}</Text>
-        <Text style={s.caption}>{shown.content}</Text>
+        {/* 서버 문구는 두 문장이 한 줄로 온다. 첫 문장("~가 감지되었습니다.") 뒤에서 줄을 바꾼다. */}
+        <Text style={s.caption}>{shown.content.replace('. ', '.\n')}</Text>
 
         <AlarmVideo />
 
@@ -106,7 +107,11 @@ function AlarmVideo() {
     <VideoView
       player={player}
       style={s.video}
-      contentFit="contain"
+      /*
+        원본이 16:9 가로 영상이라 contain으로 넣으면 상자 안에서 납작해진다(200 상자에
+        200x112). 알람이 가운데 있으므로 양옆을 잘라 상자를 가득 채운다.
+      */
+      contentFit="cover"
       nativeControls={false}
       allowsPictureInPicture={false}
     />
@@ -129,7 +134,8 @@ const s = StyleSheet.create({
   handle: { width: 56, height: 5, borderRadius: radius.pill, backgroundColor: colors.gray200 },
   title: { ...type.h3, alignSelf: 'flex-start', color: colors.dark },
   caption: { ...type.small, alignSelf: 'flex-start', marginTop: spacing.x2, color: colors.gray400 },
-  video: { width: 200, height: 200, marginTop: spacing.x6 },
+  /** 다른 시트의 그림(200)보다 큰 것은 가로 영상을 잘라 쓰는 몫이다. 둥근 모서리로 잘린 티를 줄인다. */
+  video: { width: 240, height: 240, marginTop: spacing.x6, borderRadius: radius.lg, overflow: 'hidden' },
   message: {
     ...type.body,
     marginTop: spacing.x6,
