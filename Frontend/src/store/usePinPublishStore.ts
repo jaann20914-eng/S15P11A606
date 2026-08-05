@@ -19,7 +19,8 @@ import type {
   VideoUploadPhase,
   VideoUploadTicket,
 } from '@/types/pinCreate';
-import { pullCoordinateNear, readCurrentCoordinate } from '@/utils/location';
+// 좌표 끌어당김을 되살릴 때 pullCoordinateNear를 함께 import한다(아래 [임시] 주석 참고).
+import { readCurrentCoordinate } from '@/utils/location';
 import { hasPinUpdate, toPinUpdateRequest } from '@/features/pin-create/pinUpdateRequest';
 import { createStore } from './createStore';
 import type { PinId } from '@/types/pin';
@@ -77,11 +78,11 @@ function toRequest(draft: PinDraft, originalVideoKey: string, captured: Coordina
   const detailLocation = draft.detailLocation.trim();
 
   /*
-    [임시] 촬영 좌표를 장소에서 30m 이내로 끌어당겨 보낸다. 개발 중에는 실제 장소에서 찍을 수
-    없어 서버의 50m 검증(LOCATION_OUT_OF_RANGE)에 계속 걸린다. 되돌릴 때는 captured를 그대로
-    쓰고 pullCoordinateNear를 지운다.
+    개발 중 서버의 50m 검증을 피하려고 촬영 좌표를 장소 쪽으로 끌어당겨 보냈던 처치는
+    껐다(2026-08-06) — 실제 좌표를 그대로 보낸다. 실기기 없이 시험할 때만 아래 줄로 바꾼다.
   */
-  const sentCoordinate = pullCoordinateNear(captured, draft.place, 30);
+  // const sentCoordinate = pullCoordinateNear(captured, draft.place, 30);
+  const sentCoordinate = captured;
 
   return {
     originalVideoKey,
