@@ -73,6 +73,12 @@ const COMPLETION_CLOSE_TIMEOUT_MS = 1200;
  */
 const announcedPinIds = new Set<string>();
 
+/** 초점 이동이 실제로 오는지 확인하기 위한 기록. blur가 오지 않는 경로를 가려낼 때 본다. */
+function logWrite(step: string): void {
+  if (!__DEV__) return;
+  console.log(`[write] ${step}`);
+}
+
 /**
  * 게시글 작성 · 수정 화면.
  *
@@ -164,16 +170,27 @@ export default function PinCreateScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      logWrite('초점 받음');
       setFocused(true);
 
+      /*
+        **들어올 때도 비운다.** 나갈 때(blur) 비우는 것이 원칙이지만, 이동 경로에 따라 blur가
+        오지 않는 경우가 실제로 있었다 — 그때 직전 등록의 장소가 폼에 남아 있었다(2026-08-05).
+        발행이 돌고 있지 않은 생성 모드라면 이 화면에 남아 있어야 할 값이 없다.
+      */
+      if (mode.type === 'create' && usePinPublishStore.getState().phase === 'idle') {
+        form.reset();
+      }
+
       return () => {
+        logWrite('초점 잃음');
         setFocused(false);
         form.reset();
 
         // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
         if (usePinPublishStore.getState().phase === 'done') resetPublish();
       };
-    }, [form.reset, resetPublish]),
+    }, [form.reset, resetPublish, mode.type]),
   );
 
   const submit = () => {

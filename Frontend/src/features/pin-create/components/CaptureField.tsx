@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { CameraView } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
@@ -98,19 +99,35 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
   /** 다시 열어 볼 여지가 남았는지. 다 쓰면 안내로 넘긴다. */
   const canRetryAttach = attachAttempt < CAMERA_ATTACH_ATTEMPTS - 1;
 
+  /*
+    화면 초점을 **여기서 직접** 본다. 부모가 초점에 따라 이 컴포넌트를 내려 주는 것에만
+    기대지 않는다 — 이동 경로에 따라 그 신호가 오지 않은 경우가 있었고, 그러면 카메라가
+    숨은 탭에 붙은 채 남아 다음 진입 때 검거나 배율이 깨진 채 나타났다(2026-08-05).
+  */
+  const isFocused = useIsFocused();
+
   /**
-   * 카메라를 붙일 때가 됐는지. 들어온 직후 한 박자 늦춘다(`CAMERA_ATTACH_DELAY_MS`).
+   * 카메라를 붙일 때가 됐는지. 초점을 받은 직후 한 박자 늦춘다(`CAMERA_ATTACH_DELAY_MS`).
    */
   const [attachAllowed, setAttachAllowed] = useState(false);
 
   useEffect(() => {
+    if (!isFocused) {
+      // 초점을 잃으면 카메라를 내리고 처음으로 되돌린다. 돌아오면 새로 연다.
+      log('초점 잃음 - 카메라 내림');
+      setAttachAllowed(false);
+      setPreviewLive(false);
+      setAttachAttempt(0);
+      return;
+    }
+
     const timer = setTimeout(() => {
       log('붙이기 시작');
       setAttachAllowed(true);
     }, CAMERA_ATTACH_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isFocused]);
 
   /*
     열렸다는 신호를 기다리다 오지 않으면 **같은 인스턴스에서** 세션을 다시 연다.
@@ -119,7 +136,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
     카메라를 다시 바인딩하는 공식 통로라, 그 사이 정리가 끝났으면 이번에는 열린다.
   */
   useEffect(() => {
-    if (!attachAllowed || previewLive || showsExisting || video !== null) return;
+    if (!isFocused || !attachAllowed || previewLive || showsExisting || video !== null) return;
     if (!canRetryAttach) {
       log('열지 못했다', { 시도: attachAttempt + 1 });
       return;
@@ -132,7 +149,16 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
     }, CAMERA_READY_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
-  }, [attachAllowed, previewLive, showsExisting, video, canRetryAttach, attachAttempt, capture.cameraRef]);
+  }, [
+    isFocused,
+    attachAllowed,
+    previewLive,
+    showsExisting,
+    video,
+    canRetryAttach,
+    attachAttempt,
+    capture.cameraRef,
+  ]);
 
   /*
     카메라를 쓰지 않는 상태로 갔다가 돌아오면 처음부터 다시 확인한다. 찍어 둔 영상을 보다가
@@ -230,7 +256,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
 
         인스턴스는 하나만 둔다 — 다시 여는 것은 `resumePreview`가 한다(위 효과의 주석 참고).
       */}
-      {capture.ready && attachAllowed && (
+      {capture.ready && attachAllowed && isFocused && (
         <CameraView
           ref={capture.cameraRef}
           facing={capture.facing}
