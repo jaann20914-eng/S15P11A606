@@ -11,6 +11,7 @@ import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.s3.S3ObjectInspector;
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * AI 블러 처리 결과(ai.blur.result)를 DB에 반영하는 트랜잭션 서비스.
@@ -53,6 +55,7 @@ public class AiBlurResultService {
     private final AiBlurResultMessageValidator validator;
     private final AiBlurJobRepository aiBlurJobRepository;
     private final PinRepository pinRepository;
+    private final PinTagIndexingService pinTagIndexingService;
     private final S3ObjectInspector s3ObjectInspector;
     private final VideoObjectCleanupPort videoObjectCleanupPort;
     private final Clock clock;
@@ -127,6 +130,7 @@ public class AiBlurResultService {
         }
         pin.activate(message.blurredVideoKey(), message.thumbnailKey(), clock.instant());
         job.markCompleted(message.completedAt(), message.finalStatus());
+        registerTagIndex(pin);
         return AiBlurResultOutcome.APPLIED;
     }
 
@@ -199,6 +203,8 @@ public class AiBlurResultService {
         pin.replaceVideo(job.getOriginalVideoKey(), message.blurredVideoKey(),
                 message.thumbnailKey(), clock.instant());
         job.markCompleted(message.completedAt(), message.finalStatus());
+        // 교체 반영으로 expiresAt이 갱신되므로, 태그는 그대로여도 검색 인덱스의 expiresAt을 최신화한다.
+        registerTagIndex(pin);
 
         runAfterCommit(() -> {
             videoObjectCleanupPort.registerForDeletion(previousOriginalKey);
@@ -312,6 +318,16 @@ public class AiBlurResultService {
             return true;
         }
         return stored == message.finalStatus();
+    }
+
+    /**
+     * 핀이 공개(ACTIVE)로 반영된 뒤, 해당 핀의 태그를 검색 인덱스에 반영하도록 커밋 이후 등록한다.
+     * 색인 문서 조립·ES 쓰기는 {@link PinTagIndexingService}에 위임하고, 여기서는 pinId만 넘긴다.
+     * 색인은 best-effort이며 실패해도 이미 커밋된 핀 처리에는 영향을 주지 않는다.
+     */
+    private void registerTagIndex(Pin pin) {
+        UUID pinId = pin.getId();
+        runAfterCommit(() -> pinTagIndexingService.indexPinTags(pinId));
     }
 
     /**
