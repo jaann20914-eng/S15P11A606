@@ -7,6 +7,7 @@ import com.yuhan.wagglewaggle.domain.place.entity.Place;
 import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
+import com.yuhan.wagglewaggle.support.AbstractPostgresContainerTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -14,17 +15,8 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -38,24 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ACTIVE·미삭제·미만료를 모두 만족하는 핀만 반환하고, PENDING·REJECTED·FAILED·삭제·만료는
  * 모두 빈 결과가 되는지, fetch join으로 작성자·장소가 함께 로딩되는지 확인한다.
  */
-@DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
-class PinDetailRepositoryJpaTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
-
-    @DynamicPropertySource
-    static void datasourceProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    }
+class PinDetailRepositoryJpaTest extends AbstractPostgresContainerTest {
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
     private static final double PLACE_LAT = 37.500000;

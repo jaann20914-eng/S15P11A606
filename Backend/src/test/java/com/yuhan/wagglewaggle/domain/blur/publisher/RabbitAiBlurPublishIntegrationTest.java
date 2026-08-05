@@ -8,6 +8,7 @@ import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJobType;
 import com.yuhan.wagglewaggle.domain.blur.message.AiBlurRequestMessage;
 import com.yuhan.wagglewaggle.global.config.RabbitConfig;
+import com.yuhan.wagglewaggle.support.AbstractRabbitContainerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -24,13 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.amqp.autoconfigure.RabbitAutoConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.testcontainers.containers.RabbitMQContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -45,23 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(classes = {RabbitConfig.class, RabbitAiBlurJobPublisher.class})
 @ImportAutoConfiguration(RabbitAutoConfiguration.class)
-@Testcontainers
-class RabbitAiBlurPublishIntegrationTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static final RabbitMQContainer RABBIT = new RabbitMQContainer(
-            DockerImageName.parse("rabbitmq:4-management").asCompatibleSubstituteFor("rabbitmq"));
-
-    @DynamicPropertySource
-    static void rabbitProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.rabbitmq.host", RABBIT::getHost);
-        registry.add("spring.rabbitmq.port", RABBIT::getAmqpPort);
-        registry.add("spring.rabbitmq.username", RABBIT::getAdminUsername);
-        registry.add("spring.rabbitmq.password", RABBIT::getAdminPassword);
-        registry.add("spring.rabbitmq.publisher-confirm-type", () -> "correlated");
-        registry.add("spring.rabbitmq.publisher-returns", () -> "true");
-    }
+class RabbitAiBlurPublishIntegrationTest extends AbstractRabbitContainerTest {
 
     private static final UUID PIN_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final String KEY = "pins/original/42/33333333-3333-3333-3333-333333333333.mp4";

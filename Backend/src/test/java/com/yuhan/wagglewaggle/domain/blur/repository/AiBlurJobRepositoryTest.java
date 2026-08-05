@@ -10,6 +10,7 @@ import com.yuhan.wagglewaggle.domain.place.entity.Place;
 import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
+import com.yuhan.wagglewaggle.support.AbstractPostgresContainerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,17 +19,8 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -43,24 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 실제 PostGIS(PostgreSQL) 컨테이너 위에서 Flyway 마이그레이션을 적용해
  * 엔티티 매핑·제약조건(FK, UNIQUE)·재발행 조회를 검증한다.
  */
-@DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
-class AiBlurJobRepositoryTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
-
-    @DynamicPropertySource
-    static void datasourceProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    }
+class AiBlurJobRepositoryTest extends AbstractPostgresContainerTest {
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
 
