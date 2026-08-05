@@ -310,17 +310,16 @@ export default function PinCreateScreen() {
       router.dismissTo(`/pin/${mode.pinId}`);
     } else {
       /*
-        등록은 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에 상세를 **쌓아서** 연다.
-        이 두 액션의 순서와 타이밍을 바꾸지 않는다 — 시도해 보고 접은 것들:
-        - 상세를 먼저 밀고 탭 교체를 뒤로 미룸 → 교체 시점에 초점이 이미 상세라 replace가
-          상세를 갈아치워 오늘 핀 목록에서 멈췄다
-        - 입구를 뿌리로 두려고 index로 replace 후 activity를 push → 같은 틱의 두 번째 액션이
-          전환 중인 네비게이터에 떨어져 버려졌다("no route named 'mypage'")
+        등록은 홈을 깔고 그 위에 상세를 **쌓아서** 연다. 상세에서 뒤로 가면 홈이다.
 
-        오늘 핀 목록이 스택 뿌리가 되는 것은 여기서 감수한다. "마이페이지 탭을 누르면 입구"는
-        탭 바가 스택을 입구로 리셋해서 보장한다(`(tabs)/_layout`).
+        전에는 오늘 핀 목록을 깔았는데, 그 목록이 마이페이지 스택의 뿌리가 되어 거기서 뒤로
+        가면 갈 곳이 없어 홈으로 떨어졌다 — 결국 한 단계를 더 거쳐 홈으로 가는 셈이라
+        곧바로 홈을 깔기로 했다(2026-08-05).
+
+        `replace`로 이 화면(작성 탭)을 대신한다. 탭 안에서 상세로 바로 replace하면 탭 묶음의
+        뿌리가 사라져 이후 뒤로 가기가 어디서도 성립하지 않는다.
       */
-      router.replace('/(tabs)/mypage/activity');
+      router.replace('/(tabs)/home');
       router.push(`/pin/${publishedPinId}`);
     }
 

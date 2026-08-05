@@ -22,12 +22,19 @@ export interface CaptureFieldProps {
 }
 
 /**
- * 카메라를 붙이기까지 기다리는 시간(ms).
+ * 카메라가 열렸다는 신호를 이만큼 기다린다(ms). 넘기면 새로 붙여 다시 시도한다.
  *
- * 앞 세션이 해제될 틈을 주는 값이다. 너무 짧으면 검은 화면이 그대로 남고, 길면 처음
- * 들어오는 사람이 기다린다. 실기기에서 이 값이면 안정적으로 열렸다.
+ * 안드로이드는 앞서 쓰던 카메라 세션을 언마운트 뒤에도 잠시 붙잡는다. 그 사이에 새 세션을
+ * 열면 **실패를 알리지 않고 검은 화면으로 남는다** — 글을 하나 올리고 작성 화면에 다시
+ * 들어오면 미리보기가 검고, 나갔다 들어와야 살아나던 이유다(2026-08-05).
+ *
+ * 그래서 "얼마나 기다리면 되는지"를 어림하지 않는다. 열렸다는 신호(`onCameraReady`)가
+ * 오는지 보고, 오지 않으면 카메라를 새로 붙인다.
  */
-const CAMERA_ATTACH_DELAY_MS = 350;
+const CAMERA_READY_TIMEOUT_MS = 1200;
+
+/** 다시 붙여 보는 횟수의 상한. 이보다 더 하면 기기 문제이므로 안내로 넘긴다. */
+const CAMERA_ATTACH_ATTEMPTS = 4;
 
 /** `0:00:05` 형태. 최대 5초라 분·시는 항상 0이지만 시안 표기를 따른다. */
 function formatTimer(seconds: number): string {
@@ -56,24 +63,48 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
   /** 등록된 영상을 보여주는 중인지. 다시 찍었으면 그 결과가 우선한다. */
   const showsExisting = existingVideoUrl !== null && !retaking && video === null;
 
+  /**
+   * 미리보기가 실제로 열렸는지. `onCameraReady`가 오면 참이 된다.
+   *
+   * 이 값을 믿고 그린다 — 권한이 있다는 것만으로는 카메라가 열렸다고 볼 수 없다(검은 화면이
+   * 그 경우다).
+   */
+  const [previewLive, setPreviewLive] = useState(false);
+
+  /**
+   * 카메라를 몇 번째로 붙이는 중인지. 이 값이 `CameraView`의 key라서, 올리면 네이티브 쪽이
+   * 완전히 새로 만들어진다.
+   */
+  const [attachAttempt, setAttachAttempt] = useState(0);
+
+  /** 다시 붙여 볼 여지가 남았는지. 다 쓰면 안내로 넘긴다. */
+  const canRetryAttach = attachAttempt < CAMERA_ATTACH_ATTEMPTS - 1;
+
   /*
-    카메라를 붙이기 전에 잠깐 기다린다.
+    열렸다는 신호를 기다리다 오지 않으면 새로 붙인다.
 
-    안드로이드는 앞서 쓰던 카메라 세션을 언마운트 뒤에도 잠시 붙잡고 있다. 그 사이에 새
-    세션을 열면 실패하는데, 실패를 알리지 않고 **검은 화면으로 남는다** — 글을 하나 올리고
-    작성 화면에 다시 들어오면 미리보기가 검게 뜨고, 나갔다 들어와야 살아나던 이유다
-    (2026-08-05). 짧게 늦추면 그 사이 해제가 끝난다.
-
-    지연 동안에는 "준비 중" 안내가 보인다. 카메라가 열리는 데 어차피 그만큼 걸리므로 처음
-    들어오는 사람에게도 느려지지 않는다.
+    앞 세션이 아직 카메라를 붙잡고 있으면 이 시도는 조용히 실패한다. 그때 key를 올려 새로
+    만들면 대개 다음 시도에서 열린다 — 그 사이 해제가 끝나기 때문이다.
   */
-  const [cameraSlotReady, setCameraSlotReady] = useState(false);
-
   useEffect(() => {
-    const timer = setTimeout(() => setCameraSlotReady(true), CAMERA_ATTACH_DELAY_MS);
+    if (previewLive || showsExisting || video !== null) return;
+    if (!canRetryAttach) return;
+
+    const timer = setTimeout(() => setAttachAttempt((current) => current + 1), CAMERA_READY_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [previewLive, showsExisting, video, canRetryAttach, attachAttempt]);
+
+  /*
+    카메라를 쓰지 않는 상태로 갔다가 돌아오면 처음부터 다시 확인한다. 찍어 둔 영상을 보다가
+    "다시 촬영"으로 돌아오는 길이 그렇다 — 그때도 세션을 새로 열어야 한다.
+  */
+  useEffect(() => {
+    if (showsExisting || video !== null) {
+      setPreviewLive(false);
+      setAttachAttempt(0);
+    }
+  }, [showsExisting, video]);
 
   // 화면에 들어오면 바로 권한을 물어야 미리보기를 띄울 수 있다.
   useEffect(() => {
@@ -154,17 +185,36 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
 
   return (
     <View style={s.camera}>
-      {capture.ready && cameraSlotReady ? (
+      {/*
+        카메라는 권한이 있으면 **항상 붙인다.** 붙이지 않으면 열렸다는 신호도 오지 않아
+        준비 여부를 알 수 없다. 열리기 전에는 아래 안내 층이 위를 덮는다.
+
+        `key`가 시도 번호다. 열리지 않아 다시 붙일 때 이 값이 올라가면 네이티브 쪽이 완전히
+        새로 만들어진다.
+      */}
+      {capture.ready && (
         <CameraView
+          key={attachAttempt}
           ref={capture.cameraRef}
           facing={capture.facing}
           mode="video"
           videoQuality="720p"
           style={s.cameraView}
+          onCameraReady={() => setPreviewLive(true)}
+          /*
+            열지 못했다고 알려 오면 기다리지 않고 바로 다시 붙인다. 신호가 아예 오지 않는
+            경우는 위 효과가 시간을 재서 처리한다.
+          */
+          onMountError={() => setAttachAttempt((current) => current + 1)}
         />
-      ) : (
-        <View style={s.cameraBlocked}>
-          <Text style={s.cameraBlockedText}>카메라를 준비하고 있어요</Text>
+      )}
+
+      {/* 아직 열리지 않았으면 그 사실을 덮어서 알린다. 검은 화면만 남기지 않는다. */}
+      {!previewLive && (
+        <View style={[s.cameraBlocked, s.cameraCover]}>
+          <Text style={s.cameraBlockedText}>
+            {canRetryAttach ? '카메라를 준비하고 있어요' : '카메라를 열지 못했어요. 앱을 다시 실행해 주세요.'}
+          </Text>
         </View>
       )}
 
@@ -176,7 +226,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
       </View>
 
       {/* 녹화 중에는 렌즈를 바꿀 수 없다. 중간에 바꾸면 녹화가 끊긴다. */}
-      {!recording && capture.ready && cameraSlotReady && (
+      {!recording && previewLive && (
         <Pressable
           accessibilityLabel="전면 · 후면 전환"
           onPress={capture.toggleFacing}
@@ -189,7 +239,8 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={recording ? '촬영 종료' : '촬영 시작'}
-        disabled={!capture.ready || !cameraSlotReady}
+        // 열리지 않은 카메라로는 녹화를 시작할 수 없다.
+        disabled={!previewLive}
         onPress={recording ? capture.stopRecording : capture.startRecording}
         style={s.recordOuter}
       >

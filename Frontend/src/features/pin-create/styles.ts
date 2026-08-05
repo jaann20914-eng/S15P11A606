@@ -82,6 +82,8 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: colors.gray100,
   },
   cameraBlockedText: { ...type.caption, color: colors.gray600, textAlign: 'center' },
+  /** 카메라가 열리기 전 그 위를 덮는 층. 카메라는 붙어 있어야 열렸다는 신호가 온다. */
+  cameraCover: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   cameraRetry: {
     height: 36,
     paddingHorizontal: spacing.x4,
