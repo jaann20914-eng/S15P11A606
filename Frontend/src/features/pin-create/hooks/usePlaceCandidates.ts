@@ -46,10 +46,17 @@ export function usePlaceCandidates(center: Coordinate | null): PlaceCandidates {
     requested.current = true;
     setLoading(true);
 
+    /*
+      [임시 해제] 후보 범위를 50m(MAX_PLACE_DISTANCE_METERS)로 좁히던 제한.
+      서버 검증이 임시로 넓게 풀려 있는 동안 멀리 있는 장소도 고를 수 있게 1km로
+      넓혀 둔다. 되돌릴 때는 아래 상수를 MAX_PLACE_DISTANCE_METERS로 바꾸고,
+      아래쪽의 거리 필터 주석을 푼다.
+    */
+    const candidateRadiusMeters = 1000; // 원래 값: MAX_PLACE_DISTANCE_METERS
+
     // 위경도 폭은 위도에 따라 달라진다. 경도 쪽이 더 넓게 벌어져야 같은 거리가 된다.
-    const latitudeSpan = MAX_PLACE_DISTANCE_METERS / METERS_PER_LATITUDE_DEGREE;
-    const longitudeSpan =
-      latitudeSpan / Math.max(Math.cos((center.latitude * Math.PI) / 180), 0.01);
+    const latitudeSpan = candidateRadiusMeters / METERS_PER_LATITUDE_DEGREE;
+    const longitudeSpan = latitudeSpan / Math.max(Math.cos((center.latitude * Math.PI) / 180), 0.01);
 
     getPlaces({
       southWestLatitude: center.latitude - latitudeSpan,
@@ -67,8 +74,8 @@ export function usePlaceCandidates(center: Coordinate | null): PlaceCandidates {
             longitude: place.longitude,
             distanceMeters: Math.round(distanceBetween(center, place)),
           }))
-          // 경계 상자는 네모라 모서리 쪽이 50m를 넘는다. 실제 거리로 한 번 더 거른다.
-          .filter((place) => place.distanceMeters <= MAX_PLACE_DISTANCE_METERS)
+          // [임시 해제] 경계 상자는 네모라 모서리 쪽이 범위를 넘는다. 실제 거리로 한 번 더 거른다.
+          // .filter((place) => place.distanceMeters <= MAX_PLACE_DISTANCE_METERS)
           .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
         setPlaces(found);
