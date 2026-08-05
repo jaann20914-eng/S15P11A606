@@ -78,9 +78,6 @@ export function usePlaceConfirm(): PlaceConfirmState {
             메모없는핀: pins.filter((pin) => pin.memo === null).length,
           });
 
-          // 좌표는 확정 응답에 없다. 고른 검색 결과가 가지고 있던 값을 그대로 쓴다.
-          if (coordinate) focusOn({ coordinate, name: place.name });
-
           /*
             아직 영상핀이 없는 장소. **안내 한 줄로 멈추지 않고 그 장소를 보여준다.**
 
@@ -97,11 +94,28 @@ export function usePlaceConfirm(): PlaceConfirmState {
             router.back();
             router.push({
               pathname: '/place/no-pins',
-              // 갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
-              params: { name: place.name, address: place.address },
+              /*
+                갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
+
+                **지도를 옮기는 일은 그 화면이 한다.** 여기서 먼저 옮기면 장소 축척으로 한 번,
+                그 화면이 20m로 또 한 번 명령이 가서 확대가 두 번 끊겨 보인다. 좌표를 아는
+                경로에서는 그 값을 실어 보내고, 모르면 그 화면이 이름으로 다시 찾는다
+                (`useSearchedPlaceFocus`).
+              */
+              params: {
+                name: place.name,
+                address: place.address,
+                kakaoPlaceId,
+                ...(coordinate === undefined
+                  ? null
+                  : { latitude: coordinate.latitude, longitude: coordinate.longitude }),
+              },
             });
             return;
           }
+
+          // 좌표는 확정 응답에 없다. 고른 검색 결과가 가지고 있던 값을 그대로 쓴다.
+          if (coordinate) focusOn({ coordinate, name: place.name });
 
           log('이동', { 경로: `/place/${place.placeId}` });
           router.back();

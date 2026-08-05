@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { CrowdChart, PlaceSearchBar } from '@/components/place';
@@ -224,6 +224,26 @@ export default function Place() {
    */
   const chartLift = chartHeight > 0 ? chartHeight + SHEET_CONTENT_GAP : 0;
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * **위에 다른 화면이 겹치면 시트와 상단 컨트롤을 감춘다.** 이 화면 위에 오는 것들(검색,
+   * 영상핀이 없는 장소)도 홈 지도를 비추는 반투명 화면이라, 감추지 않으면 **이 화면의 카드와
+   * 그 화면의 카드가 같은 자리에서 겹쳐 보인다**(2026-08-05 QA에서 나왔다). 검색바도 두 겹이
+   * 쌓이고, 내 위치 버튼은 위 화면에 없어 그대로 남는다.
+   *
+   * 홈이 이 화면에 대해 하는 것과 같은 처리다(`app/(tabs)/home/index.tsx`의 `onTop`).
+   * **감추기만 하고 언마운트하지 않는다** — 스크롤 위치와 재측정을 잃으면 돌아왔을 때 있던
+   * 자리로 정확히 돌아오지 못한다.
+   */
+  const [onTop, setOnTop] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setOnTop(true);
+      return () => setOnTop(false);
+    }, []),
+  );
+
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
@@ -284,11 +304,18 @@ export default function Place() {
   /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */
   const focusedPin = pins[pinIndex] ?? null;
 
+  /*
+    **맨 위일 때만 올린다.** 위에 다른 화면이 겹쳐 있으면 그 화면이 자기 겹을 올려 둔다 —
+    영상핀이 없는 장소 화면은 마커를 하나도 두지 않으려고 빈 겹을 올리는데, 여기서 덮어쓰면
+    가려져 있는 이 화면의 마커가 그 위 화면에 그려진다.
+
+    돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아 우리 마커를 되돌려 놓는다.
+  */
   useEffect(() => {
-    if (pinMarkers.length === 0) return;
+    if (!onTop || pinMarkers.length === 0) return;
 
     showPinOverlay({ markers: pinMarkers, selectedPinId: focusedPin?.pinId ?? null });
-  }, [focusedPin, pinMarkers, showPinOverlay]);
+  }, [focusedPin, onTop, pinMarkers, showPinOverlay]);
 
   /*
     **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
@@ -385,7 +412,11 @@ export default function Place() {
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
         pointerEvents="box-none"
-        style={[s.topControls, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
+        style={[
+          s.topControls,
+          !onTop && s.covered,
+          { top: insets.top + spacing.x3, left: gutter, right: gutter },
+        ]}
       >
         {/*
           검색바는 **영상핀이 없는 장소 화면과 같은 것을 쓴다**(`PlaceSearchBar`). 왼쪽이 꺽새로
@@ -425,7 +456,8 @@ export default function Place() {
         )}
       </View>
 
-      <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
+      {/* 위에 다른 화면이 겹쳐 있으면 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다. */}
+      <Animated.View style={[s.sheet, !onTop && s.covered, { transform: [{ translateY: sheetY }] }]}>
         {/*
           반투명 표면 한 겹. 농도는 `colors.sheetSurface`가 정한다.
 
@@ -685,6 +717,8 @@ const s = StyleSheet.create({
   /** 지도 제스처를 받는 자리. 아무것도 그리지 않고 손가락만 받는다. */
   mapGestureArea: StyleSheet.absoluteFillObject,
   topControls: { position: 'absolute' },
+  /** 위에 다른 화면이 겹쳤을 때. 두 화면의 카드가 같은 자리에 겹쳐 보이지 않게 한다. */
+  covered: { display: 'none' },
   // 검색바 자체의 스타일은 공용 컴포넌트가 갖는다(`components/place/PlaceSearchBar`).
   location: {
     width: 48,
