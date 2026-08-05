@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -49,6 +49,38 @@ export default function RecommendPlaceScreen() {
     known,
   );
 
+  /*
+    지도의 마커와 아래 카드를 잇는 선택 상태. 홈의 영상핀 선택과 같은 동선이다.
+
+    마커를 누르면 그 마커가 뾰족한 핀으로 바뀌고 해당 카드에 라임 테두리가 둘리며, 스크롤이
+    그 카드로 내려간다. 상세로 여는 것은 카드를 눌렀을 때만이다 — 지도에서 누르는 것은
+    "이게 어느 영상인지 보자"이지 "열자"가 아니다.
+  */
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  /** 핀 목록 묶음이 스크롤 내용 안에서 시작하는 위치. 카드 위치와 더해 스크롤 지점을 만든다. */
+  const pinSectionYRef = useRef(0);
+  /** 카드별 위치(목록 윗변 기준). 목록이 알려 준 값을 모아 둔다. */
+  const cardPositionsRef = useRef<Record<string, number>>({});
+
+  const rememberCardPosition = useCallback((pinId: string, y: number) => {
+    cardPositionsRef.current[pinId] = y;
+  }, []);
+
+  const selectPin = useCallback((pinId: string) => {
+    setSelectedPinId(pinId);
+
+    const cardY = cardPositionsRef.current[pinId];
+
+    // 좌표가 있는데 카드가 없는 핀(집계 어긋남)일 수 있다. 그때는 표시만 하고 머문다.
+    if (cardY === undefined) return;
+
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, pinSectionYRef.current + cardY - 12),
+      animated: true,
+    });
+  }, []);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.detailSafe}>
       <ScreenHeader title="추천 장소" back onBack={router.back} />
@@ -62,20 +94,47 @@ export default function RecommendPlaceScreen() {
           )}
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.detail}>
-          {/* 지도는 좌우 여백 없이 화면 폭을 그대로 쓴다(시안). */}
-          <RecommendPlaceMap name={detail.place.name} mapData={mapData} />
+        <>
+          {/*
+            지도는 스크롤 밖에 **고정**한다. 카드를 훑는 동안에도 어느 자리 이야기인지 계속
+            보여야 하고, 마커로 고른 카드를 찾으러 내려갈 때 기준점이 함께 사라지면 안 된다.
+            좌우 여백 없이 화면 폭을 그대로 쓴다(시안).
+          */}
+          <RecommendPlaceMap
+            name={detail.place.name}
+            mapData={mapData}
+            selectedPinId={selectedPinId}
+            onSelectPin={selectPin}
+          />
 
-          <View style={s.detailBody}>
-            {/*
-              요일별 혼잡도 그래프와 영상핀 카드는 장소 상세와 같은 것을 쓴다
-              (`src/components/place`). 그 화면에 있던 구현을 공용으로 뺀 것이라 두 화면의
-              모양이 갈라지지 않는다.
-            */}
-            <RecommendPlaceInfo place={detail.place} weeklyCrowdStats={detail.weeklyCrowdStats} />
-            <RecommendPlacePins pins={detail.pins} placeName={detail.place.name} />
-          </View>
-        </ScrollView>
+          <ScrollView
+            ref={scrollRef}
+            style={s.detailScroll}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.detail}
+          >
+            <View style={s.detailBody}>
+              {/*
+                요일별 혼잡도 그래프와 영상핀 카드는 장소 상세와 같은 것을 쓴다
+                (`src/components/place`). 그 화면에 있던 구현을 공용으로 뺀 것이라 두 화면의
+                모양이 갈라지지 않는다.
+              */}
+              <RecommendPlaceInfo place={detail.place} weeklyCrowdStats={detail.weeklyCrowdStats} />
+              <View
+                onLayout={(event) => {
+                  pinSectionYRef.current = event.nativeEvent.layout.y;
+                }}
+              >
+                <RecommendPlacePins
+                  pins={detail.pins}
+                  placeName={detail.place.name}
+                  selectedPinId={selectedPinId}
+                  onCardPosition={rememberCardPosition}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </>
       )}
     </SafeAreaView>
   );
