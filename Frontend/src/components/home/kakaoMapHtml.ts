@@ -960,6 +960,23 @@ export function buildKakaoMapHtml({
       // 지도가 손가락을 따라가려면 중심은 반대로 움직여야 한다.
       map.setCenter(projection.coordsFromContainerPoint(new kakao.maps.Point(point.x - dx, point.y - dy)));
     },
+    /**
+     * 화면의 그 점을 탭한 것으로 다룬다. 지도의 click과 똑같이 판정해 알린다.
+     *
+     * **장소 상세 화면이 쓴다.** dragBy와 같은 사정인데 탭은 더 하다 — 그 화면은 지도가 보이는
+     * 자리에 제스처 판을 깔아 두고 손가락을 받으므로, 누르는 즉시 그 판이 터치를 잡아 아래
+     * 지도의 click이 아예 일어나지 않는다. 그래서 마커를 눌러도 아무 일도 없었다.
+     *
+     * 판정은 hitTestPlace 하나만 쓴다 — 겹쳐 밀어 놓은 자리와 물방울 꼬리까지 같은 값으로
+     * 계산해야 손가락과 그림이 맞는다. 마커가 없는 자리를 눌렀으면 지도를 누른 것으로 알린다.
+     */
+    tapAt: function (x, y) {
+      if (!map) return;
+      var projection = map.getProjection();
+      var latLng = projection.coordsFromContainerPoint(new kakao.maps.Point(x, y));
+      var placeId = hitTestPlace(latLng);
+      postToHost(placeId ? { type: 'pinPress', placeId: placeId } : { type: 'mapPress' });
+    },
     /** 끄는 손을 뗐을 때. 멈춘 자리를 한 번만 알린다. */
     dragEnd: function () {
       if (!map) return;
@@ -1157,7 +1174,8 @@ export type MapCommand =
   | 'relayout'
   | 'dragBy'
   | 'dragEnd'
-  | 'zoomBy';
+  | 'zoomBy'
+  | 'tapAt';
 
 /** 지도 안의 `window.WagleMap` 메서드를 호출하는 명령을 직렬화한다. */
 export function serializeMapCommand(method: MapCommand, ...args: unknown[]): string {

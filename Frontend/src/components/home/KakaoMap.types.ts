@@ -91,6 +91,14 @@ export interface MapGestureControl {
   dragEnd: () => void;
   /** 중심을 그대로 두고 한 단계 당기거나(양수) 넓힌다(음수). */
   zoomBy: (step: number) => void;
+  /**
+   * 화면의 그 점(왼쪽 위를 0,0으로 본 픽셀)을 탭한 것으로 다룬다.
+   *
+   * 지도를 직접 누를 수 없는 화면이 마커를 고를 수 있게 한다 — 그 화면이 깔아 둔 제스처 판이
+   * 터치를 먼저 잡아 지도의 click이 일어나지 않기 때문이다. 결과는 지도를 직접 누른 것과 같은
+   * 통로로 온다(`onPinPress` · `onMapPress`).
+   */
+  tapAt: (x: number, y: number) => void;
 }
 
 export interface KakaoMapHandle extends MapGestureControl {

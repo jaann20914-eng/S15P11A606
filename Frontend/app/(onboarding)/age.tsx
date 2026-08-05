@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,7 @@ import { Button, ScreenHeader } from '@/components/common/ui';
 import { PreferenceCard } from '@/features/onboarding/components/PreferenceCard';
 import { preferenceCategoryImages } from '@/features/onboarding/preferenceAssets';
 import { useOnboardingSubmit } from '@/features/onboarding/hooks/useOnboardingSubmit';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
 import { readCurrentCoordinate } from '@/utils/location';
@@ -44,6 +45,34 @@ const webNoOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknow
 export default function Onboarding() {
   const screenGutter = useResponsivePadding();
   const [step, setStep] = useState(1);
+
+  /*
+    키보드가 닉네임 입력칸을 덮지 않게 **화면을 그만큼 들어올린다.**
+
+    `KeyboardAvoidingView`는 이 앱에서 듣지 않는다 — 화면 끝까지 그리는 방식(edge-to-edge)이라
+    키보드가 떠도 창이 줄지 않고 그 위를 덮을 뿐이다(`useKeyboardOverlap` 주석에 근거가 있다).
+    그래서 겹치는 만큼을 재서 화면 칸의 아래 여백에 더한다. 칸이 `flex: 1`이라 여백이 늘면
+    안쪽(스크롤 영역 + 아래 버튼)이 그만큼 위로 올라온다 — 머리글이 잘리지 않고 버튼도 함께
+    보인다.
+
+    올리는 것만으로는 부족하다. 스크롤 영역도 같이 짧아지므로 입력칸이 접힌 자리에 남을 수
+    있어, 키보드가 뜨면 **그 단계의 끝으로 스크롤**해 입력칸을 화면에 들여놓는다(아래 효과).
+  */
+  const screenRef = useRef<View>(null);
+  const keyboardOverlap = useKeyboardOverlap(screenRef);
+  const listRef = useRef<ScrollView>(null);
+
+  /*
+    키보드가 뜨면 그 단계의 끝으로 내려 입력칸을 화면에 들여놓는다.
+
+    닉네임 단계에서 입력칸은 내용의 거의 끝에 있으므로(그 아래는 안내 한 줄뿐) 끝으로 내리는
+    것이 곧 입력칸을 보이게 하는 것이다. 안드로이드는 창이 줄지 않아 포커스만으로는 스크롤이
+    따라오지 않는다 — 위 여백으로 스크롤 영역이 짧아졌을 뿐이라 여기서 한 번 밀어 준다.
+  */
+  useEffect(() => {
+    if (keyboardOverlap === 0) return;
+    listRef.current?.scrollToEnd({ animated: true });
+  }, [keyboardOverlap]);
   // 화면 상태에 서버 enum을 그대로 담는다. 전송 직전에 한글 문구를 변환하지 않는다.
   const [ageGroup, setAgeGroup] = useState<AgeGroup>('TWENTIES');
   const [gender, setGender] = useState<Gender>('FEMALE');
@@ -158,7 +187,11 @@ export default function Onboarding() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <View style={[s.screen, { paddingHorizontal: screenGutter }]}>
+      <View
+        ref={screenRef}
+        // 겹치지 않을 때는 0이라 원래 배치가 그대로다.
+        style={[s.screen, { paddingHorizontal: screenGutter, paddingBottom: keyboardOverlap }]}
+      >
         {/* 온보딩은 아래에 진행 막대가 이어져 구분선을 겹치지 않는다. */}
         <ScreenHeader
           title={`${step} / 3`}
@@ -177,6 +210,7 @@ export default function Onboarding() {
         </View>
 
         <ScrollView
+          ref={listRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.content}

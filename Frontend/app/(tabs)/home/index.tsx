@@ -44,8 +44,23 @@ const MY_LOCATION_WAIT_MS = 1500;
  * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다. 0으로 두면 시트가 화면 전체를
  * 덮은 채 시작해 눈에 띄게 튀므로, 실제와 가까운 값을 둔다.
  */
-const ESTIMATED_HEADER_HEIGHT = 118;
+/*
+  머리글 = 손잡이(8+4+4) + 제목 줄(44) + 현재 위치 줄(16-4) + 아래 여백(12) ≈ 84.
+  예전 값(118)은 제목과 토글이 두 줄이던 때의 것이라, 켤 때마다 시트가 34px 높게 시작해
+  측정이 도착하며 내려앉았다.
+*/
+const ESTIMATED_HEADER_HEIGHT = 84;
 const ESTIMATED_CARD_HEIGHT = 208;
+
+/**
+ * 카드가 없을 때 그 자리에 놓이는 안내 블록의 최소 높이.
+ *
+ * 네 가지 안내(불러오는 중 · 실패 · 범위에 없음 · 필터에 걸림)의 높이를 이 값으로 맞춘다.
+ * 맞추지 않으면 불러오는 중(표시 하나)과 결과 안내(두 줄)의 높이가 달라, 목록이 비는 자리에서
+ * **시트가 한 번 더 커졌다 작아진다.** 이 값이 곧 "보통" 단계의 높이가 되므로 스타일과 시트
+ * 계산이 같은 값을 봐야 한다.
+ */
+const EMPTY_BLOCK_HEIGHT = 140;
 
 /** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
 const ANGLE_PREVIEW_COUNT = 5;
@@ -65,6 +80,8 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
+  /** 눌린 영상핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다. */
+  const showPinOverlay = useMapStore((state) => state.showPinOverlay);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
   const [mapReady, setMapReady] = useState(false);
 
@@ -106,6 +123,8 @@ export default function Home() {
   */
   const [headerHeight, setHeaderHeight] = useState(0);
   const [cardHeight, setCardHeight] = useState(0);
+  /** 카드가 없을 때 그 자리를 채우는 안내 블록의 높이. 그 상태의 "보통" 단계 높이가 된다. */
+  const [emptyHeight, setEmptyHeight] = useState(0);
 
   /**
    * 시트가 놓이는 영역의 높이. `useWindowDimensions()`의 창 높이와 **다르다.**
@@ -133,22 +152,6 @@ export default function Home() {
   }, [screenHeight, setHomeSheetSpace]);
 
   /*
-    3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
-
-    - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
-    - 기본 — 헤더 + 카드 하나. 카드 아래로 약간 여백을 둬 잘려 보이지 않게 한다.
-    - 확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
-      `layout.searchHeight`만큼 차지하므로 그 끝에서 한 칸 띄운 자리가 상한이다.
-  */
-  const sheet = useBottomSheet({
-    space: sheetSpace,
-    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
-    middleExtra: (cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT) + spacing.x4,
-    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
-  });
-  const { level, moveTo, sheetY, coveredHeight } = sheet;
-
-  /*
     지도에 찍을 장소. **지도에 보이는 범위를 서버에 물어 받는다**(`GET /api/v1/places`).
 
     예전에는 손으로 박아 둔 배열(`@/data/mock`)을 직접 읽었다. 목업 모드에서는 그럴듯하게
@@ -160,9 +163,6 @@ export default function Home() {
   */
   const bounds = useMapStore((state) => state.bounds);
   const inView = usePlacesInView(bounds);
-
-  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
-  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
   /*
     혼잡도 필터로 거른다. **평균 혼잡도가 없는 장소는 어느 필터에도 들지 않는다** — 최근 1시간에
@@ -176,6 +176,46 @@ export default function Home() {
       ),
     [crowdFilter, inView.places],
   );
+
+  /*
+    보여줄 카드가 없는 상태인지. **시트의 "보통" 단계 높이가 이 값으로 갈린다** — 카드가 있으면
+    카드 한 장, 없으면 그 자리에 놓이는 안내 블록에 맞춘다. 그래서 시트 계산보다 먼저 구한다.
+  */
+  const listEmpty = visiblePlaces.length === 0;
+
+  /*
+    3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
+
+    - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
+    - 기본 — 헤더 + 카드 하나. 카드 아래로 약간 여백을 둬 잘려 보이지 않게 한다.
+    - 확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
+      `layout.searchHeight`만큼 차지하므로 그 끝에서 한 칸 띄운 자리가 상한이다.
+  */
+  const sheet = useBottomSheet({
+    space: sheetSpace,
+    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
+    /*
+      **비어 있으면 안내 블록에 맞춘다.**
+
+      예전에는 늘 카드 높이로 잡았다. 그런데 카드가 없을 때 그 자리에 놓이는 것은 카드가 아니라
+      안내 문구라, 있지도 않은 카드 높이로 시트를 벌려 안내 아래에 빈 칸이 한참 남았다. 켤 때마다
+      크기가 달라 보인 것도 그래서다 — 카드를 한 번도 재지 못했으면 어림값이, 필터를 바꿔 비었으면
+      직전에 잰 카드 높이가 그대로 쓰였다.
+    */
+    middleExtra:
+      (listEmpty
+        ? emptyHeight > 0
+          ? emptyHeight
+          : EMPTY_BLOCK_HEIGHT
+        : cardHeight > 0
+          ? cardHeight
+          : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
+  });
+  const { level, moveTo, sheetY, coveredHeight } = sheet;
+
+  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
+  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
   /*
     지도에 찍을 마커.
@@ -205,6 +245,25 @@ export default function Home() {
   );
 
   /**
+   * 카드를 넘겼을 때. **보고 있는 카드의 장소를 고른 것으로 다룬다.**
+   *
+   * 지도 마커가 그 장소에서 물방울로 바뀌어, 지금 어느 카드를 보고 있는지 지도에서도 읽힌다.
+   * 장소 상세가 게시물 카드를 넘길 때 하는 것과 같다(그쪽은 `onIndexChange`로 핀을 고른다) —
+   * 같은 칸(`CardPager`)을 쓰는데 홈만 이 통로를 연결하지 않아 마커가 첫 장소에 머물렀다.
+   *
+   * **지도는 옮기지 않는다.** 넘기는 것은 목록을 훑는 동작이고, 그 장소로 가겠다는 뜻은 카드를
+   * 누르는 것이다(`focusPlace`). 넘길 때마다 지도가 따라 움직이면 훑는 중에 보고 있던 자리를
+   * 잃는다 — 혼잡도 토글에서 `fitPlaces`를 걷어낸 것과 같은 이유다.
+   */
+  const selectCardAt = useCallback(
+    (index: number) => {
+      const place = visiblePlaces[index];
+      if (place) selectPlace(place.id);
+    },
+    [selectPlace, visiblePlaces],
+  );
+
+  /**
    * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
    *
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
@@ -223,6 +282,24 @@ export default function Home() {
     (placeId: string) => {
       const place = inView.places.find((item) => item.id === placeId);
       if (place) {
+        /*
+          **먼저 시트를 "보통"으로 내린다.** 지도를 얼마나 위로 밀어 둘지는 이 시트가 가리는
+          높이로 정하는데(`bottomInset` → `focusPlace`), 목록까지 펼친 상태에서 넘어가면 그
+          펼친 높이만큼 밀어 놓고 상세는 "보통" 높이로 열려 **장소가 화면 위쪽으로 치우쳤다**
+          (2026-08-05). 상세 시트의 "보통" 단계는 홈의 그 단계와 같은 높이로 맞춰 두었으므로
+          (`homeSheetSpace`), 여기서 단계를 맞춰 두면 두 화면이 같은 자리를 가리킨다.
+
+          **어느 단계에서 왔든 맞춘다.** 상세는 늘 "보통"으로 열리므로 축소에서 넘어가도
+          어긋난다 — 그때는 가림 높이가 작아 장소가 중앙보다 아래에 놓인다(20m에서 마커를 눌러
+          바로 들어오는 경로가 그렇다).
+
+          움직이는 것은 화면 전환에 가려 보이지 않는다. 돌아오면 홈이 "보통"으로 있는데, 장소를
+          보러 목록을 떠난 흐름이라 그 자리가 자연스럽다.
+
+          카드를 눌러 지도만 옮길 때도 같은 것을 한다(`focusPlace`) — 이동 지시를 이 렌더에
+          함께 넣어야 실행 시점의 가림 높이가 최종 높이가 된다(아래 `pendingPan` 참고).
+        */
+        if (level !== 1) moveTo(1);
         setPendingPan({
           coordinate: { latitude: place.latitude, longitude: place.longitude },
           level: REVIEW_PIN_MAX_LEVEL,
@@ -231,7 +308,7 @@ export default function Home() {
 
       router.push(`/place/${placeId}`);
     },
-    [inView.places],
+    [inView.places, level, moveTo],
   );
 
   /**
@@ -273,21 +350,33 @@ export default function Home() {
   const pressMapPin = useCallback(
     (placeId: string) => {
       /*
-        **받아 둔 장소가 아니면 아무것도 하지 않는다.**
+        **영상핀 마커였으면 그 핀을 고른 것으로 상세에 넘긴다.**
 
         이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
-        대신 그리고(`pinOverlay`), 그때 눌린 id는 `pinId`(UUID)다. 그대로 상세로 넘기면
-        `/place/<UUID>`가 되어 숫자로 읽히지 않는 화면이 열린다 — 사용자에게는 "장소를 찾을 수
-        없어요"만 보인다. 지금은 상세가 지도 위 터치를 자기가 받아 여기까지 오지 않지만,
-        경계에서 한 번 걸러 두면 그 구조가 바뀌어도 깨지지 않는다.
+        대신 그리고(`pinOverlay`), 그때 눌린 id는 우리 `placeId`가 아니라 `pinId`(UUID)다.
+        상세로 넘기면 `/place/<UUID>`가 되어 "장소를 찾을 수 없어요"가 열린다.
+
+        그래서 눌린 것이 지금 올려 둔 영상핀 중 하나면 **고른 핀만 바꿔** 되돌려 준다. 상세가 그
+        값을 보고 해당 카드로 넘어가고(마커도 물방울로 바뀐다), 지도를 그 핀 자리로 옮긴다 —
+        홈에서 장소 마커를 눌렀을 때 그 카드가 골라지는 것과 같은 동작이다.
+
+        고른 핀을 정하는 일이 왜 홈을 거치는지: 지도는 홈 것이고 마커 알림도 홈으로 온다. 상세는
+        자기 지도가 없어 이 통로 말고는 눌린 것을 알 방법이 없다.
       */
+      if (pinOverlay !== null) {
+        const pressedPin = pinOverlay.markers.some((marker) => marker.id === placeId);
+        if (pressedPin) showPinOverlay({ ...pinOverlay, selectedPinId: placeId });
+        return;
+      }
+
+      // 받아 둔 장소가 아니면 아무것도 하지 않는다. 경계에서 한 번 걸러 두면 조용히 깨지지 않는다.
       const known = inView.places.some((place) => place.id === placeId);
       if (!known) return;
 
       focusPlace(placeId);
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, inView.places, mapLevel, openPlace],
+    [focusPlace, inView.places, mapLevel, openPlace, pinOverlay, showPinOverlay],
   );
 
   const handleViewChange = useCallback(
@@ -456,7 +545,7 @@ export default function Home() {
       ) : (
         // 좌표를 기다리는 짧은 구간. 지도 배경색 위에 표시만 둬 깜빡임을 줄인다.
         <View pointerEvents="none" style={s.mapPlaceholder}>
-          <ActivityIndicator color={colors.gray600} />
+          <ActivityIndicator color={colors.limeText} />
         </View>
       )}
 
@@ -491,7 +580,7 @@ export default function Home() {
               몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
             */}
             {myLocation.status === 'loading' ? (
-              <ActivityIndicator size="small" color={colors.dark} />
+              <ActivityIndicator size="small" color={colors.limeText} />
             ) : (
               <Ionicons
                 name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
@@ -582,7 +671,12 @@ export default function Home() {
             `onLayout`을 달아 직접 쟀는데, 카드가 넘기는 칸 안에 들어가면 잰 값이 곧 칸 높이가
             되어 둘이 서로 물린다. 재는 일은 칸을 가진 쪽이 맡는 편이 맞다.
           */}
-          <CardPager paging={level !== 2} onSlotHeightChange={setCardHeight} activeIndex={selectedCardIndex}>
+          <CardPager
+            paging={level !== 2}
+            onSlotHeightChange={setCardHeight}
+            activeIndex={selectedCardIndex}
+            onIndexChange={selectCardAt}
+          >
             {visiblePlaces.map((place) => (
               <Pressable
                 key={place.id}
@@ -658,27 +752,35 @@ export default function Home() {
             없다"로 똑같이 보인다. 사용자가 할 일이 각각 다르므로(기다린다 / 다시 시도한다 /
             지도를 옮긴다 / 필터를 바꾼다) 문구를 나눈다.
           */}
-          {visiblePlaces.length === 0 &&
-            (inView.loading ? (
-              <View style={s.empty}>
-                <ActivityIndicator color={colors.gray600} />
-              </View>
-            ) : inView.error !== null ? (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
-                <Text style={s.emptyText}>{inView.error}</Text>
-              </View>
-            ) : inView.places.length === 0 ? (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
-                <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
-              </View>
-            ) : (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
-                <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
-              </View>
-            ))}
+          {listEmpty && (
+            /*
+              **높이를 재서 시트에 넘긴다.** 이 블록이 카드 자리를 대신 채우므로 "보통" 단계의
+              높이도 이 블록이 정해야 한다. 네 안내의 높이는 `s.empty`가 같게 맞춰 두었으므로
+              (`EMPTY_BLOCK_HEIGHT`) 안내가 바뀌어도 시트는 움직이지 않는다.
+            */
+            <View onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}>
+              {inView.loading ? (
+                <View style={s.empty}>
+                  <ActivityIndicator color={colors.limeText} />
+                </View>
+              ) : inView.error !== null ? (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
+                  <Text style={s.emptyText}>{inView.error}</Text>
+                </View>
+              ) : inView.places.length === 0 ? (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
+                  <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
+                </View>
+              ) : (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
+                  <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       </Animated.View>
     </View>
@@ -839,7 +941,20 @@ const s = StyleSheet.create({
   pinUpload: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x3 },
   morePins: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
-  empty: { alignItems: 'center', paddingVertical: spacing.x10 },
+  /**
+   * 카드가 없을 때 그 자리를 채우는 안내.
+   *
+   * **네 안내가 같은 높이여야 한다**(`EMPTY_BLOCK_HEIGHT`). 이 높이가 곧 시트의 "보통" 단계
+   * 높이가 되므로, 불러오는 중(표시 하나)과 결과 안내(두 줄)의 높이가 다르면 그 사이에 시트가
+   * 한 번 커졌다 작아진다. 최소 높이로 맞추고 가운데 정렬해, 글꼴 설정으로 글줄이 더 커지면
+   * 블록이 함께 자라고 그 값이 측정으로 시트에 전해진다.
+   */
+  empty: {
+    minHeight: EMPTY_BLOCK_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.x6,
+  },
   emptyTitle: { ...type.title, color: colors.dark },
   emptyText: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
 });

@@ -8,3 +8,5 @@ export { CrowdChart } from './CrowdChart';
 export type { CrowdChartProps } from './CrowdChart';
 export { PlacePinCard } from './PlacePinCard';
 export type { PlacePinCardProps } from './PlacePinCard';
+export { PlaceSearchBar } from './PlaceSearchBar';
+export type { PlaceSearchBarProps } from './PlaceSearchBar';
