@@ -7,6 +7,7 @@ export type { CrowdLevelBadgeProps } from './CrowdLevelBadge';
 export { ViewAvatar } from './ViewAvatar';
 export type { ViewAvatarProps } from './ViewAvatar';
 export { CrowdFilterToggle } from './CrowdFilterToggle';
+export { MediaLoadingSweep } from './MediaLoadingSweep';
 export type { CrowdFilterToggleProps } from './CrowdFilterToggle';
 export { CardPager } from './CardPager';
 export type { CardPagerProps } from './CardPager';

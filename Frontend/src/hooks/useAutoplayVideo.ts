@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import type { VideoPlayer, VideoSource } from 'expo-video';
@@ -28,10 +28,39 @@ export interface AutoplayVideoOptions {
  * 영상과 수정 화면의 영상이 함께 들렸다. 돌아오면 다시 재생한다.
  */
 export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayVideoOptions): VideoPlayer {
-  const player = useVideoPlayer(source, (instance) => {
+  /*
+    플레이어는 **한 번만** 만들고 소스는 갈아 끼운다.
+
+    `useVideoPlayer(source)`에 소스를 그대로 주면, 소스가 바뀔 때 플레이어를 새로 만들고 옛것을
+    해제한다. 그런데 화면의 `VideoView`는 그 프레임에 아직 옛 플레이어를 참조하고 있어
+    "Cannot use shared object that was already released"가 났다 — 수정 완료 후 상세로 돌아오면
+    재조회가 **새 서명 URL**을 내려 소스가 반드시 바뀌므로 그때마다 터졌다(2026-08-05).
+  */
+  const player = useVideoPlayer(null, (instance) => {
     instance.loop = loop;
     instance.muted = muted;
   });
+
+  /*
+    서명을 뗀 주소. 같은 영상이면 다시 싣지 않기 위한 비교 키다.
+
+    Presigned URL은 조회할 때마다 서명이 달라, URL 전체로 비교하면 재조회마다 같은 영상을
+    처음부터 다시 받는다 — 화면이 회색 로딩으로 돌아가 두 번 뜨는 것처럼 보였다.
+    물음표 앞 경로가 곧 객체 키라 그것만 보면 같은 영상인지 알 수 있다.
+  */
+  const sourceKey =
+    typeof source === 'object' && source !== null && 'uri' in source && source.uri
+      ? source.uri.split('?')[0]
+      : typeof source === 'string'
+        ? source.split('?')[0]
+        : JSON.stringify(source);
+
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+
+  useEffect(() => {
+    replaceQuietly(player, sourceRef.current);
+  }, [player, sourceKey]);
 
   useEffect(() => {
     const subscription = player.addListener('statusChange', ({ status }) => {
@@ -81,6 +110,20 @@ export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayV
 function pauseQuietly(player: VideoPlayer): void {
   try {
     player.pause();
+  } catch {
+    // 이미 정리된 플레이어다.
+  }
+}
+
+/**
+ * 소스를 갈아 끼운다. 이미 정리된 플레이어는 그냥 넘긴다.
+ *
+ * 화면이 내려가는 프레임에 효과 정리와 플레이어 해제가 겹치면 해제된 것에 손댈 수 있다.
+ * 그때는 어차피 보일 화면이 없으므로 할 일이 없다.
+ */
+function replaceQuietly(player: VideoPlayer, source: VideoSource): void {
+  try {
+    void player.replaceAsync(source);
   } catch {
     // 이미 정리된 플레이어다.
   }
