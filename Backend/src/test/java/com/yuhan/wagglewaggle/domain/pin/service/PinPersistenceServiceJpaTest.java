@@ -16,20 +16,12 @@ import com.yuhan.wagglewaggle.domain.place.repository.PlaceRepository;
 import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
+import com.yuhan.wagglewaggle.support.AbstractPostgresContainerTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,25 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 핀 등록 저장을 실제 PostGIS(PostgreSQL) 컨테이너 위에서 한 트랜잭션으로 검증한다.
  * Flyway 마이그레이션 스키마 위에서 Pin·PinTag·AiBlurJob·Place가 정상 저장되는지 확인한다.
  */
-@DataJpaTest
-@ActiveProfiles("test")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(PinPersistenceService.class)
-@Testcontainers
-class PinPersistenceServiceJpaTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("postgis/postgis:16-3.4").asCompatibleSubstituteFor("postgres"));
-
-    @DynamicPropertySource
-    static void datasourceProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-    }
+class PinPersistenceServiceJpaTest extends AbstractPostgresContainerTest {
 
     private static final String KEY = "pins/original/1/11111111-2222-3333-4444-555555555555.mp4";
     private static final String KAKAO_PLACE_ID = "kakao-1";

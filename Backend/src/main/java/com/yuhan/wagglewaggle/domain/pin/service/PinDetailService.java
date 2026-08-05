@@ -109,7 +109,8 @@ public class PinDetailService {
                 videoUrl,
                 thumbnailUrl,
                 access.canRequestChat(),
-                access.chatRequestState());
+                access.chatRequestState(),
+                detail.publisherStatus());
     }
 
     /**

@@ -13,6 +13,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoStatusView;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinVideoUploadUrlResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.VideoAccessLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.PublisherStatus;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.service.PinCreateService;
 import com.yuhan.wagglewaggle.domain.pin.service.PinDeleteService;
@@ -307,7 +308,8 @@ class PinControllerTest {
                 "https://bucket.s3/blurred?sig=v",
                 "https://bucket.s3/thumb?sig=t",
                 false,
-                ChatRequestState.NONE);
+                ChatRequestState.NONE,
+                PublisherStatus.STILL_HERE);
     }
 
     @Test
@@ -371,7 +373,7 @@ class PinControllerTest {
                 CrowdLevel.WAGLE, null, null, List.of(),
                 VideoAccessLevel.OWNER, null,
                 "https://bucket.s3/blurred?sig=v", "https://bucket.s3/thumb?sig=t",
-                false, ChatRequestState.NONE);
+                false, ChatRequestState.NONE, PublisherStatus.STILL_HERE);
         given(pinDetailService.getPinDetail(eq(PIN_ID), eq(MEMBER_ID))).willReturn(res);
 
         String json = mockMvc.perform(get("/api/v1/pins/{pinId}", PIN_ID))

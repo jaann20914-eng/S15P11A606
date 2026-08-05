@@ -4,6 +4,7 @@ import com.yuhan.wagglewaggle.domain.blur.message.AiBlurResultMessage;
 import com.yuhan.wagglewaggle.domain.blur.service.AiBlurResultOutcome;
 import com.yuhan.wagglewaggle.domain.blur.service.AiBlurResultService;
 import com.yuhan.wagglewaggle.global.config.RabbitConfig;
+import com.yuhan.wagglewaggle.support.AbstractRabbitContainerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
@@ -15,13 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.amqp.autoconfigure.RabbitAutoConfiguration;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.RabbitMQContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -39,21 +34,7 @@ import static org.mockito.Mockito.verify;
  */
 @SpringBootTest(classes = {RabbitConfig.class, AiBlurResultListener.class})
 @ImportAutoConfiguration(RabbitAutoConfiguration.class)
-@Testcontainers
-class AiBlurResultListenerIntegrationTest {
-
-    @Container
-    @SuppressWarnings("resource")
-    static final RabbitMQContainer RABBIT = new RabbitMQContainer(
-            DockerImageName.parse("rabbitmq:4-management").asCompatibleSubstituteFor("rabbitmq"));
-
-    @DynamicPropertySource
-    static void rabbitProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.rabbitmq.host", RABBIT::getHost);
-        registry.add("spring.rabbitmq.port", RABBIT::getAmqpPort);
-        registry.add("spring.rabbitmq.username", RABBIT::getAdminUsername);
-        registry.add("spring.rabbitmq.password", RABBIT::getAdminPassword);
-    }
+class AiBlurResultListenerIntegrationTest extends AbstractRabbitContainerTest {
 
     @MockitoBean private AiBlurResultService aiBlurResultService;
 

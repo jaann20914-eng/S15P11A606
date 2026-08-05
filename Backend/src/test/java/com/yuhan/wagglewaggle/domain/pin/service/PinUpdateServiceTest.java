@@ -9,6 +9,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinUpdate;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.jackson.PatchField;
@@ -42,6 +43,7 @@ class PinUpdateServiceTest {
     @Mock private AiBlurJobRepository aiBlurJobRepository;
     @Mock private PinUpdatePersistenceService pinUpdatePersistenceService;
     @Mock private AiBlurJobPublisher aiBlurJobPublisher;
+    @Mock private PinTagIndexingService pinTagIndexingService;
 
     private PinUpdateService service;
 
@@ -53,7 +55,7 @@ class PinUpdateServiceTest {
     @BeforeEach
     void setUp() {
         service = new PinUpdateService(pinUpdateValidator, replacementVideoValidator,
-                aiBlurJobRepository, pinUpdatePersistenceService, aiBlurJobPublisher);
+                aiBlurJobRepository, pinUpdatePersistenceService, aiBlurJobPublisher, pinTagIndexingService);
         given(aiBlurJobRepository.existsByPinIdAndJobTypeAndStatus(any(), any(), any())).willReturn(false);
     }
 
@@ -94,6 +96,37 @@ class PinUpdateServiceTest {
         assertThat(response.updatedFields()).containsExactly("memo");
         verify(aiBlurJobPublisher, never()).publish(any());
         verify(replacementVideoValidator, never()).validate(any(), any());
+        // 태그가 바뀌지 않았으므로 검색 인덱스를 갱신하지 않는다.
+        verify(pinTagIndexingService, never()).indexPinTags(any());
+    }
+
+    @Test
+    void 태그가_바뀌면_커밋_이후_검색_인덱스를_갱신한다() {
+        givenValidatorReturns();
+        given(pinUpdatePersistenceService.apply(any(), eq(null)))
+                .willReturn(new PinUpdatePersistenceService.Result(
+                        VideoStatus.ACTIVE, List.of("tags"), null));
+
+        service.update(MEMBER_ID, RAW_PIN_ID, generalRequest());
+
+        // 저장(apply) 커밋 이후 해당 핀 태그를 재색인한다.
+        InOrder inOrder = inOrder(pinUpdatePersistenceService, pinTagIndexingService);
+        inOrder.verify(pinUpdatePersistenceService).apply(any(), eq(null));
+        inOrder.verify(pinTagIndexingService).indexPinTags(PIN_ID);
+    }
+
+    @Test
+    void 태그_재색인이_실패해도_수정_결과_응답을_반환한다() {
+        givenValidatorReturns();
+        given(pinUpdatePersistenceService.apply(any(), eq(null)))
+                .willReturn(new PinUpdatePersistenceService.Result(
+                        VideoStatus.ACTIVE, List.of("tags"), null));
+        org.mockito.BDDMockito.willThrow(new RuntimeException("ES 오류"))
+                .given(pinTagIndexingService).indexPinTags(any());
+
+        PinUpdateResponse response = service.update(MEMBER_ID, RAW_PIN_ID, generalRequest());
+
+        assertThat(response.updatedFields()).containsExactly("tags");
     }
 
     @Test

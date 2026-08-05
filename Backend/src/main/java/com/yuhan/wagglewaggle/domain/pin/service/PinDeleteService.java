@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.pin.service;
 
 import com.yuhan.wagglewaggle.domain.blur.service.VideoObjectCleanupPort;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class PinDeleteService {
 
     private final PinDeletePersistenceService pinDeletePersistenceService;
     private final VideoObjectCleanupPort videoObjectCleanupPort;
+    private final PinTagIndexingService pinTagIndexingService;
 
     public PinDeleteResponse delete(Long memberId, String rawPinId) {
         UUID pinId = parsePinId(rawPinId);
@@ -48,6 +50,13 @@ public class PinDeleteService {
             } catch (Exception e) {
                 log.error("삭제 대상 객체 등록 실패 (pinId={}, key={})", pinId, key, e);
             }
+        }
+
+        // 커밋 이후 검색 인덱스에서 이 핀의 태그 문서를 제거한다(best-effort, 재삭제 시에도 멱등).
+        try {
+            pinTagIndexingService.removePinTags(pinId);
+        } catch (Exception e) {
+            log.error("핀 태그 검색 인덱스 제거 실패 (pinId={})", pinId, e);
         }
 
         return PinDeleteResponse.of(pinId, result.closedChatRoomIds(), result.deletedAt());

@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.domain.pin.dto;
 
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.PublisherStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -33,6 +34,7 @@ public record PinDetail(
         List<String> tags,
         String blurredVideoKey,
         String thumbnailKey,
-        Instant expiresAt
+        Instant expiresAt,
+        PublisherStatus publisherStatus
 ) {
 }
