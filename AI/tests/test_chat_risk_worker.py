@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.chat_risk import ChatAnalysisBatch
+from app.schemas.chat_risk import ChatAnalysisBatch, PatternResultCallback
 from app.workers.chat_risk_worker import ChatRiskWorker
 
 REQUEST_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -39,12 +39,29 @@ def build_message(body: bytes) -> MagicMock:
     return message
 
 
+def build_callback() -> PatternResultCallback:
+    return PatternResultCallback(
+        requestId=REQUEST_ID,
+        roomId=ROOM_ID,
+        isRisky=False,
+        status="COMPLETED",
+        analyzedAt=SENT_AT,
+    )
+
+
+# 여기서 검증하는 것은 ACK/reject 배관이라 분석은 대역으로 바꾼다.
 def handle(message: MagicMock, delivered: bool = True) -> None:
     worker = ChatRiskWorker()
 
-    with patch(
-        "app.workers.chat_risk_worker.back_client.send_pattern_result",
-        AsyncMock(return_value=delivered),
+    with (
+        patch(
+            "app.workers.chat_risk_worker.chat_risk_service.analyze",
+            AsyncMock(return_value=build_callback()),
+        ),
+        patch(
+            "app.workers.chat_risk_worker.back_client.send_pattern_result",
+            AsyncMock(return_value=delivered),
+        ),
     ):
         asyncio.run(worker.handle_message(message))
 

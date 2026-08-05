@@ -170,15 +170,18 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
 
     /**
      * 지도 영역 내에서 특정 태그가 정확히 일치하는 활성 핀을 조회한다(태그 검색 확정용).
-     * 활성 = 삭제되지 않음(deleted_at IS NULL) AND (expires_at이 없거나 아직 만료되지 않음)
+     * 활성 = 영상 처리 완료(video_status = ACTIVE) AND 삭제되지 않음(deleted_at IS NULL)
+     *        AND (expires_at이 없거나 아직 만료되지 않음)
+     * PENDING·REJECTED·FAILED 등 노출 불가 상태의 핀은 제외한다.
      * PostGIS ST_Covers로 지도 경계(bounds) 영역 필터를 적용하고 최신순으로 정렬한다.
      * ST_MakeEnvelope 인자 순서는 (minLng, minLat, maxLng, maxLat, srid)이다.
-     * 네이티브 쿼리이므로 member는 LAZY 상태이며, 서비스에서 memberId 배치 조회로 N+1을 방지한다.
+     * 네이티브 쿼리이므로 member·place는 LAZY 상태이며, 서비스에서 배치 조회로 N+1을 방지한다.
      */
     @Query(value = """
             SELECT p.* FROM pins p
             JOIN pin_tags pt ON pt.pin_id = p.id
             WHERE pt.tag = :tag
+              AND p.video_status = 'ACTIVE'
               AND p.deleted_at IS NULL
               AND (p.expires_at IS NULL OR p.expires_at > :now)
               AND ST_Covers(

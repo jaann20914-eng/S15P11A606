@@ -1,9 +1,12 @@
 from unittest.mock import MagicMock, patch
 
+import cv2
 import numpy as np
 import pytest
 
 from app.common.exceptions import VideoDecodeError, VideoEncodeError
+from app.services.blur.face_detector import FaceDetection
+from app.services.blur.validation_service import ValidationResult
 from app.services.blur.video_service import (
     VideoMetadata,
     VideoService,
@@ -159,3 +162,109 @@ def test_finish_output_encoder_closes_input_and_waits() -> None:
     encoder_input.close.assert_called_once_with()
     encoder.communicate.assert_called_once_with()
     assert encoder.stdin is None
+
+
+def test_process_blurs_held_track_without_counting_it_as_detection(
+) -> None:
+    frame = np.zeros((100, 100, 3), dtype=np.uint8)
+    metadata = VideoMetadata(
+        width=100,
+        height=100,
+        fps=30.0,
+        duration_seconds=2 / 30,
+        declared_frame_count=2,
+        decoded_frame_count=2,
+    )
+
+    capture = MagicMock()
+    capture.isOpened.return_value = True
+    capture.get.side_effect = lambda property_id: {
+        cv2.CAP_PROP_FPS: 30.0,
+        cv2.CAP_PROP_FRAME_WIDTH: 100.0,
+        cv2.CAP_PROP_FRAME_HEIGHT: 100.0,
+        cv2.CAP_PROP_ORIENTATION_META: 0.0,
+    }[property_id]
+    capture.read.side_effect = [
+        (True, frame.copy()),
+        (True, frame.copy()),
+        (False, None),
+    ]
+
+    detector = MagicMock()
+    detector.detect.side_effect = [
+        [
+            FaceDetection(
+                bbox=(20, 20, 50, 50),
+                confidence=0.9,
+            )
+        ],
+        [],
+    ]
+    service = VideoService(detector)
+
+    apply_blur = MagicMock(
+        side_effect=lambda current_frame, bbox: (
+            current_frame,
+            bbox,
+        )
+    )
+    service.blur_service.apply = apply_blur
+    validate_blur = MagicMock(
+        return_value=ValidationResult(
+            passed=True,
+            sharpness_ratio=0.1,
+            reason_code=None,
+        )
+    )
+    service.validator.validate = validate_blur
+
+    with (
+        patch(
+            "app.services.blur.video_service.cv2.VideoCapture",
+            return_value=capture,
+        ),
+        patch.object(
+            service,
+            "_probe_video",
+            side_effect=[metadata, metadata],
+        ),
+        patch.object(
+            service,
+            "_verify_full_decode",
+        ),
+        patch.object(
+            service,
+            "_validate_input_metadata",
+        ),
+        patch.object(
+            service,
+            "_start_output_encoder",
+            return_value=MagicMock(),
+        ),
+        patch.object(
+            service,
+            "_write_output_frame",
+        ),
+        patch.object(
+            service,
+            "_validate_processed_video",
+        ),
+        patch.object(
+            service,
+            "_finish_output_encoder",
+        ),
+        patch.object(
+            service,
+            "_validate_output_video",
+        ),
+    ):
+        result = service.process(
+            "input.mp4",
+            "output.mp4",
+        )
+
+    assert result.final_status == "PASS"
+    assert result.detected_face_count == 1
+    assert result.validated_face_count == 1
+    assert apply_blur.call_count == 2
+    validate_blur.assert_called_once()
