@@ -9,6 +9,7 @@ import { RecommendPlaceInfo } from '@/features/recommend/components/RecommendPla
 import { RecommendPlaceMap } from '@/features/recommend/components/RecommendPlaceMap';
 import { RecommendPlacePins } from '@/features/recommend/components/RecommendPlacePins';
 import { useRecommendPlaceDetail } from '@/features/recommend/hooks/useRecommendPlaceDetail';
+import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { recommendStyles as s } from '@/features/recommend/styles';
 import type { CrowdFilter } from '@/constants/crowdLevels';
 import { colors } from '@/constants/theme';
@@ -63,6 +64,14 @@ export default function RecommendPlaceScreen() {
     Number.isInteger(parsed) ? parsed : null,
     known,
   );
+
+  /*
+    카드에 썸네일과 가림 여부를 채운다 — 홈의 장소 상세와 **같은 훅**이다. 상세 응답의
+    썸네일은 그릴 수 없는 값(S3 키)이라 핀별로 발급 주소를 받아야 하고, `revealed`도 결제
+    기록만 반영돼 있어 작성자 본인 핀이 흐리게 나온다. 이 훅이 둘 다 고친다
+    (`usePinThumbnails` 주석 참고). 빼먹으면 추천에서만 썸네일이 비고 내 핀이 가려진다.
+  */
+  const pins = usePinThumbnails(detail?.pins);
 
   /*
     지도의 마커와 아래 카드를 잇는 선택 상태. 홈의 영상핀 선택과 같은 동선이다.
@@ -264,7 +273,7 @@ export default function RecommendPlaceScreen() {
                 }}
               >
                 <RecommendPlacePins
-                  pins={detail.pins}
+                  pins={pins}
                   placeName={detail.place.name}
                   filter={pinFilter}
                   selectedPinId={selectedPinId}
