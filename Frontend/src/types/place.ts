@@ -107,8 +107,21 @@ export interface PlacePinCard {
   thumbnailUrl: string | null;
   /** 없으면 빈 배열. */
   tags: string[];
-  /** 내가 이미 열람한 핀인지. 썸네일 블러 여부를 가른다. */
+  /** 내가 크레딧으로 열람한 핀인지. 서버가 결제 기록만 보고 정한다. */
   isUnlocked: boolean;
+  /**
+   * 썸네일을 선명하게 보여줘도 되는지. **아니면 블러로 가린다.**
+   *
+   * 현장 영상은 크레딧을 써야 볼 수 있고, 썸네일은 그 영상의 한 장면이라 **같은 기준으로
+   * 가려야 한다**(`revealsVideo`). 안 가리면 목록을 훑는 것만으로 현장이 보여 결제 흐름이
+   * 통째로 무의미해진다.
+   *
+   * 카드 응답만으로는 판정할 수 없다. `isUnlocked`는 결제 기록이라 **작성자 본인도 false**이고
+   * (`PinCardAssembler`), 서버 카드에는 작성자 여부가 없다. 그래서 첫 값은 `isUnlocked`를 쓰고,
+   * 썸네일을 받아 오는 쪽이 핀 상세의 접근 수준(`videoAccess`)으로 고쳐 준다
+   * (`features/place-detail/hooks/usePinThumbnails.ts`). **모를 때는 가리는 쪽**이 기본이다.
+   */
+  revealed: boolean;
   /**
    * 촬영 좌표. **서버는 아직 주지 않아 실서버에서는 null이다**(백엔드에 요청해 둔 항목).
    *
@@ -125,8 +138,13 @@ export interface PlacePinCard {
  * 명세의 JSON 예시는 `thumbnailKey`, 필드 표는 `videoThumbnailUrl`로 적혀 있어 어느 쪽이
  * 올지 확정되지 않았다. 둘 다 선택으로 받아 두고 API 경계에서 `thumbnailUrl` 하나로 모은다.
  * 확정되면 여기 한 곳만 지우면 된다.
+ *
+ * `revealed`도 없다. 서버 카드에는 작성자 여부가 없어 화면이 따로 정한다(위 설명 참고).
  */
-export type PlacePinCardResponse = Omit<PlacePinCard, 'thumbnailUrl' | 'latitude' | 'longitude'> & {
+export type PlacePinCardResponse = Omit<
+  PlacePinCard,
+  'thumbnailUrl' | 'latitude' | 'longitude' | 'revealed'
+> & {
   videoThumbnailUrl?: string | null;
   thumbnailKey?: string | null;
   /** 서버가 아직 주지 않는다. 목업은 채워 주므로 선택으로 받아 둔다. */

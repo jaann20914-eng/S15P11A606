@@ -67,6 +67,29 @@ const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 const THUMBNAIL_WIDTH = 152;
 const THUMBNAIL_HEIGHT = 128;
 
+/**
+ * 열람 전 썸네일에 거는 블러 반경(dp).
+ *
+ * **결제하지 않은 사람에게는 현장이 보이지 않아야 한다.** 썸네일은 현장 영상의 한 장면이라
+ * 상세 화면의 영상과 같은 기준으로 가린다(`revealsVideo`) — 한쪽만 선명하면 목록을 훑는
+ * 것만으로 현장을 볼 수 있어 크레딧을 쓸 이유가 없어진다.
+ *
+ * 가리는 수단은 상세 화면과 같은 `filter`다(`PinDetailMedia`의 `PREVIEW_BLUR_RADIUS` 설명에
+ * `expo-blur`와 축소·확대가 왜 안 되는지 적어 두었다). 상세는 화면 너비(약 390dp)에 24를
+ * 쓰는데, 여기서는 칸이 152dp라 **같은 비율(약 6%)이 되는 10**을 쓴다. 크기가 다른 자리에
+ * 같은 값을 쓰면 작은 칸은 통째로 뭉개진다.
+ */
+const PREVIEW_BLUR_RADIUS = 10;
+
+/**
+ * 블러를 걸 때 그림을 이만큼 키워 넣는다.
+ *
+ * `filter`는 칸 밖의 **투명한 바깥까지 섞어** 흐리게 하므로, 그림을 칸에 딱 맞게 두면
+ * 네 변이 옅게 사라져 카드 흰 바닥이 비친다. 반경만큼 넉넉히 키워 그 옅은 띠를 칸 밖으로
+ * 밀어내고 잘라 낸다 — 필요한 최소는 `1 + 2 × 10 / 128 ≒ 1.16`이라 여유를 둔 값이다.
+ */
+const PREVIEW_BLUR_OVERSCAN = 1.25;
+
 export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
@@ -91,7 +114,8 @@ export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardPro
 
       <View style={s.body}>
         {/*
-          열람하지 않은 핀도 썸네일은 블러 처리된 것이 온다(서버가 원본을 주지 않는다).
+          서버가 주는 썸네일은 **AI가 얼굴만 가린 영상의 한 장면**이라 현장이 그대로 보인다.
+          열람 전에 가리는 일은 상세 화면의 영상과 마찬가지로 화면이 한다(`pin.revealed`).
 
           주소는 목록 응답에 담겨 오지 않아 화면이 핀마다 따로 받아 채운다
           (`features/place-detail/hooks/usePinThumbnails.ts`). 그래서 카드가 먼저 그려지고
@@ -100,8 +124,21 @@ export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardPro
         */}
         {pin.thumbnailUrl === null ? (
           <LinearGradient colors={THUMBNAIL_TINT} style={s.thumbnail} />
-        ) : (
+        ) : pin.revealed ? (
           <Image source={{ uri: pin.thumbnailUrl }} style={s.thumbnail} />
+        ) : (
+          /*
+            열람 전에는 가린다. 반경·확대 이유는 위 `PREVIEW_BLUR_RADIUS` 설명에 있다.
+
+            바깥 칸이 자르고(`overflow: hidden`) 안쪽이 흐린 그림을 키워 채운다. 자르는 칸과
+            흐리게 하는 칸을 나눈 이유는, 같은 뷰에 `filter`와 `overflow`를 함께 걸면 잘린
+            결과가 아니라 자르기 전 그림이 흐려져 옅은 띠가 그대로 남기 때문이다.
+          */
+          <View style={s.thumbnailClip}>
+            <View style={s.thumbnailBlur}>
+              <Image source={{ uri: pin.thumbnailUrl }} style={s.thumbnailOverscan} />
+            </View>
+          </View>
         )}
 
         <View style={s.copy}>
@@ -179,6 +216,26 @@ const s = StyleSheet.create({
     marginTop: spacing.x3,
   },
   thumbnail: { width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT, borderRadius: radius.md },
+  /** 열람 전 썸네일을 담는 칸. 흐려서 번진 가장자리를 여기서 자른다. */
+  thumbnailClip: {
+    width: THUMBNAIL_WIDTH,
+    height: THUMBNAIL_HEIGHT,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbnailBlur: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    filter: [{ blur: PREVIEW_BLUR_RADIUS }],
+  },
+  thumbnailOverscan: {
+    width: THUMBNAIL_WIDTH * PREVIEW_BLUR_OVERSCAN,
+    height: THUMBNAIL_HEIGHT * PREVIEW_BLUR_OVERSCAN,
+  },
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
   /**

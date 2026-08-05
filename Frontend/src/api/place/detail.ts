@@ -43,6 +43,12 @@ export function toPinCard({
   return {
     ...pin,
     thumbnailUrl: toDisplayableImageUrl(videoThumbnailUrl ?? thumbnailKey),
+    /*
+      썸네일을 선명하게 보여도 되는지는 여기서 확정할 수 없다. 결제 기록(`isUnlocked`)만 알
+      수 있고 작성자 본인 여부는 카드 응답에 없다 — 그래서 아는 만큼만 담고, 썸네일을 받아
+      오는 쪽이 핀 상세의 접근 수준으로 고쳐 준다. 모르는 동안은 가려 두는 쪽이 맞다.
+    */
+    revealed: pin.isUnlocked,
     // 서버는 아직 좌표를 주지 않는다. 없으면 null로 못 박아 화면이 있는 척하지 않게 한다.
     latitude: latitude ?? null,
     longitude: longitude ?? null,

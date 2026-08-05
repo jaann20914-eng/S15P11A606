@@ -215,9 +215,19 @@ export function isOwnPin(detail: PinDetail): boolean {
   return detail.videoAccess === 'OWNER';
 }
 
+/**
+ * 이 접근 수준이면 가리지 않고 보여줘도 되는지.
+ *
+ * 상세 화면의 영상과 장소 상세의 카드 썸네일이 **같은 기준을 써야 한다** — 한쪽만 선명하면
+ * 결제하지 않고도 현장을 볼 수 있는 길이 생긴다. 그래서 판정을 접근 수준 하나로 모아 둔다.
+ */
+export function revealsVideo(access: PinVideoAccess): boolean {
+  return access === 'OWNER' || access === 'UNLOCKED';
+}
+
 /** 블러 없이 원본을 볼 수 있는지. */
 export function isVideoUnlocked(detail: PinDetail): boolean {
-  return detail.videoAccess === 'OWNER' || detail.videoAccess === 'UNLOCKED';
+  return revealsVideo(detail.videoAccess);
 }
 
 /** 평가 영역을 보여줄 상황인지. 작성자 본인과 미구매자는 평가 대상이 아니다. */
