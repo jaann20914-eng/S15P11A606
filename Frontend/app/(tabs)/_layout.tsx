@@ -1,4 +1,4 @@
-import { StackActions } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
 import { APP_TABS, AppTabBar } from '@/components/common';
 import type { AppTab } from '@/components/common';
@@ -32,25 +32,31 @@ export default function TabLayout() {
           active={state.routes[state.index]?.name as AppTab}
           onTabPress={(tab) => {
             /*
-              보고 있는 탭을 다시 누르면 그 탭의 첫 화면으로 접는다.
+              마이페이지·추천 탭은 누르면 **입구(index)로 스택을 리셋**한다. 재탭이든 다른
+              탭에서 넘어오든 같다.
 
-              추천 장소 상세를 보다가 추천 탭을 누르는 것은 "추천 처음으로"라는 뜻인데,
-              기본 동작은 아무 일도 하지 않는다. 접기 대상은 벗어날 때 접히는 탭과 같은
-              묶음이다 — 홈·채팅·작성의 동작은 그대로 둔다.
+              접기(popToTop)가 아니라 리셋인 이유: 등록 완료 흐름이 오늘 핀 목록을 이 스택의
+              **뿌리로** 심는다(그 흐름의 제약은 `write/index.tsx`에 적혀 있다). 접기는
+              뿌리까지만 가서, 그 뒤로는 탭을 눌러도 입구가 나오지 않았다. 홈·채팅·작성의
+              동작은 그대로 둔다.
             */
-            const currentRoute = state.routes[state.index];
-
-            if (currentRoute?.name === tab && RESET_ON_LEAVE.has(tab)) {
-              const childStackKey = currentRoute.state?.key;
+            if (RESET_ON_LEAVE.has(tab)) {
+              const childStackKey = state.routes.find((route) => route.name === tab)?.state?.key;
 
               if (childStackKey !== undefined) {
-                navigation.dispatch({ ...StackActions.popToTop(), target: childStackKey });
+                navigation.dispatch({
+                  ...CommonActions.reset({ index: 0, routes: [{ name: 'index' }] }),
+                  target: childStackKey,
+                });
               }
-              return;
             }
 
-            // 네비게이터의 이동을 그대로 쓴다. 각 탭이 들고 있던 스택 위치가 유지된다.
-            navigation.navigate(tab);
+            const currentRoute = state.routes[state.index];
+
+            if (currentRoute?.name !== tab) {
+              // 네비게이터의 이동을 그대로 쓴다. 각 탭이 들고 있던 스택 위치가 유지된다.
+              navigation.navigate(tab);
+            }
           }}
         />
       )}

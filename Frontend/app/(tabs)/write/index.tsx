@@ -276,18 +276,19 @@ export default function PinCreateScreen() {
                 router.dismissTo(`/pin/${mode.pinId}`);
               } else {
                 /*
-                  등록은 탭을 마이페이지로 돌려 두고, 그 위에 오늘 핀 목록 → 상세 순으로
-                  **쌓아서** 연다. 이 순서와 타이밍을 바꾸지 않는다 — 상세를 먼저 밀고 탭
-                  교체를 뒤로 미뤄 봤더니, 교체가 실행되는 시점에는 초점이 이미 상세라
-                  replace가 **상세를 갈아치워** 오늘 핀 목록에서 멈췄다(2026-08-05).
+                  등록은 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에 상세를 **쌓아서**
+                  연다. 이 두 액션의 순서와 타이밍을 바꾸지 않는다 — 시도해 보고 접은 것들:
+                  - 상세를 먼저 밀고 탭 교체를 뒤로 미룸 → 교체 시점에 초점이 이미 상세라
+                    replace가 상세를 갈아치워 오늘 핀 목록에서 멈췄다
+                  - 입구를 뿌리로 두려고 index로 replace 후 activity를 push → 같은 틱의 두
+                    번째 액션이 전환 중인 네비게이터에 떨어져 버려졌다("no route named
+                    'mypage'"). activity가 안 쌓여 뒤로 가기가 입구로 갔다
 
-                  마이페이지의 **입구(index)를 스택 뿌리로 남겨야 한다.** 전에는
-                  `/(tabs)/mypage/activity`로 replace해 오늘 핀 목록이 뿌리가 됐고, 그러면
-                  탭이 접혀도(popToTopOnBlur) 목록까지만 접혀 마이페이지 탭을 눌러도 입구가
-                  영영 나오지 않았다. 상세에서 뒤로 가면 오늘 핀 목록, 한 번 더 가면 입구다.
+                  오늘 핀 목록이 스택 뿌리가 되는 것은 여기서 감수한다. "마이페이지 탭을
+                  누르면 입구"는 탭 바가 스택을 입구로 리셋해서 보장한다(`(tabs)/_layout`).
+                  상세에서 뒤로 가면 방금 등록한 핀이 담긴 오늘 핀 목록이 나온다.
                 */
-                router.replace('/(tabs)/mypage');
-                router.push('/(tabs)/mypage/activity');
+                router.replace('/(tabs)/mypage/activity');
                 router.push(`/pin/${publishedPinId}`);
               }
 
