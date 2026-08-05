@@ -3,6 +3,10 @@ import { useFocusEffect } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import type { VideoPlayer, VideoSource } from 'expo-video';
 
+/** 읽기 실패 뒤 같은 소스를 다시 싣기까지 기다리는 시간(ms)과 횟수 상한. */
+const VIDEO_RELOAD_DELAY_MS = 2000;
+const VIDEO_RELOAD_MAX_ATTEMPTS = 5;
+
 export interface AutoplayVideoOptions {
   /** 끝까지 재생한 뒤 처음부터 다시 재생할지. */
   loop: boolean;
@@ -58,13 +62,35 @@ export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayV
   const sourceRef = useRef(source);
   sourceRef.current = source;
 
+  /** 같은 소스를 다시 실어 본 횟수. 소스가 바뀌면 처음부터 다시 센다. */
+  const reloadAttemptsRef = useRef(0);
+
   useEffect(() => {
+    reloadAttemptsRef.current = 0;
     replaceQuietly(player, sourceRef.current);
   }, [player, sourceKey]);
 
   useEffect(() => {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
     const subscription = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay') player.play();
+
+      /*
+        읽기에 실패하면 잠시 뒤 같은 소스를 다시 싣는다.
+
+        방금 만들어진 영상(AI 블러 직후)은 주소는 발급됐는데 스토리지에서 아직 읽히지 않는
+        순간이 있다. 그때 플레이어는 error에 멈추고 스스로 되살아나지 않아, 등록 직후 상세가
+        회색 로딩인 채 남았다 — 다른 화면에 갔다 와서 플레이어가 새로 만들어져야 떴다
+        (2026-08-05). 몇 번만 다시 시도하면 그 사이 읽을 수 있게 된다.
+      */
+      if (status === 'error' && reloadAttemptsRef.current < VIDEO_RELOAD_MAX_ATTEMPTS) {
+        reloadAttemptsRef.current += 1;
+
+        retryTimer = setTimeout(() => {
+          replaceQuietly(player, sourceRef.current);
+        }, VIDEO_RELOAD_DELAY_MS);
+      }
     });
 
     // 구독보다 준비가 먼저 끝났을 수 있다.
@@ -72,6 +98,7 @@ export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayV
 
     return () => {
       subscription.remove();
+      if (retryTimer !== null) clearTimeout(retryTimer);
 
       /*
         화면에서 사라질 때 재생을 멈춘다.
