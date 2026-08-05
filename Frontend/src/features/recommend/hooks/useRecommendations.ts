@@ -141,8 +141,12 @@ export function useRecommendations(): RecommendationsState {
       핀이 있는 장소만 보여준다(제품 결정, 2026-08-05). 추천의 근거가 영상핀인데 핀이 하나도
       없는 장소가 목록에 오르면 눌러도 볼 것이 없다. 서버 후보 선정이 아직 이 기준을 거르지
       않아 프론트가 거른다 — 전부 걸러지면 기존의 빈 목록 안내(첫 핀을 남겨 보라는 화면)가 뜬다.
+
+      기준은 개수(`activePinCount`)가 아니라 **미리보기 핀이 실제로 있는지**다. 개수와 미리보기가
+      어긋난 카드가 왔는데(개수는 있는데 미리보기가 빔) 개수로 걸렀더니 핀 없는 카드가 남았다.
+      화면이 그리는 것이 미리보기이므로 그것을 기준으로 삼는다.
     */
-    places: (data?.recommendations?.[mode] ?? []).filter((place) => place.activePinCount > 0),
+    places: (data?.recommendations?.[mode] ?? []).filter((place) => place.pinPreviews.length > 0),
     generatedAt: data?.generatedAt ?? null,
     isFallback: data?.recommendationType === 'POPULAR_FALLBACK',
     loading,
