@@ -22,6 +22,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
+import { classifyCrowdFilter } from '@/constants/crowdLevels';
 import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
@@ -101,7 +102,9 @@ export default function Place() {
     안내를 띄운다 — NaN을 그대로 보내면 서버가 400으로 답할 뿐 원인이 드러나지 않는다.
   */
   const numericPlaceId = Number(placeId);
-  const { detail, loading, error } = usePlaceDetail(Number.isInteger(numericPlaceId) ? numericPlaceId : null);
+  const { detail, loading, error, crowdLevel } = usePlaceDetail(
+    Number.isInteger(numericPlaceId) ? numericPlaceId : null,
+  );
   const place = detail?.place ?? null;
   const pins = detail?.pins ?? [];
 
@@ -311,6 +314,19 @@ export default function Place() {
     listRef.current?.scrollTo({ y: 0, animated: false });
   }, [expanded]);
 
+  /**
+   * 이 장소의 마커 색 계열.
+   *
+   * **상단 혼잡도 토글을 쓰지 않는다.** 지도는 홈 것이라 토글 값을 갖고 있는데, 이 화면의
+   * 영상핀은 그 토글로 걸러진 것이 아니다 — 와글 토글을 켜고 검색으로 들어간 여유한 장소의
+   * 핀이 전부 자몽색으로 그려졌다(2026-08-05 실기기). 색은 이 장소가 실제로 붐비는 정도가
+   * 정해야 한다.
+   *
+   * 모르면 넘기지 않고 지도의 기본색(라임)에 맡긴다. 근거 없이 자몽색으로 칠하는 것은
+   * "여기 붐빈다"는 잘못된 정보라, 모를 때 택할 쪽이 아니다.
+   */
+  const markerTone = crowdLevel === null ? undefined : (classifyCrowdFilter(crowdLevel) ?? undefined);
+
   const pinMarkers = useMemo(
     () =>
       pins
@@ -320,8 +336,9 @@ export default function Place() {
           name: pin.nickname,
           latitude: pin.latitude as number,
           longitude: pin.longitude as number,
+          tone: markerTone,
         })),
-    [pins],
+    [markerTone, pins],
   );
 
   /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */

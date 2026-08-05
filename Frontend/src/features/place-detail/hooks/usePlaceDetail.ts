@@ -21,6 +21,13 @@ export interface PlaceDetailState {
   loading: boolean;
   /** 실패 문구. 성공하면 null. */
   error: string | null;
+  /**
+   * 이 장소의 최근 1시간 평균 혼잡 단계(1~4). 모르면 null.
+   *
+   * **지도 마커 색이 이 값으로 갈린다.** 상세 응답에는 없어서 좌표와 같은 곳
+   * (`resolvePlaceMapData`)에서 함께 받아 온다 — 사정은 `PlaceMapData`에 적어 두었다.
+   */
+  crowdLevel: number | null;
 }
 
 /**
@@ -68,6 +75,8 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 마커 색을 정하는 평균 혼잡 단계. 좌표와 함께 온다. */
+  const [crowdLevel, setCrowdLevel] = useState<number | null>(null);
 
   /** 이미 조회했는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
   const requested = useRef(false);
@@ -89,6 +98,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
       .then(([received, mapData]) => {
         const merged = withPinCoordinates(received, mapData);
         setDetail(merged);
+        setCrowdLevel(mapData?.averageCrowdLevel ?? null);
         setLoading(false);
 
         /*
@@ -104,9 +114,11 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
         if (!merged.pins.some((pin) => pin.latitude === null)) return;
 
         resolvePlaceMapData(placeId, mapData?.coordinate ?? null, { refresh: true })
-          .then((fresh) =>
-            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh))),
-          )
+          .then((fresh) => {
+            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh)));
+            // 처음에 못 받았으면 이 응답으로 채운다. 이미 아는 값을 null로 되돌리지는 않는다.
+            if (fresh?.averageCrowdLevel != null) setCrowdLevel(fresh.averageCrowdLevel);
+          })
           .catch(() => undefined);
       })
       .catch((cause: unknown) => {
@@ -119,5 +131,5 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
       });
   }, [placeId]);
 
-  return { detail, loading, error };
+  return { detail, loading, error, crowdLevel };
 }

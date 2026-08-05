@@ -26,7 +26,7 @@ import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
-import { matchesCrowdFilter } from '@/constants/crowdLevels';
+import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
 import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -238,7 +238,20 @@ export default function Home() {
     상세를 닫으면 비워지고 장소 마커로 돌아온다.
   */
   const placeMarkers = useMemo(
-    () => visiblePlaces.map(({ id, name, latitude, longitude }) => ({ id, name, latitude, longitude })),
+    () =>
+      visiblePlaces.map(({ id, name, latitude, longitude, crowdLevel }) => ({
+        id,
+        name,
+        latitude,
+        longitude,
+        /*
+          **색은 그 장소의 평균 혼잡도가 정한다.** 토글을 넘기지 않는다.
+
+          걸러진 목록이라 지금은 두 값이 같지만, 색의 근거를 필터에 두면 걸러지지 않는 마커가
+          생기는 순간 거짓이 된다 — 장소 상세의 영상핀이 그랬다. 여기서도 값을 실어 보낸다.
+        */
+        tone: classifyCrowdFilter(crowdLevel) ?? undefined,
+      })),
     [visiblePlaces],
   );
   const markers = pinOverlay ? pinOverlay.markers : placeMarkers;

@@ -41,6 +41,12 @@ export interface MapMarker {
   name: string;
   latitude: number;
   longitude: number;
+  /**
+   * 색 계열. **그 장소·핀이 실제로 붐비는 정도**이지 상단 토글이 아니다.
+   *
+   * 생략하면 지도가 토글 값으로 칠한다(옛 동작). 이유는 `MapPlaceMarker.tone`에 적어 두었다.
+   */
+  tone?: CrowdFilter;
 }
 
 /**

@@ -14,6 +14,17 @@ export interface MapPlaceMarker {
   name: string;
   latitude: number;
   longitude: number;
+  /**
+   * 이 마커의 색 계열. **그 장소·핀이 실제로 얼마나 붐비는지**를 담는다.
+   *
+   * 예전에는 색을 상단 혼잡도 토글(`MapPatch.filter`)이 정했다. 홈 목록은 토글에 맞는 장소만
+   * 남기므로 그때는 둘이 같은 값이었지만, **걸러지지 않은 마커는 색이 거짓말을 했다** —
+   * 와글 토글을 켜고 검색으로 들어간 여유한 장소의 영상핀이 전부 자몽색으로 그려졌다
+   * (2026-08-05 실기기). 색은 필터가 아니라 값이 정해야 한다.
+   *
+   * 생략하면 `filter`를 쓴다(옛 동작). 계열을 모르는 화면은 그대로 두면 된다.
+   */
+  tone?: CrowdFilter;
 }
 
 export interface MapViewState {
@@ -167,6 +178,16 @@ export function buildKakaoMapHtml({
     box-shadow: 0 3px 8px rgba(40, 38, 38, 0.28);
   }
   .pin-circle::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  /*
+   * 한 자리에 겹친 마커. **작게 그린다.**
+   *
+   * 34px 마커 열 개를 겹치지 않게 늘어놓으려면 반지름 60px이 넘는 큰 원이 되고, 가운데가 빈
+   * 고리가 되어 한 장소가 아니라 여러 장소처럼 읽힌다. 작게 그리면 같은 개수가 절반 반경 안에
+   * 촘촘히 들어와 한 송이로 보인다. 고른 핀은 물방울로 커지므로 어느 것을 보고 있는지는
+   * 크기 차이로 오히려 더 분명해진다.
+   */
+  .pin-circle-small { width: 22px; height: 22px; box-shadow: 0 2px 5px rgba(40, 38, 38, 0.24); }
+  .pin-circle-small::after { width: 8px; height: 8px; }
   .pin-drop { filter: drop-shadow(0 4px 8px rgba(40, 38, 38, 0.3)); display: block; }
   /*
    * 내 위치 마커. 퍼지는 원과 가운데 점을 **형제로 분리**한다.
@@ -218,6 +239,8 @@ export function buildKakaoMapHtml({
   var meOverlay = null;
   /** 겹친 마커를 밀어 놓은 값(id → {dx, dy}). 그릴 때와 탭 판정이 같은 값을 쓴다. */
   var spreadOffsets = {};
+  /** 한 자리에 겹쳐 모아 놓은 마커(id → true). 이 마커들은 작게 그린다. */
+  var clustered = {};
   /**
    * RN이 넘겨 준 손가락으로 지도를 끌고 있는지.
    *
@@ -246,10 +269,12 @@ export function buildKakaoMapHtml({
     return INITIAL.tone[filter] || INITIAL.tone.relaxed;
   }
 
-  function circleElement(tone) {
+  function circleElement(tone, small) {
     var el = document.createElement('div');
     el.className = 'pin';
-    el.innerHTML = '<div class="pin-circle" style="background:' + tone.ring + ';border:3px solid ' + tone.fill + '"></div>';
+    el.innerHTML =
+      '<div class="pin-circle' + (small ? ' pin-circle-small' : '') + '"' +
+      ' style="background:' + tone.ring + ';border:' + (small ? 2 : 3) + 'px solid ' + tone.fill + '"></div>';
     return el;
   }
 
@@ -284,15 +309,48 @@ export function buildKakaoMapHtml({
   var OVERLAP_RADIUS_PX = 28;
 
   /**
-   * 겹친 마커를 원으로 벌릴 때의 반지름(px).
+   * 겹친 마커를 모아 놓는 **자리표**(무리 안 순서 → 화면에서 밀어 놓을 px).
    *
-   * 이웃한 두 마커 사이가 마커 지름(34)에 숨 쉴 틈(4)을 더한 38px은 되어야 서로 다시 겹치지
-   * 않는다. 원 위에 n개를 고르게 놓으면 이웃 간격이 2 x r x sin(pi/n)이므로, 그 값이 38이
-   * 되는 반지름을 쓴다. 둘뿐이면 그 식으로 19가 나오지만 그러면 지도에 너무 붙어 보여
-   * 최소값을 둔다.
+   * 세 가지를 지킨다.
+   *
+   * 1. **첫 자리는 좌표 그 자리다**(0, 0). 그 자리는 고른 핀이 갖는다 — 화면 중앙은 고른 핀의
+   *    좌표로 맞춰지므로(카드를 넘기면 지도가 그 핀으로 온다), 밀어 놓지 않아야 물방울이
+   *    화면 정중앙에 선다. 예전에는 고른 핀도 고리 위로 밀려 중앙에서 60px 가까이 벗어났다.
+   * 2. **아래쪽 반원에만 놓는다.** 물방울 마커는 꼬리 끝이 좌표라 위쪽 54px을 통째로 덮는다.
+   *    위에 놓으면 그 마커가 물방울 뒤로 사라진다.
+   * 3. **링 반지름이 개수와 무관하다.** 예전에는 반지름을 개수로 계산해서, 확대를 바꿔 무리에
+   *    드는 마커가 하나 늘거나 줄 때마다 고리 전체가 부풀었다 줄었다 했다 — 마커들이 계속
+   *    강강술래처럼 펼쳐져 보인 것이 이것이다. 자리표가 고정이면 개수가 바뀌어도 있던 마커는
+   *    제자리에 있고, 새 마커만 다음 자리에 붙는다.
+   *
+   * 링마다 몇 개가 들어가는지는 기하로 정한다 — 반지름 r의 원에서 중심각 t만큼 떨어진 두 점의
+   * 거리가 2 x r x sin(t / 2)이므로, 그 값이 최소 간격이 되는 t로 반원을 나눈다.
    */
-  function spreadRadius(count) {
-    return Math.max(22, 19 / Math.sin(Math.PI / count));
+  /** 링 간격 = 첫 링의 반지름(px). 작은 마커 지름(22)의 여덟 할쯤이라 살짝만 겹친다. */
+  var CLUSTER_RING_PX = 18;
+  /** 이웃한 두 마커 중심 사이의 최소 거리(px). 이 값으로 링 하나에 몇 개가 들어가는지 정해진다. */
+  var CLUSTER_GAP_PX = 16;
+
+  function clusterSlots(count) {
+    var slots = [{ dx: 0, dy: 0 }];
+
+    for (var ring = 1; slots.length < count; ring += 1) {
+      var radius = ring * CLUSTER_RING_PX;
+      var step = 2 * Math.asin(Math.min(1, CLUSTER_GAP_PX / (2 * radius)));
+      // 양 끝(3시·9시)을 포함해 나눈다. 실제 간격은 최소 간격보다 넓어진다.
+      var capacity = Math.max(1, Math.floor(Math.PI / step)) + 1;
+
+      for (var i = 0; i < capacity && slots.length < count; i += 1) {
+        var angle = (i * Math.PI) / (capacity - 1 || 1);
+        slots.push({
+          dx: Math.round(Math.cos(angle) * radius),
+          // 화면 y는 아래로 자란다. sin이 양수인 이 반원이 곧 아래쪽이다.
+          dy: Math.round(Math.sin(angle) * radius)
+        });
+      }
+    }
+
+    return slots;
   }
 
   /**
@@ -308,6 +366,8 @@ export function buildKakaoMapHtml({
    */
   function computeSpread() {
     var offsets = {};
+    // 무리에 든 마커를 함께 표시해 둔다. 그린 뒤에 크기를 정하는 데 쓴다.
+    clustered = {};
     if (!map || state.places.length < 2) return offsets;
 
     var projection = map.getProjection();
@@ -343,15 +403,28 @@ export function buildKakaoMapHtml({
       var group = groups[k];
       if (group.length < 2) continue;
 
-      var radius = spreadRadius(group.length);
-      for (var m = 0; m < group.length; m += 1) {
-        // 12시에서 시작해 시계 방향으로 돌린다. 순서가 정해져 있어 다시 그려도 자리가 같다.
-        var angle = -Math.PI / 2 + (m * 2 * Math.PI) / group.length;
-        offsets[state.places[group[m]].id] = {
-          dx: Math.round(Math.cos(angle) * radius),
-          dy: Math.round(Math.sin(angle) * radius)
-        };
+      /*
+        **고른 핀이 첫 자리(좌표 그 자리)를 갖는다.** 자리를 앞으로 당겨 오는 것이 아니라
+        **첫 자리에 있던 것과 맞바꾼다.**
+
+        그래야 카드를 넘길 때 움직이는 마커가 **딱 둘**이다. 순서를 다시 세우면 사이에 있던
+        마커들이 한 칸씩 밀려, 카드를 넘길 때마다 무리가 통째로 도는 것처럼 보인다.
+      */
+      var ordered = group.slice();
+      for (var s = 0; s < ordered.length; s += 1) {
+        if (state.places[ordered[s]].id !== state.selectedPlaceId) continue;
+        var head = ordered[0];
+        ordered[0] = ordered[s];
+        ordered[s] = head;
+        break;
       }
+
+      var slots = clusterSlots(ordered.length);
+      for (var m = 0; m < ordered.length; m += 1) {
+        offsets[state.places[ordered[m]].id] = slots[m];
+      }
+      // 이 무리는 촘촘히 겹쳐 놓으므로 마커를 작게 그린다(고른 핀의 물방울은 그대로).
+      for (var c = 0; c < group.length; c += 1) clustered[state.places[group[c]].id] = true;
     }
 
     return offsets;
@@ -399,13 +472,23 @@ export function buildKakaoMapHtml({
     if (!map) return;
     clearOverlays();
     pinElements = [];
-    var tone = toneOf(state.filter);
     spreadOffsets = computeSpread();
 
     for (var i = 0; i < state.places.length; i += 1) {
       var place = state.places[i];
       var selected = place.id === state.selectedPlaceId;
-      var element = selected ? dropElement(tone) : circleElement(tone);
+      /*
+        색은 **마커마다** 정한다. 그 장소·핀이 실제로 얼마나 붐비는지가 담겨 오기 때문이다
+        (MapPlaceMarker.tone — 이 파일은 템플릿 리터럴 하나라 주석에 백틱을 쓸 수 없다).
+        계열을 모르고 온 마커만 토글 값을 쓴다 — 예전에는 전부 그랬고, 그래서 여유한 장소도
+        와글 토글에서는 자몽색으로 그려졌다.
+      */
+      var tone = toneOf(place.tone || state.filter);
+      /*
+        겹쳐 모아 놓은 마커는 **작게** 그린다. 촘촘히 놓으려면 그림도 작아야 한다(CSS 설명 참고).
+        고른 핀은 무리에 들어도 물방울 그대로다 — 크기 차이가 곧 "지금 보고 있는 것" 표시다.
+      */
+      var element = selected ? dropElement(tone) : circleElement(tone, clustered[place.id] === true);
       element.setAttribute('aria-label', place.name);
 
       /*

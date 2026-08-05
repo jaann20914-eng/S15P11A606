@@ -19,6 +19,15 @@ export interface PlaceMapData {
   coordinate: Coordinate;
   /** 최근 1시간 이내의 활성 핀. 각자 자기 좌표를 가진다. */
   activePins: PlaceActivePin[];
+  /**
+   * 최근 1시간 평균 혼잡 단계(1~4). 집계할 핀이 없거나 좌표만 아는 경우 null.
+   *
+   * **마커 색이 이 값으로 갈린다.** 좌표와 같은 사정이다 — 장소 상세 응답에는 지금 이 장소가
+   * 얼마나 붐비는지가 없고(요일별 통계는 요청 시각 ±30분 창의 요일 평균이라 다른 값이다),
+   * 목록(`GET /places`)만 준다. 홈 마커와 상세의 영상핀 마커가 **같은 값으로 칠해져야** 화면을
+   * 옮길 때 색이 바뀌지 않는다.
+   */
+  averageCrowdLevel: number | null;
 }
 
 const mapDataByPlaceId = new Map<number, PlaceMapData>();
@@ -47,10 +56,11 @@ export function isPlottableCoordinate(coordinate: {
  * 좌표를 담아 오는 응답에서 이 저장소가 읽는 것.
  *
  * 목록(`PlaceListItem`)과 태그 검색 결과(`TaggedPlace`)가 **좌표 부분만 같은 모양**이다.
- * 필요한 네 값으로 좁혀 두면 두 응답이 같은 함수를 쓸 수 있다 — 태그 결과로 들어온 장소도
- * 상세 화면이 지도에 찍을 수 있어야 하고, 그쪽에는 혼잡도 필드가 없다.
+ * 필요한 것만 좁혀 두면 두 응답이 같은 함수를 쓸 수 있다 — 태그 결과로 들어온 장소도 상세
+ * 화면이 지도에 찍을 수 있어야 한다. 혼잡도는 목록에만 있어 선택으로 둔다.
  */
-export type PlaceMapSource = Pick<PlaceListItem, 'placeId' | 'latitude' | 'longitude' | 'activePins'>;
+export type PlaceMapSource = Pick<PlaceListItem, 'placeId' | 'latitude' | 'longitude' | 'activePins'> &
+  Partial<Pick<PlaceListItem, 'averageCrowdLevel'>>;
 
 /** 좌표가 담긴 응답을 기억한다. 쓸 수 없는 좌표는 넣지 않는다. */
 export function rememberPlaceMapData(places: readonly PlaceMapSource[]): void {
@@ -65,6 +75,8 @@ export function rememberPlaceMapData(places: readonly PlaceMapSource[]): void {
       coordinate,
       // 핀 좌표도 같은 기준으로 거른다. 하나가 깨져도 나머지는 그린다.
       activePins: place.activePins.filter(isPlottableCoordinate),
+      // 혼잡도를 담지 않는 응답(태그 검색)도 있다. 그때는 모르는 채로 둔다 — 마커는 기본색이 된다.
+      averageCrowdLevel: place.averageCrowdLevel ?? null,
     });
   }
 }
@@ -161,12 +173,12 @@ export async function resolvePlaceMapData(
       코드: error instanceof ApiError ? error.code : '알수없음',
       대체: known ? '좌표만 사용' : '지도 없음',
     });
-    return known ? { coordinate: around, activePins: [] } : null;
+    return known ? { coordinate: around, activePins: [], averageCrowdLevel: null } : null;
   }
 
   const found = recallPlaceMapData(placeId);
   if (found !== null) return found;
 
   // 목록에 없더라도 좌표를 알고 있으면 지도는 그릴 수 있다. 핀만 비운다.
-  return known ? { coordinate: around, activePins: [] } : null;
+  return known ? { coordinate: around, activePins: [], averageCrowdLevel: null } : null;
 }
