@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.global.config;
 
 import com.yuhan.wagglewaggle.domain.chat.publisher.AiChatPublishConfirmHandler;
 import com.yuhan.wagglewaggle.global.properties.AiChatAnalysisProperties;
+import com.yuhan.wagglewaggle.global.properties.AiChatRepublishProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -26,7 +27,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(AiChatAnalysisProperties.class)
+@EnableConfigurationProperties({AiChatAnalysisProperties.class, AiChatRepublishProperties.class})
 public class AiChatRabbitConfig {
 
     public static final String EXCHANGE = "ai.chat.exchange";
