@@ -7,7 +7,7 @@
 
 | 서비스 | 컨테이너 이름 | 역할 | 호스트 노출 |
 |---|---|---|---|
-| Prometheus | `waggle-prometheus` | 지표 수집·저장 | `127.0.0.1:9090` |
+| Prometheus | `waggle-prometheus` | 지표 수집·저장 | `127.0.0.1:9091` |
 | Grafana | `waggle-grafana` | 대시보드 시각화 | `127.0.0.1:3000` |
 | node-exporter | `waggle-node-exporter` | EC2 호스트 지표 | (내부) |
 | cAdvisor | `waggle-cadvisor` | 컨테이너별 지표 | (내부) |
@@ -39,11 +39,12 @@ docker compose -f infra/monitoring/docker-compose.yml ps      # 상태 확인
 
 ```bash
 # 로컬 PC 에서 실행 (키 경로/호스트는 환경에 맞게)
-ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 ubuntu@<EC2-퍼블릭-IP>
+# 호스트 9090 은 Jenkins 가 쓰므로 Prometheus 는 9091 로 노출된다.
+ssh -N -L 3000:127.0.0.1:3000 -L 9091:127.0.0.1:9091 ubuntu@<EC2-퍼블릭-IP>
 ```
 
 - Grafana:    http://localhost:3000  (id: `admin`, pw: `.env` 에 넣은 값)
-- Prometheus: http://localhost:9090  (Status → Targets 에서 수집 상태 확인)
+- Prometheus: http://localhost:9091  (Status → Targets 에서 수집 상태 확인)
 
 ## 잘 붙었는지 확인
 

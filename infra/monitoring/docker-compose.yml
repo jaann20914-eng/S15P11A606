@@ -24,8 +24,9 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=15d   # 15일치 보관(디스크 절약)
     # 호스트 로컬에만 노출. 외부 접근은 SSH 터널.
+    # 호스트 9090 은 Jenkins 가 사용 중이라 9091 로 매핑(컨테이너 내부는 9090 유지).
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9090"
 
   # 시각화: Prometheus 를 데이터소스로 대시보드를 그림
   grafana:
