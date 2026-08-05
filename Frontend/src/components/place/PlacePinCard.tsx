@@ -1,5 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ImageStyle, StyleProp, ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ViewAvatar } from '@/components/common';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
@@ -53,6 +53,14 @@ const ANGLE_RING_SIZE = 44;
  */
 const MEMO_MAX_LINES = 4;
 
+/**
+ * 메모가 없을 때 그 자리에 두는 한 마디.
+ *
+ * "없다"를 적지 않고 **그 카드에서 볼 것**을 적는다 — 남긴 글이 없는 핀에서 볼 것은 영상이고,
+ * 카드 전체가 그 게시글로 가는 버튼이라 그대로 다음 행동이 된다.
+ */
+const EMPTY_MEMO_MESSAGE = '영상으로 현장을 확인하세요';
+
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 
@@ -94,15 +102,6 @@ const THUMBNAIL_HEIGHT = 128;
 const PREVIEW_BLUR_RADIUS = 10;
 
 /**
- * 카드를 가득 채운 썸네일에 거는 블러 반경(dp).
- *
- * 반경은 **칸 폭에 비례해야** 같은 정도로 가려진다. 좁은 칸(152dp)의 10은 약 6%이고, 카드를
- * 채우면 폭이 350dp쯤 되므로 같은 비율이 22다. 좁은 칸의 값을 그대로 쓰면 그림이 알아볼
- * 만큼 남아 가린 뜻이 없어진다 — 상세 화면이 화면 너비에 24를 쓰는 것과 같은 근거다.
- */
-const PREVIEW_BLUR_RADIUS_WIDE = 22;
-
-/**
  * 블러를 걸 때 그림을 이만큼 키워 넣는다.
  *
  * `filter`는 칸 밖의 **투명한 바깥까지 섞어** 흐리게 하므로, 그림을 칸에 딱 맞게 두면
@@ -134,46 +133,17 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
   const memo = pin.memo ?? '';
 
   /**
-   * 영상 말고는 아무것도 남기지 않은 핀인지.
+   * 그림까지 다 받은 주소. 아직이면 null.
    *
-   * 메모와 태그가 모두 없으면 **오른쪽 칸에 그릴 것이 없다.** 예전에는 그 자리에 줄표(—)를
-   * 두 개 세워 두었는데, 읽을 것이 없는 카드가 오히려 글자로 시끄러웠다(팀 의견, 2026-08-05).
-   * 그럴 때는 **썸네일이 카드를 가득 채운다** — 그 핀이 가진 유일한 내용이 영상이므로 그것을
-   * 크게 보여주는 편이 맞고, 빈 자리를 무엇으로 채울지 고민할 필요도 없어진다.
+   * **주소가 왔다고 그림이 온 것은 아니다.** 발급받은 주소를 `Image`에 넘기면 그때부터 네트워크로
+   * 받아 오는데, 그동안 칸이 비어 있다가 다 받는 순간 툭 나타났다 — 무엇을 기다리는지 알 수 없어
+   * 예측하기 어려운 화면이었다(팀 의견, 2026-08-05). 다 받을 때까지 그 자리에서 표시가 돈다.
    *
-   * **카드 규격은 그대로다.** 채우는 것은 본문 칸(`body`)의 남은 폭뿐이고 높이는 그 칸이
-   * 고정하고 있으므로(`THUMBNAIL_HEIGHT`), 한 장씩 넘기는 칸에서 카드 키가 달라지지 않는다.
+   * 주소를 담아 두고 견주는 이유: 주소가 바뀌면(만료돼 다시 발급받으면) 다시 기다려야 한다.
+   * 참·거짓만 두면 새 주소를 받는 동안 낡은 "준비됨"이 남는다.
    */
-  const videoOnly = memo.length === 0 && pin.tags.length === 0;
-
-  /**
-   * 썸네일 한 장. 채우는 폭만 다르고 가리는 규칙은 같다.
-   *
-   * 세 갈래를 두 곳에 적지 않기 위해 함수로 둔다 — 주소가 없을 때(색 자리), 열람 전(블러),
-   * 열람 후(그대로)의 판정이 갈라지면 한쪽만 고쳐져 **가려야 할 것이 선명하게 보일 수 있다.**
-   *
-   * 칸 스타일은 `View`(색 자리·자르는 칸)와 `Image`에 함께 얹히므로 두 타입의 교집합으로
-   * 받는다. `ViewStyle`만으로 받으면 `Image`에 넘길 때 타입이 걸린다.
-   */
-  const thumbnail = (box: StyleProp<ViewStyle & ImageStyle>, blur: StyleProp<ViewStyle>) => {
-    if (pin.thumbnailUrl === null) return <LinearGradient colors={THUMBNAIL_TINT} style={box} />;
-    if (pin.revealed) return <Image source={{ uri: pin.thumbnailUrl }} style={box} />;
-
-    /*
-      열람 전에는 가린다. 반경·확대 이유는 위 `PREVIEW_BLUR_RADIUS` 설명에 있다.
-
-      바깥 칸이 자르고(`overflow: hidden`) 안쪽이 흐린 그림을 키워 채운다. 자르는 칸과
-      흐리게 하는 칸을 나눈 이유는, 같은 뷰에 `filter`와 `overflow`를 함께 걸면 잘린
-      결과가 아니라 자르기 전 그림이 흐려져 옅은 띠가 그대로 남기 때문이다.
-    */
-    return (
-      <View style={[box, s.clip]}>
-        <View style={[s.thumbnailBlur, blur]}>
-          <Image source={{ uri: pin.thumbnailUrl }} style={s.thumbnailOverscan} />
-        </View>
-      </View>
-    );
-  };
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const waiting = pin.thumbnailUrl === null || loadedUrl !== pin.thumbnailUrl;
 
   return (
     <Pressable
@@ -203,62 +173,102 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
         썸네일이 나중에 들어온다 — **비어 있는 동안에도 자리는 그대로 있어야 한다.**
         받지 못한 핀은 계속 색 자리로 남는다.
       */}
-      {videoOnly ? (
-        /*
-          남긴 것이 영상뿐인 핀. 썸네일이 본문 칸을 가득 채운다.
+      <View style={s.body}>
+        {/*
+          썸네일 칸. **자리는 늘 같다** — 왼쪽 썸네일, 오른쪽 위 내용, 오른쪽 아래 태그.
 
-          블러 반경은 폭에 맞춰 키운다 — 좁은 칸에 맞춰 잡은 값(10)을 카드 폭에 그대로 쓰면
-          가린 티가 나지 않는다. 상세 화면의 영상과 같은 비율이다(`PREVIEW_BLUR_RADIUS` 설명).
-        */
-        <View style={s.body}>{thumbnail(s.thumbnailWide, s.blurWide)}</View>
-      ) : (
-        <View style={s.body}>
-          {thumbnail(s.thumbnail, null)}
+          한때 내용과 태그가 모두 없으면 썸네일이 카드를 가득 채우게 했다. 그러면 **같은 목록
+          안에서 카드마다 썸네일 크기가 달라져** 통일감이 없었다(팀 회의, 2026-08-05). 비어 있는
+          자리는 크기를 바꿔 메우지 않고 한 마디 글로 채운다(아래).
 
-          <View style={s.copy}>
-            {/*
-              **둘 중 하나만 없는 경우다.** 둘 다 없으면 위에서 썸네일이 카드를 채운다.
+          층을 셋 겹친다. 색 자리는 늘 깔려 있어 주소가 없을 때도, 받는 중에도, 받다 실패해도
+          칸이 비지 않는다. 그 위에 그림, 그 위에 기다리는 표시다.
+        */}
+        <View style={s.thumbnail}>
+          <LinearGradient colors={THUMBNAIL_TINT} style={s.thumbnailFill} />
 
-              메모와 태그는 등록할 때 선택 입력이라 한쪽만 없는 핀이 흔하다. 그 자리를 통째로
-              접으면 그 카드만 위아래 리듬이 달라지므로, 값이 없는 자리에 **줄표(—) 하나**를
-              둔다. 표에서 빈 칸을 적는 방식이라 뜻이 바로 읽히고 자리는 지킨다. 태그 쪽은 칩
-              모양을 유지해 "태그가 들어올 자리"라는 것까지 보인다.
-
-              예전에는 `내용 없음`·`태그 없음`이라고 적었는데, 한 카드에 "없음"이 두 번 쌓여
-              읽을 것이 없는 카드가 오히려 글자로 시끄러워졌다(팀 의견, 2026-08-05).
-
-              **읽어 주는 쪽에는 그대로 말로 알린다**(`accessibilityLabel`) — 줄표는 눈으로 볼
-              때만 뜻이 통하기 때문이다.
-            */}
-            {memo.length > 0 ? (
-              <Text numberOfLines={MEMO_MAX_LINES} ellipsizeMode="tail" style={s.memo}>
-                {memo}
-              </Text>
+          {pin.thumbnailUrl !== null &&
+            (pin.revealed ? (
+              <Image
+                source={{ uri: pin.thumbnailUrl }}
+                style={s.thumbnailFill}
+                /*
+                  성공·실패 어느 쪽이든 불린다. `onLoad`만 보면 실패한 그림에서 표시가 영원히
+                  돌아, 받는 중인 것과 못 받은 것이 구분되지 않는다.
+                */
+                onLoadEnd={() => setLoadedUrl(pin.thumbnailUrl)}
+              />
             ) : (
-              <Text accessibilityLabel="남긴 메모 없음" style={s.emptyMark}>
-                —
-              </Text>
-            )}
+              /*
+                열람 전에는 가린다. 반경·확대 이유는 위 `PREVIEW_BLUR_RADIUS` 설명에 있다.
 
-            {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
-            <View style={s.tags}>
-              {pin.tags.length > 0 ? (
-                pin.tags.map((tag) => (
-                  <View key={tag} style={s.tag}>
-                    <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
-                      #{tag}
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <View accessibilityLabel="태그 없음" style={[s.tag, s.tagEmpty]}>
-                  <Text style={s.emptyMark}>—</Text>
-                </View>
-              )}
+                바깥 칸이 자르고(`overflow: hidden`) 안쪽이 흐린 그림을 키워 채운다. 자르는 칸과
+                흐리게 하는 칸을 나눈 이유는, 같은 뷰에 `filter`와 `overflow`를 함께 걸면 잘린
+                결과가 아니라 자르기 전 그림이 흐려져 옅은 띠가 그대로 남기 때문이다.
+              */
+              <View style={s.thumbnailBlur}>
+                <Image
+                  source={{ uri: pin.thumbnailUrl }}
+                  style={s.thumbnailOverscan}
+                  onLoadEnd={() => setLoadedUrl(pin.thumbnailUrl)}
+                />
+              </View>
+            ))}
+
+          {/*
+            받는 동안 그 자리에서 도는 표시. 색은 홈 계열 로딩과 같은 진한 라임이다
+            (`colors.limeText` — 순수 라임은 밝은 바닥에서 보이지 않는다).
+
+            핀 상세의 영상은 회색 판에 빛줄기가 흐르는 `MediaLoadingSweep`을 쓴다. 그쪽은 화면을
+            채우는 큰 프레임이라 판이 어울리지만, 152×128 칸에서는 빛줄기가 스쳐 지나가 무엇을
+            기다리는지 읽히지 않는다. 지도가 타일을 기다릴 때와 같은 표시로 둔다.
+          */}
+          {waiting && (
+            <View pointerEvents="none" style={s.thumbnailBusy}>
+              <ActivityIndicator size="small" color={colors.limeText} />
             </View>
+          )}
+        </View>
+
+        <View style={s.copy}>
+          {/*
+            **비어 있어도 자리는 지키고, 무엇이 없는지 대신 한 마디를 둔다.**
+
+            메모와 태그는 등록할 때 선택 입력이라 없는 핀이 흔하다. 예전에는 줄표(—)만 두었는데
+            눈으로만 뜻이 통하고 읽을 것이 없었다. `내용 없음`처럼 없다는 사실을 적는 것도
+            한 카드에 두 번 쌓여 시끄러웠다(팀 의견).
+
+            지금은 **그 카드에서 볼 것이 무엇인지** 적는다 — 남긴 글이 없으면 볼 것은 영상이다.
+            태그 자리는 칩 모양을 지켜 "태그가 들어올 자리"임을 보이고 `#`만 둔다.
+          */}
+          {memo.length > 0 ? (
+            <Text numberOfLines={MEMO_MAX_LINES} ellipsizeMode="tail" style={s.memo}>
+              {memo}
+            </Text>
+          ) : (
+            <Text numberOfLines={MEMO_MAX_LINES} style={s.memoEmpty}>
+              {EMPTY_MEMO_MESSAGE}
+            </Text>
+          )}
+
+          {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
+          <View style={s.tags}>
+            {pin.tags.length > 0 ? (
+              pin.tags.map((tag) => (
+                <View key={tag} style={s.tag}>
+                  <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
+                    #{tag}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View accessibilityLabel="남긴 태그 없음" style={[s.tag, s.tagEmpty]}>
+                <Text style={s.emptyMark}>#</Text>
+              </View>
+            )}
           </View>
         </View>
-      )}
+      </View>
     </Pressable>
   );
 }
@@ -299,43 +309,55 @@ const s = StyleSheet.create({
     gap: spacing.x3,
     marginTop: spacing.x3,
   },
-  thumbnail: { width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT, borderRadius: radius.md },
   /**
-   * 남긴 것이 영상뿐일 때의 썸네일. **본문 칸의 남은 폭을 다 차지한다.**
+   * 썸네일 칸. 층(색 자리·그림·기다리는 표시)을 겹쳐 담으므로 **자르고 가운데를 잡는다.**
    *
-   * 높이는 주지 않는다 — 감싼 `body`가 `THUMBNAIL_HEIGHT`로 고정돼 있어 그 높이로 늘어난다.
-   * 여기서 높이를 또 적으면 두 곳이 갈려 한쪽만 바뀔 수 있다.
+   * 크기를 고정한다 — 이 칸의 높이가 카드 높이를 정하고(`THUMBNAIL_HEIGHT`), 그 값이 홈 시트의
+   * 단계 높이까지 정한다(`PLACE_PIN_CARD_HEIGHT`).
    */
-  thumbnailWide: { flex: 1, alignSelf: 'stretch', borderRadius: radius.md },
-  /** 열람 전 썸네일을 담는 칸에 더한다. 흐려서 번진 가장자리를 여기서 자른다. */
-  clip: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  thumbnail: {
+    width: THUMBNAIL_WIDTH,
+    height: THUMBNAIL_HEIGHT,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** 칸을 가득 채우는 층. 색 자리와 선명한 그림이 쓴다. */
+  thumbnailFill: StyleSheet.absoluteFillObject,
+  /** 열람 전 그림을 흐리게 하는 층. 번진 가장자리는 감싼 칸이 자른다. */
   thumbnailBlur: {
-    flex: 1,
-    alignSelf: 'stretch',
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     filter: [{ blur: PREVIEW_BLUR_RADIUS }],
   },
-  /** 카드를 가득 채운 썸네일의 블러. 폭이 두 배 넘게 넓어지므로 반경도 같은 비율로 키운다. */
-  blurWide: { filter: [{ blur: PREVIEW_BLUR_RADIUS_WIDE }] },
   /**
    * 흐린 그림을 담는 자리. **비율로 키운다.**
    *
-   * 좁은 칸(152)과 카드를 채우는 칸의 폭이 다르므로 px로 적을 수 없다 — 백분율이면 어느 칸에
-   * 놓여도 반경만큼 넉넉히 넘쳐 옅은 가장자리가 칸 밖으로 밀려난다.
+   * 반경만큼 넉넉히 넘치게 두어 옅은 가장자리를 칸 밖으로 밀어낸다. 백분율이라 칸 크기를 바꿔도
+   * 따라온다 — 근거는 위 `PREVIEW_BLUR_OVERSCAN` 설명에 있다.
    */
   thumbnailOverscan: {
     width: `${PREVIEW_BLUR_OVERSCAN * 100}%`,
     height: `${PREVIEW_BLUR_OVERSCAN * 100}%`,
   },
+  /** 기다리는 표시를 놓는 층. 그림 위에 오되 손가락은 카드가 받는다. */
+  thumbnailBusy: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
   /**
-   * 값이 없는 자리에 두는 줄표.
+   * 메모 자리를 대신 채우는 한 마디.
    *
-   * 메모와 태그가 같은 표시를 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
-   * 글자보다 옅게 두어 카드를 훑을 때 걸리지 않게 한다.
+   * 실제 메모보다 옅게 둔다 — 작성자가 쓴 글이 아니라 화면이 놓은 안내라, 같은 색이면 남의 말을
+   * 작성자 것으로 읽게 된다.
    */
+  memoEmpty: { ...type.small, color: colors.gray400 },
+  /** 태그가 없을 때 칩에 두는 표시. 글자보다 옅게 둬 카드를 훑을 때 걸리지 않게 한다. */
   emptyMark: { ...type.small, color: colors.gray400 },
   /**
    * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**

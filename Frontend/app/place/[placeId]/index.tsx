@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, PlaceSearchBar } from '@/components/place';
+import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
+import { CrowdChart, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -35,9 +35,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 덮은 채 시작해 눈에 띄게 튄다.
  */
 const ESTIMATED_HEADER_HEIGHT = 92;
-const ESTIMATED_PIN_SLOT_HEIGHT = 240;
-/** 핀이 없다고 적는 줄 하나의 높이(글줄 22 + 위아래 여백 32). */
-const ESTIMATED_EMPTY_HEIGHT = 54;
+
+/**
+ * 카드 한 장이 놓이는 칸의 높이. 재기 전의 어림값이자 **핀이 없을 때 그 자리의 높이**다.
+ *
+ * 계산으로 나온다 — 카드가 내용과 무관하게 늘 같은 키이기 때문이다(`PLACE_PIN_CARD_HEIGHT`).
+ * 예전에는 어림값 240에 핀 없는 경우만 54로 따로 뒀는데, 그러면 **같은 시트가 상태에 따라
+ * 오르내린다.** 어느 상태에서도 시트가 제자리에 있도록 한 값으로 모은다(홈도 같은 값을 쓴다).
+ */
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
 /** "실시간 영상핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
 const LIVE_DOT_SIZE = 7;
@@ -164,17 +170,17 @@ export default function Place() {
       사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
     /*
-      핀이 없으면 **카드 대신 놓이는 안내 줄에 맞춘다.** 있지도 않은 카드 높이로 시트를 벌리면
-      안내 한 줄 아래에 빈 칸이 한참 남는다(홈 시트도 같은 이유로 같은 처리를 한다).
+      핀이 없어도 **같은 높이**다. 안내 줄이 카드 한 칸을 그대로 차지한다(`PIN_SLOT_HEIGHT`) —
+      상태에 따라 시트가 오르내리지 않는 편이 낫고, 홈도 같은 값으로 맞춰 두었다.
     */
     middleExtra:
       (noPins
         ? emptyHeight > 0
           ? emptyHeight
-          : ESTIMATED_EMPTY_HEIGHT
+          : PIN_SLOT_HEIGHT
         : pinSlotHeight > 0
           ? pinSlotHeight
-          : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
+          : PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
       **끌어내려 닫지 않는다.** `onDismiss`를 주지 않으므로 축소가 하한이고, 홈 시트처럼
@@ -742,13 +748,16 @@ export default function Place() {
               카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
             */}
             {noPins && (
-              /* 이 줄이 카드 자리를 대신 채우므로 높이를 재서 시트에 넘긴다. */
-              <Text
+              /*
+                이 블록이 **카드 한 칸을 그대로 차지한다.** 높이를 재서 시트에 넘기므로 글꼴
+                설정으로 글줄이 더 커져도 시트가 따라온다.
+              */
+              <View
                 onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}
                 style={s.emptyPins}
               >
-                지금 이곳에 올라온 영상핀이 없어요.
-              </Text>
+                <Text style={s.emptyPinsText}>지금 이곳에 올라온 영상핀이 없어요.</Text>
+              </View>
             )}
           </Animated.View>
         </ScrollView>
@@ -921,5 +930,7 @@ const s = StyleSheet.create({
    * 값으로 그림자가 생기지는 않는다.
    */
   pinArea: { zIndex: 1, elevation: 5 },
-  emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
+  /** 핀이 없을 때 카드 자리를 대신 채우는 블록. 카드 한 칸과 같은 높이로 잡아 시트가 제자리에 있게 한다. */
+  emptyPins: { minHeight: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  emptyPinsText: { ...type.small, color: colors.gray400 },
 });
