@@ -263,11 +263,9 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
           mode="video"
           videoQuality="720p"
           /*
-            미리보기 비율을 녹화(720p, 16:9)와 같게 고정한다. 카메라의 미리보기와 녹화는
-            서로 다른 스트림이라 비율이 다르면 **녹화 화각이 미리보기보다 좁아**, 찍고 나면
-            화면이 당겨 보였다 — 미리보기·결과 재생·상세의 배율이 제각각이던 원인(2026-08-05).
+            `ratio`를 지정하지 않는다. 지정하면 미리보기가 칸을 채우는 대신 비율대로 **맞춰
+            들어가서**(FIT) 세로 띠처럼 그려졌다(2026-08-05). 배율 문제는 다른 자리에서 푼다.
           */
-          ratio="16:9"
           style={s.cameraView}
           onCameraReady={() => {
             log('열렸다', { 시도: attachAttempt + 1 });
