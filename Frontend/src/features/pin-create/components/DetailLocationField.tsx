@@ -15,7 +15,9 @@ export interface DetailLocationFieldProps {
 export function DetailLocationField({ value, onChange, onFocus }: DetailLocationFieldProps) {
   return (
     <>
-      <Text style={s.label}>상세 위치</Text>
+      <Text style={s.label}>
+        상세 위치 <Text style={s.subLabel}>(선택)</Text>
+      </Text>
       <TextInput
         value={value}
         onChangeText={(text) => onChange(truncateGraphemes(text, MAX_DETAIL_LOCATION_LENGTH))}

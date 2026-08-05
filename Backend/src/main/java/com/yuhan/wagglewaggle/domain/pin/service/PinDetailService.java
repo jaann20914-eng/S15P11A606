@@ -98,6 +98,7 @@ public class PinDetailService {
                 detail.authorViewAngle(),
                 detail.authorNickname(),
                 detail.createdAt(),
+                detail.expiresAt(),
                 place,
                 detail.crowdLevel(),
                 detail.detailLocation(),

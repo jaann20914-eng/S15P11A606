@@ -26,7 +26,7 @@ export function TagField({ tags, onAdd, onRemove, onFocus }: TagFieldProps) {
   return (
     <>
       <Text style={s.label}>
-        태그 <Text style={s.subLabel}>(최대 {MAX_TAG_COUNT}개)</Text>
+        태그 <Text style={s.subLabel}>(선택 · 최대 {MAX_TAG_COUNT}개)</Text>
       </Text>
 
       <View style={s.tags}>

@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ViewAvatar } from '@/components/common';
 import { colors } from '@/constants/theme';
-import type { ChatDecision, ChatRoomListItem, ChatRoomStatus } from '@/types/chat';
+import type { ChatDecision, ChatRoomListItem, ChatRoomSummaryStatus } from '@/types/chat';
 import { formatTimeOfDay } from '@/utils/datetime';
 import { AVATAR_SIZE, chatListStyles as s } from '../styles';
 
@@ -15,23 +15,26 @@ export interface ChatRoomRowProps {
   onDecide?: (decision: ChatDecision) => void;
 }
 
-/** 상태별 표시 문구. 서버 값을 그대로 보여주지 않는다. */
-const labelByStatus: Record<ChatRoomStatus, string> = {
+/**
+ * 상태별 표시 문구. 서버 값을 그대로 보여주지 않는다.
+ *
+ * 목록은 거절과 나감을 `CLOSED` 하나로 합쳐 주므로 둘을 구분하지 않는다. 정확한 상태는 방에
+ * 들어가면 이력 응답으로 알 수 있다.
+ */
+const labelByStatus: Record<ChatRoomSummaryStatus, string> = {
   PENDING: '대기중',
   ACTIVE: '채팅중',
-  REFUSED: '거절됨',
-  LEFT: '종료',
+  CLOSED: '종료',
 };
 
 /** 마지막 메시지가 없을 때 그 자리에 놓는 문구. 빈 줄로 두면 줄 높이가 흔들린다. */
-const emptyMessageByStatus: Record<ChatRoomStatus, string> = {
+const emptyMessageByStatus: Record<ChatRoomSummaryStatus, string> = {
   PENDING: '아직 대화가 시작되지 않았어요',
   ACTIVE: '대화가 진행 중이에요',
-  REFUSED: '거절된 요청이에요',
-  LEFT: '종료된 대화예요',
+  CLOSED: '종료된 대화예요',
 };
 
-function statusStyle(status: ChatRoomStatus) {
+function statusStyle(status: ChatRoomSummaryStatus) {
   if (status === 'PENDING') return s.pending;
   if (status === 'ACTIVE') return s.active;
 
@@ -51,24 +54,19 @@ function statusStyle(status: ChatRoomStatus) {
  * - 수락 · 거절은 마지막 줄에서 시각 오른쪽에 놓고, 그 줄 높이를 버튼 높이로 잡아 둔다.
  *   버튼이 없는 줄도 같은 높이라 대기 중인 줄만 높아지지 않는다
  */
-export function ChatRoomRow({
-  room,
-  decidable = false,
-  busy = false,
-  onOpen,
-  onDecide,
-}: ChatRoomRowProps) {
+export function ChatRoomRow({ room, decidable = false, busy = false, onOpen, onDecide }: ChatRoomRowProps) {
   const showDecisions = decidable && room.status === 'PENDING';
   /** 아직 주고받은 말이 없는 방. 안내 문구가 한 줄이라 아래 간격을 다르게 잡는다. */
   const empty = room.lastMessage === null;
 
   return (
     <Pressable accessibilityRole="button" onPress={onOpen} style={s.chatRow}>
-      <ViewAvatar angle={room.otherUserViewTemperature} size={AVATAR_SIZE} />
+      <ViewAvatar angle={room.otherUserViewAngle} size={AVATAR_SIZE} />
 
       <View style={s.chatRowCopy}>
         <View style={s.rowTitleLine}>
-          <Text numberOfLines={1} style={s.rowTitle}>
+          {/* 끝난 대화는 제목을 연하게 눌러, 살아 있는 대화와 한눈에 갈리게 한다. */}
+          <Text numberOfLines={1} style={[s.rowTitle, room.status === 'CLOSED' && s.rowTitleClosed]}>
             {room.placeName} · {room.otherUserNickname}
           </Text>
           {/*
@@ -98,9 +96,7 @@ export function ChatRoomRow({
             위 메시지의 왼쪽 끝과 어긋난다. 줄 높이는 `timeLine`이 잡아 두므로 비어도 흔들리지
             않는다.
           */}
-          {room.lastMessageAt !== null && (
-            <Text style={s.time}>{formatTimeOfDay(room.lastMessageAt)}</Text>
-          )}
+          {room.lastMessageAt !== null && <Text style={s.time}>{formatTimeOfDay(room.lastMessageAt)}</Text>}
 
           {showDecisions && (
             <View style={s.decisions}>

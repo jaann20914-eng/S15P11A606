@@ -222,6 +222,9 @@ export async function evaluateMockPin(pinId: PinId, rating: PinRating): Promise<
   };
 }
 
+/** 서버가 UUID로 파싱하는 값의 형식. 버전·변형 비트는 보지 않고 자릿수만 본다. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** 멱등성 키 → 이미 처리한 결과. 같은 키로 다시 부르면 차감 없이 그대로 돌려준다. */
 const unlockResultsByKey = new Map<string, PinUnlockResult>();
 
@@ -253,6 +256,14 @@ export async function unlockMockPin(pinId: PinId, idempotencyKey: string): Promi
 
   if (!idempotencyKey) {
     throw new ApiError(400, 'IDEMPOTENCY_KEY_REQUIRED', '멱등성 키가 필요합니다.');
+  }
+
+  /*
+    형식까지 확인한다. 서버가 이 헤더를 `UUID.fromString`으로 파싱하는데 목업은 아무 문자열이나
+    받아 줘서, 자유 형식 키로 보내던 잘못을 실서버에 붙이고서야 알았다(2026-08-05).
+  */
+  if (!UUID_PATTERN.test(idempotencyKey.trim())) {
+    throw new ApiError(400, 'INVALID_IDEMPOTENCY_KEY', '멱등성 키 형식이 올바르지 않습니다.');
   }
 
   const cached = unlockResultsByKey.get(idempotencyKey);

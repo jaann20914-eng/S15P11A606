@@ -33,8 +33,16 @@ export default function RootLayout() {
           name="place/[placeId]/index"
           options={{
             presentation: 'transparentModal',
+            /*
+              지도가 당겨지는 동안 시트가 떠오르게 한다.
+
+              홈이 이 화면을 띄우면서 지도를 영상핀 축척까지 한 단계씩 당긴다(`openPlace` →
+              `zoomStepwise`). 200ms로 두면 시트가 먼저 자리를 잡은 뒤에 지도만 뒤늦게
+              움직여 두 동작이 따로 논다. 확대에 걸리는 시간의 절반쯤에 맞춰 두면 시트가
+              떠오르는 동안 배경이 계속 확대되어 하나의 전환으로 읽힌다.
+            */
             animation: 'fade',
-            animationDuration: 200,
+            animationDuration: 320,
             /*
               **이 줄이 없으면 홈 지도가 사라진다.**
 

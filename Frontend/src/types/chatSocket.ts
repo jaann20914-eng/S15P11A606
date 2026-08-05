@@ -1,4 +1,4 @@
-import type { ChatRoomStatus } from './chat';
+import type { ChatRoomStatus, WarningReasonCode } from './chat';
 
 /**
  * 채팅 실시간 이벤트 타입.
@@ -18,12 +18,10 @@ export type SocketStatus =
   /** 끊긴 뒤 다시 붙기를 기다리는 중. */
   | 'reconnecting';
 
-/** 안전 경고 사유. */
-export type WarningReasonCode =
-  | 'EXTERNAL_MESSENGER_INDUCEMENT'
-  | 'FRAUD_SCAM'
-  | 'ILLEGAL_GOODS_TRADE'
-  | 'ETC_SUSPICIOUS';
+/*
+  안전 경고 사유(`WarningReasonCode`)는 `types/chat.ts`에 둔다. 이력 조회 응답과 이 이벤트가
+  같은 값을 쓰므로 한곳에만 있어야 한다 — 두 벌이 되면 한쪽만 고치는 일이 생긴다.
+*/
 
 /** 채팅방 이벤트의 공통 껍데기(`/topic/chat/rooms/{roomId}`). */
 interface ChatRoomEventBase<TType extends string, TData> {
@@ -44,7 +42,14 @@ export interface MessageCreatedData {
 }
 
 export interface WarningCreatedData {
-  messageId: number;
+  /**
+   * 경고 식별자.
+   *
+   * 이력 조회에는 담겨 오지만 실시간 이벤트에는 없다(서버 `ChatWarningEvent.Data`는 사유 ·
+   * 문구 · 시각만 준다). 같은 경고를 두 번 붙이지 않으려고 쓰는 값이라, 없으면 도착 시각으로
+   * 가린다.
+   */
+  messageId?: number;
   reasonCode: WarningReasonCode;
   content: string;
   createdAt: string;
@@ -71,14 +76,22 @@ interface UserChatEventBase<TType extends string, TData> {
 
 export interface ChatRoomUpdatedData {
   roomId: number;
+  /**
+   * 그 방이 달린 게시글.
+   *
+   * 받는 사람이 방 목록을 보고 있을 수도, 게시글 목록을 보고 있을 수도 있어 서버가 둘 다 담아
+   * 준다. 요청받은 대화 탭은 방이 아니라 글로 묶여 있어 이 값이 있어야 어느 줄인지 안다.
+   */
+  pinId: string;
+  /** 보낸 사람. 받는 쪽에서는 항상 상대다(서버가 발신자에게는 이 이벤트를 보내지 않는다). */
+  senderId: number;
   lastMessage: string;
   lastMessageAt: string;
-  /** 이 이벤트를 받는 사용자 기준으로 계산된 값이다. */
-  hasUnread: boolean;
 }
 
 export interface ChatRoomStatusChangedData {
   roomId: number;
+  pinId: string;
   status: ChatRoomStatus;
   changedAt: string;
 }

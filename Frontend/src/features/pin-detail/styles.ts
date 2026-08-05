@@ -84,7 +84,12 @@ export const pinDetailStyles = StyleSheet.create({
   actionFade: { position: 'absolute', left: 0, right: 0, height: 44 },
 
   /* 헤더 오른쪽 자리 — 내 핀이면 메뉴, 남의 핀이면 신고. 헤더 자체는 공용 컴포넌트가 그린다. */
-  headerButton: { width: layout.minTouch, height: layout.minTouch, alignItems: 'center', justifyContent: 'center' },
+  headerButton: {
+    width: layout.minTouch,
+    height: layout.minTouch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reportButton: {
     minWidth: 52,
     height: 44,
@@ -255,6 +260,8 @@ export const pinDetailStyles = StyleSheet.create({
     marginBottom: spacing.x4,
   },
   memo: { ...type.body, color: colors.gray400 },
+  /** 내용도 태그도 없는 글의 안내. 본문보다 한 단계 연해 "없는 것이 정상"으로 읽히게 한다. */
+  emptyBody: { ...type.small, color: colors.gray400 },
   tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },
   tag: { ...type.small, color: colors.blue },
 

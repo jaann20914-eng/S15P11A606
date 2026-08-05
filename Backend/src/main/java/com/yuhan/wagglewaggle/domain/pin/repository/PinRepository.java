@@ -46,6 +46,25 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     );
 
     /**
+     * 상세 조회용 단일 핀을 만료 여부와 무관하게 조회한다(핀 상세 전용).
+     * 조회 대상 = 요청 pinId 일치 AND videoStatus = ACTIVE AND 삭제되지 않음(deletedAt IS NULL).
+     * 만료(expiresAt) 필터는 적용하지 않으며, "미만료면 누구나 / 만료면 작성자만" 판정은 서비스에서 수행한다.
+     * (만료 핀에 대한 잠금 해제·평가·채팅 요청은 여전히 불가여야 하므로, 그 흐름들이 쓰는
+     *  findActivePinDetailById의 만료 조건은 그대로 두고 상세 조회 경로만 이 메서드를 사용한다.)
+     * 작성자(닉네임·뷰 각도)와 장소(내부 ID·카카오 ID·장소명·좌표)를 함께 쓰므로
+     * member·place를 fetch join 하여 N+1을 방지한다(둘 다 ToOne이라 카티전 곱이 없다).
+     */
+    @Query("""
+            SELECT p FROM Pin p
+            JOIN FETCH p.member
+            JOIN FETCH p.place
+            WHERE p.id = :pinId
+              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.deletedAt IS NULL
+            """)
+    Optional<Pin> findActivePinDetailByIdIncludingExpired(@Param("pinId") UUID pinId);
+
+    /**
      * 특정 회원이 기준 시각 이후 등록한 핀 개수를 센다(일일 등록 제한 확인용).
      */
     long countByMember_IdAndCreatedAtGreaterThanEqual(Long memberId, Instant from);

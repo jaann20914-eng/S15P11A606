@@ -2,12 +2,14 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageCreatedEvent;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatMessageSendRequest;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomUpdatedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatMessage;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
 import com.yuhan.wagglewaggle.domain.chat.filter.ProfanityFilter;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatMessageRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
+import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
@@ -52,7 +54,10 @@ class ChatMessageServiceTest {
     private static final Long RECIPIENT_ID = 20L;
     private static final Long STRANGER_ID = 99L;
     private static final UUID CLIENT_MESSAGE_ID = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static final UUID PIN_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
     private static final String TOPIC = "/topic/chat/rooms/" + ROOM_ID;
+    // convertAndSendToUser의 destination 인자(= /user prefix 제외). 구독 경로는 /user/queue/chat-rooms.
+    private static final String USER_QUEUE = "/queue/chat-rooms";
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-08-03T00:00:00Z"), ZoneOffset.UTC);
 
@@ -84,36 +89,89 @@ class ChatMessageServiceTest {
         return room;
     }
 
-    @Test
-    @DisplayName("참여자가 ACTIVE 방에 정상 전송하면 메시지를 저장하고 방 토픽에 브로드캐스트한다")
-    void 정상_전송이면_저장하고_브로드캐스트한다() {
-        givenActiveRoom(true, false); // 발신자 == 요청자 → 수신자 분기까지 가지 않음
-        given(profanityFilter.mask("안녕하세요")).willReturn("안녕하세요");
+    /**
+     * 저장 성공 후 개인 큐 push까지 도달하는 흐름용. 방 토픽 브로드캐스트 이후 push 코드가
+     * pin·요청자·수신자를 모두 참조하므로 세 프록시를 함께 스텁한다.
+     */
+    private ChatRoom givenActiveRoomForPush() {
+        ChatRoom room = mock(ChatRoom.class);
+        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+        given(room.getStatus()).willReturn(ChatRoomStatus.ACTIVE);
+        Member requester = mock(Member.class);
+        given(requester.getId()).willReturn(REQUESTER_ID);
+        given(room.getRequester()).willReturn(requester);
+        Member recipient = mock(Member.class);
+        given(recipient.getId()).willReturn(RECIPIENT_ID);
+        given(room.getRecipient()).willReturn(recipient);
+        Pin pin = mock(Pin.class);
+        given(pin.getId()).willReturn(PIN_ID);
+        given(room.getPin()).willReturn(pin);
+        return room;
+    }
+
+    private ChatMessage savedMessage(Long id, String content, String maskedContent) {
         ChatMessage saved = mock(ChatMessage.class);
-        given(saved.getId()).willReturn(500L);
-        given(saved.getContent()).willReturn("안녕하세요");
-        given(saved.getMaskedContent()).willReturn("안녕하세요");
+        given(saved.getId()).willReturn(id);
+        given(saved.getContent()).willReturn(content);
+        given(saved.getMaskedContent()).willReturn(maskedContent);
         given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
+        return saved;
+    }
+
+    @Test
+    @DisplayName("참여자가 ACTIVE 방에 정상 전송하면 저장·방 토픽 브로드캐스트와 상대 개인 큐 push를 수행한다")
+    void 정상_전송이면_저장하고_브로드캐스트하고_상대_개인큐로_push한다() {
+        givenActiveRoomForPush();
+        given(profanityFilter.mask("안녕하세요")).willReturn("안녕하세요");
+        ChatMessage saved = savedMessage(500L, "안녕하세요", "안녕하세요");
         given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
 
         service.send(REQUESTER_ID, ROOM_ID, req("안녕하세요"));
 
         verify(chatMessageRepository).saveAndFlush(any(ChatMessage.class));
         verify(messagingTemplate).convertAndSend(eq(TOPIC), any(ChatMessageCreatedEvent.class));
+
+        // 비발신자(상대=수신자) 개인 큐로 정확히 1회 push되고 payload가 기대값과 일치한다.
+        ArgumentCaptor<ChatRoomUpdatedEvent> captor = ArgumentCaptor.forClass(ChatRoomUpdatedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(RECIPIENT_ID)), eq(USER_QUEUE), captor.capture());
+        ChatRoomUpdatedEvent event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo("CHAT_ROOM_UPDATED");
+        assertThat(event.data().roomId()).isEqualTo(ROOM_ID);
+        assertThat(event.data().pinId()).isEqualTo(PIN_ID);
+        assertThat(event.data().senderId()).isEqualTo(REQUESTER_ID);
+        assertThat(event.data().lastMessage()).isEqualTo("안녕하세요");
+        assertThat(event.data().lastMessageAt()).isEqualTo(Instant.parse("2026-08-03T00:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("발신자 본인에게는 push하지 않고 비발신자(상대)에게만 push한다")
+    void 발신자에게는_push하지_않는다() {
+        givenActiveRoomForPush();
+        given(profanityFilter.mask("hi")).willReturn("hi");
+        ChatMessage saved = savedMessage(503L, "hi", "hi");
+        given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
+
+        service.send(RECIPIENT_ID, ROOM_ID, req("hi"));
+
+        // 발신자가 수신자이므로 비발신자인 요청자에게만 라우팅되고, senderId는 수신자 id로 담긴다.
+        ArgumentCaptor<ChatRoomUpdatedEvent> captor = ArgumentCaptor.forClass(ChatRoomUpdatedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(REQUESTER_ID)), eq(USER_QUEUE), captor.capture());
+        assertThat(captor.getValue().data().senderId()).isEqualTo(RECIPIENT_ID);
+        // 발신자(수신자) 개인 큐로는 push되지 않는다.
+        verify(messagingTemplate, never()).convertAndSendToUser(
+                eq(String.valueOf(RECIPIENT_ID)), eq(USER_QUEUE), any(ChatRoomUpdatedEvent.class));
     }
 
     @Test
     @DisplayName("욕설이 포함되면 마스킹된 maskedContent로 저장하고 이벤트에도 마스킹 결과를 싣는다")
     void 욕설이_있으면_마스킹해서_저장하고_브로드캐스트한다() {
-        givenActiveRoom(true, false);
+        givenActiveRoomForPush();
         String origin = "야 시발 안녕";
         String masked = "야 ** 안녕";
         given(profanityFilter.mask(origin)).willReturn(masked);
-        ChatMessage saved = mock(ChatMessage.class);
-        given(saved.getId()).willReturn(501L);
-        given(saved.getContent()).willReturn(origin);
-        given(saved.getMaskedContent()).willReturn(masked);
-        given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
+        ChatMessage saved = savedMessage(501L, origin, masked);
         given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
 
         service.send(REQUESTER_ID, ROOM_ID, req(origin));
@@ -129,6 +187,28 @@ class ChatMessageServiceTest {
         verify(messagingTemplate).convertAndSend(eq(TOPIC), eventCaptor.capture());
         assertThat(eventCaptor.getValue().data().content()).isEqualTo(origin);
         assertThat(eventCaptor.getValue().data().maskedContent()).isEqualTo(masked);
+
+        // 목록 미리보기(lastMessage)는 maskedContent(마스킹 결과)를 우선 사용한다.
+        ArgumentCaptor<ChatRoomUpdatedEvent> listCaptor = ArgumentCaptor.forClass(ChatRoomUpdatedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(RECIPIENT_ID)), eq(USER_QUEUE), listCaptor.capture());
+        assertThat(listCaptor.getValue().data().lastMessage()).isEqualTo(masked);
+    }
+
+    @Test
+    @DisplayName("maskedContent가 없으면 목록 미리보기(lastMessage)는 원문 content로 채운다")
+    void 마스킹결과가_없으면_미리보기는_원문_content로_채운다() {
+        givenActiveRoomForPush();
+        given(profanityFilter.mask("원문내용")).willReturn("원문내용");
+        ChatMessage saved = savedMessage(504L, "원문내용", null);
+        given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
+
+        service.send(REQUESTER_ID, ROOM_ID, req("원문내용"));
+
+        ArgumentCaptor<ChatRoomUpdatedEvent> listCaptor = ArgumentCaptor.forClass(ChatRoomUpdatedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(RECIPIENT_ID)), eq(USER_QUEUE), listCaptor.capture());
+        assertThat(listCaptor.getValue().data().lastMessage()).isEqualTo("원문내용");
     }
 
     @Test
@@ -152,18 +232,23 @@ class ChatMessageServiceTest {
         Member requester = mock(Member.class);
         given(requester.getId()).willReturn(REQUESTER_ID);
         given(room.getRequester()).willReturn(requester);
+        Member recipient = mock(Member.class);
+        given(recipient.getId()).willReturn(RECIPIENT_ID);
+        given(room.getRecipient()).willReturn(recipient);
+        Pin pin = mock(Pin.class);
+        given(pin.getId()).willReturn(PIN_ID);
+        given(room.getPin()).willReturn(pin);
         given(profanityFilter.mask("hi")).willReturn("hi");
-        ChatMessage saved = mock(ChatMessage.class);
-        given(saved.getId()).willReturn(502L);
-        given(saved.getContent()).willReturn("hi");
-        given(saved.getMaskedContent()).willReturn("hi");
-        given(saved.getCreatedAt()).willReturn(Instant.parse("2026-08-03T00:00:00Z"));
+        ChatMessage saved = savedMessage(502L, "hi", "hi");
         given(chatMessageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
 
         service.send(REQUESTER_ID, ROOM_ID, req("hi"));
 
         verify(chatMessageRepository).saveAndFlush(any(ChatMessage.class));
         verify(messagingTemplate).convertAndSend(eq(TOPIC), any(ChatMessageCreatedEvent.class));
+        // 비발신자(상대=수신자)에게만 push된다.
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(RECIPIENT_ID)), eq(USER_QUEUE), any(ChatRoomUpdatedEvent.class));
     }
 
     @Test

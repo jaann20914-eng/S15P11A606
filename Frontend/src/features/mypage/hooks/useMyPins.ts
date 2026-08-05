@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { getTodayPins } from '@/api/user/todayPins';
 import type { MyPin } from '@/types/mypage';
@@ -100,9 +101,16 @@ export function useMyPins(): MyPinsState {
       });
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  /*
+    화면이 다시 보일 때마다 첫 장을 새로 받는다.
+
+    이 목록에서 상세로 들어가 핀을 지우거나 고칠 수 있다. 돌아왔을 때 지운 핀이 그대로 남아
+    있으면 삭제가 안 된 것으로 읽힌다 — 서버는 지운 핀을 목록에서 빼 주므로 다시 받으면 사라진다.
+
+    이어 받아 둔 뒷장은 버리고 첫 장부터 다시 센다. 그러지 않으면 사라진 한 칸 때문에 커서가
+    어긋나 같은 핀이 두 번 보인다.
+  */
+  useFocusEffect(useCallback(() => load(), [load]));
 
   const loadMore = useCallback(() => {
     // 첫 조회 중이거나 이미 이어 받는 중이면 겹쳐 부르지 않는다.
