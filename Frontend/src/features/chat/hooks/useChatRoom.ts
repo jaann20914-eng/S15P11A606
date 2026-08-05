@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getChatHistory } from '@/api/chat/messages';
+import { getMyProfile } from '@/api/user/profile';
 import { updateChatRead } from '@/api/chat/read';
 import { sendChatMessage } from '@/api/chat/socket/messages';
 import { usesMock } from '@/api/config';
@@ -11,6 +12,9 @@ import { enterRoom, notifyRoomRead } from '../readTracker';
 import { useChatRoomEvents, useUserChatEvents } from './useChatEvents';
 
 const log = createDevLogger('chat-room');
+
+/** 내 사용자 id. 앱을 켜고 한 번 받으면 바뀌지 않으므로 방마다 다시 묻지 않는다. */
+let cachedMyUserId: number | null = null;
 
 /** 방 헤더에 쓰는 정보. 이력 응답에서 메시지만 뺀 나머지다. */
 export interface ChatRoomInfo {
@@ -100,14 +104,36 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
   /**
    * 내 사용자 id.
    *
-   * 이력은 서버가 `SELF`/`OTHER`로 내려주지만 소켓 이벤트는 `senderId`(숫자)로 온다. 내 id를
-   * 알려주는 API를 이 화면에서 부르지 않으므로, **내가 보낸 것이 되돌아올 때 알아내서** 기억한다
-   * (보낸 내용과 같은 메시지가 먼저 도착한다). 알아내기 전에는 남이 보낸 것으로 둔다 — 내
-   * 메시지를 남의 것으로 잠깐 보여주는 편이, 남의 메시지를 내 것으로 보여주는 것보다 낫다.
+   * 이력은 서버가 `SELF`/`OTHER`로 내려주지만 소켓 이벤트는 `senderId`(숫자)로 온다. 내
+   * 프로필(`GET /users/me`)에서 한 번 받아 두고 그 값과 비교한다.
+   *
+   * 예전에는 **내가 보낸 내용이 되돌아올 때** senderId를 내 id로 학습했는데, 상대가 같은
+   * 내용을 보내면(빠른 질문 버튼을 양쪽이 누르는 경우) 상대 id를 내 것으로 잘못 배워 그
+   * 방의 말풍선이 통째로 뒤집혔다(2026-08-06). 추측하지 않고 서버에 묻는다.
+   *
+   * 받기 전에 도착한 메시지는 남이 보낸 것으로 둔다 — 내 메시지를 남의 것으로 잠깐 보여주는
+   * 편이, 남의 메시지를 내 것으로 보여주는 것보다 낫다. 방을 다시 열면 이력이 바로잡는다.
    */
-  const myUserIdRef = useRef<number | null>(null);
-  /** 보냈지만 아직 되돌아오지 않은 내용. 위의 판별에 쓴다. */
-  const outboxRef = useRef<string[]>([]);
+  const myUserIdRef = useRef<number | null>(cachedMyUserId);
+
+  useEffect(() => {
+    if (myUserIdRef.current !== null) return;
+
+    let alive = true;
+
+    getMyProfile()
+      .then((profile) => {
+        cachedMyUserId = profile.userId;
+        if (alive) myUserIdRef.current = profile.userId;
+      })
+      .catch(() => {
+        // 못 받으면 이번 방에서는 소켓 메시지가 전부 남의 것으로 보인다. 다음 진입에서 다시 받는다.
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
@@ -196,14 +222,6 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
       if (event.eventType === 'MESSAGE_CREATED') {
         const { messageId, senderId, content, maskedContent, createdAt } = event.data;
 
-        // 내가 보낸 것이 되돌아왔는지 본다. 맞으면 그 김에 내 id를 기억한다.
-        const mine = outboxRef.current.indexOf(content);
-
-        if (mine !== -1) {
-          outboxRef.current.splice(mine, 1);
-          myUserIdRef.current = senderId;
-        }
-
         const sender = myUserIdRef.current === senderId ? 'SELF' : 'OTHER';
 
         setMessages((current) => {
@@ -288,15 +306,11 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
         return;
       }
 
-      outboxRef.current.push(trimmed);
-
       const { delivered, clientMessageId } = sendChatMessage(roomId, trimmed);
 
       log('메시지 전송', { roomId, 전달: delivered, clientMessageId });
 
       if (!delivered) {
-        // 되돌아올 일이 없으므로 판별 목록에서 뺀다.
-        outboxRef.current = outboxRef.current.filter((item) => item !== trimmed);
         setSendError('연결이 끊겨 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.');
       }
     },

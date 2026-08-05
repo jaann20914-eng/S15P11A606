@@ -126,16 +126,19 @@ const s = StyleSheet.create({
   sheet: {
     alignItems: 'center',
     paddingHorizontal: spacing.x6,
+    // 손잡이가 시트 윗변에 붙지 않게 한 뼘 띄운다(결제 시트와 같은 값).
+    paddingTop: spacing.x2,
     borderTopLeftRadius: radius.hero,
     borderTopRightRadius: radius.hero,
     backgroundColor: colors.white,
   },
   handleArea: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: spacing.x3 },
   handle: { width: 56, height: 5, borderRadius: radius.pill, backgroundColor: colors.gray200 },
-  title: { ...type.h3, alignSelf: 'flex-start', color: colors.dark },
+  /** 손잡이 밑에서 한 번 더 띄운다. 붙여 두면 제목이 손잡이에 매달린 것처럼 보였다. */
+  title: { ...type.h3, alignSelf: 'flex-start', marginTop: spacing.x2, color: colors.dark },
   caption: { ...type.small, alignSelf: 'flex-start', marginTop: spacing.x2, color: colors.gray400 },
   /** 다른 시트의 그림(200)보다 큰 것은 가로 영상을 잘라 쓰는 몫이다. 둥근 모서리로 잘린 티를 줄인다. */
-  video: { width: 240, height: 240, marginTop: spacing.x6, borderRadius: radius.lg, overflow: 'hidden' },
+  video: { width: 240, height: 240, marginTop: spacing.x4, borderRadius: radius.lg, overflow: 'hidden' },
   message: {
     ...type.body,
     marginTop: spacing.x6,

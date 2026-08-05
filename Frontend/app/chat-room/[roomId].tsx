@@ -630,7 +630,7 @@ const s = StyleSheet.create({
     gap: spacing.x3,
     padding: spacing.x3,
     borderRadius: radius.md,
-    backgroundColor: 'rgba(216,235,106,0.4)',
+    backgroundColor: 'rgba(216,235,106,0.65)',
   },
   /** 흰 판 위에 그림을 얹어 연둣빛 바탕에서 도드라지게 한다. */
   toastImage: {
