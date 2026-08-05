@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomRequestedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
@@ -10,6 +11,7 @@ import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinUnlockRepository;
+import com.yuhan.wagglewaggle.domain.place.entity.Place;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.domain.user.repository.MemberRepository;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
@@ -18,11 +20,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,17 +50,26 @@ class ChatRequestServiceTest {
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatRoomMemberRepository chatRoomMemberRepository;
     @Mock private MemberRepository memberRepository;
+    @Mock private SimpMessagingTemplate messagingTemplate;
 
     private ChatRequestService service;
 
     private static final UUID PIN_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
     private static final Long REQUESTER_ID = 99L;
     private static final Long OWNER_ID = 42L;
+    private static final String REQUESTER_NICKNAME = "도장깨기 준호";
+    private static final String PLACE_NAME = "카페 A";
+    private static final String USER_QUEUE = "/queue/chat-rooms";
+    private static final Instant REQUESTED_AT = Instant.parse("2026-08-01T18:00:00Z");
+
+    private static final Instant NOW = Instant.parse("2026-08-04T00:00:00Z");
+    private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         service = new ChatRequestService(
-                pinRepository, pinUnlockRepository, chatRoomRepository, chatRoomMemberRepository, memberRepository);
+                pinRepository, pinUnlockRepository, chatRoomRepository, chatRoomMemberRepository, memberRepository,
+                messagingTemplate, clock);
     }
 
     private ChatRequestCreateRequest req(String pinId) {
@@ -83,13 +98,19 @@ class ChatRequestServiceTest {
     @Test
     @DisplayName("활성·타인 소유·구매 완료·방 없음이면 PENDING 채팅방과 요청자 멤버 행을 생성하고 roomId·pinId를 반환한다")
     void 유효한_요청이면_채팅방을_생성한다() {
-        givenRequesterWithCredit(10);
-        givenActivePinOwnedByOther();
+        Member requester = givenRequesterWithCredit(10);
+        given(requester.getNickname()).willReturn(REQUESTER_NICKNAME);
+        Pin pin = givenActivePinOwnedByOther();
         given(pinUnlockRepository.existsByPin_IdAndMember_Id(PIN_ID, REQUESTER_ID)).willReturn(true);
         given(chatRoomRepository.findStatusByPinIdAndRequesterId(PIN_ID, REQUESTER_ID))
                 .willReturn(Optional.empty());
+        Place place = mock(Place.class);
+        given(pin.getPlace()).willReturn(place);
+        given(place.getName()).willReturn(PLACE_NAME);
         ChatRoom saved = mock(ChatRoom.class);
         given(saved.getId()).willReturn(1L);
+        given(saved.getStatus()).willReturn(ChatRoomStatus.PENDING);
+        given(saved.getCreatedAt()).willReturn(REQUESTED_AT);
         given(chatRoomRepository.saveAndFlush(any(ChatRoom.class))).willReturn(saved);
 
         ChatRequestCreateResponse response = service.request(REQUESTER_ID, req(PIN_ID.toString()));
@@ -99,6 +120,21 @@ class ChatRequestServiceTest {
         verify(chatRoomRepository).saveAndFlush(any(ChatRoom.class));
         // 수락 전에도 요청자가 전송할 수 있도록 요청자 멤버 행을 미리 생성한다.
         verify(chatRoomMemberRepository).save(any(ChatRoomMember.class));
+
+        // 새 요청을 recipient(핀 소유자=OWNER_ID) 개인 큐로 push한다. 요청자에게는 보내지 않는다.
+        ArgumentCaptor<ChatRoomRequestedEvent> captor = ArgumentCaptor.forClass(ChatRoomRequestedEvent.class);
+        verify(messagingTemplate).convertAndSendToUser(
+                eq(String.valueOf(OWNER_ID)), eq(USER_QUEUE), captor.capture());
+        ChatRoomRequestedEvent event = captor.getValue();
+        assertThat(event.eventType()).isEqualTo("CHAT_ROOM_REQUESTED");
+        assertThat(event.occurredAt()).isEqualTo(NOW);
+        assertThat(event.data().roomId()).isEqualTo(1L);
+        assertThat(event.data().requesterId()).isEqualTo(REQUESTER_ID);
+        assertThat(event.data().requesterNickname()).isEqualTo(REQUESTER_NICKNAME);
+        assertThat(event.data().pinId()).isEqualTo(PIN_ID);
+        assertThat(event.data().placeName()).isEqualTo(PLACE_NAME);
+        assertThat(event.data().status()).isEqualTo(ChatRoomStatus.PENDING);
+        assertThat(event.data().requestedAt()).isEqualTo(REQUESTED_AT);
     }
 
     @Test
@@ -181,6 +217,7 @@ class ChatRequestServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.CHAT_REQUEST_ALREADY_EXISTS);
         verify(chatRoomRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(messagingTemplate);
     }
 
     @Test
@@ -225,5 +262,6 @@ class ChatRequestServiceTest {
                 .extracting("errorCode").isEqualTo(ErrorCode.INSUFFICIENT_CREDIT);
         verify(pinRepository, never()).findActivePinDetailById(any(), any());
         verify(chatRoomRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(messagingTemplate);
     }
 }

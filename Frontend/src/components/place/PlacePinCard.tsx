@@ -74,6 +74,29 @@ const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 const THUMBNAIL_WIDTH = 152;
 const THUMBNAIL_HEIGHT = 128;
 
+/**
+ * 열람 전 썸네일에 거는 블러 반경(dp).
+ *
+ * **결제하지 않은 사람에게는 현장이 보이지 않아야 한다.** 썸네일은 현장 영상의 한 장면이라
+ * 상세 화면의 영상과 같은 기준으로 가린다(`revealsVideo`) — 한쪽만 선명하면 목록을 훑는
+ * 것만으로 현장을 볼 수 있어 크레딧을 쓸 이유가 없어진다.
+ *
+ * 가리는 수단은 상세 화면과 같은 `filter`다(`PinDetailMedia`의 `PREVIEW_BLUR_RADIUS` 설명에
+ * `expo-blur`와 축소·확대가 왜 안 되는지 적어 두었다). 상세는 화면 너비(약 390dp)에 24를
+ * 쓰는데, 여기서는 칸이 152dp라 **같은 비율(약 6%)이 되는 10**을 쓴다. 크기가 다른 자리에
+ * 같은 값을 쓰면 작은 칸은 통째로 뭉개진다.
+ */
+const PREVIEW_BLUR_RADIUS = 10;
+
+/**
+ * 블러를 걸 때 그림을 이만큼 키워 넣는다.
+ *
+ * `filter`는 칸 밖의 **투명한 바깥까지 섞어** 흐리게 하므로, 그림을 칸에 딱 맞게 두면
+ * 네 변이 옅게 사라져 카드 흰 바닥이 비친다. 반경만큼 넉넉히 키워 그 옅은 띠를 칸 밖으로
+ * 밀어내고 잘라 낸다 — 필요한 최소는 `1 + 2 × 10 / 128 ≒ 1.16`이라 여유를 둔 값이다.
+ */
+const PREVIEW_BLUR_OVERSCAN = 1.25;
+
 export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
@@ -102,47 +125,75 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
 
       <View style={s.body}>
         {/*
-          열람하지 않은 핀도 썸네일은 블러 처리된 것이 온다(서버가 원본을 주지 않는다).
-          아직 주소가 없으므로 지금은 색 자리만 둔다.
+          서버가 주는 썸네일은 **AI가 얼굴만 가린 영상의 한 장면**이라 현장이 그대로 보인다.
+          열람 전에 가리는 일은 상세 화면의 영상과 마찬가지로 화면이 한다(`pin.revealed`).
+
+          주소는 목록 응답에 담겨 오지 않아 화면이 핀마다 따로 받아 채운다
+          (`features/place-detail/hooks/usePinThumbnails.ts`). 그래서 카드가 먼저 그려지고
+          썸네일이 나중에 들어온다 — **비어 있는 동안에도 자리는 그대로 있어야 한다.**
+          받지 못한 핀은 계속 색 자리로 남는다.
         */}
         {pin.thumbnailUrl === null ? (
           <LinearGradient colors={THUMBNAIL_TINT} style={s.thumbnail} />
-        ) : (
+        ) : pin.revealed ? (
           <Image source={{ uri: pin.thumbnailUrl }} style={s.thumbnail} />
+        ) : (
+          /*
+            열람 전에는 가린다. 반경·확대 이유는 위 `PREVIEW_BLUR_RADIUS` 설명에 있다.
+
+            바깥 칸이 자르고(`overflow: hidden`) 안쪽이 흐린 그림을 키워 채운다. 자르는 칸과
+            흐리게 하는 칸을 나눈 이유는, 같은 뷰에 `filter`와 `overflow`를 함께 걸면 잘린
+            결과가 아니라 자르기 전 그림이 흐려져 옅은 띠가 그대로 남기 때문이다.
+          */
+          <View style={s.thumbnailClip}>
+            <View style={s.thumbnailBlur}>
+              <Image source={{ uri: pin.thumbnailUrl }} style={s.thumbnailOverscan} />
+            </View>
+          </View>
         )}
 
         <View style={s.copy}>
           {/*
-            **비어 있어도 자리를 비우지 않는다.**
+            **비어 있어도 자리를 비우지 않되, 글자로 알리지도 않는다.**
 
             메모와 태그는 등록할 때 선택 입력이라 없는 핀이 흔하다. 자리를 통째로 접으면 그
-            카드만 오른쪽이 텅 비어, 값이 없는 것인지 화면이 덜 그려진 것인지 구분되지 않는다.
-            없다고 적어 두면 읽는 쪽에서 "이 사람은 글을 안 남겼다"로 읽힌다.
+            카드만 오른쪽이 텅 비어 값이 없는 것인지 덜 그려진 것인지 구분되지 않는다. 그래서
+            예전에는 `내용 없음`·`태그 없음`을 적었는데, **한 카드에 "없음"이 두 번 쌓여** 읽을
+            것이 없는 카드가 오히려 글자로 시끄러워졌다(팀 의견, 2026-08-05).
+
+            지금은 값이 없는 자리에 **줄표(—) 하나**만 둔다. 표에서 빈 칸을 적는 방식이라 뜻이
+            바로 읽히고, 눈에 걸리지 않으면서 자리는 지킨다. 태그 쪽은 칩 모양을 유지해 "태그가
+            들어올 자리"라는 것까지 보인다.
+
+            **읽어 주는 쪽에는 그대로 말로 알린다**(`accessibilityLabel`) — 줄표는 눈으로 볼 때만
+            뜻이 통하기 때문이다.
           */}
           {memo.length > 0 ? (
             <Text numberOfLines={MEMO_MAX_LINES} ellipsizeMode="tail" style={s.memo}>
               {memo}
             </Text>
           ) : (
-            <Text style={s.placeholder}>내용 없음</Text>
+            <Text accessibilityLabel="남긴 메모 없음" style={s.emptyMark}>
+              —
+            </Text>
           )}
 
-          {pin.tags.length > 0 ? (
-            <View style={s.tags}>
-              {pin.tags.map((tag) => (
+          {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
+          <View style={s.tags}>
+            {pin.tags.length > 0 ? (
+              pin.tags.map((tag) => (
                 <View key={tag} style={s.tag}>
                   <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
                     #{tag}
                   </Text>
                 </View>
-              ))}
-            </View>
-          ) : (
-            /* 태그 칩 줄과 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */
-            <View style={s.tags}>
-              <Text style={s.placeholder}>태그 없음</Text>
-            </View>
-          )}
+              ))
+            ) : (
+              <View accessibilityLabel="태그 없음" style={[s.tag, s.tagEmpty]}>
+                <Text style={s.emptyMark}>—</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </Pressable>
@@ -186,14 +237,35 @@ const s = StyleSheet.create({
     marginTop: spacing.x3,
   },
   thumbnail: { width: THUMBNAIL_WIDTH, height: THUMBNAIL_HEIGHT, borderRadius: radius.md },
+  /** 열람 전 썸네일을 담는 칸. 흐려서 번진 가장자리를 여기서 자른다. */
+  thumbnailClip: {
+    width: THUMBNAIL_WIDTH,
+    height: THUMBNAIL_HEIGHT,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbnailBlur: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    filter: [{ blur: PREVIEW_BLUR_RADIUS }],
+  },
+  thumbnailOverscan: {
+    width: THUMBNAIL_WIDTH * PREVIEW_BLUR_OVERSCAN,
+    height: THUMBNAIL_HEIGHT * PREVIEW_BLUR_OVERSCAN,
+  },
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
   /**
-   * 값이 없다고 적는 자리. 실제 값보다 한 단계 작고 옅게 둔다.
+   * 값이 없는 자리에 두는 줄표.
    *
-   * 메모·태그 자리에 같은 스타일을 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
+   * 메모와 태그가 같은 표시를 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
+   * 글자보다 옅게 두어 카드를 훑을 때 걸리지 않게 한다.
    */
-  placeholder: { ...type.caption, color: colors.gray400 },
+  emptyMark: { ...type.small, color: colors.gray400 },
   /**
    * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**
    *
@@ -211,6 +283,8 @@ const s = StyleSheet.create({
     marginTop: 'auto',
     overflow: 'hidden',
   },
+  /** 태그가 없을 때의 칩. 색만 빼고 모양은 같게 두어 "들어올 자리"로 읽힌다. */
+  tagEmpty: { minWidth: 44, backgroundColor: colors.gray100 },
   tag: {
     maxWidth: '45%',
     height: 28,

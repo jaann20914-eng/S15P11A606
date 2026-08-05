@@ -97,10 +97,14 @@ export interface CardPagerProps {
    */
   paging?: boolean;
   /**
-   * 칸 높이가 정해질 때마다 알린다.
+   * 칸 높이가 정해질 때마다 알린다. **실제로 잰 값만 알린다.**
    *
    * 시트의 "보통" 단계 높이를 이 값으로 정하는 화면이 쓴다. 카드를 직접 재던 화면은 이것으로
    * 바꿔야 한다 — 카드가 칸에 갇히면 잰 값이 칸 높이가 되어 서로 물린다.
+   *
+   * 재기 전과 **카드가 하나도 없을 때는 부르지 않는다.** 받는 쪽이 첫 프레임에 쓸 값은 자기
+   * 어림값으로 두고, 카드가 없는 상태의 높이는 그 화면이 자기 내용으로 정해야 한다 — 여기서
+   * 어림값을 알리면 그 값으로 시트가 한 번 커졌다가 실제 카드 높이로 다시 줄어든다.
    */
   onSlotHeightChange?: (height: number) => void;
   /**
@@ -181,9 +185,19 @@ export function CardPager({
     동안에는 직전 값을 그대로 쓴다.
   */
   const [cardHeight, setCardHeight] = useState(ESTIMATED_CARD_HEIGHT);
+  /**
+   * 한 번이라도 실제로 재 봤는지.
+   *
+   * **재지 못한 값은 밖으로 알리지 않는다**(`onSlotHeightChange`). 이 칸의 어림값(240)을 알려
+   * 버리면, 그 값으로 시트 높이를 정하는 화면이 자기 어림값(홈은 208)에서 이 값으로 한 번
+   * 커졌다가 실제 카드가 재지면 다시 줄어든다 — **켤 때마다 시트가 커졌다 돌아오던 것이
+   * 이것이었다**(2026-08-05). 카드가 하나도 없을 때는 알릴 값 자체가 없다.
+   */
+  const [everMeasured, setEverMeasured] = useState(false);
   useEffect(() => {
     if (!measured) return;
     setCardHeight(Math.max(...heights));
+    setEverMeasured(true);
   }, [heights, measured]);
 
   /*
@@ -205,10 +219,12 @@ export function CardPager({
   */
   const reportedSlotHeight = useRef(0);
   useEffect(() => {
+    // 어림값은 알리지 않는다. 이유는 `everMeasured` 설명에 있다.
+    if (!everMeasured) return;
     if (reportedSlotHeight.current === slotHeight) return;
     reportedSlotHeight.current = slotHeight;
     onSlotHeightChange?.(slotHeight);
-  }, [onSlotHeightChange, slotHeight]);
+  }, [everMeasured, onSlotHeightChange, slotHeight]);
 
   const translateY = useRef(new Animated.Value(0)).current;
 

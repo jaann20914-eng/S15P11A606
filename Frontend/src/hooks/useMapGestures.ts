@@ -25,6 +25,15 @@ import type { MapGestureControl } from '@/store/useMapStore';
  */
 const PINCH_STEP_RATIO = 1.4;
 
+/**
+ * 이 안에서 손을 뗐으면 끈 것이 아니라 **누른 것**으로 본다(px · ms).
+ *
+ * 마커를 고르는 길이 이것뿐이다 — 이 판이 터치를 먼저 잡으므로 아래 지도의 click은 일어나지
+ * 않는다. 손가락은 가만히 누르려 해도 몇 픽셀은 움직이므로 여유를 둔다.
+ */
+const TAP_SLOP_PX = 8;
+const TAP_MAX_MS = 300;
+
 /** 두 손가락 간격. 손가락이 둘보다 적으면 null. */
 function spreadOf(event: GestureResponderEvent): number | null {
   const touches = event.nativeEvent.touches;
@@ -50,6 +59,13 @@ export function useMapGestures(control: MapGestureControl | null): MapGestures {
   const sent = useRef({ x: 0, y: 0 });
   /** 확대 판정의 기준이 되는 두 손가락 간격. 한 손가락이면 null. */
   const spread = useRef<number | null>(null);
+  /**
+   * 처음 누른 자리와 시각. 손을 뗄 때 탭인지 가른다.
+   *
+   * 자리는 화면 왼쪽 위를 0으로 본 값(`pageX`·`pageY`)이다. 지도 WebView도 같은 자리에서
+   * 시작하므로(화면 전체를 덮는다) 그대로 지도의 컨테이너 좌표가 된다.
+   */
+  const down = useRef({ x: 0, y: 0, at: 0 });
 
   const responder = useMemo(
     () =>
@@ -60,6 +76,11 @@ export function useMapGestures(control: MapGestureControl | null): MapGestures {
         onPanResponderGrant: (event) => {
           sent.current = { x: 0, y: 0 };
           spread.current = spreadOf(event);
+          down.current = {
+            x: event.nativeEvent.pageX,
+            y: event.nativeEvent.pageY,
+            at: Date.now(),
+          };
         },
         onPanResponderMove: (event, gesture) => {
           if (control === null) return;
@@ -97,8 +118,26 @@ export function useMapGestures(control: MapGestureControl | null): MapGestures {
           sent.current = { x: gesture.dx, y: gesture.dy };
           control.dragBy(dx, dy);
         },
-        // 멈춘 자리를 지도가 알려야 화면 쪽 중심·영역·축척이 실제와 맞는다.
-        onPanResponderRelease: () => control?.dragEnd(),
+        onPanResponderRelease: (_, gesture) => {
+          if (control === null) return;
+
+          /*
+            거의 움직이지 않고 곧 뗐으면 **누른 것**이다. 누른 자리를 지도에 넘겨 마커 판정을
+            맡긴다 — 무엇이 눌렸는지는 마커의 화면 위치를 아는 지도만 알 수 있다.
+
+            이때는 `dragEnd`를 보내지 않는다. 끈 것이 없으니 멈춘 자리를 다시 알릴 이유가 없고,
+            그 알림은 홈에서 장소 목록을 다시 받아오는 계기가 된다.
+          */
+          const still = Math.abs(gesture.dx) <= TAP_SLOP_PX && Math.abs(gesture.dy) <= TAP_SLOP_PX;
+
+          if (still && Date.now() - down.current.at <= TAP_MAX_MS) {
+            control.tapAt(down.current.x, down.current.y);
+            return;
+          }
+
+          // 멈춘 자리를 지도가 알려야 화면 쪽 중심·영역·축척이 실제와 맞는다.
+          control.dragEnd();
+        },
         onPanResponderTerminate: () => control?.dragEnd(),
       }),
     [control],

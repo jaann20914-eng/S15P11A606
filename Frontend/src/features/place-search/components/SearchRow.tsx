@@ -45,7 +45,7 @@ export function SearchRow({
       <View style={s.copy}>{children}</View>
 
       {/* 기다리는 줄에는 표시를 준다. 없으면 눌렸는지 알 수 없다. */}
-      {pending ? <ActivityIndicator size="small" color={colors.gray600} /> : trailing}
+      {pending ? <ActivityIndicator size="small" color={colors.limeText} /> : trailing}
     </Pressable>
   );
 }

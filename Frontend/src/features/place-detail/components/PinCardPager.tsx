@@ -46,6 +46,11 @@ export function PinCardPager({
     <CardPager
       paging={paging}
       onSlotHeightChange={onSlotHeightChange}
+      /*
+        밖에서 고른 카드로 넘어간다. 지도 마커를 누르면 그 게시물이 이 값으로 온다 — 없으면
+        테두리만 옮겨지고 화면에는 여전히 다른 카드가 보인다(홈도 같은 값을 넘긴다).
+      */
+      activeIndex={selectedIndex}
       onIndexChange={onIndexChange}
       scrollOffset={scrollOffset}
     >

@@ -7,7 +7,7 @@ import { KAKAO_MAP_BASE_URL, buildKakaoMapHtml } from './kakaoMapHtml';
 import type { KakaoMapHandle, KakaoMapProps } from './KakaoMap.types';
 import type { MapCommand, MapOutgoingMessage, MapPatch } from './kakaoMapHtml';
 import { hasKakaoMapAppKey, kakaoMapAppKey } from '@/constants/env';
-import { color, radius } from '@/constants/theme';
+import { color, colors, radius } from '@/constants/theme';
 
 export type { KakaoMapHandle, KakaoMapProps } from './KakaoMap.types';
 
@@ -148,6 +148,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       dragBy: (dx: number, dy: number) => send('dragBy', [dx, dy]),
       dragEnd: () => send('dragEnd'),
       zoomBy: (step: number) => send('zoomBy', [step]),
+      tapAt: (x: number, y: number) => send('tapAt', [x, y]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),
       relayout: () => send('relayout'),
     }),
@@ -247,9 +248,14 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         androidLayerType="hardware"
         cacheEnabled
       />
+      {/*
+        타일이 오기 전 잠깐 도는 표시. **색은 라임 계열 하나로 통일한다**(`colors.limeText`) —
+        홈과 그에 이어지는 화면의 모든 로딩 표시가 같은 색이어야 서비스 색으로 읽힌다.
+        예전에는 혼잡도 팔레트의 초록을 써서 지도 위에서 회색빛으로 보였다.
+      */}
       {!ready && (
         <View pointerEvents="none" style={s.loading}>
-          <ActivityIndicator color={color.pin.relaxed.strong} />
+          <ActivityIndicator color={colors.limeText} />
         </View>
       )}
     </View>

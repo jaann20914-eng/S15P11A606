@@ -11,6 +11,8 @@
 | Grafana | `waggle-grafana` | 대시보드 시각화 | `127.0.0.1:3000` |
 | node-exporter | `waggle-node-exporter` | EC2 호스트 지표 | (내부) |
 | cAdvisor | `waggle-cadvisor` | 컨테이너별 지표 | (내부) |
+| postgres-exporter | `waggle-postgres-exporter` | PostGIS 지표 | (내부) |
+| es-exporter | `waggle-es-exporter` | Elasticsearch 지표 | (내부) |
 
 - 수집 대상은 [`prometheus/prometheus.yml`](prometheus/prometheus.yml) 에서 관리한다.
 - Grafana Prometheus 데이터소스는 부팅 시 자동 등록된다(provisioning).
@@ -60,6 +62,9 @@ Grafana 좌측 `Dashboards → New → Import` 에서 아래 ID 입력:
 | Node Exporter Full (호스트) | `1860` |
 | cAdvisor (컨테이너) | `14282` |
 | RabbitMQ | `10991` |
+| Spring Boot / JVM (Micrometer) | `4701` |
+| PostgreSQL (postgres_exporter) | `9628` |
+| Elasticsearch (es_exporter) | `14191` |
 
 ## 일상 운영
 

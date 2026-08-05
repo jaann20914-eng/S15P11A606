@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     margin_ratio: float = 0.3
     blur_kernel_size: int = 51
     blur_iterations: int = 2
+    blur_feather_ratio: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+    )
 
     # Face tracking
     tracking_max_missed_frames: int = Field(

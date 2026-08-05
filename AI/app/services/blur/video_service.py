@@ -167,7 +167,7 @@ class VideoService:
                 records = []
 
                 for tracked_face in tracked_faces:
-                    blurred, blur_bbox = (
+                    blurred, validation_bbox = (
                         self.blur_service.apply(
                             blurred,
                             tracked_face.bbox,
@@ -176,7 +176,7 @@ class VideoService:
 
                     if tracked_face.detected_this_frame:
                         records.append(
-                            blur_bbox
+                            validation_bbox
                         )
 
                 if records:

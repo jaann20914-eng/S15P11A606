@@ -6,3 +6,5 @@
  */
 export { SearchRow, FillButton, HighlightedText } from './SearchRow';
 export type { SearchRowProps } from './SearchRow';
+export { NoPinPlaceCard } from './NoPinPlaceCard';
+export type { NoPinPlaceCardProps } from './NoPinPlaceCard';

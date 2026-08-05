@@ -60,7 +60,7 @@ function PinDetailContent() {
     return (
       <PinDetailShell>
         <View style={s.stateArea}>
-          <ActivityIndicator color={colors.gray400} />
+          <ActivityIndicator color={colors.limeText} />
         </View>
       </PinDetailShell>
     );
