@@ -40,7 +40,7 @@ export function ViewAvatar({ angle, size = 48, showLabel = false, style }: ViewA
   const label = formatViewAngle(angle);
 
   return (
-    <View accessibilityLabel={`뷰 각도 ${label}`} style={[s.wrap, { width: size, height: size }, style]}>
+    <View accessibilityLabel={`뷰 ${label}`} style={[s.wrap, { width: size, height: size }, style]}>
       <Image source={getViewAngleImage(angle)} style={s.ring} />
       <Text style={[s.value, { fontSize: toFontSize(size, label) }]}>{label}</Text>
       {showLabel && <Text style={s.label}>VIEW</Text>}

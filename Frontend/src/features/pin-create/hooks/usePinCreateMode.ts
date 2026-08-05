@@ -8,8 +8,8 @@ export interface PinCreateCopy {
 }
 
 const copyByType: Record<PinCreateMode['type'], PinCreateCopy> = {
-  create: { title: '게시글 작성', submitLabel: '영상핀 등록하기' },
-  edit: { title: '게시글 수정', submitLabel: '영상핀 수정하기' },
+  create: { title: '핀 작성', submitLabel: '영상핀 등록하기' },
+  edit: { title: '핀 수정', submitLabel: '영상핀 수정하기' },
 };
 
 /**
@@ -23,8 +23,7 @@ export function usePinCreateMode(): { mode: PinCreateMode; copy: PinCreateCopy }
 
   // 핀 식별자는 UUID다. 숫자로 파싱하지 않고 값이 있는지만 본다.
   const target = pinId?.trim();
-  const mode: PinCreateMode =
-    target ? { type: 'edit', pinId: target } : { type: 'create' };
+  const mode: PinCreateMode = target ? { type: 'edit', pinId: target } : { type: 'create' };
 
   return { mode, copy: copyByType[mode.type] };
 }

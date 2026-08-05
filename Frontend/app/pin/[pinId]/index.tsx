@@ -190,7 +190,7 @@ function PinDetailScreen({
       <ConfirmModal
         visible={leave.open}
         title="이미 떠났어요"
-        message={'이 핀에 연결된 채팅방이 모두 종료돼요.\n영상핀과 크레딧은 그대로 남습니다.'}
+        message={'이 핀에 연결된 채팅방이 모두 종료돼요.\n영상핀과 와글 포인트는 그대로 남습니다.'}
         confirmLabel="떠나기"
         busy={leave.busy}
         error={leave.error}

@@ -328,7 +328,7 @@ export default function Room() {
                 </Text>
                 <Text style={s.requestText}>
                   {isOwner
-                    ? '요청을 수락하면 요청자에게서 5크레딧이 차감되고 나에게 5크레딧이 적립돼요.'
+                    ? '요청을 수락하면 요청자에게서 와글 포인트 5개가 차감되고 나에게 5개가 적립돼요.'
                     : '먼저 궁금한 것을 남겨 두면 상대가 수락할 때 함께 전달돼요.'}
                 </Text>
 

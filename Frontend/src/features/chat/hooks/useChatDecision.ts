@@ -20,7 +20,7 @@ const messageByCode: Record<string, string> = {
   CHAT_REQUEST_ALREADY_DECIDED: '이미 처리된 요청이에요. 목록을 새로 불러올게요.',
   CHAT_REQUEST_NOT_FOUND: '요청을 찾을 수 없어요. 이미 취소됐을 수 있어요.',
   CHAT_REQUEST_DECISION_FORBIDDEN: '이 요청에 응답할 권한이 없어요.',
-  INSUFFICIENT_CREDIT: '요청한 분의 크레딧이 부족해 수락할 수 없어요.',
+  INSUFFICIENT_CREDIT: '요청한 분의 와글 포인트가 부족해 수락할 수 없어요.',
   INVALID_CHAT_DECISION: '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
   CHAT_REQUEST_DECISION_FAILED: '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };

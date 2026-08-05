@@ -1,10 +1,6 @@
 import { ApiError } from '@/api/client';
 import type { TodayPin, TodayPinStatus, TodayPinsQuery, TodayPinsResponse } from '@/types/pin';
-import type {
-  CreditTransaction,
-  CreditTransactionsQuery,
-  CreditTransactionsResponse,
-} from '@/types/credit';
+import type { CreditTransaction, CreditTransactionsQuery, CreditTransactionsResponse } from '@/types/credit';
 import type {
   ActivityDay,
   ActivityMonth,
@@ -122,13 +118,7 @@ const todayPinPlaces = [
  * 최근 등록한 것이 아직 처리 중이고 오래된 것이 공개된 상태가 자연스럽다.
  * 검수 탈락(`RESHOOT`)도 하나 섞어 그 줄이 어떻게 보이는지 확인할 수 있게 둔다.
  */
-const todayPinStatuses: TodayPinStatus[] = [
-  'PROCESSING',
-  'ACTIVE',
-  'RESHOOT',
-  'ACTIVE',
-  'ACTIVE',
-];
+const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'RESHOOT', 'ACTIVE', 'ACTIVE'];
 
 /** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
 const TODAY_PIN_COUNT = 26;
@@ -175,9 +165,7 @@ export async function fetchMockTodayPins(query: TodayPinsQuery): Promise<TodayPi
   await delay(MOCK_LATENCY_MS);
 
   // 커서는 "이 핀 다음부터"를 뜻한다. 값이 목록에 없으면 처음부터 준다.
-  const start = query.cursor
-    ? todayPins.findIndex((pin) => String(pin.pinId) === query.cursor) + 1
-    : 0;
+  const start = query.cursor ? todayPins.findIndex((pin) => String(pin.pinId) === query.cursor) + 1 : 0;
   const size = query.limit ?? MOCK_TODAY_PIN_PAGE_SIZE;
   const items = todayPins.slice(start, start + size);
   const last = items[items.length - 1];
@@ -202,7 +190,11 @@ const creditKinds: Array<Pick<CreditTransaction, 'type' | 'amount' | 'descriptio
   { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '영상핀 평가 참여' },
   { type: 'VIDEO_VIEWED', amount: -3, description: '서울숲 영상 열람' },
   { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 영상핀이 유익하다는 평가를 받음' },
-  { type: 'RECEIVED_DISAPPOINTING_PIN_EVALUATION', amount: -1, description: '내 영상핀이 아쉽다는 평가를 받음' },
+  {
+    type: 'RECEIVED_DISAPPOINTING_PIN_EVALUATION',
+    amount: -1,
+    description: '내 영상핀이 아쉽다는 평가를 받음',
+  },
   { type: 'SENT_CHAT_REQUEST_ACCEPTED', amount: -5, description: '채팅 요청이 수락됨' },
   { type: 'RECEIVED_CHAT_REQUEST_ACCEPTED', amount: 5, description: '채팅 요청 수락' },
 ];
@@ -243,7 +235,7 @@ function buildCreditLedger() {
   const generated = creditVolume.reduce((sum, group) => sum + group.count, 0);
   const ledger = [];
 
-  // 1번은 가장 오래된 가입 축하 크레딧이 쓴다. 생성분은 2번부터 위로 올라간다.
+  // 1번은 가장 오래된 가입 축하 와글 포인트이 쓴다. 생성분은 2번부터 위로 올라간다.
   let id = generated + 2;
   /** 거래 종류를 고르는 순번. 그룹이 바뀌어도 이어져야 종류가 골고루 섞인다. */
   let sequence = 0;
@@ -273,7 +265,7 @@ function buildCreditLedger() {
     transactionId: 1,
     type: 'WELCOME_BONUS' as const,
     amount: 20,
-    description: '가입 축하 크레딧',
+    description: '가입 축하 와글 포인트',
     daysAgo: 120,
     hour: 10,
     minute: 0,

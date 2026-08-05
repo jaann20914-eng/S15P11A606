@@ -130,7 +130,7 @@ export default function Chat() {
 
   const confirmLeave = () => {
     Alert.alert(
-      '이 게시글의 대화를 모두 끝낼까요?',
+      '이 핀의 대화를 모두 끝낼까요?',
       '연결된 채팅방이 모두 종료돼요. 지난 대화는 그대로 남습니다.',
       [
         { text: '취소', style: 'cancel' },
@@ -224,7 +224,7 @@ export default function Chat() {
                 loading={pinRooms.loading}
                 error={pinRooms.error}
                 isEmpty={filteredPinRooms.length === 0}
-                emptyText={query === '' ? '아직 이 게시글에 온 대화가 없어요' : '검색 결과가 없어요'}
+                emptyText={query === '' ? '아직 이 핀에 온 대화가 없어요' : '검색 결과가 없어요'}
                 onRetry={pinRooms.reload}
               />
 

@@ -31,7 +31,7 @@ export function TrustSummaryCard({ profile }: TrustSummaryCardProps) {
 
       <View style={s.metrics}>
         <View style={[s.metric, s.metricFirst]}>
-          <Text style={s.metricLabel}>보유 크레딧</Text>
+          <Text style={s.metricLabel}>보유 와글 포인트</Text>
           <Text style={s.metricValue}>{profile.creditBalance}</Text>
         </View>
         <View style={[s.metric, s.metricLast]}>

@@ -48,38 +48,38 @@ export function ActivityCalendarCard({
 
   const stats = [
     { label: '작성한 영상핀', value: `${activity.summary.createdVideoPinCount}개` },
-    { label: '획득 크레딧', value: `${activity.summary.earnedCredit}` },
+    { label: '획득 와글 포인트', value: `${activity.summary.earnedCredit}` },
     { label: '도움됐어요', value: `${activity.summary.helpfulEvaluationCount}회` },
   ];
 
   return (
     <View style={[s.activityCard, loading && s.activityCardLoading]}>
       <View style={s.monthRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="이전 달"
-            accessibilityState={{ disabled: !canGoPrev }}
-            disabled={!canGoPrev}
-            onPress={onPrev}
-            hitSlop={8}
-          >
-            <Ionicons name="chevron-back" size={18} color={canGoPrev ? colors.gray400 : colors.gray200} />
-          </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="이전 달"
+          accessibilityState={{ disabled: !canGoPrev }}
+          disabled={!canGoPrev}
+          onPress={onPrev}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={18} color={canGoPrev ? colors.gray400 : colors.gray200} />
+        </Pressable>
 
-          {/* 연도는 붙이지 않는다. 시안 기준이고, 갈 수 있는 달이 가입 이후로 좁아 헷갈릴 일이 적다. */}
-          <Text style={s.month}>{activity.month}월</Text>
+        {/* 연도는 붙이지 않는다. 시안 기준이고, 갈 수 있는 달이 가입 이후로 좁아 헷갈릴 일이 적다. */}
+        <Text style={s.month}>{activity.month}월</Text>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="다음 달"
-            accessibilityState={{ disabled: !canGoNext }}
-            disabled={!canGoNext}
-            onPress={onNext}
-            hitSlop={8}
-          >
-            <Ionicons name="chevron-forward" size={18} color={canGoNext ? colors.gray400 : colors.gray200} />
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="다음 달"
+          accessibilityState={{ disabled: !canGoNext }}
+          disabled={!canGoNext}
+          onPress={onNext}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-forward" size={18} color={canGoNext ? colors.gray400 : colors.gray200} />
+        </Pressable>
+      </View>
 
       {/* 요일과 칸이 같은 열에 서야 하므로 한 덩어리로 묶어 가운데에 놓는다. */}
       <View style={s.calendar}>

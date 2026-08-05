@@ -282,7 +282,7 @@ export async function unlockMockPin(pinId: PinId, idempotencyKey: string): Promi
   }
 
   if (INSUFFICIENT_CREDIT_PIN_IDS.has(pinId)) {
-    throw new ApiError(409, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다.');
+    throw new ApiError(409, 'INSUFFICIENT_CREDIT', '와글 포인트가 부족합니다.');
   }
 
   // 작성자와 이미 구매한 사용자는 차감하지 않는다.
