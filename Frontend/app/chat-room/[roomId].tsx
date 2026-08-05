@@ -402,7 +402,14 @@ export default function Room() {
         )}
 
         {/* 지난 경고 안내. 화면을 막지 않고 위에 얹혀 스스로 사라진다. */}
-        {toastCount !== null && <WarningToast count={toastCount} onDone={() => setToastCount(null)} />}
+        {toastCount !== null && (
+          <WarningToast
+            count={toastCount}
+            // 키보드가 올라와 있으면 그만큼 함께 올라간다. 화면 바닥 기준 고정이면 키보드에 가려진다.
+            bottomOffset={keyboardOverlap}
+            onDone={() => setToastCount(null)}
+          />
+        )}
 
         <View style={s.composer}>
           {canWrite && room.messages.length === 0 && (
@@ -467,6 +474,8 @@ export default function Room() {
 /** 토스트가 나오고 들어가는 시간(ms). 머무는 시간은 `TOAST_MS`다. */
 const TOAST_ENTER_MS = 260;
 const TOAST_EXIT_MS = 220;
+/** 토스트가 입력줄 위에 앉는 기본 높이. 키보드가 올라오면 그 높이가 더해진다. */
+const TOAST_BOTTOM = 104;
 
 /**
  * 지난 경고 요약 토스트.
@@ -477,7 +486,16 @@ const TOAST_EXIT_MS = 220;
  * 폭은 화면을 그대로 따른다(좌우 여백만 남긴다). 이동 거리도 화면 폭으로 잡아, 어느
  * 기기에서든 완전히 밖에서 출발해 완전히 밖으로 돌아간다.
  */
-function WarningToast({ count, onDone }: { count: number; onDone: () => void }) {
+function WarningToast({
+  count,
+  bottomOffset,
+  onDone,
+}: {
+  count: number;
+  /** 키보드가 덮는 높이. 그만큼 위로 올라앉아 키보드에 가려지지 않는다(내려가면 함께 내려온다). */
+  bottomOffset: number;
+  onDone: () => void;
+}) {
   const { width } = useWindowDimensions();
   const translateX = useRef(new Animated.Value(-width)).current;
 
@@ -508,7 +526,9 @@ function WarningToast({ count, onDone }: { count: number; onDone: () => void }) 
   }, []);
 
   return (
-    <Animated.View style={[s.toast, { transform: [{ translateX }] }]}>
+    <Animated.View
+      style={[s.toast, { bottom: TOAST_BOTTOM + bottomOffset }, { transform: [{ translateX }] }]}
+    >
       <Image source={require('../../assets/images/chat-warning-3d.png')} style={s.toastImage} />
       <Text style={s.toastText}>
         {`이 채팅방에는 누적 경고 ${count}회가 있어요.\n대화할 때 유의해 주세요!`}
@@ -630,7 +650,7 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: layout.gutter,
     right: layout.gutter,
-    bottom: 104,
+    bottom: TOAST_BOTTOM,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.x3,
