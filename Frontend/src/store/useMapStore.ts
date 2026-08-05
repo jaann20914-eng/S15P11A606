@@ -91,6 +91,19 @@ export interface MapState {
   /** 상세 화면이 넘긴 영상핀 마커. null이면 홈이 장소 마커를 찍는다. */
   pinOverlay: PinMarkerOverlay | null;
   /**
+   * **20m까지 당긴 그 순간 화면에 있던, 영상핀이 올라온 장소들.** 사용자에게 가까운 순이다.
+   *
+   * 그 축척에서는 장소 하나를 들여다보는 것이 자연스러워, 당기는 순간 가장 가까운 장소의 상세가
+   * 열린다. 그런데 화면에 여러 곳이 담겨 있으면 **사용자가 노린 곳이 아닐 수 있다** — "여기가
+   * 아니라 옆 장소를 보고 싶다"를 위해 다음 장소로 돌려 보는 버튼이 이 목록을 쓴다.
+   *
+   * **당기는 순간에 정하고 그대로 둔다.** 돌려 볼 때마다 지도가 그 장소로 옮겨지므로, 화면에
+   * 담긴 곳을 매번 다시 구하면 방금 지나온 장소가 목록에서 빠져 한 바퀴를 돌 수 없다.
+   *
+   * 축척이 30m 이상으로 넓어지면 비운다. 비어 있거나 한 곳뿐이면 돌려 볼 것이 없어 버튼도 없다.
+   */
+  nearbyPlaces: MapMarker[];
+  /**
    * 지도에서 방금 눌린 영상핀. **한 번 쓰고 비우는 요청이다**(상태 거울이 아니다).
    *
    * 지도는 홈 것이라 마커 눌림도 홈으로 온다. 그것을 상세 화면에 알릴 길이 필요한데, 예전에는
@@ -142,17 +155,23 @@ export interface MapState {
   /** 지도에서 영상핀 마커가 눌렸다고 알린다. 받는 화면이 처리하고 `clearPressedPin`으로 비운다. */
   pressPin: (pinId: string) => void;
   clearPressedPin: () => void;
+  /** 20m에서 돌려 볼 장소를 정한다. 그 축척을 벗어나면 빈 배열로 비운다(홈이 맡는다). */
+  setNearbyPlaces: (places: MapMarker[]) => void;
   /** 홈이 시트 영역을 재서 올린다. 상세 시트가 같은 기준으로 높이를 잡는다. */
   setHomeSheetSpace: (space: number) => void;
   /** 지도를 가진 화면이 자기 손잡이를 등록한다. 화면을 떠날 때 `null`로 되돌린다. */
   setGestureControl: (control: MapGestureControl | null) => void;
 }
 
+/** 돌려 볼 장소가 없을 때 쓰는 빈 목록. 참조가 고정이라 헛된 리렌더가 없다. */
+const NO_NEARBY_PLACES: MapMarker[] = [];
+
 export const useMapStore = createStore<MapState>((set, get) => ({
   center: DEFAULT_CENTER,
   bounds: null,
   pinOverlay: null,
   pressedPinId: null,
+  nearbyPlaces: NO_NEARBY_PLACES,
   homeSheetSpace: 0,
   gestureControl: null,
   focus: null,
@@ -170,6 +189,8 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   clearPinOverlay: () => set({ pinOverlay: null, pressedPinId: null }),
   pressPin: (pressedPinId) => set({ pressedPinId }),
   clearPressedPin: () => set({ pressedPinId: null }),
+  // 빈 목록은 같은 배열을 돌려준다. 비울 때마다 새 배열이면 그때마다 구독자가 다시 그려진다.
+  setNearbyPlaces: (places) => set({ nearbyPlaces: places.length === 0 ? NO_NEARBY_PLACES : places }),
   setHomeSheetSpace: (homeSheetSpace) => set({ homeSheetSpace }),
   setGestureControl: (gestureControl) => set({ gestureControl }),
 }));

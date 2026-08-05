@@ -26,13 +26,16 @@ import {
   useAppTabBarHeight,
   ViewAvatar,
 } from '@/components/common';
-import { PLACE_PIN_CARD_HEIGHT } from '@/components/place';
+import { NextPlaceButton, PLACE_PIN_CARD_HEIGHT } from '@/components/place';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
-import type { Coordinate } from '@/store/useMapStore';
+import type { Coordinate, MapBounds } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
+import { useNextPlace } from '@/hooks/useNextPlace';
+import { createDevLogger } from '@/utils/devLog';
+import { distanceBetween } from '@/utils/location';
 import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
 import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
@@ -86,8 +89,40 @@ const MIN_CARD_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
  */
 const EMPTY_BLOCK_HEIGHT = MIN_CARD_SLOT_HEIGHT;
 
+/**
+ * 20m까지 당겼는데 영상핀이 올라온 장소가 없을 때 잠깐 띄우는 한 마디.
+ *
+ * 그 축척까지 당긴 것은 "이 자리를 들여다보겠다"는 뜻인데 보여줄 것이 없다. 없다고만 적으면
+ * 막다른 길이라, **그 자리에서 할 수 있는 일**을 적는다 — 첫 핀을 남기는 것이다.
+ */
+const NO_PLACE_HINT = '이 장소에 영상핀을 올려보세요';
+
+/** 한 마디가 머무는 시간(ms). 읽을 만하되 손을 막지 않는 길이다. */
+const HINT_DURATION_MS = 1000;
+
+/** 20m에 닿았을 때 무엇을 열었는지 터미널에서 따라갈 수 있게 한다. */
+const log = createDevLogger('home-zoom');
+
 /** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
 const ANGLE_PREVIEW_COUNT = 5;
+
+/**
+ * 그 장소가 지금 화면 안에 있는지.
+ *
+ * 목록은 지도에 보이는 범위보다 넓게 받아 두므로(`usePlacesInView`의 첫 조회는 ±11km) 담긴 것만
+ * 골라야 한다. 경계를 아직 모르면(첫 프레임) 걸러 낼 근거가 없어 전부 담긴 것으로 본다.
+ */
+function withinBounds(place: Coordinate, bounds: MapBounds | null): boolean {
+  if (bounds === null) return true;
+
+  const { southWest, northEast } = bounds;
+  return (
+    place.latitude >= southWest.latitude &&
+    place.latitude <= northEast.latitude &&
+    place.longitude >= southWest.longitude &&
+    place.longitude <= northEast.longitude
+  );
+}
 
 /** 카드의 각도 링 지름. */
 const ANGLE_RING_SIZE = 34;
@@ -112,7 +147,13 @@ export default function Home() {
    */
   const pressPin = useMapStore((state) => state.pressPin);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
+  /** 20m에서 돌려 볼 장소들. 이 화면이 채우고 옆 장소 버튼이 읽는다. */
+  const nearbyPlaces = useMapStore((state) => state.nearbyPlaces);
+  const setNearbyPlaces = useMapStore((state) => state.setNearbyPlaces);
   const [mapReady, setMapReady] = useState(false);
+
+  /** 잠깐 띄우는 한 마디. 없으면 null. */
+  const [hint, setHint] = useState<string | null>(null);
 
   /**
    * 이 화면이 맨 위인지.
@@ -360,9 +401,15 @@ export default function Home() {
         });
       }
 
+      /*
+        **고른 것으로 표시해 둔다.** 카드 꺽새로 들어오는 길은 이미 골라져 있지만, 20m까지 당겨
+        저절로 열리는 길과 옆 장소로 돌려 보는 길은 여기서만 정해진다 — 그 값이 "지금 어디"의
+        기준이라(`useNextPlace`) 비어 있으면 돌려 보기가 늘 첫 장소에서 다시 시작한다.
+      */
+      selectPlace(placeId);
       router.push(`/place/${placeId}`);
     },
-    [inView.places, level, moveTo],
+    [inView.places, level, moveTo, selectPlace],
   );
 
   /**
@@ -518,6 +565,89 @@ export default function Home() {
   }, [mapReady, pendingPan]);
 
   /*
+    **사용자가 직접 20m까지 당기면 그 자리의 장소를 열어 준다.**
+
+    그 축척은 카카오가 주는 가장 가까운 눈금이라, 거기까지 당긴 것은 "이 장소를 들여다보겠다"는
+    뜻으로 읽는다. 그래서 가장 가까운 장소의 상세를 띄우고, 화면에 담긴 나머지 장소는 돌려 볼
+    목록으로 저장소에 올려 둔다(`nearbyPlaces` → 옆 장소 버튼).
+
+    **당긴 그 순간에만 한다.** 20m에 머무는 동안 지도를 밀 때마다 다시 열면 손이 지도를 놓지
+    못한다. 직전 축척을 들고 있다가 20m로 **넘어오는 순간**만 잡는다.
+
+    **맨 위일 때만 한다.** 상세가 이미 열려 있으면 그쪽이 지도를 20m로 쓰고 있으므로 우리 차례가
+    아니다. 이 조건이 우리가 스스로 당기는 경우(카드 꺽새·검색 확정·마커 탭)도 함께 걸러 준다 —
+    그 길들은 같은 tick에 상세를 띄우므로, 확대가 끝나 축척이 도착할 때는 맨 위가 아니다.
+  */
+  const previousMapLevel = useRef(mapLevel);
+  useEffect(() => {
+    const from = previousMapLevel.current;
+    previousMapLevel.current = mapLevel;
+
+    // 그 축척을 벗어나면 돌려 볼 목록을 버린다. 버튼도 함께 사라진다.
+    if (mapLevel > REVIEW_PIN_MAX_LEVEL) {
+      if (nearbyPlaces.length > 0) setNearbyPlaces([]);
+      return;
+    }
+
+    if (!onTop || from <= REVIEW_PIN_MAX_LEVEL) return;
+
+    /*
+      화면에 담긴, 영상핀이 올라온 장소들. **사용자에게 가까운 순**이다.
+
+      보이는 마커와 같은 목록을 쓴다(`visiblePlaces` — 혼잡도 토글이 걸러 낸 것). 지도에 없는
+      장소로 넘어가면 버튼이 어디로 데려간 것인지 알 수 없다.
+
+      기준점은 내 위치이고, 없으면 지도 중심이다 — 권한을 주지 않은 사용자에게도 "가까운 순"이
+      성립해야 한다. 화면 밖은 뺀다: 당긴 화면에 담긴 것만 돌려 본다.
+    */
+    // 지도 중심은 여기서만 필요하다. 구독하면 지도가 멈출 때마다 이 화면이 다시 그려진다.
+    const origin = myLocation.coordinate ?? useMapStore.getState().center;
+    const found = visiblePlaces
+      .filter((place) => withinBounds(place, bounds))
+      .map((place) => ({
+        marker: { id: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude },
+        distance: distanceBetween(origin, place),
+      }))
+      .sort((left, right) => left.distance - right.distance)
+      .map((item) => item.marker);
+
+    setNearbyPlaces(found);
+    log('20m 도달', {
+      직전축척: from,
+      돌려볼장소: found.map((place) => place.name),
+      기준점: myLocation.coordinate ? '내 위치' : '지도 중심',
+    });
+
+    /*
+      한 곳도 없으면 열 상세가 없다. **그 자리를 채우라고 한 마디 띄운다** — 잠깐 뜨고 사라지므로
+      손을 막지 않고, 20m까지 당긴 사용자가 다음에 할 수 있는 일이 그것뿐이다.
+    */
+    if (found.length === 0) {
+      setHint(NO_PLACE_HINT);
+      return;
+    }
+
+    openPlace(found[0].id);
+  }, [
+    bounds,
+    mapLevel,
+    myLocation.coordinate,
+    nearbyPlaces.length,
+    onTop,
+    openPlace,
+    setNearbyPlaces,
+    visiblePlaces,
+  ]);
+
+  /* 한 마디는 잠깐 있다 사라진다. 새 안내가 들어오면 그때부터 다시 센다. */
+  useEffect(() => {
+    if (hint === null) return;
+
+    const timer = setTimeout(() => setHint(null), HINT_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [hint]);
+
+  /*
     상세를 닫으면 장소 마커가 다시 **여러 개** 보이는 축척으로 넓힌다.
 
     상세는 영상핀을 20m까지 당겨 보여준다. 그 상태로 홈에 돌아오면 마커는 장소로 되돌아오지만
@@ -566,6 +696,18 @@ export default function Home() {
    *   상세 화면에서 버튼이 사라지지 않은 이유가 이것이었다. 시트를 감추는 것과 같은 조건이다.
    */
   const locationButton = useFadeToggle(onTop && level !== 2);
+
+  /**
+   * 옆 장소로 돌려 보기. **20m까지 당겨 화면에 두 곳 이상이 담겼을 때만** 버튼이 있다.
+   *
+   * 이 화면에서는 상세를 처음 여는 것이라 화면을 쌓는다(장소 상세에서 누를 때는 갈아 끼운다).
+   * 내 위치 버튼과 같은 조건으로 함께 감춘다 — 최대화 단계에서는 시트가 그 자리를 덮는다.
+   */
+  const nextPlace = useNextPlace();
+  const nextPlaceButton = useFadeToggle(nextPlace.visible && onTop && level !== 2);
+
+  /** 잠깐 뜨는 한 마디의 나타남·사라짐. 조건을 그대로 걸면 1초짜리 안내가 깜빡임으로 읽힌다. */
+  const hintToggle = useFadeToggle(hint !== null);
 
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
@@ -660,13 +802,45 @@ export default function Home() {
         {/*
           실패 이유. 이게 없으면 권한 거부와 측위 실패가 똑같이 "아무 일도 안 남"으로 보인다.
           버튼이 감춰졌으면 함께 감춘다 — 누를 수 없는 버튼에 대한 안내가 시트 뒤에 남는다.
+
+          **자기 버튼 바로 아래**에 둔다. 사이에 다른 버튼이 끼면 어느 버튼의 안내인지 흐려진다.
         */}
         {locationButton.mounted && myLocation.message && (
           <Text accessibilityRole="alert" style={s.locationMessage}>
             {myLocation.message}
           </Text>
         )}
+
+        {/*
+          **옆 장소로 돌려 보는 버튼.** 20m까지 당겨 화면에 여러 장소가 담겼을 때만 나타난다.
+
+          여기서는 상세를 처음 여는 것이라 화면을 쌓는다(`replace` 없이). 상세에서 누를 때는
+          갈아 끼운다 — 그쪽 화면이 그렇게 부른다.
+
+          내 위치 버튼과 같은 조건으로 함께 감춘다. 최대화 단계에서는 시트가 그 자리를 덮는다.
+        */}
+        {nextPlaceButton.mounted && (
+          <NextPlaceButton onPress={nextPlace.goNext} style={nextPlaceButton.style} />
+        )}
       </View>
+
+      {/*
+        잠깐 뜨는 한 마디. **시트 바로 위에 둔다** — 시트가 어느 단계에 있든 가려지지 않는다
+        (`coveredHeight`가 시트가 덮은 높이다).
+
+        `useFadeToggle`로 나타나고 사라진다. 툭 생기고 툭 없어지면 1초짜리 안내가 깜빡임으로
+        읽힌다. 손가락은 지도에 그대로 닿아야 하므로 터치를 받지 않는다.
+      */}
+      {hintToggle.mounted && hint !== null && (
+        <Animated.View
+          pointerEvents="none"
+          style={[s.hint, hintToggle.style, { bottom: coveredHeight + spacing.x4 }]}
+        >
+          <Text accessibilityRole="alert" style={s.hintText}>
+            {hint}
+          </Text>
+        </Animated.View>
+      )}
 
       {/* 위에 상세가 겹쳐 있으면 감춘다. display로 빼야 레이아웃·그리기까지 건너뛴다. */}
       <Animated.View style={[s.sheet, !onTop && s.sheetHidden, { transform: [{ translateY: sheetY }] }]}>
@@ -907,6 +1081,22 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     color: colors.white,
     backgroundColor: 'rgba(40,38,38,0.82)',
+  },
+  /**
+   * 잠깐 뜨는 한 마디. 지도 위 안내라 어두운 알약으로 둔다 — 위치 실패 안내와 같은 결이다.
+   *
+   * 좌우를 0으로 잡고 가운데 정렬해 글자 길이가 달라져도 화면 중앙에 선다. 아래 위치는 시트가
+   * 덮은 높이에 맞춰 화면에서 정한다.
+   */
+  hint: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  hintText: {
+    ...type.small,
+    paddingVertical: spacing.x2,
+    paddingHorizontal: spacing.x4,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    color: colors.white,
+    backgroundColor: 'rgba(40,38,38,0.86)',
   },
   /**
    * 반투명 시트. 흰 농도는 **`sheetSurface` 한 겹으로만** 정한다.

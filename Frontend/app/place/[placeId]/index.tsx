@@ -13,7 +13,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
+import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -22,6 +22,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
+import { useNextPlace } from '@/hooks/useNextPlace';
 import { classifyCrowdFilter } from '@/constants/crowdLevels';
 import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
@@ -279,6 +280,15 @@ export default function Place() {
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
+  /**
+   * 옆 장소로 돌려 보기. **화면을 갈아 끼운다** — 돌려 볼 때마다 상세가 쌓이면 안 된다.
+   *
+   * 버튼이 있을 조건(20m·두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치 버튼과 같은 이유로
+   * 최대화 단계에서는 함께 감춘다.
+   */
+  const nextPlace = useNextPlace({ replace: true });
+  const nextPlaceButton = useFadeToggle(nextPlace.visible && !expanded);
+
   /*
     영상핀을 지도에 올리고, 보고 있는 게시물에 맞춰 지도를 옮긴다.
 
@@ -519,6 +529,19 @@ export default function Place() {
               />
             )}
           </AnimatedPressable>
+        )}
+
+        {/*
+          **옆 장소로 돌려 보는 버튼.** 이 화면이 저절로 열린 그 장소가 사용자가 노린 곳이 아닐 수
+          있어서 다음으로 가까운 장소로 넘겨 준다(끝에서는 처음으로 돌아온다).
+
+          **화면을 갈아 끼운다**(`replace`). 그러지 않으면 돌려 볼 때마다 상세가 한 겹씩 쌓여
+          화면들이 하나뿐인 지도를 두고 다투고, 뒤로 가기가 지나온 장소를 되짚는다.
+
+          목록은 20m에서만 채워지므로 축척이 넓어지면 버튼도 사라진다.
+        */}
+        {nextPlaceButton.mounted && (
+          <NextPlaceButton onPress={nextPlace.goNext} style={nextPlaceButton.style} />
         )}
       </View>
 
