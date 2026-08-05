@@ -1,6 +1,7 @@
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
 import { toServerCrowdLevel } from '@/types/pin';
 import type { PinDraft, PinUpdateRequest } from '@/types/pinCreate';
+import { pullCoordinateNear } from '@/utils/location';
 
 /**
  * 수정 요청 본문을 만든다.
@@ -67,8 +68,14 @@ export function toPinUpdateRequest(
     // 새로 찍은 자리를 함께 보낸다. 좌표는 둘 다 있어야 하고, 없으면 아예 보내지 않는다.
     const captured = draft.video?.coordinate;
     if (captured) {
-      body.latitude = captured.latitude;
-      body.longitude = captured.longitude;
+      /*
+        [임시] 촬영 좌표를 장소에서 30m 이내로 끌어당겨 보낸다. 개발 중에는 실제 장소에서
+        찍을 수 없어 서버의 50m 검증(LOCATION_OUT_OF_RANGE)에 계속 걸린다. 되돌릴 때는
+        captured를 그대로 쓴다.
+      */
+      const sent = draft.place ? pullCoordinateNear(captured, draft.place, 30) : captured;
+      body.latitude = sent.latitude;
+      body.longitude = sent.longitude;
     }
   }
 

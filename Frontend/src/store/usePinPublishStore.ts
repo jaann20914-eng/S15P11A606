@@ -19,7 +19,7 @@ import type {
   VideoUploadPhase,
   VideoUploadTicket,
 } from '@/types/pinCreate';
-import { readCurrentCoordinate } from '@/utils/location';
+import { pullCoordinateNear, readCurrentCoordinate } from '@/utils/location';
 import { hasPinUpdate, toPinUpdateRequest } from '@/features/pin-create/pinUpdateRequest';
 import { createStore } from './createStore';
 import type { PinId } from '@/types/pin';
@@ -76,6 +76,13 @@ function toRequest(draft: PinDraft, originalVideoKey: string, captured: Coordina
   const memo = draft.memo.trim();
   const detailLocation = draft.detailLocation.trim();
 
+  /*
+    [임시] 촬영 좌표를 장소에서 30m 이내로 끌어당겨 보낸다. 개발 중에는 실제 장소에서 찍을 수
+    없어 서버의 50m 검증(LOCATION_OUT_OF_RANGE)에 계속 걸린다. 되돌릴 때는 captured를 그대로
+    쓰고 pullCoordinateNear를 지운다.
+  */
+  const sentCoordinate = pullCoordinateNear(captured, draft.place, 30);
+
   return {
     originalVideoKey,
     kakaoPlaceId: draft.place.kakaoPlaceId,
@@ -88,8 +95,8 @@ function toRequest(draft: PinDraft, originalVideoKey: string, captured: Coordina
     categoryName: draft.place.categoryName,
     phone: draft.place.phone,
     addressName: draft.place.address,
-    latitude: captured.latitude,
-    longitude: captured.longitude,
+    latitude: sentCoordinate.latitude,
+    longitude: sentCoordinate.longitude,
     crowdLevel: toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key),
     // 선택 항목은 비어 있으면 보내지 않는다.
     ...(detailLocation ? { detailLocation } : {}),

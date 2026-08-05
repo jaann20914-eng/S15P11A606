@@ -114,11 +114,31 @@ export function distanceBetween(from: Coordinate, to: Coordinate): number {
 
   const a =
     Math.sin(deltaLatitude / 2) ** 2 +
-    Math.cos(toRadians(from.latitude)) *
-      Math.cos(toRadians(to.latitude)) *
-      Math.sin(deltaLongitude / 2) ** 2;
+    Math.cos(toRadians(from.latitude)) * Math.cos(toRadians(to.latitude)) * Math.sin(deltaLongitude / 2) ** 2;
 
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/**
+ * [임시] 좌표를 목표 지점에서 `maxMeters` 이내로 끌어당긴다.
+ *
+ * 서버가 촬영 좌표와 장소의 거리를 50m로 제한하는데, 개발 중에는 실제 장소에서 찍을 수 없어
+ * 등록·수정이 `LOCATION_OUT_OF_RANGE`로 계속 막힌다. 그동안만 촬영 좌표를 장소 쪽으로 당겨
+ * 보낸다. 이미 범위 안이면 손대지 않는다.
+ *
+ * **테스트 편의용이다.** 실서비스 흐름에 남으면 어디서 찍었든 그 장소의 영상으로 등록되므로,
+ * 위치 검증을 다시 살릴 때 이 함수와 호출부([임시] 표시)를 함께 지운다.
+ */
+export function pullCoordinateNear(captured: Coordinate, target: Coordinate, maxMeters: number): Coordinate {
+  const distance = distanceBetween(captured, target);
+  if (distance <= maxMeters) return captured;
+
+  // 장소→촬영 방향을 유지한 채 거리만 maxMeters로 줄인다. 이 범위에서는 선형 보간으로 충분하다.
+  const keep = maxMeters / distance;
+  return {
+    latitude: target.latitude + (captured.latitude - target.latitude) * keep,
+    longitude: target.longitude + (captured.longitude - target.longitude) * keep,
+  };
 }
 
 export async function readCurrentCoordinate({
