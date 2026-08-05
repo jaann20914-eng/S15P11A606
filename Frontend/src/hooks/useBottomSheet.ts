@@ -220,7 +220,19 @@ export function useBottomSheet({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 5,
+        /*
+          **세로로 더 많이 움직였을 때만 잡는다.**
+
+          예전에는 세로 5px만 넘으면 잡았다. 머리글 안에는 누를 것이 있는데(혼잡도 토글, 손잡이
+          탭) 손가락은 누르는 동안에도 몇 px 흐른다 — 특히 **좌우로 미는 토글**에서 세로로
+          살짝만 흘러도 시트가 제스처를 빼앗아 **눌림이 취소됐다.** 시트는 5px 움직이고 제자리로
+          돌아오니 화면에는 "토글이 안 먹는다"로만 보인다(2026-08-05 실기기).
+
+          가로가 더 큰 움직임은 시트를 끄는 손짓이 아니다. 한 장씩 넘기는 칸이 같은 규칙을
+          쓰므로(`CardPager`) 두 제스처의 판정이 어긋나지도 않는다.
+        */
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
         onPanResponderGrant: () => {
           dragging.current = true;
 
