@@ -19,7 +19,7 @@ export interface ActivityDay {
 export interface MonthlyActivitySummary {
   createdVideoPinCount: number;
   earnedCredit: number;
-  /** 내 영상핀이 다른 사용자에게 정상 열람된 횟수. */
+  /** 내 핀이 다른 사용자에게 정상 열람된 횟수. */
   helpfulEvaluationCount: number;
 }
 

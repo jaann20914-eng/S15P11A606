@@ -47,7 +47,7 @@ export function ActivityCalendarCard({
   const weeks = useMemo(() => toWeeks(toCalendarCells(activity.days)), [activity.days]);
 
   const stats = [
-    { label: '작성한 영상핀', value: `${activity.summary.createdVideoPinCount}개` },
+    { label: '작성한 핀', value: `${activity.summary.createdVideoPinCount}개` },
     { label: '획득 와글 포인트', value: `${activity.summary.earnedCredit}` },
     { label: '도움됐어요', value: `${activity.summary.helpfulEvaluationCount}회` },
   ];

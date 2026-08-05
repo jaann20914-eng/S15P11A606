@@ -142,7 +142,7 @@ export const recommendStyles = StyleSheet.create({
   more: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
 
   /* ---------------------------------------------------------------- *
-   * 상세 — 지도 · 기본정보 · 영상핀 목록
+   * 상세 — 지도 · 기본정보 · 핀 목록
    * ---------------------------------------------------------------- */
 
   /** 카드가 흰색이라 바탕은 옅은 회색이다. 흰 배경에 두면 카드 경계가 사라진다. */
@@ -166,6 +166,6 @@ export const recommendStyles = StyleSheet.create({
   /** 요일별 혼잡도 그래프 자리. 그래프 자체는 공용 컴포넌트가 그린다. */
   chartSlot: { marginTop: spacing.x5 },
 
-  /* 영상핀 목록 */
+  /* 핀 목록 */
   pinList: { gap: spacing.x3 },
 });

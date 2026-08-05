@@ -41,7 +41,7 @@ function isOpenable(status: TodayPinStatus): boolean {
 }
 
 /**
- * 오늘 작성한 영상핀 목록.
+ * 오늘 작성한 핀 목록.
  *
  * 처리 중이거나 재촬영이 필요한 핀은 상세를 열 수 없다. 공개되지 않은 상태라 조회되지 않는다.
  */
@@ -92,7 +92,7 @@ export function MyPinList({
           </View>
         ) : pins.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyText}>{error ?? '오늘 등록한 영상핀이 없어요.'}</Text>
+            <Text style={s.emptyText}>{error ?? '오늘 등록한 핀이 없어요.'}</Text>
           </View>
         ) : (
           <FlatList
@@ -122,7 +122,7 @@ export function MyPinList({
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !openable }}
                   accessibilityHint={
-                    openable ? '작성한 영상핀 상세 보기' : '공개되기 전에는 상세를 열 수 없습니다'
+                    openable ? '작성한 핀 상세 보기' : '공개되기 전에는 상세를 열 수 없습니다'
                   }
                   disabled={!openable}
                   onPress={() => router.push(`/pin/${item.pinId}`)}

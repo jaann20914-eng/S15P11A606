@@ -1,4 +1,4 @@
-// 백엔드 영상핀 응답에 맞춘 도메인 타입.
+// 백엔드 핀 응답에 맞춘 도메인 타입.
 import type { CrowdLevelKey } from '@/constants/crowdLevels';
 
 /**
@@ -266,7 +266,7 @@ export function canEvaluate(detail: PinDetail): boolean {
 }
 
 /**
- * 오늘 등록한 영상핀의 처리 상태.
+ * 오늘 등록한 핀의 처리 상태.
  *
  * `GET /api/v1/users/me/pins/today`가 주는 값이다. 내부 상태(`VideoStatus`)를 그대로 주지 않고
  * 화면용으로 바꿔 내려준다(백엔드 `TodayPinStatus.from`).
@@ -281,7 +281,7 @@ export function canEvaluate(detail: PinDetail): boolean {
  */
 export type TodayPinStatus = 'PROCESSING' | 'ACTIVE' | 'RESHOOT' | 'FAILED';
 
-/** 오늘 등록한 영상핀 한 건. */
+/** 오늘 등록한 핀 한 건. */
 export interface TodayPin {
   pinId: PinId;
   placeId: number;

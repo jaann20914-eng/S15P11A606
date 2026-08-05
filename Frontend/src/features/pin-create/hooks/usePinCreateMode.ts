@@ -8,8 +8,8 @@ export interface PinCreateCopy {
 }
 
 const copyByType: Record<PinCreateMode['type'], PinCreateCopy> = {
-  create: { title: '핀 작성', submitLabel: '영상핀 등록하기' },
-  edit: { title: '핀 수정', submitLabel: '영상핀 수정하기' },
+  create: { title: '핀 작성', submitLabel: '핀 등록하기' },
+  edit: { title: '핀 수정', submitLabel: '핀 수정하기' },
 };
 
 /**

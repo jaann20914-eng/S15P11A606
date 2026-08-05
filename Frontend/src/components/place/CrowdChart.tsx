@@ -355,7 +355,7 @@ export function CrowdChart({ stats, today = todayOfWeek(), onSelectDay, surface 
 
 const s = StyleSheet.create({
   card: {},
-  /** `surface`를 켰을 때의 카드. 장소 상세의 영상핀 카드와 같은 모양으로 맞춘다. */
+  /** `surface`를 켰을 때의 카드. 장소 상세의 핀 카드와 같은 모양으로 맞춘다. */
   surface: {
     padding: CARD_PADDING,
     borderRadius: radius.hero,

@@ -35,7 +35,7 @@ export function TrustSummaryCard({ profile }: TrustSummaryCardProps) {
           <Text style={s.metricValue}>{profile.creditBalance}</Text>
         </View>
         <View style={[s.metric, s.metricLast]}>
-          <Text style={s.metricLabel}>오늘 영상핀</Text>
+          <Text style={s.metricLabel}>오늘 핀</Text>
           <Text style={s.metricValue}>{profile.todayVideoPinCount}</Text>
         </View>
       </View>

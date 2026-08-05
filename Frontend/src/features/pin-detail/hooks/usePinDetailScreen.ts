@@ -271,7 +271,7 @@ function useChatRequest(pinId: PinId, onDetailChange: (patch: Partial<PinDetail>
           해야 하는지 알 수 없어 필요한 양을 적어 준다.
         */
         if (cause instanceof ApiError && cause.code === 'INSUFFICIENT_CREDIT') {
-          setError('와글 포인트가 부족해요. 채팅을 요청하려면 와글 포인트 5개가 필요해요');
+          setError('와글 포인트가 부족해요. 채팅을 요청하려면 5 와글 포인트가 필요해요');
           return;
         }
 

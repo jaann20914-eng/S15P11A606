@@ -26,7 +26,7 @@ export interface AppTabDefinition {
 }
 
 /**
- * 표시 순서 그대로다. 홈 · 채팅 · 영상핀 · 추천 · 마이.
+ * 표시 순서 그대로다. 홈 · 채팅 · 핀 · 추천 · 마이.
  *
  * 순서는 `DESIGN_GUIDE.md`의 `BottomNavigation`과 `docs/UX-SPEC.md`를 따른다.
  *
@@ -150,7 +150,7 @@ export function AppTabBar({ active, floating = true, onTabPress }: AppTabBarProp
             key={key}
             accessibilityRole="button"
             // 가운데 버튼은 글자를 두지 않으므로 읽어 줄 이름을 여기서만 준다.
-            accessibilityLabel={key === 'write' ? '영상핀 제보' : label}
+            accessibilityLabel={key === 'write' ? '핀 제보' : label}
             accessibilityState={{ selected: focused }}
             /*
               기본 이동은 push가 아니라 navigate다. push는 갈 때마다 화면을 쌓아서, 게시글에서
@@ -176,7 +176,7 @@ const s = StyleSheet.create({
   // type.caption을 섞지 않는다. letterSpacing이 딸려와 라벨 자간이 달라진다.
   label: appTabBarTheme.labelStyle,
   /**
-   * 가운데 영상핀 버튼.
+   * 가운데 핀 버튼.
    *
    * 크기·테두리·그림자는 `DESIGN_GUIDE.md` 10.6을 따른다. 모서리는 원이 아니라 둥근
    * 사각형이다 — pill을 쓰면 완전한 원이 되어 와이어프레임과 달라진다.

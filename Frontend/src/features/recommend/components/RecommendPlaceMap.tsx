@@ -21,7 +21,7 @@ export interface RecommendPlaceMapProps {
    * 마커를 눌렀을 때. 화면이 아래 카드를 짚어 준다.
    *
    * 상세로 바로 보내지 않는다 — 지도에서 누르는 것은 "이게 어느 영상인지 보자"이지 "열자"가
-   * 아니다. 여는 것은 짚어 준 카드를 누를 때다(홈의 영상핀 선택과 같은 동선).
+   * 아니다. 여는 것은 짚어 준 카드를 누를 때다(홈의 핀 선택과 같은 동선).
    */
   onSelectPin: (pinId: string) => void;
 }
@@ -105,9 +105,9 @@ function centerOf(points: { latitude: number; longitude: number }[]): Coordinate
 /**
  * 추천 상세 위쪽의 지도.
  *
- * 이 장소에 달린 **영상핀들을 각자 자기 좌표에 찍는다.** 장소는 건물 하나가 아니라 거리나
+ * 이 장소에 달린 **핀들을 각자 자기 좌표에 찍는다.** 장소는 건물 하나가 아니라 거리나
  * 공원인 경우가 많아, 점 하나로는 "어디쯤에서 찍힌 영상인지"를 알려주지 못한다. 핀을 누르면
- * 그 영상핀으로 간다.
+ * 그 핀으로 간다.
  *
  * 홈과 달리 **읽기 전용**이다. 내 위치도, 검색도 두지 않는다. 여기서 지도가 하는 일은
  * "그래서 여기가 어디냐"에 답하는 것뿐이라, 조작 수단을 두면 사용자가 지도를 탐색하다 화면의
@@ -129,9 +129,9 @@ export function RecommendPlaceMap({
   const [boxSize, setBoxSize] = useState({ width: 0, height: 0 });
 
   /*
-    핀은 실제 영상핀만 찍는다.
+    핀은 실제 핀만 찍는다.
 
-    올라온 것이 없으면 지도도 비운다. 장소 자리에 하나 찍어 두면 "여기 영상핀이 있다"로
+    올라온 것이 없으면 지도도 비운다. 장소 자리에 하나 찍어 두면 "여기 핀이 있다"로
     읽혀서, 바로 아래에서 아직 없다고 안내하는 것과 어긋난다. 그때 할 일은 작성뿐이라
     그 안내(작성하러 가기)만 남긴다.
   */
@@ -139,7 +139,7 @@ export function RecommendPlaceMap({
     () =>
       (mapData?.activePins ?? []).map((pin) => ({
         id: pin.pinId,
-        name: `${name} 영상핀`,
+        name: `${name} 핀`,
         latitude: pin.latitude,
         longitude: pin.longitude,
       })),

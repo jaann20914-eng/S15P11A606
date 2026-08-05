@@ -176,7 +176,7 @@ function toCrowdLabel(average: number | null): PlaceListItem['crowdLabel'] {
  * 핀 카드 하나.
  *
  * `origin`(장소 좌표)을 주면 핀의 오프셋을 더해 **촬영 좌표**까지 채운다. 상세 화면이 그
- * 좌표로 지도에 영상핀 마커를 찍고, 게시물을 오르내릴 때 지도를 그 자리로 옮긴다.
+ * 좌표로 지도에 핀 마커를 찍고, 게시물을 오르내릴 때 지도를 그 자리로 옮긴다.
  * 서버는 아직 좌표를 주지 않지만 목업은 가지고 있으니, 시연에서는 그 움직임을 보여줄 수 있다.
  */
 function toPinCard(
@@ -281,7 +281,7 @@ export async function fetchMockPlaceDetail(placeId: number): Promise<PlaceDetail
 
   return {
     place: { placeId: seed.placeId, name: seed.name, address: seed.address, phone: seed.phone },
-    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 영상핀을 찍는 재료다.
+    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 핀을 찍는 재료다.
     pins: seed.pins.map((pin, index) => toPinCard(pin, index, seed)),
     weeklyCrowdStats: toWeeklyStats(seed),
   };
@@ -339,7 +339,7 @@ export async function confirmMockPlaceSearch(
 
   return {
     place: { placeId: seed.placeId, name: seed.name, address: seed.address, phone: seed.phone },
-    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 영상핀을 찍는 재료다.
+    // 장소 좌표를 함께 넘겨 핀마다 촬영 좌표를 채운다. 지도에 핀을 찍는 재료다.
     pins: seed.pins.map((pin, index) => toPinCard(pin, index, seed)),
     weeklyCrowdStats: toWeeklyStats(seed),
   };

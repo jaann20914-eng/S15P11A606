@@ -31,12 +31,7 @@ import {
   preferenceCategoryLabel,
 } from '@/constants/categories';
 import type { PreferenceCategoryCode } from '@/constants/categories';
-import {
-  NICKNAME_MAX_LENGTH,
-  NICKNAME_MIN_LENGTH,
-  ageGroups,
-  genders,
-} from '@/constants/onboarding';
+import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, ageGroups, genders } from '@/constants/onboarding';
 import { colors, radius, spacing, type } from '@/constants/theme';
 import type { AgeGroup, Gender } from '@/types/onboarding';
 
@@ -100,7 +95,7 @@ export default function Onboarding() {
   const [requestingPermissions, setRequestingPermissions] = useState(false);
 
   /**
-   * 영상핀에 필요한 권한을 미리 받는다.
+   * 핀에 필요한 권한을 미리 받는다.
    *
    * 위치·카메라·마이크가 없으면 제보를 아예 할 수 없어 가입 직후 막힌다. 촬영 화면에서
    * 처음 물으면 거절했을 때 되돌릴 곳이 없으므로 가입을 끝내기 전에 받는다.

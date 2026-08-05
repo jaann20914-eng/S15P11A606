@@ -6,7 +6,7 @@ import { mypageStyles as s } from '../styles';
 
 /** 마이페이지에서 들어갈 수 있는 하위 화면. */
 const menus = [
-  { label: '오늘 작성한 영상핀', path: '/(tabs)/mypage/activity', icon: 'videocam-outline' },
+  { label: '오늘 작성한 핀', path: '/(tabs)/mypage/activity', icon: 'videocam-outline' },
   { label: '와글 포인트 내역', path: '/(tabs)/mypage/credits', icon: 'diamond-outline' },
 ] as const;
 

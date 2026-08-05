@@ -39,7 +39,7 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /**
- * 날짜별 영상핀 수를 만든다.
+ * 날짜별 핀 수를 만든다.
  *
  * 달마다 다른 모양이 나오되 값은 항상 같도록 날짜와 달로 계산한다. 무작위를 쓰면
  * 다시 그릴 때마다 히트맵이 바뀌어 확인이 어렵다. 농도 네 단계가 모두 나오게 섞는다.
@@ -99,7 +99,7 @@ export async function fetchMockMyProfile(month?: ActivityMonth): Promise<MyProfi
   };
 }
 
-/** 오늘 등록한 영상핀에 쓰는 장소. 목록에 같은 이름만 늘어놓으면 순서를 확인할 수 없다. */
+/** 오늘 등록한 핀에 쓰는 장소. 목록에 같은 이름만 늘어놓으면 순서를 확인할 수 없다. */
 const todayPinPlaces = [
   {
     placeId: 11,
@@ -120,7 +120,7 @@ const todayPinPlaces = [
  */
 const todayPinStatuses: TodayPinStatus[] = ['PROCESSING', 'ACTIVE', 'RESHOOT', 'ACTIVE', 'ACTIVE'];
 
-/** 오늘 등록한 영상핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
+/** 오늘 등록한 핀 수. 한 페이지(20건)를 넘겨 커서 이어받기를 확인할 수 있게 둔다. */
 const TODAY_PIN_COUNT = 26;
 
 /**
@@ -135,7 +135,7 @@ const TODAY_PIN_ID_OFFSET = 200;
 const MOCK_TODAY_PIN_PAGE_SIZE = 20;
 
 /**
- * 오늘 등록한 영상핀 목업.
+ * 오늘 등록한 핀 목업.
  *
  * 등록 시각을 지금부터 거슬러 만든다. 고정 문자열로 두면 "오늘"이 아니게 되어 화면 문구와
  * 어긋난다. 서버가 최신순으로 주므로 여기서도 최근 것이 앞에 온다.
@@ -183,17 +183,17 @@ export async function fetchMockTodayPins(query: TodayPinsQuery): Promise<TodayPi
  * 음수로 내려가지 않는다 — 지금 한 바퀴가 `+4`다.
  */
 const creditKinds: Array<Pick<CreditTransaction, 'type' | 'amount' | 'description'>> = [
-  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '영상핀 평가 참여' },
+  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '핀 평가 참여' },
   { type: 'VIDEO_VIEWED', amount: -3, description: '성수 연무장길 영상 열람' },
   { type: 'RECEIVED_CHAT_REQUEST_ACCEPTED', amount: 5, description: '채팅 요청 수락' },
-  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 영상핀이 유익하다는 평가를 받음' },
-  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '영상핀 평가 참여' },
+  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 핀이 유익하다는 평가를 받음' },
+  { type: 'PIN_EVALUATION_PARTICIPATED', amount: 1, description: '핀 평가 참여' },
   { type: 'VIDEO_VIEWED', amount: -3, description: '서울숲 영상 열람' },
-  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 영상핀이 유익하다는 평가를 받음' },
+  { type: 'RECEIVED_HELPFUL_PIN_EVALUATION', amount: 2, description: '내 핀이 유익하다는 평가를 받음' },
   {
     type: 'RECEIVED_DISAPPOINTING_PIN_EVALUATION',
     amount: -1,
-    description: '내 영상핀이 아쉽다는 평가를 받음',
+    description: '내 핀이 아쉽다는 평가를 받음',
   },
   { type: 'SENT_CHAT_REQUEST_ACCEPTED', amount: -5, description: '채팅 요청이 수락됨' },
   { type: 'RECEIVED_CHAT_REQUEST_ACCEPTED', amount: 5, description: '채팅 요청 수락' },

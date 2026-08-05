@@ -125,8 +125,8 @@ const messageByCode: Record<string, string> = {
 
   // 수정에서만 나오는 것들
   INVALID_PIN_UPDATE_REQUEST: '수정할 내용을 다시 확인해 주세요.',
-  PIN_UPDATE_FORBIDDEN: '내가 올린 영상핀만 수정할 수 있어요.',
-  PIN_NOT_FOUND: '영상핀을 찾을 수 없어요. 이미 삭제됐거나 만료됐을 수 있어요.',
+  PIN_UPDATE_FORBIDDEN: '내가 올린 핀만 수정할 수 있어요.',
+  PIN_NOT_FOUND: '핀을 찾을 수 없어요. 이미 삭제됐거나 만료됐을 수 있어요.',
   PLACE_NOT_FOUND: '선택한 장소를 찾을 수 없어요.',
   PIN_NOT_EDITABLE: '지금은 수정할 수 없는 상태예요. 영상이 공개된 뒤에 고칠 수 있어요.',
   PIN_UPDATE_IN_PROGRESS: '앞서 요청한 영상 교체가 아직 처리 중이에요. 끝난 뒤에 다시 시도해 주세요.',
@@ -624,7 +624,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
             ? NETWORK_FAILURE_MESSAGE
             : cause instanceof Error
               ? cause.message
-              : '영상핀을 수정하지 못했어요',
+              : '핀을 수정하지 못했어요',
         retryable: isApiError ? isRetryable(cause) : true,
       });
     });

@@ -29,7 +29,7 @@ export interface MapFocus {
   /**
    * 그 자리에서 당길 축척(카카오 레벨). 생략하면 홈이 장소용 기본값을 쓴다.
    *
-   * 영상핀은 장소보다 더 당겨야 한다 — 한 장소의 핀들이 수십 미터 안에 모여 있어 장소용
+   * 핀은 장소보다 더 당겨야 한다 — 한 장소의 핀들이 수십 미터 안에 모여 있어 장소용
    * 축척으로는 여러 개가 한 점처럼 겹친다.
    */
   level?: number;
@@ -50,7 +50,7 @@ export interface MapMarker {
 }
 
 /**
- * 상세 화면이 홈 지도에 대신 찍어 달라고 넘긴 영상핀.
+ * 상세 화면이 홈 지도에 대신 찍어 달라고 넘긴 핀.
  *
  * 상세 화면은 **자기 지도가 없다.** 반투명 모달로 홈 위에 겹쳐 있어 아래 홈 지도가 그대로
  * 보이므로, 마커를 바꾸려면 홈에게 부탁해야 한다(내 위치 버튼이 `focusOn`으로 같은 일을 한다).
@@ -98,10 +98,10 @@ export interface MapState {
    * 컴포넌트를 import하면 순환이 되므로 여기에 다시 적는다(`MapGestureControl`과 같은 사정이다).
    */
   mapLevel: number;
-  /** 상세 화면이 넘긴 영상핀 마커. null이면 홈이 장소 마커를 찍는다. */
+  /** 상세 화면이 넘긴 핀 마커. null이면 홈이 장소 마커를 찍는다. */
   pinOverlay: PinMarkerOverlay | null;
   /**
-   * **20m까지 당긴 그 순간 화면에 있던, 영상핀이 올라온 장소들.** 사용자에게 가까운 순이다.
+   * **20m까지 당긴 그 순간 화면에 있던, 핀이 올라온 장소들.** 사용자에게 가까운 순이다.
    *
    * 그 축척에서는 장소 하나를 들여다보는 것이 자연스러워, 당기는 순간 가장 가까운 장소의 상세가
    * 열린다. 그런데 화면에 여러 곳이 담겨 있으면 **사용자가 노린 곳이 아닐 수 있다** — "여기가
@@ -114,7 +114,7 @@ export interface MapState {
    */
   nearbyPlaces: MapMarker[];
   /**
-   * 지도에서 방금 눌린 영상핀. **한 번 쓰고 비우는 요청이다**(상태 거울이 아니다).
+   * 지도에서 방금 눌린 핀. **한 번 쓰고 비우는 요청이다**(상태 거울이 아니다).
    *
    * 지도는 홈 것이라 마커 눌림도 홈으로 온다. 그것을 상세 화면에 알릴 길이 필요한데, 예전에는
    * `pinOverlay.selectedPinId`를 홈이 고쳐서 알렸다. 그러면 **같은 칸을 두 쪽이 쓴다** —
@@ -161,10 +161,10 @@ export interface MapState {
   setCrowdFilter: (crowdFilter: CrowdFilter) => void;
   toggleCrowdFilter: () => void;
   selectPlace: (placeId: string | null) => void;
-  /** 상세 화면이 자기 영상핀을 지도에 올린다. 닫을 때 `clearPinOverlay`로 반드시 되돌린다. */
+  /** 상세 화면이 자기 핀을 지도에 올린다. 닫을 때 `clearPinOverlay`로 반드시 되돌린다. */
   showPinOverlay: (overlay: PinMarkerOverlay) => void;
   clearPinOverlay: () => void;
-  /** 지도에서 영상핀 마커가 눌렸다고 알린다. 받는 화면이 처리하고 `clearPressedPin`으로 비운다. */
+  /** 지도에서 핀 마커가 눌렸다고 알린다. 받는 화면이 처리하고 `clearPressedPin`으로 비운다. */
   pressPin: (pinId: string) => void;
   clearPressedPin: () => void;
   /** 20m에서 돌려 볼 장소를 정한다. 그 축척을 벗어나면 빈 배열로 비운다(홈이 맡는다). */

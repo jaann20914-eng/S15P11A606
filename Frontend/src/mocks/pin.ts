@@ -76,7 +76,7 @@ export function resolvePinDetailScenario(pinId: PinId): PinDetailScenario {
 /**
  * 목업 핀을 시나리오 표에 추가한다.
  *
- * 다른 목업이 만든 핀도 상세를 열 수 있게 한다. 마이페이지의 "오늘 등록한 영상핀"이 그런
+ * 다른 목업이 만든 핀도 상세를 열 수 있게 한다. 마이페이지의 "오늘 등록한 핀"이 그런
  * 경우다 — 목록에는 있는데 표에 없으면 눌렀을 때 조회 실패 화면이 뜬다.
  */
 export function registerMockPinScenario(pinId: PinId, scenario: PinDetailScenario): void {

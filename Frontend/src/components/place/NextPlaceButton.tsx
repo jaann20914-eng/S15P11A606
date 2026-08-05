@@ -33,7 +33,7 @@ export interface NextPlaceButtonProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** 읽어 주는 쪽에 알리는 안내. 화살표만으로는 무엇을 하는 버튼인지 말로 전해지지 않는다. */
-const NEXT_PLACE_HINT = '화면에 담긴 다음 장소의 영상핀으로 넘어갑니다';
+const NEXT_PLACE_HINT = '화면에 담긴 다음 장소의 핀으로 넘어갑니다';
 const NO_OTHER_PLACE_HINT = '이 화면에는 돌려 볼 다른 장소가 없습니다';
 
 export function NextPlaceButton({ onPress, enabled = true, style }: NextPlaceButtonProps) {

@@ -4,7 +4,7 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
 /**
  * 마이페이지 전용 스타일.
  *
- * 네 화면(요약 · 작성한 영상핀 · 크레딧 내역 · 닉네임 수정)이 헤더와 목록 카드를 공유한다.
+ * 네 화면(요약 · 작성한 핀 · 크레딧 내역 · 닉네임 수정)이 헤더와 목록 카드를 공유한다.
  * 같은 값을 화면마다 복사하지 않도록 여기 한 곳에 둔다.
  */
 export const mypageStyles = StyleSheet.create({
@@ -68,7 +68,7 @@ export const mypageStyles = StyleSheet.create({
     marginTop: spacing.x1,
   },
   /**
-   * 보유 크레딧과 오늘 영상핀.
+   * 보유 크레딧과 오늘 핀.
    *
    * 아래 이 달의 활동과 같은 방식이다 — 선을 긋는 대신 실금만큼 띄워 흰 바탕이 비치게 하고,
    * 바깥 모서리만 둥글려 한 카드를 갈라 놓은 것처럼 보이게 한다.
@@ -189,7 +189,7 @@ export const mypageStyles = StyleSheet.create({
   logout: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: spacing.x4 },
   logoutText: { ...type.caption, color: colors.gray400 },
 
-  /* 목록 화면 공통 (작성한 영상핀 · 크레딧 내역) */
+  /* 목록 화면 공통 (작성한 핀 · 크레딧 내역) */
   content: {
     flex: 1,
     paddingHorizontal: layout.gutter,
@@ -210,7 +210,7 @@ export const mypageStyles = StyleSheet.create({
   emptyText: { ...type.small, color: colors.gray400 },
   loading: { minHeight: 160, alignItems: 'center', justifyContent: 'center' },
 
-  /* 작성한 영상핀 */
+  /* 작성한 핀 */
   pinSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',

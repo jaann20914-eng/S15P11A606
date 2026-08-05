@@ -270,7 +270,7 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!error) return;
 
-    const title = mode.type === 'edit' ? '영상핀을 수정하지 못했어요' : '영상핀을 등록하지 못했어요';
+    const title = mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요';
     Alert.alert(title, error, [{ text: '확인', onPress: dismissError }]);
   }, [error, dismissError, mode.type]);
 
@@ -317,9 +317,9 @@ export default function PinCreateScreen() {
     setLeaving(false);
     setCompletion(
       mode.type === 'edit'
-        ? { title: '영상핀을 수정했어요', message: '고친 내용이 반영됐어요.' }
+        ? { title: '핀을 수정했어요', message: '고친 내용이 반영됐어요.' }
         : {
-            title: '영상핀을 등록했어요',
+            title: '핀을 등록했어요',
             message: '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
           },
     );

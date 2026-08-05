@@ -289,7 +289,7 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
   return (
     <View style={s.watchArea}>
       <Text style={s.watchTitle}>현장 영상을 확인할까요?</Text>
-      <Text style={s.watchHint}>와글 포인트 3개를 사용하면 전체 블러가 해제돼요.</Text>
+      <Text style={s.watchHint}>3 와글 포인트를 사용하면 전체 블러가 해제돼요.</Text>
       <Pressable
         accessibilityRole="button"
         disabled={pending}
@@ -342,7 +342,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
           <RewardLeaf animate={submitted !== null} />
           <View>
             <Text style={s.rewardTitle}>
-              {rewardCredit === null ? '와글 포인트를 받았어요' : `와글 포인트 ${rewardCredit}개를 받았어요`}
+              {rewardCredit === null ? '와글 포인트를 받았어요' : `${rewardCredit} 와글 포인트를 받았어요`}
             </Text>
             <Text style={s.rewardText}>게시자의 뷰에도 반영했어요.</Text>
           </View>
@@ -365,8 +365,8 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
 
   return (
     <View style={s.ratingArea}>
-      <Text style={s.ratingTitle}>이 영상핀이 유익했나요?</Text>
-      <Text style={s.ratingHint}>평가하면 와글 포인트 1개를 적립하고 게시자의 뷰에 반영해요.</Text>
+      <Text style={s.ratingTitle}>이 핀이 유익했나요?</Text>
+      <Text style={s.ratingHint}>평가하면 1 와글 포인트를 적립하고 게시자의 뷰에 반영해요.</Text>
       {error && <Text style={s.ratingError}>{error}</Text>}
       <View style={s.ratingButtons}>
         <Pressable

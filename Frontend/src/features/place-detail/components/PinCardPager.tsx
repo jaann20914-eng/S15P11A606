@@ -3,7 +3,7 @@ import { PlacePinCard } from '@/components/place';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
 
 /**
- * 영상핀 카드를 한 장씩 넘겨 보는 칸.
+ * 핀 카드를 한 장씩 넘겨 보는 칸.
  *
  * 장소 상세 시트의 **"보통" 단계**에서만 쓴다. 그 단계는 높이가 "제목 + 카드 한 장"으로
  * 잡혀 있어 목록을 훑는 자리가 아니다.

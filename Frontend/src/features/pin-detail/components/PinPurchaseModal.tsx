@@ -69,7 +69,7 @@ export function PinPurchaseModal({
         {/* 미리 받아 둔 영상이라 곧바로 뜬다. 열 때마다 처음부터 재생된다. */}
         <IllustrationVideo name="coin" style={s.coinVideo} />
 
-        <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}와글 포인트가 3개 차감됩니다</Text>
+        <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}3 와글 포인트가 차감됩니다</Text>
         {error && <Text style={s.payError}>{error}</Text>}
 
         <Pressable

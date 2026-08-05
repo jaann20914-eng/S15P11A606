@@ -21,7 +21,7 @@ export interface PinDetailHeaderProps {
 export function PinDetailHeader({ menu, hideActions }: PinDetailHeaderProps) {
   return (
     <ScreenHeader
-      title="영상핀"
+      title="핀"
       back
       onBack={goBackOrHome}
       right={
