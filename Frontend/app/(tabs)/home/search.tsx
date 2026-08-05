@@ -150,7 +150,7 @@ export default function Search() {
             autoFocus
             style={[s.input, webNoOutline]}
           />
-          {loading && <ActivityIndicator size="small" color={colors.gray600} />}
+          {loading && <ActivityIndicator size="small" color={colors.limeText} />}
           {places.keyword.length > 0 && (
             <Pressable accessibilityLabel="검색어 지우기" onPress={places.clear} style={s.clearButton}>
               <Ionicons name="close" size={15} color={colors.white} />
@@ -259,7 +259,7 @@ export default function Search() {
           </>
         ) : recent.loading ? (
           <View style={s.centered}>
-            <ActivityIndicator size="small" color={colors.gray600} />
+            <ActivityIndicator size="small" color={colors.limeText} />
           </View>
         ) : recent.error !== null ? (
           <View style={s.statusBlock}>

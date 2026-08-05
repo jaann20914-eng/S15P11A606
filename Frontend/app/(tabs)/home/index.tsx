@@ -545,7 +545,7 @@ export default function Home() {
       ) : (
         // 좌표를 기다리는 짧은 구간. 지도 배경색 위에 표시만 둬 깜빡임을 줄인다.
         <View pointerEvents="none" style={s.mapPlaceholder}>
-          <ActivityIndicator color={colors.gray600} />
+          <ActivityIndicator color={colors.limeText} />
         </View>
       )}
 
@@ -580,7 +580,7 @@ export default function Home() {
               몇 초가 걸릴 수 있어, 기다리는 중임을 반드시 드러낸다.
             */}
             {myLocation.status === 'loading' ? (
-              <ActivityIndicator size="small" color={colors.dark} />
+              <ActivityIndicator size="small" color={colors.limeText} />
             ) : (
               <Ionicons
                 name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
@@ -761,7 +761,7 @@ export default function Home() {
             <View onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}>
               {inView.loading ? (
                 <View style={s.empty}>
-                  <ActivityIndicator color={colors.gray600} />
+                  <ActivityIndicator color={colors.limeText} />
                 </View>
               ) : inView.error !== null ? (
                 <View style={s.empty}>

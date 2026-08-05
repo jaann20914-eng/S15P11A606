@@ -467,7 +467,7 @@ export default function Place() {
           >
             {/* 홈과 같은 이유로 기다리는 중임을 드러낸다. 표시가 없으면 먹통으로 보인다. */}
             {myLocation.status === 'loading' ? (
-              <ActivityIndicator size="small" color={colors.dark} />
+              <ActivityIndicator size="small" color={colors.limeText} />
             ) : (
               <Ionicons
                 name={myLocation.status === 'granted' ? 'locate' : 'locate-outline'}
@@ -514,7 +514,7 @@ export default function Place() {
                 읽을 일이 없고, 확장하면 정보 카드에 그대로 남아 있다.
               */}
               {loading ? (
-                <ActivityIndicator size="small" color={colors.gray600} style={s.headingBusy} />
+                <ActivityIndicator size="small" color={colors.limeText} style={s.headingBusy} />
               ) : (
                 <Text numberOfLines={1} style={s.headingName}>
                   {place?.name ?? '장소'}
