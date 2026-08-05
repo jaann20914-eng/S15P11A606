@@ -43,8 +43,17 @@ export function isPlottableCoordinate(coordinate: {
   return latitude !== 0 || longitude !== 0;
 }
 
-/** 목록 응답을 기억한다. 쓸 수 없는 좌표는 넣지 않는다. */
-export function rememberPlaceMapData(places: PlaceListItem[]): void {
+/**
+ * 좌표를 담아 오는 응답에서 이 저장소가 읽는 것.
+ *
+ * 목록(`PlaceListItem`)과 태그 검색 결과(`TaggedPlace`)가 **좌표 부분만 같은 모양**이다.
+ * 필요한 네 값으로 좁혀 두면 두 응답이 같은 함수를 쓸 수 있다 — 태그 결과로 들어온 장소도
+ * 상세 화면이 지도에 찍을 수 있어야 하고, 그쪽에는 혼잡도 필드가 없다.
+ */
+export type PlaceMapSource = Pick<PlaceListItem, 'placeId' | 'latitude' | 'longitude' | 'activePins'>;
+
+/** 좌표가 담긴 응답을 기억한다. 쓸 수 없는 좌표는 넣지 않는다. */
+export function rememberPlaceMapData(places: readonly PlaceMapSource[]): void {
   for (const place of places) {
     const coordinate = { latitude: place.latitude, longitude: place.longitude };
     if (!isPlottableCoordinate(coordinate)) {
