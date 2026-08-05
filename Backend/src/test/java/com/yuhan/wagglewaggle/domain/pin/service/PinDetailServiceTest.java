@@ -7,6 +7,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.PinDetailView;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinViewerAccess;
 import com.yuhan.wagglewaggle.domain.pin.dto.VideoAccessLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
+import com.yuhan.wagglewaggle.domain.pin.entity.PublisherStatus;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import com.yuhan.wagglewaggle.global.s3.S3PresignedUrlGenerator;
@@ -62,7 +63,7 @@ class PinDetailServiceTest {
                 1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625,
                 CrowdLevel.WAGLE, "2층 창가 좌석", "점심시간 기준",
                 List.of("조용함", "콘센트"), blurredKey, thumbnailKey,
-                Instant.parse("2026-07-28T04:20:00Z"));
+                Instant.parse("2026-07-28T04:20:00Z"), PublisherStatus.STILL_HERE);
         return new PinDetailView(detail, access);
     }
 
@@ -119,6 +120,7 @@ class PinDetailServiceTest {
         assertThat(res.thumbnailUrl()).isEqualTo(THUMBNAIL_URL);
         assertThat(res.canRequestChat()).isFalse();
         assertThat(res.chatRequestState()).isEqualTo(ChatRequestState.NONE);
+        assertThat(res.publisherStatus()).isEqualTo(PublisherStatus.STILL_HERE);
 
         // videoUrl은 blurred key, thumbnailUrl은 thumbnail key로 발급한다.
         verify(s3PresignedUrlGenerator).createDownloadUrl(BLURRED_KEY);
@@ -145,7 +147,7 @@ class PinDetailServiceTest {
                 1L, "1372855768", "바나프레소 테헤란로점", 37.501123, 127.039625,
                 CrowdLevel.WAGLE, null, null,
                 List.of(), BLURRED_KEY, THUMBNAIL_KEY,
-                Instant.parse("2026-07-28T04:20:00Z"));
+                Instant.parse("2026-07-28T04:20:00Z"), PublisherStatus.STILL_HERE);
         given(pinDetailQueryService.getPinDetail(PIN_ID, MEMBER_ID))
                 .willReturn(new PinDetailView(detail, ownerAccess()));
         stubUrls();

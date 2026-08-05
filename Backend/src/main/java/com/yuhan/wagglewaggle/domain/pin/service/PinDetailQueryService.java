@@ -200,6 +200,7 @@ public class PinDetailQueryService {
                 tags,
                 pin.getBlurredVideoKey(),
                 pin.getThumbnailKey(),
-                pin.getExpiresAt());
+                pin.getExpiresAt(),
+                pin.getPublisherStatus());
     }
 }

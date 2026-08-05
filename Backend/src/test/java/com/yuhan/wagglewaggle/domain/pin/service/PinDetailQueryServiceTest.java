@@ -9,6 +9,7 @@ import com.yuhan.wagglewaggle.domain.pin.dto.VideoAccessLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.PinTag;
+import com.yuhan.wagglewaggle.domain.pin.entity.PublisherStatus;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinEvaluationRepository;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
@@ -154,6 +155,19 @@ class PinDetailQueryServiceTest {
             assertThat(detail.blurredVideoKey()).isEqualTo(BLURRED_KEY);
             assertThat(detail.thumbnailKey()).isEqualTo(THUMBNAIL_KEY);
             assertThat(detail.expiresAt()).isNotNull();
+            assertThat(detail.publisherStatus()).isEqualTo(PublisherStatus.STILL_HERE);
+        }
+
+        @Test
+        void 제보자가_현장을_떠난_핀은_publisherStatus_LEFT를_반환한다() {
+            Pin pin = activePin();
+            pin.markPublisherLeft();
+            given(pinRepository.findActivePinDetailByIdIncludingExpired(any())).willReturn(Optional.of(pin));
+            given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of());
+
+            PinDetail detail = service.getPinDetail(PIN_ID, AUTHOR_ID).detail();
+
+            assertThat(detail.publisherStatus()).isEqualTo(PublisherStatus.LEFT);
         }
 
         @Test
