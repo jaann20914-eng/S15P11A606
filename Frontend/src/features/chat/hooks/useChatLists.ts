@@ -23,9 +23,6 @@ interface EditableList<TItem> extends ListState<TItem> {
   setItems: Dispatch<SetStateAction<TItem[]>>;
 }
 
-/** 새 요청을 알아채는 주기(ms). 서버가 요청 이벤트를 발행하기 시작하면 주기 조회는 지운다. */
-const POLL_INTERVAL_MS = 10_000;
-
 /**
  * 목록을 한 번 받아 둔다.
  *
@@ -35,11 +32,12 @@ const POLL_INTERVAL_MS = 10_000;
  * `load`는 렌더마다 새로 만들어지는 함수라 의존값에 넣지 않는다. 다시 받는 시점은 `reload`가
  * 올리는 값이 정한다.
  *
- * `poll`을 켜면 화면이 떠 있는 동안 주기적으로 다시 받는다. **새 채팅 요청 때문이다** — 요청은
- * 방만 만들고 실시간 이벤트를 발행하지 않아, 목록을 보고 기다리는 사람에게 알려 줄 길이 조회밖에
- * 없다. 서버가 요청 이벤트를 쏘기 시작하면 끈다.
+ * 주기 조회(10초 폴링)는 지웠다. 새 채팅 요청이 실시간 이벤트 없이 방만 만들던 동안의
+ * 임시 수단이었는데, 서버가 요청 도착도 개인 큐로 쏘기 시작했다(`CHAT_ROOM_REQUESTED`,
+ * 2026-08-05 확인). 이제 목록은 이벤트로 고치고, 초점 복귀 재조회가 이벤트를 놓친 경우
+ * (소켓 끊김 등)를 받친다.
  */
-function useList<TItem>(load: () => Promise<TItem[]>, enabled = true, poll = false): EditableList<TItem> {
+function useList<TItem>(load: () => Promise<TItem[]>, enabled = true): EditableList<TItem> {
   const [items, setItems] = useState<TItem[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
@@ -90,23 +88,12 @@ function useList<TItem>(load: () => Promise<TItem[]>, enabled = true, poll = fal
     };
   }, [enabled, requestedAt]);
 
-  // 주기 조회는 화면이 초점을 가진 동안만 돈다. 다른 탭에서까지 돌릴 이유가 없다.
-  useFocusEffect(
-    useCallback(() => {
-      if (!poll || !enabled) return;
-
-      const timer = setInterval(reload, POLL_INTERVAL_MS);
-
-      return () => clearInterval(timer);
-    }, [poll, enabled, reload]),
-  );
-
   /*
     화면으로 돌아올 때 다시 받는다.
 
     채팅 목록 화면은 탭을 옮겨도 살아 있어서, 마운트 때 한 번 받고 끝나면 그 뒤에 생긴 일이
-    보이지 않는다. 실시간 이벤트가 메우는 것도 있지만 **채팅 요청은 이벤트가 오지 않는다** —
-    요청을 받아도 목록이 그대로였다.
+    보이지 않는다. 실시간 이벤트가 대부분 메우지만, 소켓이 끊긴 사이의 일은 이벤트로 오지
+    않는다 — 초점 복귀가 그 빈틈을 받친다.
 
     첫 초점은 건너뛴다. 위 효과가 방금 받아 온 직후라 같은 요청을 두 번 보내게 된다.
   */
@@ -169,13 +156,11 @@ export function useMyChatRooms(): ListState<ChatRoomListItem> {
 }
 
 /**
- * 요청이 온 내 게시글 목록. 새 요청이 오면 다시 받는다 — 없던 글이 생길 수 있다.
- *
- * 주기 조회를 켠다. 요청 도착은 실시간 이벤트가 없어, 이 목록을 보며 기다리는 사람에게
- * 조회 말고는 알려 줄 길이 없다.
+ * 요청이 온 내 게시글 목록. 새 요청 이벤트(`CHAT_ROOM_REQUESTED`)가 오면 다시 받는다 —
+ * 없던 글이 생길 수 있다.
  */
 export function useChatPins(): ListState<ChatPinListItem> {
-  const list = useList(getChatPins, true, true);
+  const list = useList(getChatPins);
   const { reload, setItems } = list;
 
   useUserChatEvents((event) => {
@@ -224,12 +209,8 @@ export function useChatPins(): ListState<ChatPinListItem> {
  * `pinId`가 null이면 아직 고르지 않은 상태라 요청하지 않는다.
  */
 export function usePinChatRooms(pinId: PinId | null): ListState<ChatRoomListItem> {
-  // 주기 조회를 켠다 — 이 글에 새 요청이 들어와도 이벤트가 없어 조회로만 나타난다.
-  const list = useList(
-    () => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)),
-    pinId !== null,
-    true,
-  );
+  // 이 글에 새 요청이 들어오면 `CHAT_ROOM_REQUESTED` 이벤트가 아래에서 재조회를 일으킨다.
+  const list = useList(() => (pinId === null ? Promise.resolve([]) : getPinChatRooms(pinId)), pinId !== null);
   const { reload, setItems } = list;
 
   useUserChatEvents((event) => {
