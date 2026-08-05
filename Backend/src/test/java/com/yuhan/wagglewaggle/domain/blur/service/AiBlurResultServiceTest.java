@@ -372,6 +372,8 @@ class AiBlurResultServiceTest {
         assertThat(pin.getExpiresAt()).isEqualTo(SERVER_NOW.plusSeconds(3600));
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
         assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
+        // 교체 반영으로 expiresAt이 갱신되므로 해당 핀 태그 색인을 다시 트리거한다.
+        verify(pinTagIndexingService).indexPinTags(DB_PIN_ID);
     }
 
     @Test
@@ -424,6 +426,8 @@ class AiBlurResultServiceTest {
         assertThat(pin.getBlurredVideoKey()).isEqualTo(OLD_BLURRED_KEY);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.PENDING);
         verify(videoObjectCleanupPort, never()).registerForDeletion(any());
+        // 교체가 반영되지 않았으므로(expiresAt 미변경) 색인을 트리거하지 않는다.
+        verify(pinTagIndexingService, never()).indexPinTags(any());
     }
 
     // ========================= VIDEO_REPLACEMENT: 반영 불가 PASS =========================

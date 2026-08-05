@@ -203,6 +203,8 @@ public class AiBlurResultService {
         pin.replaceVideo(job.getOriginalVideoKey(), message.blurredVideoKey(),
                 message.thumbnailKey(), clock.instant());
         job.markCompleted(message.completedAt(), message.finalStatus());
+        // 교체 반영으로 expiresAt이 갱신되므로, 태그는 그대로여도 검색 인덱스의 expiresAt을 최신화한다.
+        registerTagIndex(pin);
 
         runAfterCommit(() -> {
             videoObjectCleanupPort.registerForDeletion(previousOriginalKey);
