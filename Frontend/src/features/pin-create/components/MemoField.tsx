@@ -19,15 +19,18 @@ export interface MemoFieldProps {
  */
 export function MemoField({ value, onChange, onFocus }: MemoFieldProps) {
   /*
-    한도에 닿으면 테두리 색과 위 안내 문구로 알린다. 잘라내기만 하면 더 쳐도 아무 일도
-    일어나지 않아 입력기가 고장 난 것처럼 보인다 — 글자 수를 세어 가며 쓰는 사람은 없으니
-    칸이 말해 줘야 한다. 잘라내기가 있으므로 이 상태는 "가득 찼다"는 뜻이지 "넘쳤다"가 아니다.
+    한도에 닿으면 테두리 색으로 알린다. 잘라내기만 하면 더 쳐도 아무 일도 일어나지 않아
+    입력기가 고장 난 것처럼 보인다 — 글자 수를 세어 가며 쓰는 사람은 없으니 칸이 말해 줘야
+    한다. 잘라내기가 있으므로 이 상태는 "가득 찼다"는 뜻이지 "넘쳤다"가 아니다.
+
+    안내 문구는 **늘 보여준다.** 한도 순간에만 끼워 넣었더니 입력칸이 아래로 밀리며 다시
+    그려져, 치던 글씨가 작아지는 것처럼 보였다. 자리가 고정돼 있으면 바뀌는 것은 색뿐이다.
   */
   const atLimit = countGraphemes(value) >= MAX_MEMO_LENGTH;
 
   return (
     <>
-      {atLimit && <Text style={s.memoLimitNotice}>최대 {MAX_MEMO_LENGTH}자까지 입력할 수 있어요</Text>}
+      <Text style={s.memoLimitNotice}>최대 {MAX_MEMO_LENGTH}자까지 입력할 수 있어요</Text>
       <TextInput
         value={value}
         onChangeText={(text) => onChange(truncateGraphemes(text, MAX_MEMO_LENGTH))}
@@ -35,7 +38,7 @@ export function MemoField({ value, onChange, onFocus }: MemoFieldProps) {
         multiline
         placeholder={`내용 입력 (선택 · 최대 ${MAX_MEMO_LENGTH}자)`}
         placeholderTextColor={colors.gray400}
-        style={[s.memo, atLimit && s.memoAtLimit, atLimit && s.memoAfterNotice]}
+        style={[s.memo, atLimit && s.memoAtLimit]}
       />
     </>
   );

@@ -151,7 +151,8 @@ export const pinCreateStyles = StyleSheet.create({
   /* 내용 입력 */
   memo: {
     height: 100,
-    marginTop: spacing.x5,
+    // 위 여백은 늘 보이는 안내 문구(`memoLimitNotice`)가 갖는다. 문구와는 좁게 붙는다.
+    marginTop: spacing.x2,
     padding: spacing.x4,
     textAlignVertical: 'top',
     borderRadius: radius.md,
@@ -164,14 +165,8 @@ export const pinCreateStyles = StyleSheet.create({
   },
   /** 내용이 한도(50자)에 닿았을 때. 연한 연두 테두리로 "가득 찼다"를 알린다. */
   memoAtLimit: { borderColor: '#D8EB6A' },
-  /**
-   * 한도 안내 문구. 입력칸 위에 놓이고 테두리와 같은 연두를 쓴다.
-   *
-   * 입력칸의 위 여백(x5)을 이 문구가 대신 갖고, 문구와 칸 사이는 좁게 둔다 — 문구가 나타나도
-   * 칸이 크게 밀리지 않는다. 칸 쪽 여백은 `memoAfterNotice`가 지운다.
-   */
+  /** 한도 안내 문구. 입력칸 위에 늘 놓이고 테두리와 같은 연두를 쓴다. 자리가 고정이라 한도 순간에도 칸이 밀리지 않는다. */
   memoLimitNotice: { ...type.caption, color: '#D8EB6A', marginTop: spacing.x5 },
-  memoAfterNotice: { marginTop: spacing.x2 },
 
   /* 공통 라벨 */
   label: {
