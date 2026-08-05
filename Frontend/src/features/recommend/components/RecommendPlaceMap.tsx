@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
 import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { PlaceMapData } from '@/api/place/coordinates';
+import type { CrowdFilter } from '@/constants/crowdLevels';
 import type { Coordinate } from '@/store/useMapStore';
 import { RECOMMEND_MAP_HEIGHT, recommendStyles as s } from '../styles';
 
@@ -9,6 +10,11 @@ export interface RecommendPlaceMapProps {
   name: string;
   /** 구하지 못했으면 null. 그때는 지도 대신 안내를 보여준다. */
   mapData: PlaceMapData | null;
+  /**
+   * 핀 색 계열. 여유는 라임, 와글은 붉은 계열 — 홈 지도와 같은 그림을 쓴다.
+   * 어느 목록에서 열었는지가 정하므로 카드가 param으로 실어 보낸다.
+   */
+  filter: CrowdFilter;
   /** 지금 골라 둔 핀. 이 마커만 뾰족한 핀(물방울)으로 그려진다 — 홈과 같은 규칙이다. */
   selectedPinId: string | null;
   /**
@@ -109,7 +115,13 @@ function centerOf(points: { latitude: number; longitude: number }[]): Coordinate
  *
  * `usePlaceSearch`를 켜지 않으므로 검색용 SDK 번들도 받지 않는다 — 첫 렌더가 그만큼 빠르다.
  */
-export function RecommendPlaceMap({ name, mapData, selectedPinId, onSelectPin }: RecommendPlaceMapProps) {
+export function RecommendPlaceMap({
+  name,
+  mapData,
+  filter,
+  selectedPinId,
+  onSelectPin,
+}: RecommendPlaceMapProps) {
   const { width: windowWidth } = useWindowDimensions();
   const mapRef = useRef<KakaoMapHandle>(null);
   const [ready, setReady] = useState(false);
@@ -217,8 +229,8 @@ export function RecommendPlaceMap({ name, mapData, selectedPinId, onSelectPin }:
         center={focus}
         level={level}
         places={markers}
-        // 핀 색 계열은 목록 기본값과 같은 라임으로 둔다. 이 화면에는 혼잡도 토글이 없다.
-        filter="relaxed"
+        // 핀 색은 어느 목록(여유·와글)에서 열었는지를 따른다. 홈 지도와 같은 그림이다.
+        filter={filter}
         // 고른 핀만 뾰족한 핀으로 바뀐다. 홈이 쓰는 것과 같은 그리기 규칙이다.
         selectedPlaceId={selectedPinId}
         myLocation={null}

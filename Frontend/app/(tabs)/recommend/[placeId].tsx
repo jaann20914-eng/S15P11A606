@@ -9,6 +9,7 @@ import { RecommendPlaceMap } from '@/features/recommend/components/RecommendPlac
 import { RecommendPlacePins } from '@/features/recommend/components/RecommendPlacePins';
 import { useRecommendPlaceDetail } from '@/features/recommend/hooks/useRecommendPlaceDetail';
 import { recommendStyles as s } from '@/features/recommend/styles';
+import type { CrowdFilter } from '@/constants/crowdLevels';
 import { colors } from '@/constants/theme';
 
 /**
@@ -24,11 +25,16 @@ import { colors } from '@/constants/theme';
  * `(tabs)` 안에 있으므로 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
 export default function RecommendPlaceScreen() {
-  const { placeId, latitude, longitude } = useLocalSearchParams<{
+  const { placeId, latitude, longitude, filter } = useLocalSearchParams<{
     placeId: string;
     latitude?: string;
     longitude?: string;
+    /** 어느 목록(여유·와글)에서 열었는지. 지도 핀 색이 이 값을 따른다. */
+    filter?: string;
   }>();
+
+  // 목록을 거치지 않고 들어오면 없다. 기본은 여유(라임)로 둔다.
+  const pinFilter: CrowdFilter = filter === 'wagle' ? 'wagle' : 'relaxed';
 
   // 경로 파라미터는 문자열이다. 숫자가 아니면 조회하지 않고 바로 안내로 넘긴다.
   const parsed = Number(placeId);
@@ -103,6 +109,7 @@ export default function RecommendPlaceScreen() {
           <RecommendPlaceMap
             name={detail.place.name}
             mapData={mapData}
+            filter={pinFilter}
             selectedPinId={selectedPinId}
             onSelectPin={selectPin}
           />

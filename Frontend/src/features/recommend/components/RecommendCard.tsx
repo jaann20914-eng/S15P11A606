@@ -3,18 +3,21 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ViewAvatar } from '@/components/common';
 import { colors } from '@/constants/theme';
+import type { CrowdFilter } from '@/constants/crowdLevels';
 import type { RecommendedPlace } from '@/types/recommend';
 import { recommendStyles as s } from '../styles';
 
 export interface RecommendCardProps {
   place: RecommendedPlace;
+  /** 이 카드가 속한 계열. 상세 지도의 핀 색이 이 값을 따른다(와글이면 홈과 같은 붉은 계열). */
+  mode: CrowdFilter;
 }
 
 /** 각도 링 지름. 한 줄에 다섯 개가 들어가야 해서 작게 쓴다. */
 const ANGLE_RING_SIZE = 30;
 
 /** 추천 장소 한 장. 누르면 장소 상세로 간다. */
-export function RecommendCard({ place }: RecommendCardProps) {
+export function RecommendCard({ place, mode }: RecommendCardProps) {
   /**
    * 대표 업로더를 뺀 사람 수.
    *
@@ -49,6 +52,8 @@ export function RecommendCard({ place }: RecommendCardProps) {
             pathname: '/(tabs)/recommend/[placeId]',
             params: {
               placeId: place.placeId,
+              // 상세 지도의 핀 색이 계열을 따른다. 와글에서 열면 홈과 같은 붉은 계열이다.
+              filter: mode,
               ...(place.latitude !== undefined && place.longitude !== undefined
                 ? { latitude: place.latitude, longitude: place.longitude }
                 : null),
