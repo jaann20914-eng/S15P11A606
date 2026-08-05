@@ -7,6 +7,7 @@ import { evaluatePin } from '@/api/pin/evaluate';
 import { deletePin } from '@/api/pin/remove';
 import { unlockPin } from '@/api/pin/unlock';
 import { rememberEditablePin } from '@/features/pin-create/editHandoff';
+import { isPinLeft, markPinLeft } from '@/store/leftPins';
 import { createIdempotencyKey } from '@/utils/idempotency';
 import { goBackOrHome } from '@/utils/navigation';
 import type { PinId, PinDetail, PinRating } from '@/types/pin';
@@ -27,13 +28,10 @@ export interface ConfirmActionState extends ToggleState {
   confirm: () => void;
 }
 
-/**
- * 이번 실행 동안 "이미 떠났어요"를 끝낸 핀.
- *
- * 상세 응답이 제보자 상태를 주지 않아 서버 값으로는 판단할 수 없다. 화면을 나갔다 들어와도
- * 버튼이 잠긴 채 남게 하려고 모듈에 둔다 — 화면 상태로 두면 다시 들어올 때 초기값으로 돌아간다.
- */
-const leftPinIds = new Set<PinId>();
+/*
+  "이미 떠났어요"를 끝낸 핀의 기억은 공용 모듈로 옮겼다(`store/leftPins`). 채팅 목록이
+  글 줄을 연하게 누르는 판정에도 같은 값이 필요해서다. 세션 동안만 남는 성질은 그대로다.
+*/
 
 function useToggle(): ToggleState {
   const [open, setOpen] = useState(false);
@@ -315,12 +313,12 @@ export function usePinDetailScreen(
   const leave = useConfirmAction(
     useCallback(async () => {
       const result = await leavePinChats(detail.pinId);
-      leftPinIds.add(detail.pinId);
+      markPinLeft(detail.pinId);
 
       return result;
     }, [detail.pinId]),
     '처리하지 못했어요',
-    { stay: true, doneAtStart: leftPinIds.has(detail.pinId) },
+    { stay: true, doneAtStart: isPinLeft(detail.pinId) },
   );
 
   return {

@@ -64,7 +64,14 @@ export default function Room() {
   const [text, setText] = useState('');
 
   const status = room.info?.status ?? null;
-  const sendable = room.canSend && text.trim().length > 0;
+
+  /*
+    작성자는 수락하기 전에 보낼 수 없다. 수락 전(`PENDING`)에 보낼 수 있는 쪽은 요청자뿐인데
+    (서버 정책), `canSend`는 방 상태만 보므로 여기서 역할을 겹쳐 잠근다. 입력칸은 종료된
+    방과 같은 회색 잠금으로 보이고, 안내 문구가 수락부터 하라고 알려 준다.
+  */
+  const canWrite = room.canSend && !(isOwner && status === 'PENDING');
+  const sendable = canWrite && text.trim().length > 0;
 
   /*
     방 안에서도 수락 · 거절할 수 있게 한다. 요청 카드에서 대화 내용을 읽고 나면 답하고 싶은
@@ -353,7 +360,7 @@ export default function Room() {
         )}
 
         <View style={s.composer}>
-          {room.canSend && room.messages.length === 0 && (
+          {canWrite && room.messages.length === 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.quickRow}>
               {quickMessages.map((item) => (
                 <Pressable accessibilityRole="button" key={item} onPress={() => send(item)} style={s.quick}>
@@ -377,11 +384,11 @@ export default function Room() {
             <TextInput
               value={text}
               onChangeText={setText}
-              editable={room.canSend}
+              editable={canWrite}
               placeholder={status === null ? '' : placeholderByStatus(status, isOwner)}
               placeholderTextColor={colors.gray400}
               onSubmitEditing={() => send(text)}
-              style={[s.input, !room.canSend && s.inputDisabled]}
+              style={[s.input, !canWrite && s.inputDisabled]}
             />
             <Pressable
               accessibilityRole="button"
