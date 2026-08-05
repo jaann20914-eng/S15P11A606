@@ -270,8 +270,17 @@ export const pinDetailStyles = StyleSheet.create({
    *
    * 글줄 간격을 본문(22)보다 좁게 직접 준다. 태그는 문장이 아니라 낱말 나열이라 본문
    * 간격으로 벌리면 줄 사이가 떠 보인다(rowGap을 0으로 줄여도 남던 간격의 정체가 이것).
+   *
+   * `includeFontPadding: false` — 안드로이드는 lineHeight와 별개로 글꼴 위아래에 여분
+   * 패딩을 기본으로 넣는다. 이걸 끄지 않으면 lineHeight를 줄여도 줄 아래 간격이 남는다.
    */
-  tag: { ...type.small, lineHeight: 17, color: colors.blue, maxWidth: '100%' },
+  tag: {
+    ...type.small,
+    lineHeight: 17,
+    includeFontPadding: false,
+    color: colors.blue,
+    maxWidth: '100%',
+  },
 
   /* 내 핀 하단 액션 */
   ownerFooter: { flexDirection: 'row', gap: spacing.x2 },
