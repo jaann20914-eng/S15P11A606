@@ -243,8 +243,12 @@ export const pinDetailStyles = StyleSheet.create({
     marginBottom: spacing.x4,
   },
   memo: { ...type.body, color: colors.gray400 },
-  /** 내용이 없는 글의 안내. 본문보다 한 단계 연해 "없는 것이 정상"으로 읽히게 한다. */
-  emptyBody: { ...type.small, color: colors.gray400 },
+  /**
+   * 내용이 없는 글의 안내. 이탤릭에 본문(gray400)보다 연한 회색으로, 작성자의 글이 아니라
+   * 화면이 대신 놓은 문구임이 모양에서 드러나게 한다. 테마의 gray200은 바탕에 묻혀 안 읽혀서
+   * gray200과 gray400 사이 값을 쓴다.
+   */
+  emptyBody: { ...type.small, fontStyle: 'italic', color: '#BDBABA' },
   /**
    * 태그 줄. **줄을 바꾼다** — 태그가 길거나 많으면 한 줄에 다 못 들어가는데, 접지 않고
    * 다 보여준다. 상세는 태그의 전문을 확인하는 자리다(작성 화면은 줄임표로 접는다).
