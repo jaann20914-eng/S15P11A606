@@ -13,6 +13,7 @@ import { useChatDecision, usePinLeave } from '@/features/chat/hooks/useChatDecis
 import { useChatPins, useMyChatRooms, usePinChatRooms } from '@/features/chat/hooks/useChatLists';
 import { chatListStyles as s } from '@/features/chat/styles';
 import { consumeReceivedPinFocus } from '@/features/chat/receivedFocus';
+import { isPinLeft } from '@/store/leftPins';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
 import type { PinId } from '@/types/pin';
 import { formatTimeOfDay } from '@/utils/datetime';
@@ -153,9 +154,16 @@ export default function Chat() {
 
   /** 게시글을 고른 상태에서는 그 글의 방 목록만 보여준다. */
   const inPin = selectedPin !== null;
-  /** 이 글의 대화가 전부 끝났는지. 떠났어요 버튼을 잠그는 기준이다. */
-  const allPinRoomsClosed =
-    pinRooms.items.length > 0 && pinRooms.items.every((room) => room.status === 'CLOSED');
+  /*
+    떠났어요 버튼을 잠그는 기준. **떠났어요를 실제로 누른 글**만 잠근다.
+
+    "방이 전부 CLOSED"로 판정했더니 유일한 요청 하나를 거절만 해도 화면이 "모든 대화가
+    종료됐어요"로 잠겼다(2026-08-05) — 목록 계약이 거절(REFUSED)과 떠남(LEFT)을 CLOSED
+    하나로 합쳐 줘서 방 상태로는 구분할 수 없다. 거절한 글은 새 요청을 계속 받는 살아 있는
+    글이라 떠났어요도 여전히 누를 수 있어야 한다. 떠난 글의 기억은 세션 동안 유지된다
+    (`store/leftPins` — 핀 상세의 "이미 떠났어요"와 같은 값을 본다).
+  */
+  const pinLeft = selectedPin !== null && isPinLeft(selectedPin.pinId);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -271,17 +279,15 @@ export default function Chat() {
         */}
         {inPin && pinRooms.items.length > 0 && (
           <View style={s.leaveArea}>
-            <Text style={s.leaveHint}>
-              {allPinRoomsClosed ? '모든 대화가 종료됐어요' : '모든 답변을 종료합니다'}
-            </Text>
+            <Text style={s.leaveHint}>{pinLeft ? '모든 대화가 종료됐어요' : '모든 답변을 종료합니다'}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: allPinRoomsClosed }}
-              disabled={leave.busy || allPinRoomsClosed}
+              accessibilityState={{ disabled: pinLeft }}
+              disabled={leave.busy || pinLeft}
               onPress={confirmLeave}
-              style={[s.leaveButton, leave.busy && s.leaveButtonBusy, allPinRoomsClosed && s.leaveButtonDone]}
+              style={[s.leaveButton, leave.busy && s.leaveButtonBusy, pinLeft && s.leaveButtonDone]}
             >
-              <Text style={[s.leaveText, allPinRoomsClosed && s.leaveTextDone]}>떠났어요</Text>
+              <Text style={[s.leaveText, pinLeft && s.leaveTextDone]}>떠났어요</Text>
             </Pressable>
           </View>
         )}

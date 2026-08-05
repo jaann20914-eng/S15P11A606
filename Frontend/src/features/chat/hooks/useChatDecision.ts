@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { decideChatRequest } from '@/api/chat/decision';
 import { leavePinChats } from '@/api/chat/leave';
+import { markPinLeft } from '@/store/leftPins';
 import type { ChatDecision } from '@/types/chat';
 import type { PinId } from '@/types/pin';
 
@@ -67,7 +68,7 @@ export function useChatDecision(reload: () => void): ChatDecisionState {
 }
 
 export interface PinLeaveState {
-  busy: boolean
+  busy: boolean;
   error: string | null;
   /** 이 게시글에 걸린 모든 방을 한 번에 끝낸다. */
   leave: () => void;
@@ -92,6 +93,8 @@ export function usePinLeave(pinId: PinId | null, reload: () => void): PinLeaveSt
 
     leavePinChats(pinId)
       .then(() => {
+        // 떠난 글로 기억한다. 목록 화면의 회색 표시와 떠났어요 잠금이 이 값을 본다(`store/leftPins`).
+        markPinLeft(pinId);
         setBusy(false);
         reload();
       })
