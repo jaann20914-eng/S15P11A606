@@ -7,6 +7,8 @@ httpx
 aio-pika
 python-dotenv
 
+google-genai
+
 numpy
 opencv-python
 
