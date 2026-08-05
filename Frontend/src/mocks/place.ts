@@ -11,7 +11,7 @@ import type {
   PlacesQuery,
   PlacesResponse,
   RecentSearch,
-  TaggedPinsResponse,
+  TaggedPlacesResponse,
   TagSuggestion,
 } from '@/types/place';
 import { MOCK_LATENCY_MS, delay, mockPinId } from './pin';
@@ -432,30 +432,38 @@ export async function searchMockTags(query: string): Promise<TagSuggestion[]> {
  * 핀은 여러 장소에서 모으되 같은 식별자는 한 번만 넣는다. 목업 핀은 여섯 시나리오를 돌려
  * 쓰기 때문에(`MOCK_PIN_SCENARIO_COUNT`) 그대로 모으면 같은 핀이 여러 번 들어간다.
  */
-export async function fetchMockTaggedPins(tag: string): Promise<TaggedPinsResponse> {
+export async function fetchMockTaggedPlaces(tag: string): Promise<TaggedPlacesResponse> {
   await delay(MOCK_LATENCY_MS);
 
   if (tag.length === 0) {
     throw new ApiError(400, 'INVALID_TAG_NAME', '태그명이 올바르지 않습니다.');
   }
 
-  const seen = new Set<string>();
-  const pins: PlacePinCardResponse[] = [];
+  /*
+    서버와 같은 모양으로 **장소별로 묶어** 준다(`TaggedPlaceItem`). 그 태그가 달린 핀이 하나도
+    없는 장소는 아예 빼야 한다 — 서버도 그렇고, 빈 장소가 섞이면 결과 수가 부풀려진다.
+  */
+  const places = mockPlaceSeeds
+    .map((seed) => ({
+      placeId: seed.placeId,
+      name: seed.name,
+      address: seed.address,
+      phone: seed.phone,
+      latitude: seed.latitude,
+      longitude: seed.longitude,
+      activePins: seed.pins
+        .map((pin, index) => ({ pin, index }))
+        .filter(({ pin }) => pin.tags.includes(tag))
+        .map(({ pin, index }) => ({
+          pinId: mockPinId((index % MOCK_PIN_SCENARIO_COUNT) + 1),
+          latitude: seed.latitude + pin.latitudeOffset,
+          longitude: seed.longitude + pin.longitudeOffset,
+          viewAngle: pin.viewAngle,
+        })),
+    }))
+    .filter((place) => place.activePins.length > 0);
 
-  for (const seed of mockPlaceSeeds) {
-    seed.pins.forEach((pin, index) => {
-      if (!pin.tags.includes(tag)) return;
-
-      const card = toPinCard(pin, index);
-      if (seen.has(card.pinId)) return;
-
-      seen.add(card.pinId);
-      pins.push(card);
-    });
-  }
-
-  // 서버는 최신 작성순으로 준다.
-  return { pins: pins.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
+  return { tag, places };
 }
 
 /**

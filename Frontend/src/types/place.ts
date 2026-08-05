@@ -325,14 +325,37 @@ export interface TagSearchResponse {
 }
 
 /**
- * `POST /api/v1/pins/tags/search` 응답의 `data` 원형.
+ * 태그 검색 확정 결과의 장소 한 곳.
  *
- * 핀 카드가 장소 상세와 **같은 모양**이다(서버도 같은 레코드를 재사용한다). 태그 검색이
- * `/pins` 경로인데 타입이 이 파일에 있는 이유가 그것이다 — 카드 타입을 여기서 소유하고
- * 있어 옮기면 파일 사이가 서로를 참조하게 된다.
+ * **핀 카드가 아니라 장소다.** 서버가 그 태그가 달린 활성 핀을 장소별로 묶어 준다
+ * (`TaggedPlaceItem`). 예전에는 핀 카드 목록(`pins`)이었는데 그때는 좌표가 없어 지도에 찍을
+ * 수 없었다 — 지금은 장소 좌표와 핀 좌표가 함께 오므로 지도에 올릴 수 있다.
+ *
+ * 핀은 **좌표와 뷰 각도만** 온다(`PlaceActivePin`과 같은 모양). 작성자·메모·태그·썸네일은
+ * 없으므로 이 결과로 핀 카드를 그릴 수는 없고, 장소를 보여주고 상세로 보내는 것이 맞다.
  */
-export interface TaggedPinsResponse {
-  pins: PlacePinCardResponse[];
+export interface TaggedPlace {
+  placeId: number;
+  name: string;
+  address: string;
+  /** 없거나 확인할 수 없으면 null. */
+  phone: string | null;
+  latitude: number;
+  longitude: number;
+  /** 그 태그가 달린 활성 핀. 장소가 결과에 들었으므로 최소 한 개다. */
+  activePins: PlaceActivePin[];
+}
+
+/**
+ * `POST /api/v1/pins/tags/search` 응답의 `data`.
+ *
+ * 태그 검색이 `/pins` 경로인데 타입이 이 파일에 있는 이유는, 장소·활성 핀 타입을 여기서
+ * 소유하고 있어 옮기면 파일 사이가 서로를 참조하기 때문이다.
+ */
+export interface TaggedPlacesResponse {
+  /** 서버가 정규화한 태그. 화면 제목에 그대로 쓸 수 있다. */
+  tag: string;
+  places: TaggedPlace[];
 }
 
 /** `usePlaceSearch` 동작 조정. 화면의 용도에 따라 달라지는 것만 둔다. */
