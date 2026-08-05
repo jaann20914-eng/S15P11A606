@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '@/api/client';
 import { searchPlacesByTag } from '@/api/pin/tagSearch';
+import { rememberPlaceMapData } from '@/api/place/coordinates';
 import { ViewAvatar } from '@/components/common';
+import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
 import { toBoundsQuery, useMapStore } from '@/store/useMapStore';
 import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { TaggedPlace } from '@/types/place';
@@ -38,9 +40,10 @@ const ANGLE_RING_SIZE = 30;
  * 주고, 핀은 좌표와 뷰 각도만 온다 — 작성자·메모·썸네일이 없어 핀 카드로는 그릴 수 없다.
  * 그래서 장소 카드로 보여주고 누르면 그 장소 상세로 보낸다.
  *
- * **지도는 아직 두지 않았다.** 이제 좌표가 오므로 찍을 수는 있다(예전에는 그것이 불가능해서
- * 두지 않았다). 다만 이 화면은 탭 그룹 밖의 제 화면이라 홈 지도를 비추는 구조가 아니어서,
- * 지도를 넣으려면 화면을 홈 위에 겹치는 방식으로 다시 짜야 한다 — 그 판단은 남겨 둔다.
+ * **이 화면에는 지도를 두지 않지만, 홈 지도 위에 겹쳐 있다**(`transparentModal` — 홈 스택의
+ * `_layout`에 이유를 적었다). 목록만 보여주면 되니 지도를 비추지는 않고 흰 배경으로 덮어 두고,
+ * 위에 장소 상세가 올라오면 내용을 감춰 그 아래 홈 지도가 드러나게 한다. 상세 화면이 자기
+ * 지도를 만들지 않기 때문에 이 구조가 아니면 상세에 지도가 없다.
  *
  * 결과는 검색한 순간의 지도 범위에 묶여 있다. 그래서 뒤로 가면 그 범위를 보고 있던 홈으로
  * 돌아간다(검색 화면은 `replace`로 대체된다).
@@ -48,6 +51,7 @@ const ANGLE_RING_SIZE = 30;
 export default function TagSearchResult() {
   const { tag } = useLocalSearchParams<{ tag: string }>();
   const bounds = useMapStore((state) => state.bounds);
+  const focusOn = useMapStore((state) => state.focusOn);
 
   const [places, setPlaces] = useState<TaggedPlace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +93,20 @@ export default function TagSearchResult() {
           비고: found.places.length === 0 ? '0건 — 이 지도 범위에 해당 태그의 활성 핀이 없다' : undefined,
         });
 
+        /*
+          **받은 좌표를 지도 저장소에 기억해 둔다.**
+
+          장소 상세는 좌표를 스스로 받을 수 없다 — 상세 응답에는 장소도 핀도 위경도가 없고
+          (`PlaceSummary`·`PinCard`), 목록(`GET /places`)만 좌표를 준다. 그래서 상세는 홈이
+          받아 둔 것을 꺼내 쓰는데, 이 경로로 들어온 장소는 홈이 보고 있던 범위 밖일 수 있어
+          **꺼낼 것이 없으면 기본 중심 주변을 다시 훑는다**(`resolvePlaceMapData`). 거기서도
+          못 찾으면 지도에 마커가 하나도 찍히지 않는다.
+
+          이 응답에는 장소 좌표와 그 태그가 달린 활성 핀의 좌표가 함께 온다. 넣어 두면 상세가
+          조회 없이 바로 마커를 찍는다 — 모자란 핀은 상세가 목록을 한 번 더 물어 채운다.
+        */
+        rememberPlaceMapData(found.places);
+
         setPlaces(found.places);
         setLoading(false);
       })
@@ -110,8 +128,47 @@ export default function TagSearchResult() {
       });
   }, [tag]);
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * **위에 장소 상세가 올라오면 내용을 감춘다.** 그 화면은 자기 지도가 없어 아래 홈 지도를
+   * 비추는데, 이 목록이 그대로 남아 있으면 지도 자리를 흰 카드가 덮어 버린다 — 지도 없이
+   * 스와이프 카드와 내 위치 버튼만 목록 위에 겹쳐 보였던 것이 이것이다.
+   *
+   * 감추기만 하고 떼어 내지 않는다. 스크롤 위치를 잃으면 돌아왔을 때 보던 자리가 아니다.
+   * 홈이 상세에게, 상세가 그 위 화면에게 하는 것과 같은 처리다.
+   */
+  const [onTop, setOnTop] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setOnTop(true);
+      return () => setOnTop(false);
+    }, []),
+  );
+
+  /**
+   * 장소 상세로 넘어간다. **넘어가면서 홈 지도를 그 장소로 옮긴다.**
+   *
+   * 상세는 자기 지도가 없으므로 이 화면이 지도를 맞춰 두어야 한다 — 그러지 않으면 검색 전에
+   * 보고 있던 자리가 그대로 남아 엉뚱한 동네에 시트가 열린다. 홈이 카드 꺽새로 상세를 열 때
+   * 하는 것과 같은 값(영상핀 축척)이다(`openPlace`).
+   *
+   * 이동은 홈이 실행한다(`focus` → `focusPlace`). 홈은 아래에 살아 있으므로 화면에 없어도
+   * 명령을 받는다. 상세가 첫 게시물의 핀으로 중심을 다시 맞추지만 이미 같은 축척이라 그때는
+   * 짧게 미끄러질 뿐이다.
+   */
+  const openPlace = (place: TaggedPlace) => {
+    focusOn({
+      coordinate: { latitude: place.latitude, longitude: place.longitude },
+      name: place.name,
+      level: REVIEW_PIN_MAX_LEVEL,
+    });
+    router.push(`/place/${place.placeId}`);
+  };
+
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    // 맨 위가 아니면 통째로 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다.
+    <SafeAreaView edges={['top', 'left', 'right']} style={[s.safe, !onTop && s.covered]}>
       <View style={s.header}>
         <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.iconButton}>
           <Ionicons name="chevron-back" size={24} color={colors.dark} />
@@ -158,7 +215,7 @@ export default function TagSearchResult() {
                 key={place.placeId}
                 accessibilityRole="button"
                 accessibilityLabel={`${place.name} 상세 보기`}
-                onPress={() => router.push(`/place/${place.placeId}`)}
+                onPress={() => openPlace(place)}
                 style={s.placeCard}
               >
                 <View style={s.placeTop}>
@@ -200,7 +257,15 @@ export default function TagSearchResult() {
 }
 
 const s = StyleSheet.create({
+  /**
+   * 화면 전체. **흰 배경은 여기서 칠한다.**
+   *
+   * 씬 배경은 투명이다(홈 스택의 `_layout`) — 그래야 위에 상세가 올라와 이 상자를 감췄을 때
+   * 아래 홈 지도가 드러난다. 배경을 씬에 맡기면 감춰도 흰 화면이 남는다.
+   */
   safe: { flex: 1, backgroundColor: colors.white },
+  /** 위에 다른 화면이 겹쳤을 때. 아래 홈 지도가 그 화면에 보여야 한다. */
+  covered: { display: 'none' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

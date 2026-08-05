@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
@@ -86,22 +86,47 @@ export default function PlaceWithoutPins() {
   const showPinOverlay = useMapStore((state) => state.showPinOverlay);
   const clearPinOverlay = useMapStore((state) => state.clearPinOverlay);
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * **위에 다른 화면이 겹치면 검색바와 시트를 감춘다.** 이 화면도, 위에 오는 장소 상세도 홈
+   * 지도를 비추는 반투명 화면이라 감추지 않으면 **두 화면이 그대로 겹쳐 보인다** — 검색을
+   * 이어서 두 번 하면 처음 찾은 장소의 시트와 카드가 새 화면 뒤에 붙어 있었다(2026-08-05
+   * 실기기). 홈이 이 화면에게, 이 화면이 그 위 화면에게 하는 처리가 같아야 한다.
+   *
+   * **감추기만 하고 언마운트하지 않는다** — 시트 단계와 재측정을 잃으면 돌아왔을 때 있던
+   * 자리로 정확히 돌아오지 못한다.
+   */
+  const [onTop, setOnTop] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setOnTop(true);
+      return () => setOnTop(false);
+    }, []),
+  );
+
   /*
     빈 겹을 올려 홈 지도의 장소 마커를 가린다. 화면을 떠날 때 되돌린다 — 비우지 않으면 홈으로
     돌아가도 마커가 하나도 없는 지도가 남는다.
+
+    **맨 위일 때만 올린다.** 위에 장소 상세가 겹치면 그 화면이 자기 영상핀 겹을 올리는데,
+    여기서 덮어쓰면 그쪽 마커가 사라진다. 돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아
+    빈 겹을 되돌려 놓는다 — 그러지 않으면 상세에서 돌아온 뒤 이 화면에 장소 마커가 남는다.
 
     **우리가 올린 빈 겹만 걷는다.** 이 화면은 장소 상세 위에 겹쳐 열릴 수 있고, 뒤로 나가는
     애니메이션이 끝난 뒤에야 떼어진다. 그 사이 아래 화면은 이미 focus를 되찾아 자기 영상핀
     마커를 올려 두었을 수 있는데, 무조건 비우면 방금 되돌아온 그 마커를 지워 버린다.
   */
   useEffect(() => {
+    if (!onTop) return;
+
     showPinOverlay({ markers: [], selectedPinId: null });
 
     return () => {
       const overlay = useMapStore.getState().pinOverlay;
       if (overlay !== null && overlay.markers.length === 0) clearPinOverlay();
     };
-  }, [clearPinOverlay, showPinOverlay]);
+  }, [clearPinOverlay, onTop, showPinOverlay]);
 
   /*
     시트는 홈·장소 상세와 **같은 3단계 시트다**(`useBottomSheet`).
@@ -142,11 +167,14 @@ export default function PlaceWithoutPins() {
       */}
       <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
 
-      <View style={[s.top, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}>
+      {/* 위에 다른 화면이 겹쳐 있으면 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다. */}
+      <View
+        style={[s.top, !onTop && s.covered, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
+      >
         <PlaceSearchBar keyword={name ?? null} />
       </View>
 
-      <Animated.View style={[s.sheet, { transform: [{ translateY: sheet.sheetY }] }]}>
+      <Animated.View style={[s.sheet, !onTop && s.covered, { transform: [{ translateY: sheet.sheetY }] }]}>
         {/* 농도를 정하는 유일한 겹. 값은 홈·장소 상세 시트와 같다(`colors.sheetSurface`). */}
         <View style={s.sheetSurface} />
 
@@ -226,6 +254,8 @@ const s = StyleSheet.create({
   /** 지도 제스처를 받는 자리. 아무것도 그리지 않고 손가락만 받는다. */
   mapGestureArea: StyleSheet.absoluteFillObject,
   top: { position: 'absolute' },
+  /** 위에 다른 화면이 겹쳤을 때. 두 화면의 검색바·시트가 같은 자리에 겹쳐 보이지 않게 한다. */
+  covered: { display: 'none' },
   /**
    * 반투명 시트. 흰 농도는 `sheetSurface` 한 겹으로만 정한다 — 위아래로 더 얹으면 겹친 곳만
    * 농도가 올라가 시트가 투톤으로 갈려 보인다.

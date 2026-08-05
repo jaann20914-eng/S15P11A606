@@ -7,7 +7,13 @@ import type { CrowdFilter } from '@/constants/crowdLevels';
 export interface KakaoMapProps {
   /** 지도에 그릴 장소 핀. 혼잡도 필터로 걸러진 목록을 그대로 넘긴다. */
   places: MapPlaceMarker[];
-  /** 핀 색 계열 (`relaxed` 라임 / `wagle` 코럴) */
+  /**
+   * 계열을 갖고 오지 않은 마커에 쓸 색 (`relaxed` 라임 / `wagle` 코럴).
+   *
+   * **마커 색은 마커가 정한다**(`MapPlaceMarker.tone`) — 그 장소·핀이 실제로 붐비는 정도다.
+   * 이 값은 그것을 모르는 화면을 위한 기본값이고, 혼잡도 토글을 그대로 넘기면 안 된다.
+   * 예전에는 이 값 하나가 모든 마커를 칠해서, 걸러지지 않은 마커의 색이 거짓이 됐다.
+   */
   filter: CrowdFilter;
   /** 선택된 핀만 물방울형으로 강조된다. */
   selectedPlaceId?: string | null;

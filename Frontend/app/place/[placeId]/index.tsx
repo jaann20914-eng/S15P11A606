@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, PlaceSearchBar } from '@/components/place';
+import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
+import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -22,6 +22,8 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
+import { useNextPlace } from '@/hooks/useNextPlace';
+import { classifyCrowdFilter } from '@/constants/crowdLevels';
 import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
@@ -34,9 +36,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 덮은 채 시작해 눈에 띄게 튄다.
  */
 const ESTIMATED_HEADER_HEIGHT = 92;
-const ESTIMATED_PIN_SLOT_HEIGHT = 240;
-/** 핀이 없다고 적는 줄 하나의 높이(글줄 22 + 위아래 여백 32). */
-const ESTIMATED_EMPTY_HEIGHT = 54;
+
+/**
+ * 카드 한 장이 놓이는 칸의 높이. 재기 전의 어림값이자 **핀이 없을 때 그 자리의 높이**다.
+ *
+ * 계산으로 나온다 — 카드가 내용과 무관하게 늘 같은 키이기 때문이다(`PLACE_PIN_CARD_HEIGHT`).
+ * 예전에는 어림값 240에 핀 없는 경우만 54로 따로 뒀는데, 그러면 **같은 시트가 상태에 따라
+ * 오르내린다.** 어느 상태에서도 시트가 제자리에 있도록 한 값으로 모은다(홈도 같은 값을 쓴다).
+ */
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
 /** "실시간 영상핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
 const LIVE_DOT_SIZE = 7;
@@ -101,7 +109,9 @@ export default function Place() {
     안내를 띄운다 — NaN을 그대로 보내면 서버가 400으로 답할 뿐 원인이 드러나지 않는다.
   */
   const numericPlaceId = Number(placeId);
-  const { detail, loading, error } = usePlaceDetail(Number.isInteger(numericPlaceId) ? numericPlaceId : null);
+  const { detail, loading, error, crowdLevel } = usePlaceDetail(
+    Number.isInteger(numericPlaceId) ? numericPlaceId : null,
+  );
   const place = detail?.place ?? null;
   const pins = detail?.pins ?? [];
 
@@ -161,17 +171,17 @@ export default function Place() {
       사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
     /*
-      핀이 없으면 **카드 대신 놓이는 안내 줄에 맞춘다.** 있지도 않은 카드 높이로 시트를 벌리면
-      안내 한 줄 아래에 빈 칸이 한참 남는다(홈 시트도 같은 이유로 같은 처리를 한다).
+      핀이 없어도 **같은 높이**다. 안내 줄이 카드 한 칸을 그대로 차지한다(`PIN_SLOT_HEIGHT`) —
+      상태에 따라 시트가 오르내리지 않는 편이 낫고, 홈도 같은 값으로 맞춰 두었다.
     */
     middleExtra:
       (noPins
         ? emptyHeight > 0
           ? emptyHeight
-          : ESTIMATED_EMPTY_HEIGHT
+          : PIN_SLOT_HEIGHT
         : pinSlotHeight > 0
           ? pinSlotHeight
-          : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
+          : PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
       **끌어내려 닫지 않는다.** `onDismiss`를 주지 않으므로 축소가 하한이고, 홈 시트처럼
@@ -270,6 +280,16 @@ export default function Place() {
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
+  /**
+   * 옆 장소로 돌려 보기. **이 화면의 장소만 갈린다** — 훅이 `navigate`로 파라미터만 바꾸므로
+   * 시트는 제자리에 있고 지도만 옆으로 미끄러진다.
+   *
+   * 버튼이 있을 조건(20m)과 누를 수 있을 조건(두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치
+   * 버튼과 같은 이유로 최대화 단계에서는 함께 감춘다.
+   */
+  const nextPlace = useNextPlace();
+  const nextPlaceButton = useFadeToggle(nextPlace.visible && !expanded);
+
   /*
     영상핀을 지도에 올리고, 보고 있는 게시물에 맞춰 지도를 옮긴다.
 
@@ -280,6 +300,15 @@ export default function Place() {
     비어 있고, 목업에서는 채워진다. 비면 마커를 올리지 않고 지도는 장소 자리에 머문다.
   */
   const [pinIndex, setPinIndex] = useState(0);
+
+  /*
+    **다른 장소로 갈리면 첫 카드에서 시작한다.**
+
+    옆 장소로 돌려 보면 이 화면은 그대로 있고 장소만 갈린다(`useNextPlace`의 `navigate`).
+    번호를 그대로 두면 카드가 넷인 장소에서 셋째를 보다 넘어간 장소가 한 장뿐일 때 빈 자리를
+    보게 되고, 지도도 없는 핀으로 옮기려 든다.
+  */
+  useEffect(() => setPinIndex(0), [numericPlaceId]);
 
   /*
     목록(확장) 단계에서 지금 보고 있는 핀을 정하는 값들.
@@ -311,6 +340,19 @@ export default function Place() {
     listRef.current?.scrollTo({ y: 0, animated: false });
   }, [expanded]);
 
+  /**
+   * 이 장소의 마커 색 계열.
+   *
+   * **상단 혼잡도 토글을 쓰지 않는다.** 지도는 홈 것이라 토글 값을 갖고 있는데, 이 화면의
+   * 영상핀은 그 토글로 걸러진 것이 아니다 — 와글 토글을 켜고 검색으로 들어간 여유한 장소의
+   * 핀이 전부 자몽색으로 그려졌다(2026-08-05 실기기). 색은 이 장소가 실제로 붐비는 정도가
+   * 정해야 한다.
+   *
+   * 모르면 넘기지 않고 지도의 기본색(라임)에 맡긴다. 근거 없이 자몽색으로 칠하는 것은
+   * "여기 붐빈다"는 잘못된 정보라, 모를 때 택할 쪽이 아니다.
+   */
+  const markerTone = crowdLevel === null ? undefined : (classifyCrowdFilter(crowdLevel) ?? undefined);
+
   const pinMarkers = useMemo(
     () =>
       pins
@@ -320,8 +362,9 @@ export default function Place() {
           name: pin.nickname,
           latitude: pin.latitude as number,
           longitude: pin.longitude as number,
+          tone: markerTone,
         })),
-    [pins],
+    [markerTone, pins],
   );
 
   /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */
@@ -345,18 +388,30 @@ export default function Place() {
     카드가 골라지는 것과 같은 동작이다.
 
     눌린 것을 아는 쪽은 홈이다 — 지도가 홈 것이고, 이 화면은 자기 지도가 없어 마커 알림을 받을
-    길이 없다. 그래서 홈이 고른 핀만 바꿔 저장소에 되돌려 주고(`pressMapPin`), 여기서 그 값을
-    보고 카드를 맞춘다. 위 효과가 카드에 맞춰 저장소를 채우는 것과 **반대 방향**이다.
+    길이 없다. 그래서 홈이 **눌림만 한 번 알리고**(`pressPin`), 여기서 카드를 맞춘 뒤 곧바로
+    비운다.
 
-    번호가 이미 같으면 아무 일도 하지 않으므로 두 방향이 서로를 다시 부르지 않는다.
+    **위 효과가 쓰는 칸을 함께 쓰지 않는다.** 예전에는 홈이 `pinOverlay.selectedPinId`를 고쳐서
+    알렸다. 그 칸은 위 효과가 "보고 있는 카드"를 쓰는 자리라, 두 쪽이 같은 칸을 쓰는 셈이었다.
+    저장소 값은 **한 커밋 늦게** 들어오므로 두 값이 어긋난 순간부터 서로 상대의 낡은 값으로
+    되돌리기를 주고받았다 — 카드가 두 번호 사이를 튀고 그때마다 지도 이동 요청이 나가
+    홈에서 렌더가 끊겼다(2026-08-05 실기기: `1/3`·`2/3`이 수십 번, 겹이 둘일 때는 `1/9`·`7/10`).
+
+    한 번 쓰고 비우는 요청은 그 고리를 만들 수 없다. 비운 뒤에는 되돌릴 값이 남지 않는다.
+
+    **맨 위일 때만 따른다.** 저장소는 겹이 여럿이면 모두가 읽는다. 가려진 겹은 사용자가 보고
+    있지 않으므로 카드를 맞출 이유가 없고, 요청을 먼저 비워 버리면 맨 위 화면이 놓친다.
   */
-  const markedPinId = useMapStore((state) => state.pinOverlay?.selectedPinId ?? null);
+  const pressedPinId = useMapStore((state) => state.pressedPinId);
+  const clearPressedPin = useMapStore((state) => state.clearPressedPin);
   useEffect(() => {
-    if (markedPinId === null) return;
+    if (!onTop || pressedPinId === null) return;
 
-    const at = pins.findIndex((pin) => pin.pinId === markedPinId);
+    const at = pins.findIndex((pin) => pin.pinId === pressedPinId);
     if (at >= 0) setPinIndex(at);
-  }, [markedPinId, pins]);
+    // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
+    clearPressedPin();
+  }, [clearPressedPin, onTop, pins, pressedPinId]);
 
   /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 영상핀이 남는다. */
   useEffect(() => clearPinOverlay, [clearPinOverlay]);
@@ -366,9 +421,17 @@ export default function Place() {
 
     20m까지 당긴다 — 한 장소의 핀이 수십 미터 안에 모여 있어 장소용 축척(250m)으로는 여러
     개가 한 점처럼 겹쳐 어느 것이 중앙인지 알 수 없다.
+
+    **지도를 옮기는 것은 맨 위 화면의 일이다.** 지도는 하나뿐인데(홈 것) 이 화면은 여러 겹 떠
+    있을 수 있어서, 가려진 겹까지 이동을 요청하면 한 지도를 두 겹이 번갈아 끌어당긴다. 그
+    요청이 홈에서 상태 변경으로 바뀌므로(`focus` → `pendingPan`) 겹이 서로를 깨우면 렌더가
+    끝나지 않는다 — 위 `markedPinId` 설명에 그 사정을 적어 두었다.
+
+    맨 위로 돌아오면 이 효과가 다시 돌아 보고 있던 카드의 핀으로 지도를 되돌린다. 그 사이 위
+    화면이 지도를 옮겨 두었을 수 있으므로 오히려 그래야 맞다.
   */
   useEffect(() => {
-    if (focusedPin === null) return;
+    if (!onTop || focusedPin === null) return;
 
     if (focusedPin.latitude === null || focusedPin.longitude === null) {
       /*
@@ -399,7 +462,7 @@ export default function Place() {
       name: focusedPin.nickname,
       level: REVIEW_PIN_MAX_LEVEL,
     });
-  }, [focusOn, focusedPin, pinIndex, pins.length]);
+  }, [focusOn, focusedPin, onTop, pinIndex, pins.length]);
 
   useEffect(() => {
     const animation = Animated.timing(chartReveal, {
@@ -476,6 +539,23 @@ export default function Place() {
               />
             )}
           </AnimatedPressable>
+        )}
+
+        {/*
+          **옆 장소로 돌려 보는 버튼.** 이 화면이 저절로 열린 그 장소가 사용자가 노린 곳이 아닐 수
+          있어서 다음으로 가까운 장소로 넘겨 준다(끝에서는 처음으로 돌아온다).
+
+          **화면을 갈아 끼운다**(`replace`). 그러지 않으면 돌려 볼 때마다 상세가 한 겹씩 쌓여
+          화면들이 하나뿐인 지도를 두고 다투고, 뒤로 가기가 지나온 장소를 되짚는다.
+
+          목록은 20m에서만 채워지므로 축척이 넓어지면 버튼도 사라진다.
+        */}
+        {nextPlaceButton.mounted && (
+          <NextPlaceButton
+            onPress={nextPlace.goNext}
+            enabled={nextPlace.enabled}
+            style={nextPlaceButton.style}
+          />
         )}
       </View>
 
@@ -705,13 +785,16 @@ export default function Place() {
               카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
             */}
             {noPins && (
-              /* 이 줄이 카드 자리를 대신 채우므로 높이를 재서 시트에 넘긴다. */
-              <Text
+              /*
+                이 블록이 **카드 한 칸을 그대로 차지한다.** 높이를 재서 시트에 넘기므로 글꼴
+                설정으로 글줄이 더 커져도 시트가 따라온다.
+              */
+              <View
                 onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}
                 style={s.emptyPins}
               >
-                지금 이곳에 올라온 영상핀이 없어요.
-              </Text>
+                <Text style={s.emptyPinsText}>지금 이곳에 올라온 영상핀이 없어요.</Text>
+              </View>
             )}
           </Animated.View>
         </ScrollView>
@@ -833,12 +916,16 @@ const s = StyleSheet.create({
   },
   liveText: { ...type.caption, color: colors.gray600 },
   /**
-   * 주소 줄.
+   * 주소 줄. **홈의 `현재 위치` 줄과 같은 값이다.**
    *
-   * 홈의 `현재 위치` 줄처럼 음수 여백으로 당겨 붙이지 않는다. 이쪽은 장소명이 굵고 커서
-   * (`type.h3`) 바로 아래 붙으면 두 줄이 한 덩어리로 뭉쳐 읽힌다. 한 칸 띄워 둔다.
+   * 제목 줄은 글줄(28)보다 넉넉히 44를 확보하므로 그 아래에 16px의 빈 칸이 남는다. 그만큼을
+   * 음수 여백으로 되돌려 붙인다 — 홈 시트가 같은 이유로 같은 값을 쓴다.
+   *
+   * 예전에는 여기만 양수 여백으로 한 칸 띄웠다(장소명이 굵고 커서 뭉쳐 읽힌다고 보았다).
+   * 그러면 **머리글 높이가 홈보다 8px 커져 두 시트의 "보통" 단계가 어긋난다** — 같은 자리에
+   * 있어야 하는 시트라 그 8px이 눈에 띈다(2026-08-05 실기기).
    */
-  headingAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
+  headingAddress: { ...type.caption, color: colors.gray400, marginTop: -spacing.x1 },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: SHEET_CONTENT_GAP },
   /**
@@ -880,5 +967,7 @@ const s = StyleSheet.create({
    * 값으로 그림자가 생기지는 않는다.
    */
   pinArea: { zIndex: 1, elevation: 5 },
-  emptyPins: { ...type.small, color: colors.gray400, paddingVertical: spacing.x4 },
+  /** 핀이 없을 때 카드 자리를 대신 채우는 블록. 카드 한 칸과 같은 높이로 잡아 시트가 제자리에 있게 한다. */
+  emptyPins: { minHeight: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  emptyPinsText: { ...type.small, color: colors.gray400 },
 });
