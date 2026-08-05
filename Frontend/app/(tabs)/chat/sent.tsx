@@ -138,6 +138,19 @@ export default function Chat() {
     );
   };
 
+  /*
+    탭별 안 읽음 표시. 목록 줄의 점과 같은 재료로 계산하므로 늘 함께 켜지고 함께 꺼진다 —
+    그 목록의 안 읽음을 전부 읽어야만 탭의 점도 사라진다.
+
+    두 목록 훅은 어느 탭이 보이든 살아서 소켓 이벤트를 받고 있어, 반대쪽 탭에 일이 생겨도
+    이 점이 바로 켜진다. 지금 보고 있는 탭에도 그대로 붙는다 — 목록을 스크롤로 훑는 중에
+    위쪽 줄의 점을 지나쳤을 수 있다.
+  */
+  const unreadByTab: Record<Tab, boolean> = {
+    '요청한 대화': myRooms.items.some((room) => room.hasUnread),
+    '요청받은 대화': pins.items.some((pin) => pin.hasUnread),
+  };
+
   /** 게시글을 고른 상태에서는 그 글의 방 목록만 보여준다. */
   const inPin = selectedPin !== null;
   /** 이 글의 대화가 전부 끝났는지. 떠났어요 버튼을 잠그는 기준이다. */
@@ -171,7 +184,10 @@ export default function Chat() {
                 }}
                 style={s.tab}
               >
-                <Text style={[s.tabText, tab === item && s.tabTextActive]}>{item}</Text>
+                <View style={s.tabLabel}>
+                  <Text style={[s.tabText, tab === item && s.tabTextActive]}>{item}</Text>
+                  {unreadByTab[item] && <View style={s.tabUnread} />}
+                </View>
                 <View style={[s.tabLine, tab === item && s.tabLineActive]} />
               </Pressable>
             ))}
