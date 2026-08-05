@@ -1,0 +1,51 @@
+# Prometheus 수집 설정 — "누구를 얼마나 자주 긁을지"
+#
+# 대상은 waggle-network 안의 "컨테이너 이름:포트" 로 지정한다.
+# 아래 주석 처리된 블록들은 2단계 이후(앱/DB/ES) 붙일 때 하나씩 열면 된다.
+
+global:
+  scrape_interval: 15s      # 기본 15초마다 수집
+  evaluation_interval: 15s
+
+scrape_configs:
+  # --- 1단계: 서버/컨테이너/브로커 (지금 바로 동작) ---
+
+  - job_name: prometheus            # Prometheus 자기 자신
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node                  # EC2 호스트 (CPU/메모리/디스크/네트워크)
+    static_configs:
+      - targets: ["waggle-node-exporter:9100"]
+
+  - job_name: cadvisor              # 컨테이너별 리소스
+    static_configs:
+      - targets: ["waggle-cadvisor:8080"]
+
+  - job_name: rabbitmq              # RabbitMQ 내장 Prometheus 플러그인(포트 15692)
+    static_configs:
+      - targets: ["waggle-rabbitmq:15692"]
+
+  # --- 2단계: Spring Boot 백엔드 (actuator 붙인 뒤 주석 해제) ---
+  # micrometer-registry-prometheus 의존성 + actuator 노출 필요.
+  # <백엔드-컨테이너-이름>:<포트> 를 실제 값으로 바꾼다.
+  # - job_name: spring-boot
+  #   metrics_path: /actuator/prometheus
+  #   static_configs:
+  #     - targets: ["waggle-backend:8080"]
+
+  # --- 3단계: PostGIS (postgres_exporter 컨테이너 추가한 뒤 주석 해제) ---
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets: ["waggle-postgres-exporter:9187"]
+
+  # --- 3단계: Elasticsearch (es-exporter 컨테이너 추가한 뒤 주석 해제) ---
+  # - job_name: elasticsearch
+  #   static_configs:
+  #     - targets: ["waggle-es-exporter:9114"]
+
+  # --- 4단계: AI 서버 (FastAPI/Flask 에 계측 붙인 뒤 주석 해제) ---
+  # - job_name: ai-server
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ["waggle-ai:8000"]
