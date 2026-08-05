@@ -205,6 +205,25 @@ export default function Home() {
   );
 
   /**
+   * 카드를 넘겼을 때. **보고 있는 카드의 장소를 고른 것으로 다룬다.**
+   *
+   * 지도 마커가 그 장소에서 물방울로 바뀌어, 지금 어느 카드를 보고 있는지 지도에서도 읽힌다.
+   * 장소 상세가 게시물 카드를 넘길 때 하는 것과 같다(그쪽은 `onIndexChange`로 핀을 고른다) —
+   * 같은 칸(`CardPager`)을 쓰는데 홈만 이 통로를 연결하지 않아 마커가 첫 장소에 머물렀다.
+   *
+   * **지도는 옮기지 않는다.** 넘기는 것은 목록을 훑는 동작이고, 그 장소로 가겠다는 뜻은 카드를
+   * 누르는 것이다(`focusPlace`). 넘길 때마다 지도가 따라 움직이면 훑는 중에 보고 있던 자리를
+   * 잃는다 — 혼잡도 토글에서 `fitPlaces`를 걷어낸 것과 같은 이유다.
+   */
+  const selectCardAt = useCallback(
+    (index: number) => {
+      const place = visiblePlaces[index];
+      if (place) selectPlace(place.id);
+    },
+    [selectPlace, visiblePlaces],
+  );
+
+  /**
    * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
    *
    * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
@@ -600,7 +619,12 @@ export default function Home() {
             `onLayout`을 달아 직접 쟀는데, 카드가 넘기는 칸 안에 들어가면 잰 값이 곧 칸 높이가
             되어 둘이 서로 물린다. 재는 일은 칸을 가진 쪽이 맡는 편이 맞다.
           */}
-          <CardPager paging={level !== 2} onSlotHeightChange={setCardHeight} activeIndex={selectedCardIndex}>
+          <CardPager
+            paging={level !== 2}
+            onSlotHeightChange={setCardHeight}
+            activeIndex={selectedCardIndex}
+            onIndexChange={selectCardAt}
+          >
             {visiblePlaces.map((place) => (
               <Pressable
                 key={place.id}

@@ -358,7 +358,19 @@ export default function Place() {
             <Ionicons name="chevron-back" size={24} color={colors.dark} />
           </Pressable>
           <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.searchField}>
-            <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
+            {/*
+              **찾아 들어온 장소의 이름이 검색어 자리에 남는다.**
+
+              꺽새가 붙은 뒤로 이 바는 검색 화면과 같은 모양이 됐다. 그 화면에서 장소를 골라
+              들어온 것과 이 화면이 다르지 않으므로, 고른 값이 검색어 자리에 그대로 있어야
+              "무엇을 찾아본 결과인지"가 위에서 읽힌다.
+
+              이름이 아직 오지 않았으면(조회 중·실패) 안내 문구를 둔다 — 빈 바를 두면 값을
+              지운 것처럼 보인다. 두 경우의 글자색이 달라 안내와 값이 구분된다.
+            */}
+            <Text numberOfLines={1} style={place === null ? s.searchText : s.searchValue}>
+              {place === null ? '장소명이나 태그를 검색해보세요' : place.name}
+            </Text>
           </Pressable>
         </View>
         {/*
@@ -659,6 +671,8 @@ const s = StyleSheet.create({
    */
   searchField: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
   searchText: { ...type.body, color: colors.gray600 },
+  /** 찾아 들어온 장소 이름. 안내 문구와 달리 실제 값이라 본문색으로 둔다(검색 화면의 입력값과 같다). */
+  searchValue: { ...type.body, color: colors.dark },
   location: {
     width: 48,
     height: 48,
