@@ -19,7 +19,14 @@ import {
   PLACE_FOCUS_MAP_LEVEL,
   REVIEW_PIN_MAX_LEVEL,
 } from '@/components/home/kakaoMapHtml';
-import { CardPager, CrowdFilterToggle, useAppTabBarHeight, ViewAvatar } from '@/components/common';
+import {
+  CARD_SLOT_GAP,
+  CardPager,
+  CrowdFilterToggle,
+  useAppTabBarHeight,
+  ViewAvatar,
+} from '@/components/common';
+import { PLACE_PIN_CARD_HEIGHT } from '@/components/place';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
@@ -61,6 +68,21 @@ const ESTIMATED_CARD_HEIGHT = 208;
  * 계산이 같은 값을 봐야 한다.
  */
 const EMPTY_BLOCK_HEIGHT = 140;
+
+/**
+ * 카드 자리의 **최소** 높이 = 영상핀 카드 한 장이 놓이는 칸.
+ *
+ * 장소 상세 시트의 "보통" 단계는 그 카드 한 장으로 높이가 잡힌다. 홈의 장소 카드는 썸네일이
+ * 없어 그보다 39px 낮아서, **같은 자리에 있어야 할 두 시트가 47px 어긋나 보였다**
+ * (2026-08-05 실기기 — 나머지 8px은 머리글 둘째 줄 여백이라 그쪽도 맞췄다).
+ *
+ * 카드 규격은 영상핀 쪽이 기준이다 — 썸네일 높이가 카드 높이를 정하고 그 값이 메모 줄 수까지
+ * 정하므로 줄일 수 없다(`PLACE_PIN_CARD_HEIGHT`). 그래서 낮은 쪽인 홈이 이 값까지 자리를
+ * 잡아 둔다. 장소를 열 때 시트가 뛰지 않는 것이 카드 아래 빈칸보다 낫다.
+ *
+ * 장소 카드가 이보다 커지면 잰 값을 쓴다 — 하한일 뿐이다.
+ */
+const MIN_CARD_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
 /** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
 const ANGLE_PREVIEW_COUNT = 5;
@@ -225,9 +247,8 @@ export default function Home() {
         ? emptyHeight > 0
           ? emptyHeight
           : EMPTY_BLOCK_HEIGHT
-        : cardHeight > 0
-          ? cardHeight
-          : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+        : // 카드가 있으면 최소한 영상핀 카드 한 장 자리는 잡는다(위 설명).
+          Math.max(cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT, MIN_CARD_SLOT_HEIGHT)) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
   });
   const { level, moveTo, sheetY, coveredHeight } = sheet;

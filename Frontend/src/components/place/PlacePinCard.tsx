@@ -56,6 +56,10 @@ const MEMO_MAX_LINES = 4;
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
 
+/** 카드 안쪽 여백과 테두리. 아래 카드 높이 계산이 같은 값을 봐야 해서 토큰으로 둔다. */
+const CARD_PADDING = spacing.x4;
+const CARD_BORDER = 1.5;
+
 /**
  * 썸네일 칸의 크기. **이 세로 높이가 카드 높이를 정한다.**
  *
@@ -106,6 +110,21 @@ const PREVIEW_BLUR_RADIUS_WIDE = 22;
  * 밀어내고 잘라 낸다 — 필요한 최소는 `1 + 2 × 10 / 128 ≒ 1.16`이라 여유를 둔 값이다.
  */
 const PREVIEW_BLUR_OVERSCAN = 1.25;
+
+/**
+ * 카드 한 장의 높이. **내용과 무관하게 늘 같다.**
+ *
+ * 작성자 줄과 본문 칸의 높이가 모두 고정이라 계산으로 나온다(썸네일 높이가 카드 높이를 정한다는
+ * 것이 `THUMBNAIL_HEIGHT`의 전제다). 메모가 길든 태그가 없든 이 값이다.
+ *
+ * **시트의 "보통" 단계 높이를 이 값으로 잡는 화면이 있다.** 장소 상세는 그 단계에 이 카드
+ * 한 장을 놓고, 홈은 자기 장소 카드를 놓는데 둘의 키가 달라 **같은 자리의 시트가 47px 어긋나
+ * 보였다**(2026-08-05). 홈이 이 값을 하한으로 써서 두 시트가 같은 높이에 선다.
+ *
+ * 재서 쓰지 않고 계산으로 내놓는 이유: 재려면 카드를 그려 봐야 하고, 홈에는 이 카드가 없다.
+ */
+export const PLACE_PIN_CARD_HEIGHT =
+  CARD_PADDING * 2 + CARD_BORDER * 2 + ANGLE_RING_SIZE + spacing.x3 + THUMBNAIL_HEIGHT;
 
 export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: PlacePinCardProps) {
   /*
@@ -252,13 +271,13 @@ const s = StyleSheet.create({
    * 한 덩어리로 보인다. 홈 시트의 장소 카드와 같은 옅은 그림자를 쓴다(§1.5의 지도 위 카드).
    */
   card: {
-    padding: spacing.x4,
+    padding: CARD_PADDING,
     borderRadius: radius.hero,
     /*
       테두리 자리를 고르지 않았을 때도 비워 둔다(투명). 고를 때만 주면 그 카드가 3px 높아져
       한 장씩 넘기는 칸에서 아래가 잘린다 — 홈의 장소 카드와 같은 이유다.
     */
-    borderWidth: 1.5,
+    borderWidth: CARD_BORDER,
     borderColor: 'transparent',
     backgroundColor: colors.white,
     shadowColor: colors.dark,

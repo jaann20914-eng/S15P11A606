@@ -870,12 +870,16 @@ const s = StyleSheet.create({
   },
   liveText: { ...type.caption, color: colors.gray600 },
   /**
-   * 주소 줄.
+   * 주소 줄. **홈의 `현재 위치` 줄과 같은 값이다.**
    *
-   * 홈의 `현재 위치` 줄처럼 음수 여백으로 당겨 붙이지 않는다. 이쪽은 장소명이 굵고 커서
-   * (`type.h3`) 바로 아래 붙으면 두 줄이 한 덩어리로 뭉쳐 읽힌다. 한 칸 띄워 둔다.
+   * 제목 줄은 글줄(28)보다 넉넉히 44를 확보하므로 그 아래에 16px의 빈 칸이 남는다. 그만큼을
+   * 음수 여백으로 되돌려 붙인다 — 홈 시트가 같은 이유로 같은 값을 쓴다.
+   *
+   * 예전에는 여기만 양수 여백으로 한 칸 띄웠다(장소명이 굵고 커서 뭉쳐 읽힌다고 보았다).
+   * 그러면 **머리글 높이가 홈보다 8px 커져 두 시트의 "보통" 단계가 어긋난다** — 같은 자리에
+   * 있어야 하는 시트라 그 8px이 눈에 띈다(2026-08-05 실기기).
    */
-  headingAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
+  headingAddress: { ...type.caption, color: colors.gray400, marginTop: -spacing.x1 },
   // paddingBottom은 바텀바 높이에 맞춰 화면에서 지정한다.
   sheetContent: { gap: SHEET_CONTENT_GAP },
   /**
