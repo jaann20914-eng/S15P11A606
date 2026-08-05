@@ -26,13 +26,11 @@ scrape_configs:
     static_configs:
       - targets: ["waggle-rabbitmq:15692"]
 
-  # --- 2단계: Spring Boot 백엔드 (actuator 붙인 뒤 주석 해제) ---
-  # micrometer-registry-prometheus 의존성 + actuator 노출 필요.
-  # <백엔드-컨테이너-이름>:<포트> 를 실제 값으로 바꾼다.
-  # - job_name: spring-boot
-  #   metrics_path: /actuator/prometheus
-  #   static_configs:
-  #     - targets: ["waggle-backend:8080"]
+  # --- 2단계: Spring Boot 백엔드 ---
+  - job_name: spring-boot
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["waggle-backend:8080"]
 
   # --- 3단계: PostGIS (postgres_exporter 컨테이너 추가한 뒤 주석 해제) ---
   # - job_name: postgres
