@@ -32,15 +32,15 @@ scrape_configs:
     static_configs:
       - targets: ["waggle-backend:8080"]
 
-  # --- 3단계: PostGIS (postgres_exporter 컨테이너 추가한 뒤 주석 해제) ---
-  # - job_name: postgres
-  #   static_configs:
-  #     - targets: ["waggle-postgres-exporter:9187"]
+  # --- 3단계: PostGIS ---
+  - job_name: postgres
+    static_configs:
+      - targets: ["waggle-postgres-exporter:9187"]
 
-  # --- 3단계: Elasticsearch (es-exporter 컨테이너 추가한 뒤 주석 해제) ---
-  # - job_name: elasticsearch
-  #   static_configs:
-  #     - targets: ["waggle-es-exporter:9114"]
+  # --- 3단계: Elasticsearch ---
+  - job_name: elasticsearch
+    static_configs:
+      - targets: ["waggle-es-exporter:9114"]
 
   # --- 4단계: AI 서버 (FastAPI/Flask 에 계측 붙인 뒤 주석 해제) ---
   # - job_name: ai-server
