@@ -1,0 +1,15 @@
+# Grafana 가 부팅할 때 이 폴더의 *.json 대시보드를 자동 등록한다.
+# (수동 Import 없이 코드로 관리되는 대시보드)
+apiVersion: 1
+
+providers:
+  - name: waggle
+    orgId: 1
+    folder: 와글와글            # Grafana 좌측 Dashboards 안에 이 폴더로 묶인다
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30   # json 이 바뀌면 30초마다 반영
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
