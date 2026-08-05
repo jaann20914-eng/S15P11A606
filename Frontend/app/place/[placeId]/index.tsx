@@ -220,15 +220,24 @@ export default function Place() {
   const [scrollOffset, setScrollOffset] = useState<number | null>(null);
   const [pinListTop, setPinListTop] = useState(0);
 
-  /*
-    목록 단계를 벗어나면 알린 스크롤 위치를 버린다.
+  /** 시트 안쪽 스크롤. 목록 단계를 벗어날 때 맨 위로 되돌리는 데 쓴다. */
+  const listRef = useRef<ScrollView>(null);
 
-    남겨 두면 다시 펼치는 순간 **그 낡은 값이 적용돼 첫 핀으로 되돌아간다** — 카드를 넘겨 세
-    번째 핀을 보다가 시트를 펼치기만 해도 지도가 처음 핀으로 튀는 셈이다. 비워 두면 펼친 뒤
-    실제로 스크롤할 때까지 지금 보고 있는 핀이 유지된다.
+  /*
+    목록 단계를 벗어나면 알린 스크롤 위치를 버리고, **스크롤 자체도 맨 위로 되돌린다.**
+
+    위치를 남겨 두면 다시 펼치는 순간 그 낡은 값이 적용돼 첫 핀으로 되돌아간다 — 카드를 넘겨
+    세 번째 핀을 보다가 시트를 펼치기만 해도 지도가 처음 핀으로 튀는 셈이다.
+
+    스크롤을 되돌리는 것은 다른 문제였다. 목록을 한참 내려 둔 채 시트를 "보통"으로 내리면
+    스크롤 위치가 그대로 남아, 한 장만 보여야 하는 칸이 **내려간 만큼 위로 밀려 카드가 탭바에
+    잘린 채** 멈췄다. "보통"·"축소" 단계에서 옳은 위치는 맨 위 하나뿐이므로 여기서 못 박는다.
+    시트가 동시에 움직이고 있어 되돌리는 것이 따로 보이지 않는다.
   */
   useEffect(() => {
-    if (!expanded) setScrollOffset(null);
+    if (expanded) return;
+    setScrollOffset(null);
+    listRef.current?.scrollTo({ y: 0, animated: false });
   }, [expanded]);
 
   const pinMarkers = useMemo(
@@ -252,6 +261,24 @@ export default function Place() {
 
     showPinOverlay({ markers: pinMarkers, selectedPinId: focusedPin?.pinId ?? null });
   }, [focusedPin, pinMarkers, showPinOverlay]);
+
+  /*
+    **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
+    카드가 골라지는 것과 같은 동작이다.
+
+    눌린 것을 아는 쪽은 홈이다 — 지도가 홈 것이고, 이 화면은 자기 지도가 없어 마커 알림을 받을
+    길이 없다. 그래서 홈이 고른 핀만 바꿔 저장소에 되돌려 주고(`pressMapPin`), 여기서 그 값을
+    보고 카드를 맞춘다. 위 효과가 카드에 맞춰 저장소를 채우는 것과 **반대 방향**이다.
+
+    번호가 이미 같으면 아무 일도 하지 않으므로 두 방향이 서로를 다시 부르지 않는다.
+  */
+  const markedPinId = useMapStore((state) => state.pinOverlay?.selectedPinId ?? null);
+  useEffect(() => {
+    if (markedPinId === null) return;
+
+    const at = pins.findIndex((pin) => pin.pinId === markedPinId);
+    if (at >= 0) setPinIndex(at);
+  }, [markedPinId, pins]);
 
   /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 영상핀이 남는다. */
   useEffect(() => clearPinOverlay, [clearPinOverlay]);
@@ -472,6 +499,7 @@ export default function Place() {
         </View>
 
         <ScrollView
+          ref={listRef}
           /*
             **확장 단계에서만 스크롤한다.**
 
@@ -590,8 +618,15 @@ export default function Place() {
             **단계가 바뀌어도 같은 컴포넌트가 그대로 있다.** 예전에는 단계에 따라 페이저와
             목록을 갈아 끼워, 전환하는 그 프레임에 카드가 전부 다시 만들어지면서 움직임이
             끊겼다. 지금은 `paging`만 바뀌므로 카드는 살아 있다.
+
+            **축소 단계에서도 떼어 내지 않는다.** 예전에는 `level > 0`으로 걸러 두었는데, 그러면
+            축소에서 올라오는 그 프레임에 칸과 카드가 전부 새로 만들어진다. 칸은 아직 카드를 재지
+            못해 어림값(240)을 알리고, 그 값이 곧 시트의 "보통" 높이라 **시트가 어림값 자리로
+            갔다가 실제 높이가 도착하면 다시 움직였다** — 카드가 탭바에 잘렸다가 튀어 올라오는
+            것으로 보인 것이 이것이다. 홈 시트는 애초에 떼어 내지 않아 이 일이 없었다.
+            축소 단계에서는 어차피 화면 밖이라 그려 두어도 보이지 않는다.
           */}
-          {level > 0 && pins.length > 0 && (
+          {pins.length > 0 && (
             /*
               칸이 스크롤 내용 안에서 어디에 있는지 재 둔다. 목록 단계에서 "지금 보고 있는 핀"은
               스크롤 위치로 정하는데, 그 위치는 시트 내용 전체 기준이라 이 칸의 윗변만큼 빼야
@@ -611,8 +646,11 @@ export default function Place() {
             </View>
           )}
 
-          {/* 핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다. */}
-          {level > 0 && !loading && detail !== null && pins.length === 0 && (
+          {/*
+            핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다.
+            카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
+          */}
+          {!loading && detail !== null && pins.length === 0 && (
             <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
           )}
         </ScrollView>

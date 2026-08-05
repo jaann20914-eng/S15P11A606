@@ -148,6 +148,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       dragBy: (dx: number, dy: number) => send('dragBy', [dx, dy]),
       dragEnd: () => send('dragEnd'),
       zoomBy: (step: number) => send('zoomBy', [step]),
+      tapAt: (x: number, y: number) => send('tapAt', [x, y]),
       fitPlaces: () => send('fitPlaces', [insetRef.current]),
       relayout: () => send('relayout'),
     }),

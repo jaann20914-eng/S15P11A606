@@ -69,6 +69,8 @@ export interface MapGestureControl {
   dragBy: (dx: number, dy: number) => void;
   dragEnd: () => void;
   zoomBy: (step: number) => void;
+  /** 화면의 그 점을 탭한 것으로 다룬다. 마커 판정은 지도가 한다. */
+  tapAt: (x: number, y: number) => void;
 }
 
 export interface MapState {

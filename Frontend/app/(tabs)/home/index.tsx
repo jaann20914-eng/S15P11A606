@@ -65,6 +65,8 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
+  /** 눌린 영상핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다. */
+  const showPinOverlay = useMapStore((state) => state.showPinOverlay);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
   const [mapReady, setMapReady] = useState(false);
 
@@ -310,21 +312,33 @@ export default function Home() {
   const pressMapPin = useCallback(
     (placeId: string) => {
       /*
-        **받아 둔 장소가 아니면 아무것도 하지 않는다.**
+        **영상핀 마커였으면 그 핀을 고른 것으로 상세에 넘긴다.**
 
         이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
-        대신 그리고(`pinOverlay`), 그때 눌린 id는 `pinId`(UUID)다. 그대로 상세로 넘기면
-        `/place/<UUID>`가 되어 숫자로 읽히지 않는 화면이 열린다 — 사용자에게는 "장소를 찾을 수
-        없어요"만 보인다. 지금은 상세가 지도 위 터치를 자기가 받아 여기까지 오지 않지만,
-        경계에서 한 번 걸러 두면 그 구조가 바뀌어도 깨지지 않는다.
+        대신 그리고(`pinOverlay`), 그때 눌린 id는 우리 `placeId`가 아니라 `pinId`(UUID)다.
+        상세로 넘기면 `/place/<UUID>`가 되어 "장소를 찾을 수 없어요"가 열린다.
+
+        그래서 눌린 것이 지금 올려 둔 영상핀 중 하나면 **고른 핀만 바꿔** 되돌려 준다. 상세가 그
+        값을 보고 해당 카드로 넘어가고(마커도 물방울로 바뀐다), 지도를 그 핀 자리로 옮긴다 —
+        홈에서 장소 마커를 눌렀을 때 그 카드가 골라지는 것과 같은 동작이다.
+
+        고른 핀을 정하는 일이 왜 홈을 거치는지: 지도는 홈 것이고 마커 알림도 홈으로 온다. 상세는
+        자기 지도가 없어 이 통로 말고는 눌린 것을 알 방법이 없다.
       */
+      if (pinOverlay !== null) {
+        const pressedPin = pinOverlay.markers.some((marker) => marker.id === placeId);
+        if (pressedPin) showPinOverlay({ ...pinOverlay, selectedPinId: placeId });
+        return;
+      }
+
+      // 받아 둔 장소가 아니면 아무것도 하지 않는다. 경계에서 한 번 걸러 두면 조용히 깨지지 않는다.
       const known = inView.places.some((place) => place.id === placeId);
       if (!known) return;
 
       focusPlace(placeId);
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, inView.places, mapLevel, openPlace],
+    [focusPlace, inView.places, mapLevel, openPlace, pinOverlay, showPinOverlay],
   );
 
   const handleViewChange = useCallback(
