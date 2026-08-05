@@ -8,7 +8,7 @@ export interface CreditBalanceCardProps {
   balance: number;
 }
 
-/** 보유 크레딧 카드. 적립 방법을 함께 안내한다. */
+/** 보유 와글 포인트 카드. 적립 방법을 함께 안내한다. */
 export function CreditBalanceCard({ balance }: CreditBalanceCardProps) {
   return (
     <LinearGradient
@@ -18,9 +18,9 @@ export function CreditBalanceCard({ balance }: CreditBalanceCardProps) {
       style={s.balanceCard}
     >
       <View style={s.balanceCopy}>
-        <Text style={s.balanceLabel}>보유 크레딧</Text>
+        <Text style={s.balanceLabel}>보유 와글 포인트</Text>
         <Text style={s.balanceValue}>
-          {balance} <Text style={s.unit}>크레딧</Text>
+          {balance} <Text style={s.unit}>와글 포인트</Text>
         </Text>
         <Text style={s.balanceHelp}>영상 평가와 채팅 응답으로 적립할 수 있어요.</Text>
       </View>

@@ -16,7 +16,8 @@ const log = createDevLogger('chat-socket');
  * 평소에는 끈다. 하트비트가 10초마다 오가서 켜 두면 다른 로그가 묻힌다. 연결이 이상할 때만
  * 잠깐 켜서 어디서 멈추는지 본다 — 이 값을 켜면 프레임 전문과 소켓 수신이 모두 보인다.
  */
-const TRACE_FRAMES = false;
+// [임시] AI 경고가 방까지 오는지 추적 중이라 켜 둔다. 확인이 끝나면 다시 끈다.
+const TRACE_FRAMES = true;
 
 /** 브라우저·서버가 합의하는 STOMP 하위 프로토콜. 버전을 하나만 제안하므로 값도 하나다. */
 const STOMP_SUBPROTOCOLS = [`v${STOMP_VERSION.replace('.', '')}.stomp`];

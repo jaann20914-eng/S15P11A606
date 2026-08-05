@@ -47,7 +47,7 @@ function PinDetailContent() {
     return (
       <PinDetailShell>
         <ErrorView
-          title="영상핀을 찾을 수 없어요"
+          title="핀을 찾을 수 없어요"
           message="주소가 올바르지 않아요."
           actionLabel="홈으로 이동"
           onAction={goHome}
@@ -72,7 +72,7 @@ function PinDetailContent() {
     return (
       <PinDetailShell>
         <ErrorView
-          title={missing ? '영상핀을 볼 수 없어요' : '영상핀을 불러오지 못했어요'}
+          title={missing ? '핀을 볼 수 없어요' : '핀을 불러오지 못했어요'}
           /*
             없는 핀과 **아직 공개되지 않은 핀**이 같은 오류로 온다.
 
@@ -178,8 +178,8 @@ function PinDetailScreen({
 
       <ConfirmModal
         visible={remove.open}
-        title="영상핀 삭제"
-        message={'삭제한 영상핀은 되돌릴 수 없어요.\n연결된 채팅방도 함께 종료됩니다.'}
+        title="핀 삭제"
+        message={'삭제한 핀은 되돌릴 수 없어요.\n연결된 채팅방도 함께 종료됩니다.'}
         confirmLabel="삭제"
         busy={remove.busy}
         error={remove.error}
@@ -190,7 +190,7 @@ function PinDetailScreen({
       <ConfirmModal
         visible={leave.open}
         title="이미 떠났어요"
-        message={'이 핀에 연결된 채팅방이 모두 종료돼요.\n영상핀과 크레딧은 그대로 남습니다.'}
+        message={'이 핀에 연결된 채팅방이 모두 종료돼요.\n핀과 와글 포인트는 그대로 남습니다.'}
         confirmLabel="떠나기"
         busy={leave.busy}
         error={leave.error}

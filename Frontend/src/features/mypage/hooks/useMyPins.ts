@@ -24,7 +24,7 @@ export interface MyPinsState {
 const messageByCode: Record<string, string> = {
   INVALID_PAGINATION: '목록을 더 불러오지 못했어요.',
   UNAUTHORIZED: '로그인이 필요해요.',
-  TODAY_PINS_FETCH_FAILED: '영상핀 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+  TODAY_PINS_FETCH_FAILED: '핀 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 /**
@@ -63,7 +63,7 @@ function toMyPin(pin: TodayPin): MyPin {
 }
 
 /**
- * 오늘 등록한 영상핀 목록.
+ * 오늘 등록한 핀 목록.
  *
  * "오늘"의 범위는 서버가 정한다. Asia/Seoul 오전 4시 경계라 자정 직후 등록한 핀도 전날
  * 목록에 들어가는데, 프론트가 날짜를 계산하면 그 경계와 어긋난다.
@@ -108,7 +108,7 @@ export function useMyPins(): MyPinsState {
         setError(
           cause instanceof ApiError
             ? (messageByCode[cause.code] ?? cause.message)
-            : '영상핀 목록을 불러오지 못했어요',
+            : '핀 목록을 불러오지 못했어요',
         );
       });
   }, []);

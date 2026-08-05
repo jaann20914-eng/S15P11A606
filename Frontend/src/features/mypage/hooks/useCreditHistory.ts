@@ -32,7 +32,7 @@ const messageByCode: Record<string, string> = {
   INVALID_CREDIT_FILTER: '조회 조건이 올바르지 않아요.',
   INVALID_PAGINATION: '목록을 더 불러오지 못했어요.',
   UNAUTHORIZED: '로그인이 필요해요.',
-  CREDIT_TRANSACTIONS_FETCH_FAILED: '크레딧 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+  CREDIT_TRANSACTIONS_FETCH_FAILED: '와글 포인트 내역을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 /** 화면 필터를 쿼리 값으로 바꾼다. 라벨을 바꿔도 쿼리가 조용히 어긋나지 않도록 표로 둔다. */
@@ -109,49 +109,46 @@ export function useCreditHistory(): CreditHistory {
    */
   const requestId = useRef(0);
 
-  const load = useCallback(
-    (next: { filter: CreditFilter; period: CreditPeriod; cursor?: string }) => {
-      const id = requestId.current + 1;
-      requestId.current = id;
+  const load = useCallback((next: { filter: CreditFilter; period: CreditPeriod; cursor?: string }) => {
+    const id = requestId.current + 1;
+    requestId.current = id;
 
-      const more = next.cursor !== undefined;
-      if (more) setLoadingMore(true);
-      else setLoading(true);
-      setError(null);
+    const more = next.cursor !== undefined;
+    if (more) setLoadingMore(true);
+    else setLoading(true);
+    setError(null);
 
-      const request = getCreditTransactions({
-        type: typeQuery[next.filter],
-        period: periodQuery[next.period],
-        cursor: next.cursor,
-        limit: CREDIT_PAGE_SIZE,
+    const request = getCreditTransactions({
+      type: typeQuery[next.filter],
+      period: periodQuery[next.period],
+      cursor: next.cursor,
+      limit: CREDIT_PAGE_SIZE,
+    });
+
+    // 첫 조회만 최소 시간을 지킨다. 이어 받기는 늦추지 않는다.
+    (more ? request : withMinimumDuration(request, MIN_LOADING_MS))
+      .then((page) => {
+        if (requestId.current !== id) return;
+
+        const received = page.items.map(toEntry);
+        setEntries((current) => (more ? [...current, ...received] : received));
+        setBalance(page.balance);
+        setCursor(page.nextCursor);
+        setLoading(false);
+        setLoadingMore(false);
+      })
+      .catch((cause: unknown) => {
+        if (requestId.current !== id) return;
+
+        setLoading(false);
+        setLoadingMore(false);
+        setError(
+          cause instanceof ApiError
+            ? (messageByCode[cause.code] ?? cause.message)
+            : '와글 포인트 내역을 불러오지 못했어요',
+        );
       });
-
-      // 첫 조회만 최소 시간을 지킨다. 이어 받기는 늦추지 않는다.
-      (more ? request : withMinimumDuration(request, MIN_LOADING_MS))
-        .then((page) => {
-          if (requestId.current !== id) return;
-
-          const received = page.items.map(toEntry);
-          setEntries((current) => (more ? [...current, ...received] : received));
-          setBalance(page.balance);
-          setCursor(page.nextCursor);
-          setLoading(false);
-          setLoadingMore(false);
-        })
-        .catch((cause: unknown) => {
-          if (requestId.current !== id) return;
-
-          setLoading(false);
-          setLoadingMore(false);
-          setError(
-            cause instanceof ApiError
-              ? (messageByCode[cause.code] ?? cause.message)
-              : '크레딧 내역을 불러오지 못했어요',
-          );
-        });
-    },
-    [],
-  );
+  }, []);
 
   // 조건이 바뀌면 처음부터 다시 받는다.
   useEffect(() => {

@@ -13,6 +13,7 @@ import { useChatDecision, usePinLeave } from '@/features/chat/hooks/useChatDecis
 import { useChatPins, useMyChatRooms, usePinChatRooms } from '@/features/chat/hooks/useChatLists';
 import { chatListStyles as s } from '@/features/chat/styles';
 import { consumeReceivedPinFocus } from '@/features/chat/receivedFocus';
+import { isPinLeft } from '@/store/leftPins';
 import type { ChatPinListItem, ChatRoomListItem } from '@/types/chat';
 import type { PinId } from '@/types/pin';
 import { formatTimeOfDay } from '@/utils/datetime';
@@ -129,7 +130,7 @@ export default function Chat() {
 
   const confirmLeave = () => {
     Alert.alert(
-      '이 게시글의 대화를 모두 끝낼까요?',
+      '이 핀의 대화를 모두 끝낼까요?',
       '연결된 채팅방이 모두 종료돼요. 지난 대화는 그대로 남습니다.',
       [
         { text: '취소', style: 'cancel' },
@@ -138,11 +139,35 @@ export default function Chat() {
     );
   };
 
+  /*
+    탭별 안 읽음 표시. 목록 줄의 점과 같은 재료로 계산하므로 늘 함께 켜지고 함께 꺼진다 —
+    그 목록의 안 읽음을 전부 읽어야만 탭의 점도 사라진다.
+
+    두 목록 훅은 어느 탭이 보이든 살아서 소켓 이벤트를 받고 있어, 반대쪽 탭에 일이 생겨도
+    이 점이 바로 켜진다. 지금 보고 있는 탭에도 그대로 붙는다 — 목록을 스크롤로 훑는 중에
+    위쪽 줄의 점을 지나쳤을 수 있다.
+  */
+  const unreadByTab: Record<Tab, boolean> = {
+    '요청한 대화': myRooms.items.some((room) => room.hasUnread),
+    '요청받은 대화': pins.items.some((pin) => pin.hasUnread),
+  };
+
   /** 게시글을 고른 상태에서는 그 글의 방 목록만 보여준다. */
   const inPin = selectedPin !== null;
-  /** 이 글의 대화가 전부 끝났는지. 떠났어요 버튼을 잠그는 기준이다. */
-  const allPinRoomsClosed =
-    pinRooms.items.length > 0 && pinRooms.items.every((room) => room.status === 'CLOSED');
+  /*
+    떠났어요 버튼을 잠그는 기준. **떠났어요를 실제로 누른 글**만 잠근다.
+
+    "방이 전부 CLOSED"로 판정했더니 유일한 요청 하나를 거절만 해도 화면이 "모든 대화가
+    종료됐어요"로 잠겼다(2026-08-05) — 목록 계약이 거절(REFUSED)과 떠남(LEFT)을 CLOSED
+    하나로 합쳐 줘서 방 상태로는 구분할 수 없다. 거절한 글은 새 요청을 계속 받는 살아 있는
+    글이라 떠났어요도 여전히 누를 수 있어야 한다.
+
+    근거는 서버의 제보자 상태(`publisherStatus`, 2026-08-06 추가)다. 세션 기억
+    (`store/leftPins`)은 배포 전 서버와 떠난 직후 재조회 전의 빈틈을 받친다 —
+    `selectedPin`은 고른 순간의 값이라 떠난 직후의 서버 값을 스스로 모른다.
+  */
+  const pinLeft =
+    selectedPin !== null && (selectedPin.publisherStatus === 'LEFT' || isPinLeft(selectedPin.pinId));
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -171,7 +196,10 @@ export default function Chat() {
                 }}
                 style={s.tab}
               >
-                <Text style={[s.tabText, tab === item && s.tabTextActive]}>{item}</Text>
+                <View style={s.tabLabel}>
+                  <Text style={[s.tabText, tab === item && s.tabTextActive]}>{item}</Text>
+                  {unreadByTab[item] && <View style={s.tabUnread} />}
+                </View>
                 <View style={[s.tabLine, tab === item && s.tabLineActive]} />
               </Pressable>
             ))}
@@ -196,7 +224,7 @@ export default function Chat() {
                 loading={pinRooms.loading}
                 error={pinRooms.error}
                 isEmpty={filteredPinRooms.length === 0}
-                emptyText={query === '' ? '아직 이 게시글에 온 대화가 없어요' : '검색 결과가 없어요'}
+                emptyText={query === '' ? '아직 이 핀에 온 대화가 없어요' : '검색 결과가 없어요'}
                 onRetry={pinRooms.reload}
               />
 
@@ -255,17 +283,15 @@ export default function Chat() {
         */}
         {inPin && pinRooms.items.length > 0 && (
           <View style={s.leaveArea}>
-            <Text style={s.leaveHint}>
-              {allPinRoomsClosed ? '모든 대화가 종료됐어요' : '모든 답변을 종료합니다'}
-            </Text>
+            <Text style={s.leaveHint}>{pinLeft ? '모든 대화가 종료됐어요' : '모든 답변을 종료합니다'}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ disabled: allPinRoomsClosed }}
-              disabled={leave.busy || allPinRoomsClosed}
+              accessibilityState={{ disabled: pinLeft }}
+              disabled={leave.busy || pinLeft}
               onPress={confirmLeave}
-              style={[s.leaveButton, leave.busy && s.leaveButtonBusy, allPinRoomsClosed && s.leaveButtonDone]}
+              style={[s.leaveButton, leave.busy && s.leaveButtonBusy, pinLeft && s.leaveButtonDone]}
             >
-              <Text style={[s.leaveText, allPinRoomsClosed && s.leaveTextDone]}>떠났어요</Text>
+              <Text style={[s.leaveText, pinLeft && s.leaveTextDone]}>떠났어요</Text>
             </Pressable>
           </View>
         )}

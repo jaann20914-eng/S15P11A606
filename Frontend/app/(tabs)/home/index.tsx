@@ -59,13 +59,13 @@ const ESTIMATED_HEADER_HEIGHT = 84;
 const ESTIMATED_CARD_HEIGHT = 208;
 
 /**
- * 카드 자리의 **최소** 높이 = 영상핀 카드 한 장이 놓이는 칸.
+ * 카드 자리의 **최소** 높이 = 핀 카드 한 장이 놓이는 칸.
  *
  * 장소 상세 시트의 "보통" 단계는 그 카드 한 장으로 높이가 잡힌다. 홈의 장소 카드는 썸네일이
  * 없어 그보다 39px 낮아서, **같은 자리에 있어야 할 두 시트가 47px 어긋나 보였다**
  * (2026-08-05 실기기 — 나머지 8px은 머리글 둘째 줄 여백이라 그쪽도 맞췄다).
  *
- * 카드 규격은 영상핀 쪽이 기준이다 — 썸네일 높이가 카드 높이를 정하고 그 값이 메모 줄 수까지
+ * 카드 규격은 핀 쪽이 기준이다 — 썸네일 높이가 카드 높이를 정하고 그 값이 메모 줄 수까지
  * 정하므로 줄일 수 없다(`PLACE_PIN_CARD_HEIGHT`). 그래서 낮은 쪽인 홈이 이 값까지 자리를
  * 잡아 둔다. 장소를 열 때 시트가 뛰지 않는 것이 카드 아래 빈칸보다 낫다.
  *
@@ -86,12 +86,12 @@ const MIN_CARD_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 const EMPTY_BLOCK_HEIGHT = MIN_CARD_SLOT_HEIGHT;
 
 /**
- * 20m까지 당겼는데 영상핀이 올라온 장소가 없을 때 잠깐 띄우는 한 마디.
+ * 20m까지 당겼는데 핀이 올라온 장소가 없을 때 잠깐 띄우는 한 마디.
  *
  * 그 축척까지 당긴 것은 "이 자리를 들여다보겠다"는 뜻인데 보여줄 것이 없다. 없다고만 적으면
  * 막다른 길이라, **그 자리에서 할 수 있는 일**을 적는다 — 첫 핀을 남기는 것이다.
  */
-const NO_PLACE_HINT = '이 장소에 영상핀을 올려보세요';
+const NO_PLACE_HINT = '이 장소에 핀을 올려보세요';
 
 /** 한 마디가 머무는 시간(ms). 읽을 만하되 손을 막지 않는 길이다. */
 const HINT_DURATION_MS = 1000;
@@ -136,7 +136,7 @@ export default function Home() {
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
   /**
-   * 눌린 영상핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다.
+   * 눌린 핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다.
    *
    * **한 번 쓰고 비우는 요청이다.** 겹의 `selectedPinId`를 고치는 것이 아니다 — 그 칸을 두 쪽이
    * 함께 쓰면 서로의 낡은 값으로 되돌리기를 주고받는다(`pressedPinId` 설명).
@@ -238,7 +238,7 @@ export default function Home() {
     목업/실서버 판정은 API 경계 한 곳(`api/place/list.ts`)이 하므로 이 화면은 어느 쪽인지 모른다.
 
     응답의 좌표는 훅이 함께 기억해 둔다 — 장소 상세와 핀 카드에는 좌표가 없어서, 상세 화면이
-    영상핀을 지도에 찍으려면 이 응답이 유일한 출처다.
+    핀을 지도에 찍으려면 이 응답이 유일한 출처다.
   */
   const bounds = useMapStore((state) => state.bounds);
   const inView = usePlacesInView(bounds);
@@ -286,7 +286,7 @@ export default function Home() {
         ? emptyHeight > 0
           ? emptyHeight
           : EMPTY_BLOCK_HEIGHT
-        : // 카드가 있으면 최소한 영상핀 카드 한 장 자리는 잡는다(위 설명).
+        : // 카드가 있으면 최소한 핀 카드 한 장 자리는 잡는다(위 설명).
           Math.max(cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT, MIN_CARD_SLOT_HEIGHT)) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
   });
@@ -304,8 +304,8 @@ export default function Home() {
   /*
     지도에 찍을 마커.
 
-    **상세 화면이 열려 있으면 그쪽 영상핀을 찍는다.** 상세는 자기 지도가 없어 이 지도를
-    반투명하게 비추고 있을 뿐이므로, 영상핀 마커도 여기서 그려야 한다(`pinOverlay`).
+    **상세 화면이 열려 있으면 그쪽 핀을 찍는다.** 상세는 자기 지도가 없어 이 지도를
+    반투명하게 비추고 있을 뿐이므로, 핀 마커도 여기서 그려야 한다(`pinOverlay`).
     상세를 닫으면 비워지고 장소 마커로 돌아온다.
   */
   const placeMarkers = useMemo(
@@ -319,7 +319,7 @@ export default function Home() {
           **색은 그 장소의 평균 혼잡도가 정한다.** 토글을 넘기지 않는다.
 
           걸러진 목록이라 지금은 두 값이 같지만, 색의 근거를 필터에 두면 걸러지지 않는 마커가
-          생기는 순간 거짓이 된다 — 장소 상세의 영상핀이 그랬다. 여기서도 값을 실어 보낸다.
+          생기는 순간 거짓이 된다 — 장소 상세의 핀이 그랬다. 여기서도 값을 실어 보낸다.
         */
         tone: classifyCrowdFilter(crowdLevel) ?? undefined,
       })),
@@ -367,7 +367,7 @@ export default function Home() {
    * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
    * 이어지는 일이 없다.
    *
-   * **넘어가면서 그 장소를 영상핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
+   * **넘어가면서 그 장소를 핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
    * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
    * 단계씩 이어 붙인다 — `zoomStepwise`). 예전에는 상세가 열려 핀을 받은 뒤에야 당기기
    * 시작해서, 시트만 툭 덮이고 지도는 한참 뒤에 따로 움직였다.
@@ -453,13 +453,13 @@ export default function Home() {
   const pressMapPin = useCallback(
     (placeId: string) => {
       /*
-        **영상핀 마커였으면 그 핀을 고른 것으로 상세에 넘긴다.**
+        **핀 마커였으면 그 핀을 고른 것으로 상세에 넘긴다.**
 
-        이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 영상핀을
+        이 지도는 장소 마커만 찍는 것이 아니다. 장소 상세가 열려 있는 동안에는 그쪽 핀을
         대신 그리고(`pinOverlay`), 그때 눌린 id는 우리 `placeId`가 아니라 `pinId`(UUID)다.
         상세로 넘기면 `/place/<UUID>`가 되어 "장소를 찾을 수 없어요"가 열린다.
 
-        그래서 눌린 것이 지금 올려 둔 영상핀 중 하나면 **고른 핀만 바꿔** 되돌려 준다. 상세가 그
+        그래서 눌린 것이 지금 올려 둔 핀 중 하나면 **고른 핀만 바꿔** 되돌려 준다. 상세가 그
         값을 보고 해당 카드로 넘어가고(마커도 물방울로 바뀐다), 지도를 그 핀 자리로 옮긴다 —
         홈에서 장소 마커를 눌렀을 때 그 카드가 골라지는 것과 같은 동작이다.
 
@@ -493,7 +493,7 @@ export default function Home() {
         열면 **이미 열려 있는 그 화면 위에 같은 화면이 한 겹 더 쌓인다.** 쌓일 때마다 장소를
         다시 조회하고 카드 수만큼 썸네일을 다시 받으므로, 몇 번만 눌려도 화면과 요청이 불어난다.
 
-        영상핀 겹이 올라와 있으면 위에서 이미 돌아갔으므로, 여기 오는 것은 겹이 없는 경우다 —
+        핀 겹이 올라와 있으면 위에서 이미 돌아갔으므로, 여기 오는 것은 겹이 없는 경우다 —
         상세가 좌표를 못 받아 마커를 하나도 올리지 못한 장소가 그렇다.
       */
       if (!onTop) return;
@@ -548,7 +548,7 @@ export default function Home() {
   */
   useEffect(() => {
     if (!mapReady || !focus) return;
-    // 영상핀은 20m까지 당겨야 여러 개가 겹치지 않는다. 부르는 쪽이 정한 축척을 따른다.
+    // 핀은 20m까지 당겨야 여러 개가 겹치지 않는다. 부르는 쪽이 정한 축척을 따른다.
     setPendingPan({ coordinate: focus.coordinate, level: focus.level ?? PLACE_FOCUS_MAP_LEVEL });
     clearFocus();
   }, [clearFocus, focus, mapReady]);
@@ -635,7 +635,7 @@ export default function Home() {
     if (!onTop || from <= REVIEW_PIN_MAX_LEVEL) return;
 
     /*
-      화면에 담긴, 영상핀이 올라온 장소들. **사용자에게 가까운 순**이다.
+      화면에 담긴, 핀이 올라온 장소들. **사용자에게 가까운 순**이다.
 
       보이는 마커와 같은 목록을 쓴다(`visiblePlaces` — 혼잡도 토글이 걸러 낸 것). 지도에 없는
       장소로 넘어가면 버튼이 어디로 데려간 것인지 알 수 없다.
@@ -695,7 +695,7 @@ export default function Home() {
   /*
     상세를 닫으면 장소 마커가 다시 **여러 개** 보이는 축척으로 넓힌다.
 
-    상세는 영상핀을 20m까지 당겨 보여준다. 그 상태로 홈에 돌아오면 마커는 장소로 되돌아오지만
+    상세는 핀을 20m까지 당겨 보여준다. 그 상태로 홈에 돌아오면 마커는 장소로 되돌아오지만
     그 축척에는 장소 하나밖에 들어오지 않아, 핀이 하나뿐인 지도가 기본 화면으로 남는다.
     장소용 축척(250m)으로 넓혀 주변 장소가 함께 보이게 한다.
 
@@ -1041,7 +1041,7 @@ export default function Home() {
                   이름**이고, 목록 응답(`GET /places`)에는 작성자 닉네임이 없다(뷰 각도만 온다).
                   실서버에서는 있지도 않은 사람 이름을 모든 장소에 붙이는 셈이었다.
                 */}
-                <Text style={s.pinUpload}>지금 영상핀 {place.pins}개가 올라와 있어요</Text>
+                <Text style={s.pinUpload}>지금 핀 {place.pins}개가 올라와 있어요</Text>
                 {/*
                   작성자마다 링 모양이 달라야 한다. `ViewAvatar`가 각도별 시안 이미지로 채움
                   비율을 그리므로 90°와 320°가 눈에 띄게 다르게 보인다. 예전에는 어느 장소든
@@ -1086,8 +1086,8 @@ export default function Home() {
                 </View>
               ) : inView.places.length === 0 ? (
                 <View style={s.empty}>
-                  <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
-                  <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
+                  <Text style={s.emptyTitle}>이 근처에는 아직 핀이 없어요</Text>
+                  <Text style={s.emptyText}>지도를 옮겨 보거나 첫 핀을 올려보세요.</Text>
                 </View>
               ) : (
                 <View style={s.empty}>

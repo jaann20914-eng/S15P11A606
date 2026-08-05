@@ -7,6 +7,7 @@ import { evaluatePin } from '@/api/pin/evaluate';
 import { deletePin } from '@/api/pin/remove';
 import { unlockPin } from '@/api/pin/unlock';
 import { rememberEditablePin } from '@/features/pin-create/editHandoff';
+import { isPinLeft, markPinLeft } from '@/store/leftPins';
 import { createIdempotencyKey } from '@/utils/idempotency';
 import { goBackOrHome } from '@/utils/navigation';
 import type { PinId, PinDetail, PinRating } from '@/types/pin';
@@ -27,13 +28,10 @@ export interface ConfirmActionState extends ToggleState {
   confirm: () => void;
 }
 
-/**
- * 이번 실행 동안 "이미 떠났어요"를 끝낸 핀.
- *
- * 상세 응답이 제보자 상태를 주지 않아 서버 값으로는 판단할 수 없다. 화면을 나갔다 들어와도
- * 버튼이 잠긴 채 남게 하려고 모듈에 둔다 — 화면 상태로 두면 다시 들어올 때 초기값으로 돌아간다.
- */
-const leftPinIds = new Set<PinId>();
+/*
+  "이미 떠났어요"를 끝낸 핀의 기억은 공용 모듈로 옮겼다(`store/leftPins`). 채팅 목록이
+  글 줄을 연하게 누르는 판정에도 같은 값이 필요해서다. 세션 동안만 남는 성질은 그대로다.
+*/
 
 function useToggle(): ToggleState {
   const [open, setOpen] = useState(false);
@@ -273,7 +271,7 @@ function useChatRequest(pinId: PinId, onDetailChange: (patch: Partial<PinDetail>
           해야 하는지 알 수 없어 필요한 양을 적어 준다.
         */
         if (cause instanceof ApiError && cause.code === 'INSUFFICIENT_CREDIT') {
-          setError('크레딧이 부족해요. 채팅을 요청하려면 5크레딧이 필요해요');
+          setError('와글 포인트가 부족해요. 채팅을 요청하려면 5 와글 포인트가 필요해요');
           return;
         }
 
@@ -308,19 +306,19 @@ export function usePinDetailScreen(
     떠난 뒤에는 화면에 머물고 버튼을 잠근다. 글과 크레딧은 그대로 남으니 돌려보낼 이유가 없고,
     같은 버튼이 계속 눌리는 상태로 남아 있으면 처리가 됐는지 알 수 없다.
 
-    상세 응답에는 제보자 상태가 없어서(`PinDetailResponse`) 다시 들어왔을 때 서버 값으로는
-    알 수 없다. 그래서 이번 실행 동안 떠난 핀을 기억해 둔다. 앱을 다시 켜면 버튼이 다시
-    열리는데, 그때 눌러도 서버가 멱등하게 처리하고 종료된 방 목록만 빈 배열로 온다.
+    잠글 근거는 상세 응답의 제보자 상태(`publisherStatus`, 2026-08-06 추가)다. 세션 기억
+    (`store/leftPins`)은 배포 전 서버(값이 안 옴)와 떠난 직후 상세를 다시 받기 전의 빈틈을
+    받친다.
   */
   const leave = useConfirmAction(
     useCallback(async () => {
       const result = await leavePinChats(detail.pinId);
-      leftPinIds.add(detail.pinId);
+      markPinLeft(detail.pinId);
 
       return result;
     }, [detail.pinId]),
     '처리하지 못했어요',
-    { stay: true, doneAtStart: leftPinIds.has(detail.pinId) },
+    { stay: true, doneAtStart: detail.publisherStatus === 'LEFT' || isPinLeft(detail.pinId) },
   );
 
   return {

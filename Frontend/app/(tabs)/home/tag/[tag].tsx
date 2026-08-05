@@ -18,7 +18,7 @@ const messageByCode: Record<string, string> = {
   INVALID_TAG_NAME: '태그명이 올바르지 않아요.',
   INVALID_MAP_RANGE: '지도 범위가 올바르지 않아요.',
   UNAUTHORIZED: '로그인이 필요해요.',
-  TAGGED_PINS_FETCH_FAILED: '영상핀을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+  TAGGED_PINS_FETCH_FAILED: '핀을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 const log = createDevLogger('tag-confirm');
@@ -34,7 +34,7 @@ const ANGLE_RING_SIZE = 30;
  * 겸하므로, 결과를 그리는 쪽이 부르면 값을 넘길 통로를 따로 만들지 않아도 된다.
  *
  * **이 조회는 DB를 읽는다**(`PinRepository.findActivePinsByTagWithinBounds`). 태그 자동완성이
- * 읽는 Elasticsearch 색인과 달라서, 방금 등록한 영상핀도 곧바로 여기서 찾힌다.
+ * 읽는 Elasticsearch 색인과 달라서, 방금 등록한 핀도 곧바로 여기서 찾힌다.
  *
  * **결과는 장소 단위다**(2026-08-05 재점검). 서버가 그 태그가 달린 활성 핀을 장소별로 묶어
  * 주고, 핀은 좌표와 뷰 각도만 온다 — 작성자·메모·썸네일이 없어 핀 카드로는 그릴 수 없다.
@@ -121,9 +121,7 @@ export default function TagSearchResult() {
 
         setLoading(false);
         setError(
-          cause instanceof ApiError
-            ? (messageByCode[cause.code] ?? cause.message)
-            : '영상핀을 불러오지 못했어요',
+          cause instanceof ApiError ? (messageByCode[cause.code] ?? cause.message) : '핀을 불러오지 못했어요',
         );
       });
   }, [tag]);
@@ -151,7 +149,7 @@ export default function TagSearchResult() {
    *
    * 상세는 자기 지도가 없으므로 이 화면이 지도를 맞춰 두어야 한다 — 그러지 않으면 검색 전에
    * 보고 있던 자리가 그대로 남아 엉뚱한 동네에 시트가 열린다. 홈이 카드 꺽새로 상세를 열 때
-   * 하는 것과 같은 값(영상핀 축척)이다(`openPlace`).
+   * 하는 것과 같은 값(핀 축척)이다(`openPlace`).
    *
    * 이동은 홈이 실행한다(`focus` → `focusPlace`). 홈은 아래에 살아 있으므로 화면에 없어도
    * 명령을 받는다. 상세가 첫 게시물의 핀으로 중심을 다시 맞추지만 이미 같은 축척이라 그때는
@@ -199,7 +197,7 @@ export default function TagSearchResult() {
           </View>
         ) : places.length === 0 ? (
           <View style={s.centered}>
-            <Text style={s.emptyTitle}>이 태그의 영상핀이 없어요</Text>
+            <Text style={s.emptyTitle}>이 태그의 핀이 없어요</Text>
             <Text style={s.emptyText}>지도를 옮긴 뒤 다시 검색해 보세요.</Text>
           </View>
         ) : (
@@ -233,7 +231,7 @@ export default function TagSearchResult() {
                 <View style={s.placeRule} />
 
                 <Text style={s.pinCount}>
-                  #{tag} 영상핀 {place.activePins.length}개
+                  #{tag} 핀 {place.activePins.length}개
                 </Text>
                 {/*
                   작성자마다 링 모양이 달라야 한다 — 각도별 채움이 다르게 그려진다. 홈·추천의

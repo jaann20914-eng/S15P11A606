@@ -1,6 +1,7 @@
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
 import { toServerCrowdLevel } from '@/types/pin';
 import type { PinDraft, PinUpdateRequest } from '@/types/pinCreate';
+// 좌표 끌어당김을 되살릴 때 pullCoordinateNear를 함께 import한다(아래 주석 참고).
 
 /**
  * 수정 요청 본문을 만든다.
@@ -67,8 +68,14 @@ export function toPinUpdateRequest(
     // 새로 찍은 자리를 함께 보낸다. 좌표는 둘 다 있어야 하고, 없으면 아예 보내지 않는다.
     const captured = draft.video?.coordinate;
     if (captured) {
-      body.latitude = captured.latitude;
-      body.longitude = captured.longitude;
+      /*
+        개발 중 서버의 50m 검증을 피하려고 좌표를 장소 쪽으로 끌어당겨 보냈던 처치는
+        껐다(2026-08-06) — 실제 좌표를 그대로 보낸다. 실기기 없이 시험할 때만 아래 줄로 바꾼다.
+      */
+      // const sent = draft.place ? pullCoordinateNear(captured, draft.place, 30) : captured;
+      const sent = captured;
+      body.latitude = sent.latitude;
+      body.longitude = sent.longitude;
     }
   }
 

@@ -5,7 +5,7 @@ import { colors } from '@/constants/theme';
 import { recommendStyles as s } from '@/features/recommend/styles';
 
 /**
- * 영상핀이 아직 없는 장소 한 장.
+ * 핀이 아직 없는 장소 한 장.
  *
  * **추천 화면의 장소 카드와 같은 모양이다**(`features/recommend/components/RecommendCard`의
  * 핀 없는 경우). 두 화면이 같은 말을 하고 있어서다 — "이 장소는 찾았지만 아직 올라온 것이
@@ -16,7 +16,7 @@ import { recommendStyles as s } from '@/features/recommend/styles';
  *
  * 다른 것은 눌렀을 때다. 추천 카드는 장소 상세로 가지만 **이 장소에는 갈 상세가 없다** —
  * 우리 DB에 없는 카카오 장소라 `placeId`가 없다(`ConfirmedPlaceSummary`). 이 화면에서 할 수
- * 있는 일은 첫 영상핀을 남기는 것뿐이라, 카드를 눌러도 안쪽 문구를 눌러도 작성으로 간다.
+ * 있는 일은 첫 핀을 남기는 것뿐이라, 카드를 눌러도 안쪽 문구를 눌러도 작성으로 간다.
  */
 
 export interface NoPinPlaceCardProps {
@@ -32,7 +32,7 @@ export function NoPinPlaceCard({ name, address }: NoPinPlaceCardProps) {
     <View style={s.cardFrame}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${name}에 영상핀 작성하기`}
+        accessibilityLabel={`${name}에 핀 작성하기`}
         onPress={goToWrite}
         style={s.card}
       >

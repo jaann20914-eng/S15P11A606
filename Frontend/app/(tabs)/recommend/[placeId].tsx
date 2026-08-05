@@ -9,6 +9,7 @@ import { RecommendPlaceInfo } from '@/features/recommend/components/RecommendPla
 import { RecommendPlaceMap } from '@/features/recommend/components/RecommendPlaceMap';
 import { RecommendPlacePins } from '@/features/recommend/components/RecommendPlacePins';
 import { useRecommendPlaceDetail } from '@/features/recommend/hooks/useRecommendPlaceDetail';
+import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { recommendStyles as s } from '@/features/recommend/styles';
 import type { CrowdFilter } from '@/constants/crowdLevels';
 import { colors } from '@/constants/theme';
@@ -21,7 +22,7 @@ import { colors } from '@/constants/theme';
  * 목록으로 돌아가는 길도 시트를 내리는 동작뿐이다.
  *
  * 그래서 추천 안에서는 제 화면으로 연다. 지도는 이 장소 한 점만 찍는 읽기 전용이고
- * (내 위치·검색 없음), 그 아래로 기본정보와 영상핀 목록이 이어진다.
+ * (내 위치·검색 없음), 그 아래로 기본정보와 핀 목록이 이어진다.
  *
  * `(tabs)` 안에 있으므로 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
@@ -49,7 +50,7 @@ export default function RecommendPlaceScreen() {
   const parsed = Number(placeId);
 
   /*
-    목록에서 넘겨준 장소 좌표. 지도를 그 자리로 만들고, 영상핀 좌표를 받아 올 때도 그 주변만
+    목록에서 넘겨준 장소 좌표. 지도를 그 자리로 만들고, 핀 좌표를 받아 올 때도 그 주변만
     물어본다. 목록을 거치지 않고 들어오면(주소로 바로 열기 등) 없으므로 훅이 알아서 찾는다.
   */
   const known = useMemo(() => {
@@ -65,7 +66,15 @@ export default function RecommendPlaceScreen() {
   );
 
   /*
-    지도의 마커와 아래 카드를 잇는 선택 상태. 홈의 영상핀 선택과 같은 동선이다.
+    카드에 썸네일과 가림 여부를 채운다 — 홈의 장소 상세와 **같은 훅**이다. 상세 응답의
+    썸네일은 그릴 수 없는 값(S3 키)이라 핀별로 발급 주소를 받아야 하고, `revealed`도 결제
+    기록만 반영돼 있어 작성자 본인 핀이 흐리게 나온다. 이 훅이 둘 다 고친다
+    (`usePinThumbnails` 주석 참고). 빼먹으면 추천에서만 썸네일이 비고 내 핀이 가려진다.
+  */
+  const pins = usePinThumbnails(detail?.pins);
+
+  /*
+    지도의 마커와 아래 카드를 잇는 선택 상태. 홈의 핀 선택과 같은 동선이다.
 
     마커를 누르면 그 마커가 뾰족한 핀으로 바뀌고 해당 카드에 라임 테두리가 둘리며, 스크롤이
     그 카드로 내려간다. 상세로 여는 것은 카드를 눌렀을 때만이다 — 지도에서 누르는 것은
@@ -83,7 +92,7 @@ export default function RecommendPlaceScreen() {
   }, []);
 
   /*
-    처음에는 첫 카드를 골라 둔다. 홈의 영상핀 보기와 같은 규칙이다 — 화면이 열리면 지금 보고
+    처음에는 첫 카드를 골라 둔다. 홈의 핀 보기와 같은 규칙이다 — 화면이 열리면 지금 보고
     있는 핀이 지도에 뾰족한 핀으로 이미 서 있어야, 지도와 목록이 짝이라는 것이 바로 읽힌다.
   */
   useEffect(() => {
@@ -253,7 +262,7 @@ export default function RecommendPlaceScreen() {
           >
             <View style={s.detailBody}>
               {/*
-                요일별 혼잡도 그래프와 영상핀 카드는 장소 상세와 같은 것을 쓴다
+                요일별 혼잡도 그래프와 핀 카드는 장소 상세와 같은 것을 쓴다
                 (`src/components/place`). 그 화면에 있던 구현을 공용으로 뺀 것이라 두 화면의
                 모양이 갈라지지 않는다.
               */}
@@ -264,7 +273,7 @@ export default function RecommendPlaceScreen() {
                 }}
               >
                 <RecommendPlacePins
-                  pins={detail.pins}
+                  pins={pins}
                   placeName={detail.place.name}
                   filter={pinFilter}
                   selectedPinId={selectedPinId}

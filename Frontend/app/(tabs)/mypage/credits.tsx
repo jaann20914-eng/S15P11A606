@@ -22,7 +22,7 @@ export default function CreditsScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
-        <MypageHeader title="크레딧 내역" />
+        <MypageHeader title="와글 포인트 내역" />
 
         <View style={s.content}>
           <CreditBalanceCard balance={history.balance} />

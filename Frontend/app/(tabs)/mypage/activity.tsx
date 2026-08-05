@@ -7,7 +7,7 @@ import { TODAY_PIN_PAGE_SIZE, useMyPins } from '@/features/mypage/hooks/useMyPin
 import { mypageStyles as s } from '@/features/mypage/styles';
 
 /**
- * 오늘 작성한 영상핀 목록.
+ * 오늘 작성한 핀 목록.
  *
  * 이 화면은 `(tabs)` 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  */
@@ -17,7 +17,7 @@ export default function MyPinsScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
-        <MypageHeader title="작성한 영상핀" />
+        <MypageHeader title="작성한 핀" />
 
         <View style={s.content}>
           <MyPinList

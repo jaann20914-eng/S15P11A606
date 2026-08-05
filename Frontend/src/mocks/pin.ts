@@ -76,7 +76,7 @@ export function resolvePinDetailScenario(pinId: PinId): PinDetailScenario {
 /**
  * 목업 핀을 시나리오 표에 추가한다.
  *
- * 다른 목업이 만든 핀도 상세를 열 수 있게 한다. 마이페이지의 "오늘 등록한 영상핀"이 그런
+ * 다른 목업이 만든 핀도 상세를 열 수 있게 한다. 마이페이지의 "오늘 등록한 핀"이 그런
  * 경우다 — 목록에는 있는데 표에 없으면 눌렀을 때 조회 실패 화면이 뜬다.
  */
 export function registerMockPinScenario(pinId: PinId, scenario: PinDetailScenario): void {
@@ -282,7 +282,7 @@ export async function unlockMockPin(pinId: PinId, idempotencyKey: string): Promi
   }
 
   if (INSUFFICIENT_CREDIT_PIN_IDS.has(pinId)) {
-    throw new ApiError(409, 'INSUFFICIENT_CREDIT', '크레딧이 부족합니다.');
+    throw new ApiError(409, 'INSUFFICIENT_CREDIT', '와글 포인트가 부족합니다.');
   }
 
   // 작성자와 이미 구매한 사용자는 차감하지 않는다.

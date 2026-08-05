@@ -27,6 +27,7 @@ import { PlaceField } from '@/features/pin-create/components/PlaceField';
 import { PublishingOverlay } from '@/features/pin-create/components/PublishingOverlay';
 import { TagField } from '@/features/pin-create/components/TagField';
 import { useEditablePin } from '@/features/pin-create/hooks/useEditablePin';
+import { hasPinUpdate, toPinUpdateRequest } from '@/features/pin-create/pinUpdateRequest';
 import { usePinCreateForm } from '@/features/pin-create/hooks/usePinCreateForm';
 import { usePinCreateMode } from '@/features/pin-create/hooks/usePinCreateMode';
 import { ACTION_FADE_DROP, pinCreateStyles as s } from '@/features/pin-create/styles';
@@ -229,6 +230,22 @@ export default function PinCreateScreen() {
 
     if (mode.type === 'edit') {
       /*
+        바뀐 것이 없으면 서버에 보내지 않고 그 자리에서 알린 뒤 상세로 돌아간다.
+
+        스토어를 태우면 요청 없이 곧장 done으로 가는데, 그 길은 진행 단계를 거치지 않아
+        지난 완료 알림 기록(announcedPinIds)이 비워지지 않는다 — 같은 핀을 방금 수정한 적이
+        있으면 완료 알림이 그 기록에 막혀 진행 화면에 갇혔다(2026-08-06). 애초에 "수정 없음"은
+        완료가 아니라 안내라서, 문구만 다른 같은 모달로 알리고 같은 길(상세 복귀)로 내보낸다.
+      */
+      const changed = form.draft.video !== null || hasPinUpdate(toPinUpdateRequest(initialDraft, form.draft));
+
+      if (!changed) {
+        setLeaving(false);
+        setCompletion({ title: '수정된 사항이 없어요', message: '내용을 바꾸지 않아 그대로 둘게요.' });
+        return;
+      }
+
+      /*
         수정은 영상이 필수가 아니다. 기존 영상은 서버에 있고, 다시 찍었을 때만 교체된다.
         장소도 이미 정해져 있으므로 확인하지 않는다.
       */
@@ -253,7 +270,7 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!error) return;
 
-    const title = mode.type === 'edit' ? '영상핀을 수정하지 못했어요' : '영상핀을 등록하지 못했어요';
+    const title = mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요';
     Alert.alert(title, error, [{ text: '확인', onPress: dismissError }]);
   }, [error, dismissError, mode.type]);
 
@@ -300,9 +317,9 @@ export default function PinCreateScreen() {
     setLeaving(false);
     setCompletion(
       mode.type === 'edit'
-        ? { title: '영상핀을 수정했어요', message: '고친 내용이 반영됐어요.' }
+        ? { title: '핀을 수정했어요', message: '고친 내용이 반영됐어요.' }
         : {
-            title: '영상핀을 등록했어요',
+            title: '핀을 등록했어요',
             message: '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
           },
     );

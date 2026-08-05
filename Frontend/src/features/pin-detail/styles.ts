@@ -243,10 +243,45 @@ export const pinDetailStyles = StyleSheet.create({
     marginBottom: spacing.x4,
   },
   memo: { ...type.body, color: colors.gray400 },
-  /** 내용도 태그도 없는 글의 안내. 본문보다 한 단계 연해 "없는 것이 정상"으로 읽히게 한다. */
-  emptyBody: { ...type.small, color: colors.gray400 },
-  tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },
-  tag: { ...type.small, color: colors.blue },
+  /**
+   * 내용이 없는 글의 안내. 이탤릭에 본문(gray400)보다 연한 회색으로, 작성자의 글이 아니라
+   * 화면이 대신 놓은 문구임이 모양에서 드러나게 한다. 테마의 gray200은 바탕에 묻혀 안 읽혀서
+   * gray200과 gray400 사이 값을 쓴다.
+   */
+  emptyBody: { ...type.small, fontStyle: 'italic', color: '#BDBABA' },
+  /**
+   * 태그 줄. **줄을 바꾼다** — 태그가 길거나 많으면 한 줄에 다 못 들어가는데, 접지 않고
+   * 다 보여준다. 상세는 태그의 전문을 확인하는 자리다(작성 화면은 줄임표로 접는다).
+   */
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.x4,
+    /*
+      줄 사이 여백은 두지 않는다. 긴 태그가 저 혼자 줄바꿈될 때는 글줄 간격만 생기는데,
+      행 사이에만 여백을 더 얹으면 두 간격이 달라 태그끼리 다른 묶음처럼 읽힌다(2026-08-05
+      스크린샷). 글줄 간격(type.small의 lineHeight)만으로 줄은 충분히 나뉜다.
+    */
+    rowGap: 0,
+    // 본문과 넉넉히 떨어뜨린다. 태그 줄 사이는 못 좁혀서, 본문과의 거리로 묶음을 가른다.
+    marginTop: spacing.x6,
+  },
+  /**
+   * 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다.
+   *
+   * 글줄 간격을 본문(22)보다 좁게 직접 준다. 태그는 문장이 아니라 낱말 나열이라 본문
+   * 간격으로 벌리면 줄 사이가 떠 보인다(rowGap을 0으로 줄여도 남던 간격의 정체가 이것).
+   *
+   * `includeFontPadding: false` — 안드로이드는 lineHeight와 별개로 글꼴 위아래에 여분
+   * 패딩을 기본으로 넣는다. 이걸 끄지 않으면 lineHeight를 줄여도 줄 아래 간격이 남는다.
+   */
+  tag: {
+    ...type.small,
+    lineHeight: 17,
+    includeFontPadding: false,
+    color: colors.blue,
+    maxWidth: '100%',
+  },
 
   /* 내 핀 하단 액션 */
   ownerFooter: { flexDirection: 'row', gap: spacing.x2 },

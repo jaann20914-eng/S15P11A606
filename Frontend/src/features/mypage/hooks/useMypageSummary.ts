@@ -34,7 +34,7 @@ function cacheKey(year?: number, month?: number): string {
  * 부르면 이동마다 로딩이 끼어 넘겨보기가 어렵다. 하루 단위로 바뀌는 값이라 화면에 머무는 동안은
  * 받아 둔 것을 그대로 써도 어긋나지 않는다.
  *
- * 대신 **화면에 다시 들어올 때 비운다**. 그 사이 영상핀을 올렸거나 크레딧이 오갔을 수 있어,
+ * 대신 **화면에 다시 들어올 때 비운다**. 그 사이 핀을 올렸거나 크레딧이 오갔을 수 있어,
  * 다시 들어온 순간의 값은 새로 받아야 맞다.
  */
 export function useMypageSummary(month?: ActivityMonth): MypageSummary {

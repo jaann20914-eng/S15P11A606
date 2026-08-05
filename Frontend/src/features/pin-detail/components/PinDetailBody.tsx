@@ -101,6 +101,17 @@ export function PinDetailBody({
 
           {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
 
+          {/*
+            내용이 없는 글의 안내. 메모는 선택 입력이라 실제로 이런 글이 있고, 자리가 그냥
+            비어 있으면 잘못 불러온 것처럼 보인다. 태그 유무와 무관하게 같은 두 줄을 쓴다.
+            글만 있고 태그가 없는 경우는 따로 알리지 않는다.
+          */}
+          {!detail.memo && (
+            <Text style={s.emptyBody}>
+              {'작성자가 따로 남긴 설명이 없어요.\n영상으로 현장을 확인해 보세요.'}
+            </Text>
+          )}
+
           {detail.tags.length > 0 && (
             <View style={s.tags}>
               {detail.tags.map((tag) => (
@@ -109,17 +120,6 @@ export function PinDetailBody({
                 </Text>
               ))}
             </View>
-          )}
-
-          {/*
-            내용도 태그도 없는 글 — 구분선 아래가 통째로 비어 잘못 불러온 것처럼 보인다.
-            둘 다 선택 입력이라 실제로 이런 글이 있으므로, 비어 있는 것이 정상이라는 안내를
-            한 줄 둔다.
-          */}
-          {!detail.memo && detail.tags.length === 0 && (
-            <Text style={s.emptyBody}>
-              {'작성자가 따로 남긴 설명이 없어요.\n영상으로 현장을 확인해 보세요.'}
-            </Text>
           )}
         </View>
       </ScrollView>
@@ -289,7 +289,7 @@ function PurchasePrompt({ onPress }: { onPress: () => void }) {
   return (
     <View style={s.watchArea}>
       <Text style={s.watchTitle}>현장 영상을 확인할까요?</Text>
-      <Text style={s.watchHint}>3크레딧을 사용하면 전체 블러가 해제돼요.</Text>
+      <Text style={s.watchHint}>3 와글 포인트를 사용하면 전체 블러가 해제돼요.</Text>
       <Pressable
         accessibilityRole="button"
         disabled={pending}
@@ -342,7 +342,7 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
           <RewardLeaf animate={submitted !== null} />
           <View>
             <Text style={s.rewardTitle}>
-              {rewardCredit === null ? '크레딧을 받았어요' : `${rewardCredit}크레딧을 받았어요`}
+              {rewardCredit === null ? '와글 포인트를 받았어요' : `${rewardCredit} 와글 포인트를 받았어요`}
             </Text>
             <Text style={s.rewardText}>게시자의 뷰에도 반영했어요.</Text>
           </View>
@@ -365,8 +365,8 @@ function RatingSection({ evaluated, evaluation }: { evaluated: boolean; evaluati
 
   return (
     <View style={s.ratingArea}>
-      <Text style={s.ratingTitle}>이 영상핀이 유익했나요?</Text>
-      <Text style={s.ratingHint}>평가하면 1크레딧을 적립하고 게시자의 뷰에 반영해요.</Text>
+      <Text style={s.ratingTitle}>이 핀이 유익했나요?</Text>
+      <Text style={s.ratingHint}>평가하면 1 와글 포인트를 적립하고 게시자의 뷰에 반영해요.</Text>
       {error && <Text style={s.ratingError}>{error}</Text>}
       <View style={s.ratingButtons}>
         <Pressable

@@ -86,7 +86,7 @@ const ANCHOR_SEED_IDS = new Set([1, 2, 6]);
  * 여기서 좌표와 이름을 따로 적으면 같은 `placeId`인데 지도와 상세가 어긋난다(그 파일이 경고하는
  * 바로 그 상황이다). 시드에서 가져오면 **마커를 누르면 그 장소의 상세가 그대로 열린다.**
  *
- * 핀이 없는 장소는 뺀다. 지도에 찍혀도 열면 "올라온 영상핀이 없어요"만 나온다.
+ * 핀이 없는 장소는 뺀다. 지도에 찍혀도 열면 "올라온 핀이 없어요"만 나온다.
  */
 export const demoNearbyPlaces: MockPlace[] = mockPlaceSeeds
   .filter((seed) => !ANCHOR_SEED_IDS.has(seed.placeId) && seed.pins.length > 0)
@@ -141,7 +141,7 @@ export const videoPins = [
 export const crowd = [35, 42, 49, 62, 78, 91, 66];
 
 export const creditRows = [
-  { title: '영상핀 평가 참여', time: '오늘 오후 2:14', amount: '+1', type: '적립' },
+  { title: '핀 평가 참여', time: '오늘 오후 2:14', amount: '+1', type: '적립' },
   { title: '성수 연무장길 영상 열람', time: '오늘 오후 1:52', amount: '-3', type: '사용' },
   { title: '채팅 요청 수락', time: '어제 오후 7:03', amount: '+5', type: '적립' },
 ];

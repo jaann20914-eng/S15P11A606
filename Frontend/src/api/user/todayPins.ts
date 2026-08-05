@@ -5,7 +5,7 @@ import type { TodayPinsQuery, TodayPinsResponse } from '@/types/pin';
 import { traceUser } from './log';
 
 /**
- * 오늘 등록한 영상핀 목록 — `GET /api/v1/users/me/pins/today`
+ * 오늘 등록한 핀 목록 — `GET /api/v1/users/me/pins/today`
  *
  * 본인이 등록한 핀만 최신순으로 온다. "오늘"의 범위는 서버가 정한다 — Asia/Seoul 오전 4시부터
  * 다음 날 오전 4시 직전까지라, 자정 직후에 등록한 핀도 전날 목록에 들어간다. 프론트가 날짜를
@@ -23,7 +23,7 @@ function requestTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
 
 export function getTodayPins(query: TodayPinsQuery): Promise<TodayPinsResponse> {
   return traceUser(
-    '오늘 등록한 영상핀',
+    '오늘 등록한 핀',
     'user/today-pins',
     () => (usesMock('user/today-pins') ? fetchMockTodayPins(query) : requestTodayPins(query)),
     (page) => ({

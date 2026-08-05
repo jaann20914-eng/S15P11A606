@@ -55,6 +55,13 @@ export const chatListStyles = StyleSheet.create({
   /* 탭 */
   tabs: { height: 52, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.gray200 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  /** 탭 이름과 안 읽음 점을 나란히 묶는다. */
+  tabLabel: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x1 },
+  /**
+   * 탭의 안 읽음 점. 목록 줄의 점(`unread`)과 같은 색, 이름 오른쪽 위에 작게 붙인다.
+   * 그 목록의 안 읽음을 전부 읽어야 꺼진다(같은 재료로 계산 — `sent.tsx`).
+   */
+  tabUnread: { width: 6, height: 6, borderRadius: 3, marginTop: 4, backgroundColor: colors.lime },
   tabText: { ...type.body, color: colors.gray400, paddingBottom: spacing.x3 },
   tabTextActive: { color: colors.dark, fontWeight: '600' },
   tabLine: { height: 3, width: '100%', backgroundColor: 'transparent' },

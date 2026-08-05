@@ -52,12 +52,7 @@ export function PinPurchaseModal({
       */}
       <Animated.View pointerEvents="none" style={[s.sheetScrim, { opacity: backdropOpacity }]} />
 
-      <Pressable
-        accessibilityLabel="닫기"
-        disabled={busy}
-        onPress={onCancel}
-        style={s.sheetDismissArea}
-      />
+      <Pressable accessibilityLabel="닫기" disabled={busy} onPress={onCancel} style={s.sheetDismissArea} />
 
       <Animated.View
         onLayout={onSheetLayout}
@@ -68,13 +63,13 @@ export function PinPurchaseModal({
           <View style={s.sheetHandle} />
         </View>
 
-        <Text style={s.sheetTitle}>뷰포인트 결제</Text>
+        <Text style={s.sheetTitle}>와글 포인트 결제</Text>
         <Text style={s.sheetCaption}>결제된 영상에 대하여 포인트 환불이 불가합니다</Text>
 
         {/* 미리 받아 둔 영상이라 곧바로 뜬다. 열 때마다 처음부터 재생된다. */}
         <IllustrationVideo name="coin" style={s.coinVideo} />
 
-        <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}뷰포인트가 -3 차감됩니다</Text>
+        <Text style={s.payMessage}>영상 확인을 위해서는{'\n'}3 와글 포인트가 차감됩니다</Text>
         {error && <Text style={s.payError}>{error}</Text>}
 
         <Pressable

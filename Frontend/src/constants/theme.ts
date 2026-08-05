@@ -100,10 +100,10 @@ export const color = {
     base: palette.lime,
     pressed: palette.limeActive,
     soft: palette.limeSoft,
-    /** 중앙 영상핀 버튼 등 보조 CTA용 옅은 라임 */
+    /** 중앙 핀 버튼 등 보조 CTA용 옅은 라임 */
     control: palette.limeControl,
   },
-  /** 실시간 영상핀, 도움 요청 카드 등 영상 관련 요소에 한정 사용 */
+  /** 실시간 핀, 도움 요청 카드 등 영상 관련 요소에 한정 사용 */
   secondary: {
     mint: palette.mint,
     mintSoft: palette.mintSoft,
@@ -343,7 +343,7 @@ export const colors = {
    * 일이 생겼다. 혼잡도 맥락에서는 이 이름을 쓴다.
    */
   coralSoft: palette.coralSoft,
-  /** 중앙 영상핀 버튼 등 라임 계열 컨트롤 배경 (DESIGN_GUIDE 10.6). */
+  /** 중앙 핀 버튼 등 라임 계열 컨트롤 배경 (DESIGN_GUIDE 10.6). */
   limeControl: palette.limeControl,
   kakao: palette.kakao,
   naver: palette.naver,

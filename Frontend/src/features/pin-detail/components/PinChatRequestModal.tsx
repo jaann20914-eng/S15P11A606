@@ -41,12 +41,7 @@ export function PinChatRequestModal({
     <View style={s.sheetBackdrop}>
       <Animated.View pointerEvents="none" style={[s.sheetScrim, { opacity: backdropOpacity }]} />
 
-      <Pressable
-        accessibilityLabel="닫기"
-        disabled={busy}
-        onPress={onCancel}
-        style={s.sheetDismissArea}
-      />
+      <Pressable accessibilityLabel="닫기" disabled={busy} onPress={onCancel} style={s.sheetDismissArea} />
 
       <Animated.View
         onLayout={onSheetLayout}
@@ -57,13 +52,13 @@ export function PinChatRequestModal({
         </View>
 
         <Text style={s.sheetTitle}>채팅 요청</Text>
-        <Text style={s.sheetCaption}>상대가 수락하면 크레딧이 전해져요</Text>
+        <Text style={s.sheetCaption}>상대가 수락하면 와글 포인트가 전해져요</Text>
 
         {/* 미리 받아 둔 영상이라 곧바로 뜬다. 열 때마다 처음부터 재생된다. */}
         <IllustrationVideo name="chat" style={s.chatIllustration} />
 
         {/* 결제 시트와 같은 스타일·줄 수로 두어야 두 시트의 높이가 맞는다. */}
-        <Text style={s.payMessage}>궁금한 걸 직접 물어볼 수 있어요{'\n'}5 크레딧으로 대화를 시작해요</Text>
+        <Text style={s.payMessage}>궁금한 걸 직접 물어볼 수 있어요{'\n'}5 와글 포인트로 대화를 시작해요</Text>
 
         {error && <Text style={s.chatRequestError}>{error}</Text>}
 
@@ -76,7 +71,7 @@ export function PinChatRequestModal({
           {busy ? (
             <ActivityIndicator color="#91A700" />
           ) : (
-            <Text style={s.chatStartText}>5 크레딧 차감 후 채팅 시작하기</Text>
+            <Text style={s.chatStartText}>5 와글 포인트 차감 후 채팅 시작하기</Text>
           )}
         </Pressable>
       </Animated.View>

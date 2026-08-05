@@ -19,6 +19,7 @@ import type {
   VideoUploadPhase,
   VideoUploadTicket,
 } from '@/types/pinCreate';
+// 좌표 끌어당김을 되살릴 때 pullCoordinateNear를 함께 import한다(아래 [임시] 주석 참고).
 import { readCurrentCoordinate } from '@/utils/location';
 import { hasPinUpdate, toPinUpdateRequest } from '@/features/pin-create/pinUpdateRequest';
 import { createStore } from './createStore';
@@ -66,11 +67,7 @@ export interface PinPublishState {
  * 촬영 좌표를 얻지 못했으면 등록하지 않는다. 장소 좌표를 대신 넣으면 거리 검증이 항상
  * 통과해 버려서, 엉뚱한 곳에서 찍은 영상도 그 장소의 것으로 등록된다.
  */
-function toRequest(
-  draft: PinDraft,
-  originalVideoKey: string,
-  captured: Coordinate,
-): PinCreateRequest | null {
+function toRequest(draft: PinDraft, originalVideoKey: string, captured: Coordinate): PinCreateRequest | null {
   /*
     등록은 카카오에서 고른 장소만 받는다. 그 장소가 우리 DB에 없을 수 있고, 서버가 등록
     시점에 만들기 때문이다. 내부 장소는 수정에서만 고를 수 있다.
@@ -79,6 +76,13 @@ function toRequest(
 
   const memo = draft.memo.trim();
   const detailLocation = draft.detailLocation.trim();
+
+  /*
+    개발 중 서버의 50m 검증을 피하려고 촬영 좌표를 장소 쪽으로 끌어당겨 보냈던 처치는
+    껐다(2026-08-06) — 실제 좌표를 그대로 보낸다. 실기기 없이 시험할 때만 아래 줄로 바꾼다.
+  */
+  // const sentCoordinate = pullCoordinateNear(captured, draft.place, 30);
+  const sentCoordinate = captured;
 
   return {
     originalVideoKey,
@@ -92,8 +96,8 @@ function toRequest(
     categoryName: draft.place.categoryName,
     phone: draft.place.phone,
     addressName: draft.place.address,
-    latitude: captured.latitude,
-    longitude: captured.longitude,
+    latitude: sentCoordinate.latitude,
+    longitude: sentCoordinate.longitude,
     crowdLevel: toServerCrowdLevel(getCrowdLevelByValue(draft.crowdLevel).key),
     // 선택 항목은 비어 있으면 보내지 않는다.
     ...(detailLocation ? { detailLocation } : {}),
@@ -122,8 +126,8 @@ const messageByCode: Record<string, string> = {
 
   // 수정에서만 나오는 것들
   INVALID_PIN_UPDATE_REQUEST: '수정할 내용을 다시 확인해 주세요.',
-  PIN_UPDATE_FORBIDDEN: '내가 올린 영상핀만 수정할 수 있어요.',
-  PIN_NOT_FOUND: '영상핀을 찾을 수 없어요. 이미 삭제됐거나 만료됐을 수 있어요.',
+  PIN_UPDATE_FORBIDDEN: '내가 올린 핀만 수정할 수 있어요.',
+  PIN_NOT_FOUND: '핀을 찾을 수 없어요. 이미 삭제됐거나 만료됐을 수 있어요.',
   PLACE_NOT_FOUND: '선택한 장소를 찾을 수 없어요.',
   PIN_NOT_EDITABLE: '지금은 수정할 수 없는 상태예요. 영상이 공개된 뒤에 고칠 수 있어요.',
   PIN_UPDATE_IN_PROGRESS: '앞서 요청한 영상 교체가 아직 처리 중이에요. 끝난 뒤에 다시 시도해 주세요.',
@@ -162,6 +166,18 @@ const retryableCodes = new Set([
   'UPLOAD_URL_ISSUE_FAILED',
   'NETWORK_ERROR',
 ]);
+
+/**
+ * 다시 시도할 수 있는 실패인지.
+ *
+ * 코드 목록에 더해 **5xx 전부**를 재시도 가능으로 본다. 서버가 재시작하는 동안의 502처럼
+ * 우리 오류 규격이 없는 응답은 `UNKNOWN_ERROR`로 와서 목록에 안 걸렸고, 영상 업로드까지
+ * 끝낸 등록이 "다시 시도" 없이 막혔다 — 처음부터 다시 찍게 만들었다(2026-08-05).
+ * 5xx는 입력 문제가 아니라 서버 쪽 일시 장애라 잠시 뒤 다시 보내면 된다.
+ */
+function isRetryable(cause: ApiError): boolean {
+  return retryableCodes.has(cause.code) || cause.statusCode >= 500;
+}
 
 /**
  * 등록이 어느 단계에서 막혔는지 터미널에서 따라갈 수 있게 한다.
@@ -511,7 +527,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
               ? cause.message
               : '핀을 등록하지 못했어요',
         // 업로드 실패는 네트워크 문제가 대부분이라 다시 시도할 값이 있다.
-        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+        retryable: isApiError ? isRetryable(cause) : true,
       });
     });
   },
@@ -609,8 +625,8 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
             ? NETWORK_FAILURE_MESSAGE
             : cause instanceof Error
               ? cause.message
-              : '영상핀을 수정하지 못했어요',
-        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+              : '핀을 수정하지 못했어요',
+        retryable: isApiError ? isRetryable(cause) : true,
       });
     });
   },

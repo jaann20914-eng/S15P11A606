@@ -24,7 +24,7 @@ export interface RecommendPlacePinsProps {
 }
 
 /**
- * 영상핀 목록.
+ * 핀 목록.
  *
  * 카드는 장소 상세와 같은 공용 컴포넌트다(`components/place/PlacePinCard`). 두 화면이
  * 각자 만들면 한쪽만 고쳐져 서로 달라진다.
@@ -43,7 +43,7 @@ export function RecommendPlacePins({
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${placeName}에 영상핀 작성하기`}
+        accessibilityLabel={`${placeName}에 핀 작성하기`}
         onPress={() => router.push('/(tabs)/write')}
         style={s.emptyPins}
       >

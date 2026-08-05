@@ -7,7 +7,7 @@ import type { PinId, TodayPinStatus } from './pin';
  * 이 모양으로 바꿔 준다. 화면이 ISO 시각이나 서버 enum을 직접 다루지 않게 하려는 것이다.
  */
 
-/** 마이페이지에서 보여주는 내 영상핀 한 건. */
+/** 마이페이지에서 보여주는 내 핀 한 건. */
 export interface MyPin {
   pinId: PinId;
   /** 등록 시각. 모두 오늘 건이라 `14:05`처럼 시각만 보여준다. */
@@ -30,7 +30,7 @@ export type CreditFlow = 'EARNED' | 'SPENT';
 /** 크레딧 내역 한 줄. */
 export interface CreditEntry {
   entryId: number;
-  /** 사유. `영상핀 평가 참여` 같은 문구가 그대로 온다. */
+  /** 사유. `핀 평가 참여` 같은 문구가 그대로 온다. */
   title: string;
   /** 발생 시각. `오늘 오후 2:14` 형태로 표시한다. */
   occurredAt: string;

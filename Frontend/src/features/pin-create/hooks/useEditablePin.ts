@@ -26,8 +26,8 @@ export interface EditablePin {
 /** 오류 코드별 안내. */
 const messageByCode: Record<string, string> = {
   UNAUTHORIZED: '로그인이 필요해요.',
-  PIN_NOT_FOUND: '수정할 영상핀을 찾을 수 없어요.',
-  PIN_DETAIL_FETCH_FAILED: '영상핀을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+  PIN_NOT_FOUND: '수정할 핀을 찾을 수 없어요.',
+  PIN_DETAIL_FETCH_FAILED: '핀을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 /**
@@ -53,9 +53,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
   const [handedOff] = useState(() => (pinId === null ? null : takeEditablePin(pinId)));
 
   const [initial, setInitial] = useState<Partial<PinDraft> | null>(handedOff?.draft ?? null);
-  const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(
-    handedOff?.videoUrl ?? null,
-  );
+  const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(handedOff?.videoUrl ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +71,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
         // 남의 핀은 고칠 수 없다. 서버도 403으로 막지만 화면을 열어 두면 다 쓰고 나서 막힌다.
         if (!isOwnPin(detail)) {
           setLoading(false);
-          setError('내가 올린 영상핀만 수정할 수 있어요.');
+          setError('내가 올린 핀만 수정할 수 있어요.');
           return;
         }
 
@@ -84,9 +82,7 @@ export function useEditablePin(pinId: PinId | null): EditablePin {
       .catch((cause: unknown) => {
         setLoading(false);
         setError(
-          cause instanceof ApiError
-            ? (messageByCode[cause.code] ?? cause.message)
-            : '영상핀을 불러오지 못했어요',
+          cause instanceof ApiError ? (messageByCode[cause.code] ?? cause.message) : '핀을 불러오지 못했어요',
         );
       });
   }, [initial, pinId]);

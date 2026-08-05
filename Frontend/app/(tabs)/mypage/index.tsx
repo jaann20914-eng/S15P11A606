@@ -103,7 +103,7 @@ export default function MypageScreen() {
       <ConfirmModal
         visible={logout.confirming}
         title="로그아웃할까요?"
-        message={'다시 이용하려면 로그인해야 해요.\n작성한 영상핀과 크레딧은 그대로 남아 있어요.'}
+        message={'다시 이용하려면 로그인해야 해요.\n작성한 핀과 와글 포인트는 그대로 남아 있어요.'}
         confirmLabel="로그아웃"
         busy={logout.busy}
         error={logout.error}

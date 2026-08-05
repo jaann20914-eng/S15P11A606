@@ -7,7 +7,7 @@ import { formatRelativeTime } from '@/utils/datetime';
 import { colors, radius, spacing, type } from '@/constants/theme';
 
 /**
- * 장소에 달린 영상핀 카드.
+ * 장소에 달린 핀 카드.
  *
  * 원본은 장소 상세 화면(`app/place/[placeId]/index.tsx`)의 `VideoCard`다. 레이아웃·간격·
  * 그림자를 그대로 옮기고, 고정 문구 대신 서버 응답(`pins[]`)을 받도록 바꿨다. 작성자 링만
@@ -21,7 +21,7 @@ export interface PlacePinCardProps {
   pin: PlacePinCardData;
   onPress: () => void;
   /**
-   * 지금 지도 중앙에 정렬된 영상핀인지.
+   * 지금 지도 중앙에 정렬된 핀인지.
    *
    * 홈의 장소 카드와 같은 양식으로 라임 테두리를 둘러 "지도에 보이는 그 핀"임을 알린다.
    */
@@ -148,7 +148,7 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${pin.nickname}님의 영상핀 보기`}
+      accessibilityLabel={`${pin.nickname}님의 핀 보기`}
       onPress={onPress}
       style={[
         s.card,
@@ -296,7 +296,7 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  /** 지도 중앙에 정렬된 영상핀. 홈의 선택된 장소 카드와 같은 양식이다. */
+  /** 지도 중앙에 정렬된 핀. 홈의 선택된 장소 카드와 같은 양식이다. */
   cardSelected: { borderColor: colors.lime },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },
