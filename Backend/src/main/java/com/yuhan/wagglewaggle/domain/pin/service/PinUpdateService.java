@@ -7,6 +7,7 @@ import com.yuhan.wagglewaggle.domain.blur.repository.AiBlurJobRepository;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateRequest;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinUpdateResponse;
 import com.yuhan.wagglewaggle.domain.pin.dto.ValidatedPinUpdate;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class PinUpdateService {
     private final AiBlurJobRepository aiBlurJobRepository;
     private final PinUpdatePersistenceService pinUpdatePersistenceService;
     private final AiBlurJobPublisher aiBlurJobPublisher;
+    private final PinTagIndexingService pinTagIndexingService;
 
     public PinUpdateResponse update(Long memberId, String rawPinId, PinUpdateRequest request) {
         // 1. pinId 형식 · Pin 존재/작성자/상태 · 요청 필드 · 최종 장소/좌표/거리 검증
@@ -75,6 +77,16 @@ public class PinUpdateService {
             } catch (Exception e) {
                 log.error("ai.blur.request 교체 최초 발행 실패 (requestId={}). 재발행 스케줄러가 재시도한다.",
                         result.aiBlurJob().getRequestId(), e);
+            }
+        }
+
+        // 10. 커밋 이후 태그가 실제로 바뀐 경우에만 검색 인덱스를 갱신한다(best-effort).
+        //     색인 실패는 수정 결과에 영향을 주지 않으며, 인덱스가 DB와 잠시 어긋날 수 있다.
+        if (result.updatedFields().contains("tags")) {
+            try {
+                pinTagIndexingService.indexPinTags(validated.pinId());
+            } catch (Exception e) {
+                log.error("핀 태그 검색 인덱스 갱신 실패 (pinId={})", validated.pinId(), e);
             }
         }
 
