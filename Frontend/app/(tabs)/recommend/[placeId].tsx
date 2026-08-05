@@ -143,9 +143,16 @@ export default function RecommendPlaceScreen() {
     화면 위쪽 기준선을 지난 마지막 카드가 지금 보는 카드이고, 그 마커가 뾰족한 핀이 된다.
     아래로 내리면 한 칸씩 다음 카드로 넘어가고, 올리면 되돌아온다.
   */
-  const trackScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (Date.now() < trackingPausedUntilRef.current) return;
+  /**
+   * 지금 스크롤 위치가 가리키는 카드를 고른다.
+   *
+   * 움직이는 동안(onScroll)과 **멈춘 순간**(드래그 끝 · 관성 끝)에 함께 불린다. onScroll은
+   * 조절 간격(throttle) 때문에 마지막 위치의 이벤트가 빠질 수 있어, 멈춘 자리 기준의 판정이
+   * 한 번은 반드시 돌게 한다 — 바닥 근처에서 멈췄는데 마지막 카드가 안 잡히던 원인이다.
+   */
+  const applyScrollSelection = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>, ignorePause = false) => {
+      if (!ignorePause && Date.now() < trackingPausedUntilRef.current) return;
 
       const pins = detail?.pins ?? [];
       if (pins.length === 0) return;
@@ -162,10 +169,9 @@ export default function RecommendPlaceScreen() {
 
       /*
         바닥 근처는 곧장 마지막 카드다. 아래 비례식은 정확히 바닥(offset = maxOffset)에
-        닿아야 마지막 카드에 닿는데, 손으로 살살 내리면 몇 px 앞에서 멈춰 못 닿는다 —
-        관성으로 세게 내린 첫 번째만 되고 두 번째부터 안 되던 이유(2026-08-05).
+        닿아야 마지막 카드에 닿는데, 손으로 살살 내리면 몇 px 앞에서 멈춰 못 닿는다.
       */
-      if (maxOffset - contentOffset.y <= 48) {
+      if (maxOffset - contentOffset.y <= 80) {
         const last = pins[pins.length - 1].pinId;
 
         setSelectedPinId((previous) => (previous === last ? previous : last));
@@ -192,6 +198,20 @@ export default function RecommendPlaceScreen() {
       setSelectedPinId((previous) => (previous === current ? previous : current));
     },
     [detail],
+  );
+
+  const trackScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => applyScrollSelection(event),
+    [applyScrollSelection],
+  );
+
+  /*
+    멈춘 자리에서는 마커 이동 잠금도 무시한다. 잠금은 이동 **중**의 스침을 막기 위한 것이고,
+    멈춘 자리는 사용자가 실제로 보고 있는 자리다.
+  */
+  const settleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => applyScrollSelection(event, true),
+    [applyScrollSelection],
   );
 
   return (
@@ -227,6 +247,8 @@ export default function RecommendPlaceScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={s.detail}
             onScroll={trackScroll}
+            onScrollEndDrag={settleScroll}
+            onMomentumScrollEnd={settleScroll}
             scrollEventThrottle={80}
           >
             <View style={s.detailBody}>
