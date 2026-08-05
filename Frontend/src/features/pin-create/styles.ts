@@ -195,7 +195,11 @@ export const pinCreateStyles = StyleSheet.create({
   },
   /** 글자만 접힌다(줄임표). 삭제 아이콘은 자리를 지켜야 눌 수 있다. */
   tagText: { ...type.small, color: '#81942E', flexShrink: 1 },
-  tagInputRow: { height: 44, flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x2 },
+  /** 삭제 버튼. 태그 글자가 아무리 길어도 접히지 않는다. */
+  tagRemove: { flexShrink: 0 },
+  /** 길이 한도 안내. 입력칸 위에 늘 놓인다(메모의 `memoLimitNotice`와 같은 역할). */
+  tagLimitNotice: { ...type.caption, color: '#D8EB6A', marginTop: spacing.x2 },
+  tagInputRow: { height: 44, flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x1 },
   tagInput: {
     flex: 1,
     paddingHorizontal: spacing.x4,
@@ -203,7 +207,12 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: colors.gray100,
     ...type.small,
     color: colors.dark,
+    // 한도 표시용 테두리 자리. 평소에는 투명이라 그리지 않는 것과 같아 보인다.
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  /** 태그가 한도(30자)에 닿았을 때. 메모와 같은 연한 연두 테두리. */
+  tagInputAtLimit: { borderColor: '#D8EB6A' },
   addButton: {
     width: 56,
     alignItems: 'center',
