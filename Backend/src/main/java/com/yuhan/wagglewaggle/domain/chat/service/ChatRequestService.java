@@ -2,8 +2,10 @@ package com.yuhan.wagglewaggle.domain.chat.service;
 
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateRequest;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatRequestCreateResponse;
+import com.yuhan.wagglewaggle.domain.chat.dto.ChatRoomRequestedEvent;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoom;
 import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomMember;
+import com.yuhan.wagglewaggle.domain.chat.entity.ChatRoomStatus;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomMemberRepository;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
@@ -16,9 +18,13 @@ import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -37,11 +43,17 @@ public class ChatRequestService {
     // 수락 시 요청자에게서 5 크레딧이 빠지므로, 잔액이 이보다 적으면 요청 자체를 막는다.
     private static final int CHAT_REQUEST_MIN_CREDIT = 5;
 
+    // convertAndSendToUser가 /user prefix를 자동으로 붙이므로 send 시엔 prefix를 제외한다.
+    // 구독 경로 /user/queue/chat-rooms(= StompAuthChannelInterceptor.USER_CHAT_ROOMS_DESTINATION)와 대응한다.
+    private static final String USER_CHAT_ROOMS_SEND_DESTINATION = "/queue/chat-rooms";
+
     private final PinRepository pinRepository;
     private final PinUnlockRepository pinUnlockRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final MemberRepository memberRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final Clock clock;
 
     /**
      * 채팅 요청을 생성한다. 검증 실패 시 명세의 오류 코드로 예외를 던지며,
@@ -92,7 +104,40 @@ public class ChatRequestService {
         // 수락자(recipient)의 멤버 행은 수락 시점(ChatDecisionService.accept)에 생성한다.
         chatRoomMemberRepository.save(ChatRoomMember.create(saved, requester));
 
+        // 발행에 필요한 스칼라 값을 트랜잭션 안에서 미리 확정한다(커밋 후 지연로딩 예외 방지).
+        Long recipientId = pin.getMember().getId();
+        Long roomId = saved.getId();
+        String requesterNickname = requester.getNickname();
+        String placeName = pin.getPlace().getName();
+        ChatRoomStatus status = saved.getStatus();
+        Instant requestedAt = saved.getCreatedAt();
+
+        // 요청을 받은 사용자(recipient = 핀 소유자)에게만 push한다. 요청자 본인에게는 보내지 않는다.
+        // 커밋 이후 발행하여 롤백(동시 중복 레이스 등) 시 오발송을 막는다.
+        runAfterCommit(() -> messagingTemplate.convertAndSendToUser(
+                String.valueOf(recipientId),
+                USER_CHAT_ROOMS_SEND_DESTINATION,
+                ChatRoomRequestedEvent.of(
+                        roomId, memberId, requesterNickname, pinId, placeName,
+                        status, requestedAt, clock.instant())));
+
         return new ChatRequestCreateResponse(saved.getId(), pinId);
+    }
+
+    /**
+     * DB 커밋 이후 실행할 후속 처리를 등록한다. 활성 트랜잭션이 없으면 즉시 실행한다.
+     */
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
 
     /**
