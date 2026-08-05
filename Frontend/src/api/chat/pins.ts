@@ -58,10 +58,12 @@ function resolveUnreadDots(pins: ChatPinListItem[]): Promise<ChatPinListItem[]> 
             줄을 연하게 누르는 것은 **떠났어요를 누른 글**뿐이다. "방이 전부 CLOSED"로
             판정했더니 요청 하나를 거절만 해도 글이 떠난 것처럼 눌렸다(2026-08-05) — 목록
             계약이 거절과 떠남을 CLOSED 하나로 합쳐 줘서 방 상태로는 구분할 수 없고, 거절된
-            글은 새 요청을 계속 받는 살아 있는 글이다. 세션 기억이라 앱을 다시 켜면 풀리는데,
-            서버가 글 단위 종료 여부를 주기 시작하면 그 값으로 바꾼다.
+            글은 새 요청을 계속 받는 살아 있는 글이다.
+
+            근거는 서버의 제보자 상태(`publisherStatus`, 2026-08-06 추가)다. 세션 기억은
+            배포 전 서버(값이 안 옴)와 떠난 직후 재조회 전의 빈틈을 받친다.
           */
-          closed: isPinLeft(pin.pinId),
+          closed: pin.publisherStatus === 'LEFT' || isPinLeft(pin.pinId),
         };
       } catch {
         return pin;

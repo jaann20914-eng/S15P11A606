@@ -1,4 +1,4 @@
-import type { PinId } from './pin';
+import type { PinId, PublisherStatus } from './pin';
 /**
  * 채팅 도메인 타입.
  *
@@ -107,6 +107,11 @@ export type ChatPinListItem = {
   placeAddress: string;
   /** 이 글에 달린 방 중 안 읽은 것이 있는지. 줄에 점으로 표시한다. */
   hasUnread: boolean;
+  /**
+   * 제보자의 현장 체류 상태(`LEFT`면 떠났어요를 누른 글). 배포 전 서버에는 없을 수 있어
+   * 선택으로 받는다 — 없으면 세션 기억(`store/leftPins`)만 본다(2026-08-06 추가).
+   */
+  publisherStatus?: PublisherStatus;
   /**
    * 이 글의 대화가 전부 끝났는지(모든 방이 `CLOSED`).
    *

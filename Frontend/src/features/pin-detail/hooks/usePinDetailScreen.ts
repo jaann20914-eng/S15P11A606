@@ -306,9 +306,9 @@ export function usePinDetailScreen(
     떠난 뒤에는 화면에 머물고 버튼을 잠근다. 글과 크레딧은 그대로 남으니 돌려보낼 이유가 없고,
     같은 버튼이 계속 눌리는 상태로 남아 있으면 처리가 됐는지 알 수 없다.
 
-    상세 응답에는 제보자 상태가 없어서(`PinDetailResponse`) 다시 들어왔을 때 서버 값으로는
-    알 수 없다. 그래서 이번 실행 동안 떠난 핀을 기억해 둔다. 앱을 다시 켜면 버튼이 다시
-    열리는데, 그때 눌러도 서버가 멱등하게 처리하고 종료된 방 목록만 빈 배열로 온다.
+    잠글 근거는 상세 응답의 제보자 상태(`publisherStatus`, 2026-08-06 추가)다. 세션 기억
+    (`store/leftPins`)은 배포 전 서버(값이 안 옴)와 떠난 직후 상세를 다시 받기 전의 빈틈을
+    받친다.
   */
   const leave = useConfirmAction(
     useCallback(async () => {
@@ -318,7 +318,7 @@ export function usePinDetailScreen(
       return result;
     }, [detail.pinId]),
     '처리하지 못했어요',
-    { stay: true, doneAtStart: isPinLeft(detail.pinId) },
+    { stay: true, doneAtStart: detail.publisherStatus === 'LEFT' || isPinLeft(detail.pinId) },
   );
 
   return {

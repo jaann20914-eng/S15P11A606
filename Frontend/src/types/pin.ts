@@ -75,6 +75,12 @@ export type PinVideoAccess = 'OWNER' | 'UNLOCKED' | 'PREVIEW_BLURRED';
 export type PinChatRequestState = 'NONE' | 'PENDING' | 'ACTIVE' | 'CLOSED';
 
 /**
+ * 제보자의 현장 체류 상태. "이미 떠났어요"를 누르면 `LEFT`로 바뀌고 되돌아오지 않는다.
+ * 핀 상세와 채팅 핀 목록이 준다(2026-08-06 추가).
+ */
+export type PublisherStatus = 'STILL_HERE' | 'LEFT';
+
+/**
  * 서버가 쓰는 혼잡 단계 값(DB `pin.crowd_level`).
  * 프론트 공용 토큰 `CrowdLevelKey`와 이름이 달라 API 경계에서 변환한다.
  */
@@ -127,6 +133,8 @@ export type PinDetailResponse = {
   thumbnailUrl: string | null;
   canRequestChat: boolean;
   chatRequestState: PinChatRequestState;
+  /** 제보자의 현장 체류 상태. 배포 전 서버에는 없을 수 있어 선택으로 받는다(2026-08-06 추가). */
+  publisherStatus?: PublisherStatus;
 };
 
 /**
@@ -171,6 +179,11 @@ export type PinDetail = {
   thumbnailUrl: string | null;
   canRequestChat: boolean;
   chatRequestState: PinChatRequestState;
+  /**
+   * 제보자가 "이미 떠났어요"를 눌렀는지(`LEFT`). 상세의 떠났어요 버튼을 잠그는 근거다.
+   * 배포 전 서버에는 없을 수 있어 선택이다 — 없으면 세션 기억(`store/leftPins`)만 본다.
+   */
+  publisherStatus?: PublisherStatus;
 };
 
 /** 서버 혼잡 단계 → 프론트 공용 토큰. 지도·추천이 쓰는 `crowdLevels`와 같은 키를 쓴다. */

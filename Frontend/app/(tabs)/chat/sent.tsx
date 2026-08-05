@@ -160,10 +160,14 @@ export default function Chat() {
     "방이 전부 CLOSED"로 판정했더니 유일한 요청 하나를 거절만 해도 화면이 "모든 대화가
     종료됐어요"로 잠겼다(2026-08-05) — 목록 계약이 거절(REFUSED)과 떠남(LEFT)을 CLOSED
     하나로 합쳐 줘서 방 상태로는 구분할 수 없다. 거절한 글은 새 요청을 계속 받는 살아 있는
-    글이라 떠났어요도 여전히 누를 수 있어야 한다. 떠난 글의 기억은 세션 동안 유지된다
-    (`store/leftPins` — 핀 상세의 "이미 떠났어요"와 같은 값을 본다).
+    글이라 떠났어요도 여전히 누를 수 있어야 한다.
+
+    근거는 서버의 제보자 상태(`publisherStatus`, 2026-08-06 추가)다. 세션 기억
+    (`store/leftPins`)은 배포 전 서버와 떠난 직후 재조회 전의 빈틈을 받친다 —
+    `selectedPin`은 고른 순간의 값이라 떠난 직후의 서버 값을 스스로 모른다.
   */
-  const pinLeft = selectedPin !== null && isPinLeft(selectedPin.pinId);
+  const pinLeft =
+    selectedPin !== null && (selectedPin.publisherStatus === 'LEFT' || isPinLeft(selectedPin.pinId));
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
