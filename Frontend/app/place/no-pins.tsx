@@ -1,14 +1,15 @@
 import { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
 import { useSearchedPlaceFocus } from '@/features/place-search/hooks/useSearchedPlaceFocus';
+import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapGestures } from '@/hooks/useMapGestures';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useMapStore } from '@/store/useMapStore';
-import { colors, radius, spacing } from '@/constants/theme';
+import { colors, radius, spacing, type } from '@/constants/theme';
 
 /**
  * 영상핀이 아직 없는 장소.
@@ -37,6 +38,14 @@ export default function PlaceWithoutPins() {
   }>();
   const { padding: gutter, insets } = useScreenLayout();
   const navBarHeight = useAppTabBarHeight();
+
+  /*
+    시트 머리글의 `현재 위치` 줄에 쓴다.
+
+    권한을 묻지 않고 이미 받아 둔 것만 조용히 읽는다(`auto`) — 홈 시트가 같은 줄을 그리는
+    방식이다. 못 읽으면 그 줄을 그리지 않는다.
+  */
+  const myLocation = useCurrentLocation({ auto: true });
 
   /*
     검색 결과에서 들고 온 좌표. 경로 파라미터는 문자열이라 숫자로 바꾼다.
@@ -112,11 +121,33 @@ export default function PlaceWithoutPins() {
       <View
         style={[
           s.sheet,
-          { paddingHorizontal: gutter, paddingTop: spacing.x5, paddingBottom: navBarHeight + spacing.x5 },
+          { paddingHorizontal: gutter, paddingTop: spacing.x4, paddingBottom: navBarHeight + spacing.x5 },
         ]}
       >
+        {/*
+          머리글은 **홈 시트와 같은 두 줄이다** — `주위를 둘러볼까요?`와 `현재 위치 : …`.
+
+          이 화면은 홈에서 검색으로 이어진 자리이므로 시트의 말도 홈과 같아야 한다. 혼잡도
+          토글(여유·와글)은 두지 않는다. 그 토글은 목록을 걸러내는 손잡이인데 여기에는 걸러낼
+          목록이 없다 — 카드 한 장뿐이고 그 장소에는 핀이 없다.
+
+          지역 이름을 얻지 못하면 줄을 비운다. 틀린 지역을 적는 것보다 낫다(홈과 같다).
+        */}
+        <Text numberOfLines={1} style={s.sheetTitle}>
+          주위를 둘러볼까요?
+        </Text>
+        {myLocation.areaName !== null && (
+          <Text numberOfLines={1} style={s.sheetSubtitle}>
+            현재 위치 : {myLocation.areaName}
+          </Text>
+        )}
+
         {/* 이름이 없으면 카드를 그리지 않는다. 빈 카드는 고장으로 읽힌다. */}
-        {name !== undefined && <NoPinPlaceCard name={name} address={address ?? ''} />}
+        {name !== undefined && (
+          <View style={s.cardSlot}>
+            <NoPinPlaceCard name={name} address={address ?? ''} />
+          </View>
+        )}
       </View>
 
       {/*
@@ -157,4 +188,14 @@ const s = StyleSheet.create({
     shadowRadius: 16,
     elevation: 7,
   },
+  /**
+   * 시트 제목. 홈 시트의 같은 줄과 같은 값이다(`주위를 둘러볼까요?`).
+   *
+   * 홈은 이 줄을 혼잡도 토글과 한 줄에 두어 44px을 확보하고 아래 줄을 음수 여백으로 당겨
+   * 붙인다. 여기는 토글이 없어 그 보정도 필요하지 않다 — 두 줄이 그대로 붙는다.
+   */
+  sheetTitle: { ...type.body, fontSize: 17, lineHeight: 26, fontWeight: '600', color: colors.dark },
+  sheetSubtitle: { ...type.caption, color: colors.gray600 },
+  /** 머리글과 카드 사이. 홈 시트가 머리글 아래에 두는 간격(`handleArea`의 `paddingBottom`)과 같다. */
+  cardSlot: { marginTop: spacing.x3 },
 });
