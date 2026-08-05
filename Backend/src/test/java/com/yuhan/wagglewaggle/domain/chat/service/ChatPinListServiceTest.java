@@ -4,6 +4,7 @@ import com.yuhan.wagglewaggle.domain.chat.dto.ChatPinListItem;
 import com.yuhan.wagglewaggle.domain.chat.dto.ChatPinListResponse;
 import com.yuhan.wagglewaggle.domain.chat.repository.ChatRoomRepository;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
+import com.yuhan.wagglewaggle.domain.pin.entity.PublisherStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
@@ -102,6 +103,23 @@ class ChatPinListServiceTest {
     }
 
     @Test
+    @DisplayName("각 핀의 제보자 체류 상태(publisherStatus)를 그대로 매핑한다")
+    void 제보자_체류상태를_그대로_매핑한다() {
+        UUID idA = pinId(1);
+        UUID idB = pinId(2);
+        Pin stillHere = pin(idA, Instant.parse("2026-07-24T14:00:00Z"), "P", "A", PublisherStatus.STILL_HERE);
+        Pin left = pin(idB, Instant.parse("2026-07-24T13:00:00Z"), "P", "B", PublisherStatus.LEFT);
+        given(pinRepository.findReceivedChatPinsFirstPage(eq(MEMBER_ID), any()))
+                .willReturn(List.of(stillHere, left));
+        given(chatRoomRepository.findPinIdsWithUnreadForRecipient(any(), eq(MEMBER_ID))).willReturn(List.of());
+
+        List<ChatPinListItem> items = service.getMyReceivedChatPins(MEMBER_ID, null, null).items();
+
+        assertThat(items).extracting(ChatPinListItem::publisherStatus)
+                .containsExactly(PublisherStatus.STILL_HERE, PublisherStatus.LEFT);
+    }
+
+    @Test
     @DisplayName("조회 결과가 limit을 초과하면 초과분을 잘라내고 마지막 노출 핀의 (createdAt, id)로 nextCursor를 발급한다")
     void limit초과시_nextCursor를_마지막핀으로_발급한다() {
         UUID idA = pinId(1);
@@ -197,6 +215,11 @@ class ChatPinListServiceTest {
     }
 
     private Pin pin(UUID id, Instant createdAt, String placeName, String placeAddress) {
+        return pin(id, createdAt, placeName, placeAddress, PublisherStatus.STILL_HERE);
+    }
+
+    private Pin pin(UUID id, Instant createdAt, String placeName, String placeAddress,
+                    PublisherStatus publisherStatus) {
         Place place = mock(Place.class);
         lenient().when(place.getName()).thenReturn(placeName);
         lenient().when(place.getAddressName()).thenReturn(placeAddress);
@@ -204,6 +227,7 @@ class ChatPinListServiceTest {
         lenient().when(pin.getId()).thenReturn(id);
         lenient().when(pin.getCreatedAt()).thenReturn(createdAt);
         lenient().when(pin.getPlace()).thenReturn(place);
+        lenient().when(pin.getPublisherStatus()).thenReturn(publisherStatus);
         return pin;
     }
 
