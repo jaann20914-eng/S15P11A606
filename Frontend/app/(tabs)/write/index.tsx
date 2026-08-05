@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  InteractionManager,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,6 +51,9 @@ const KEYBOARD_SETTLE_MS = 180;
  * 두 장 쌓이는 경우가 또 나왔다(2026-08-05 — 안드로이드는 두 번째 Alert를 큐에 넣어,
  * 첫 확인을 누르면 같은 알림이 다시 떠 "확인이 안 먹는" 것으로 보이고 그 확인이 이동을
  * 한 번 더 실행했다). 어떤 경로로 다시 돌든 같은 핀은 다시 알리지 않는다.
+ *
+ * **새 발행이 시작되면 비운다**(아래 효과). 안 비우면 방금 등록한 핀을 이어서 수정했을 때
+ * 같은 핀이라 완료를 알리지 않았고, phase가 done에 머물러 진행 화면에 갇혔다.
  */
 const announcedPinIds = new Set<string>();
 
@@ -233,6 +228,13 @@ export default function PinCreateScreen() {
    * 화면을 떠난 뒤에 끝난 경우에는 이동하지 않는다. 사용자가 이미 다른 일을 하고 있으므로
    * 갑자기 화면을 바꾸지 않고, 그 결과는 화면을 벗어날 때 정리한다.
    */
+  // 새 발행이 시작되면 지난 알림 기록을 비운다. 같은 핀을 이어서 수정해도 완료를 알려야 한다.
+  useEffect(() => {
+    if (phase === 'issuing' || phase === 'uploading' || phase === 'registering') {
+      announcedPinIds.clear();
+    }
+  }, [phase]);
+
   useEffect(() => {
     if (!focused || phase !== 'done' || publishedPinId === null) return;
     if (announcedPinIds.has(publishedPinId)) return;
@@ -274,22 +276,17 @@ export default function PinCreateScreen() {
                 router.dismissTo(`/pin/${mode.pinId}`);
               } else {
                 /*
-                  등록은 상세를 먼저 **쌓아서** 열고, 그 아래 탭을 마이페이지의 오늘 핀 목록으로
-                  바꿔 둔다. 순서가 중요하다 — 탭을 먼저 바꾸면 전환이 두 번 보인다(작성 →
-                  마이페이지 → 상세).
-
-                  탭 교체는 상세가 다 올라온 **애니메이션 뒤로** 미룬다. 같은 틱에 바꾸면
-                  상세가 미끄러져 올라오는 동안 그 밑에서 탭이 갈리는 것이 비쳐 보였다 —
-                  오늘 핀 목록이 스치듯 지나가던 원인.
+                  등록은 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에 상세를 **쌓아서**
+                  연다. 이 순서와 타이밍을 바꾸지 않는다 — 상세를 먼저 밀고 탭 교체를 뒤로
+                  미뤄 봤더니, 교체가 실행되는 시점에는 초점이 이미 상세라 replace가 **상세를
+                  갈아치워** 오늘 핀 목록에서 멈췄다(2026-08-05).
 
                   탭을 바꿔 두는 이유: 이 화면이 탭 안에 있어 상세로 `replace`하면 탭 묶음의
                   뿌리가 사라져 뒤로 가기가 홈으로 떨어졌다. 상세에서 뒤로 가면 방금 등록한
-                  핀이 담긴 목록이 나오게 한다.
+                  핀이 담긴 목록이 나온다.
                 */
+                router.replace('/(tabs)/mypage/activity');
                 router.push(`/pin/${publishedPinId}`);
-                InteractionManager.runAfterInteractions(() => {
-                  router.replace('/(tabs)/mypage/activity');
-                });
               }
 
               setTimeout(resetPublish, 0);

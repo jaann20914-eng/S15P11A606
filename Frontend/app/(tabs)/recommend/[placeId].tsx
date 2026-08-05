@@ -153,17 +153,18 @@ export default function RecommendPlaceScreen() {
       const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
 
       /*
-        바닥에 닿으면 마지막 카드다. 아래쪽 카드들은 기준선까지 올라올 만큼 스크롤이 남아
-        있지 않아, 기준선만 보면 끝까지 내려도 선택이 마지막 몇 장에 못 닿는다.
+        아래쪽 카드는 기준선까지 올라올 만큼 스크롤이 남아 있지 않다 — 고정 기준선만 쓰면
+        끝까지 내려도 선택이 마지막 몇 장에 못 닿는다. 그래서 그 부족분(마지막 카드가
+        기준선에 닿으려면 더 필요한 거리)을 스크롤 진행률에 비례해 기준선에 얹는다. 바닥에
+        닿는 순간 기준선이 마지막 카드에 정확히 닿고, 중간 카드들의 간격도 고르게 당겨진다.
       */
-      if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 24) {
-        const last = pins[pins.length - 1].pinId;
+      const maxOffset = Math.max(1, contentSize.height - layoutMeasurement.height);
+      const lastCardY = cardPositionsRef.current[pins[pins.length - 1].pinId];
+      const lastAbsoluteY = lastCardY === undefined ? 0 : pinSectionYRef.current + lastCardY;
+      const shortfall = Math.max(0, lastAbsoluteY - (maxOffset + SCROLL_ANCHOR));
+      const progress = Math.min(1, Math.max(0, contentOffset.y / maxOffset));
 
-        setSelectedPinId((previous) => (previous === last ? previous : last));
-        return;
-      }
-
-      const anchor = contentOffset.y + SCROLL_ANCHOR;
+      const anchor = contentOffset.y + SCROLL_ANCHOR + progress * shortfall;
 
       let current = pins[0].pinId;
 

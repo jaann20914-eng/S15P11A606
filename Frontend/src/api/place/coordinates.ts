@@ -32,10 +32,7 @@ const mapDataByPlaceId = new Map<number, PlaceMapData>();
  *
  * `0, 0`도 버린다. 좌표가 비어 있을 때 흔히 채워지는 값인데, 실제로는 기니만 앞바다다.
  */
-export function isPlottableCoordinate(coordinate: {
-  latitude: number;
-  longitude: number;
-}): boolean {
+export function isPlottableCoordinate(coordinate: { latitude: number; longitude: number }): boolean {
   const { latitude, longitude } = coordinate;
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
   if (latitude < -90 || latitude > 90) return false;
@@ -52,10 +49,25 @@ export function rememberPlaceMapData(places: PlaceListItem[]): void {
       continue;
     }
 
+    // 핀 좌표도 같은 기준으로 거른다. 하나가 깨져도 나머지는 그린다.
+    const plottablePins = place.activePins.filter(isPlottableCoordinate);
+
+    /*
+      걸러진 핀은 소리 내고 지나간다. 조용히 빠지면 "지도에 마커가 하나 모자란다"로만 보여서,
+      서버가 안 보낸 것인지 좌표가 깨져 우리가 버린 것인지 가릴 수 없다(2026-08-05에 실제로
+      그 구분이 필요했다).
+    */
+    if (__DEV__ && plottablePins.length !== place.activePins.length) {
+      const dropped = place.activePins.filter((pin) => !isPlottableCoordinate(pin));
+      console.warn(
+        `[place] 좌표가 깨져 지도에서 뺀 핀: placeId=${place.placeId}`,
+        dropped.map((pin) => ({ pinId: pin.pinId, lat: pin.latitude, lng: pin.longitude })),
+      );
+    }
+
     mapDataByPlaceId.set(place.placeId, {
       coordinate,
-      // 핀 좌표도 같은 기준으로 거른다. 하나가 깨져도 나머지는 그린다.
-      activePins: place.activePins.filter(isPlottableCoordinate),
+      activePins: plottablePins,
     });
   }
 }
@@ -64,7 +76,6 @@ export function rememberPlaceMapData(places: PlaceListItem[]): void {
 export function recallPlaceMapData(placeId: number): PlaceMapData | null {
   return mapDataByPlaceId.get(placeId) ?? null;
 }
-
 
 /**
  * 장소 좌표를 알 때 물어볼 범위(위경도 도 단위). 약 ±330m로, 그 장소와 바로 옆만 들어온다.
