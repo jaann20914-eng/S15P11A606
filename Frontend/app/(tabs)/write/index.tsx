@@ -213,8 +213,21 @@ export default function PinCreateScreen() {
    * 화면을 떠난 뒤에 끝난 경우에는 이동하지 않는다. 사용자가 이미 다른 일을 하고 있으므로
    * 갑자기 화면을 바꾸지 않고, 그 결과는 화면을 벗어날 때 정리한다.
    */
+  /**
+   * 이미 완료를 알린 핀.
+   *
+   * 아래 효과는 의존값이 바뀌면 다시 도는데, 확인을 눌러 화면을 내리는 찰나에 라우트
+   * 파라미터가 사라지며 `mode.type`이 `edit`에서 `create`로 바뀌는 순간이 있다. 그러면
+   * 같은 완료에 대해 **등록용 안내가 한 번 더 떠서**, 그 확인이 등록용 이동(마이페이지 교체
+   * + 상세 push)까지 실행했다 — 상세가 두 번 열린 원인(2026-08-05). 핀별로 한 번만 알린다.
+   */
+  const announcedPinIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!focused || phase !== 'done' || publishedPinId === null) return;
+    if (announcedPinIdRef.current === publishedPinId) return;
+
+    announcedPinIdRef.current = publishedPinId;
 
     /*
       끝난 것을 알리고 나서 넘어간다.
