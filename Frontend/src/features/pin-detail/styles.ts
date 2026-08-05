@@ -243,10 +243,21 @@ export const pinDetailStyles = StyleSheet.create({
     marginBottom: spacing.x4,
   },
   memo: { ...type.body, color: colors.gray400 },
-  /** 내용도 태그도 없는 글의 안내. 본문보다 한 단계 연해 "없는 것이 정상"으로 읽히게 한다. */
+  /** 내용이 없는 글의 안내. 본문보다 한 단계 연해 "없는 것이 정상"으로 읽히게 한다. */
   emptyBody: { ...type.small, color: colors.gray400 },
-  tags: { flexDirection: 'row', gap: spacing.x4, marginTop: spacing.x3 },
-  tag: { ...type.small, color: colors.blue },
+  /**
+   * 태그 줄. **줄을 바꾼다** — 태그가 길거나 많으면 한 줄에 다 못 들어가는데, 접지 않고
+   * 다 보여준다. 상세는 태그의 전문을 확인하는 자리다(작성 화면은 줄임표로 접는다).
+   */
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.x4,
+    rowGap: spacing.x2,
+    marginTop: spacing.x3,
+  },
+  /** 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다. */
+  tag: { ...type.small, color: colors.blue, maxWidth: '100%' },
 
   /* 내 핀 하단 액션 */
   ownerFooter: { flexDirection: 'row', gap: spacing.x2 },

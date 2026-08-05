@@ -101,6 +101,21 @@ export function PinDetailBody({
 
           {detail.memo && <Text style={s.memo}>{detail.memo}</Text>}
 
+          {/*
+            내용이 없는 글의 안내. 둘 다 선택 입력이라 실제로 이런 글이 있고, 자리가 그냥
+            비어 있으면 잘못 불러온 것처럼 보인다.
+
+            태그가 있으면 한 줄로 짧게(태그가 이어지니 완전히 빈 것은 아니다), 태그마저 없으면
+            영상으로 안내를 잇는다. 글만 있고 태그가 없는 경우는 따로 알리지 않는다.
+          */}
+          {!detail.memo && (
+            <Text style={s.emptyBody}>
+              {detail.tags.length > 0
+                ? '작성자가 따로 남긴 설명이 없어요.'
+                : '작성자가 따로 남긴 설명이 없어요.\n영상으로 현장을 확인해 보세요.'}
+            </Text>
+          )}
+
           {detail.tags.length > 0 && (
             <View style={s.tags}>
               {detail.tags.map((tag) => (
@@ -109,17 +124,6 @@ export function PinDetailBody({
                 </Text>
               ))}
             </View>
-          )}
-
-          {/*
-            내용도 태그도 없는 글 — 구분선 아래가 통째로 비어 잘못 불러온 것처럼 보인다.
-            둘 다 선택 입력이라 실제로 이런 글이 있으므로, 비어 있는 것이 정상이라는 안내를
-            한 줄 둔다.
-          */}
-          {!detail.memo && detail.tags.length === 0 && (
-            <Text style={s.emptyBody}>
-              {'작성자가 따로 남긴 설명이 없어요.\n영상으로 현장을 확인해 보세요.'}
-            </Text>
           )}
         </View>
       </ScrollView>

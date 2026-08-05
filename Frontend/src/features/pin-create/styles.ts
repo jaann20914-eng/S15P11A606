@@ -182,8 +182,9 @@ export const pinCreateStyles = StyleSheet.create({
 
   /* 태그 */
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.x2 },
-  /** 글자(14)와 삭제 아이콘(18)이 들어가려면 30으로는 좁다. */
+  /** 글자(14)와 삭제 아이콘(18)이 들어가려면 30으로는 좁다. 긴 태그는 줄을 넘지 않게 잡는다. */
   tag: {
+    maxWidth: '100%',
     height: 34,
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,7 +193,8 @@ export const pinCreateStyles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.limeSoft,
   },
-  tagText: { ...type.small, color: '#81942E' },
+  /** 글자만 접힌다(줄임표). 삭제 아이콘은 자리를 지켜야 눌 수 있다. */
+  tagText: { ...type.small, color: '#81942E', flexShrink: 1 },
   tagInputRow: { height: 44, flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x2 },
   tagInput: {
     flex: 1,

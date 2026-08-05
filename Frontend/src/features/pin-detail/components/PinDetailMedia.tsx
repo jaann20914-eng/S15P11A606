@@ -98,19 +98,25 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
    * 첫 프레임이 나올 준비가 됐는지.
    *
    * 준비되기 전에는 프레임이 회색 판으로 남아, 받는 중인지 실패했는지 알 수 없었다. 그동안
-   * 무언가 오고 있다는 것을 보여주기 위해 상태를 따라간다. 소스가 바뀌면 다시 기다린다.
+   * 무언가 오고 있다는 것을 보여주기 위해 상태를 따라간다.
+   *
+   * 기준은 **서명을 뗀 영상 키**다. 영상이 실제로 바뀌면(수정에서 교체) 준비 상태를 되돌려
+   * 로딩이 덮게 한다 — 옛 상태를 그대로 두면 교체 직후 **옛 영상이 한 번 떴다가 새 영상으로
+   * 튀었다**(2026-08-05). 같은 영상의 서명만 갱신된 재조회에서는 되돌리지 않는다(플레이어도
+   * 다시 싣지 않는다 — `useAutoplayVideo`).
    */
+  const mediaKey = mediaUrl ? mediaUrl.split('?')[0] : 'placeholder';
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setReady(player.status === 'readyToPlay');
+    setReady(false);
 
     const subscription = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay') setReady(true);
     });
 
     return () => subscription.remove();
-  }, [player, mediaUrl]);
+  }, [player, mediaKey]);
 
   useEffect(() => {
     player.muted = muted;

@@ -32,7 +32,14 @@ export function TagField({ tags, onAdd, onRemove, onFocus }: TagFieldProps) {
       <View style={s.tags}>
         {tags.map((tag) => (
           <View key={tag} style={s.tag}>
-            <Text style={s.tagText}>#{tag}</Text>
+            {/*
+              긴 태그는 줄임표로 접는다(최대 30자까지 들어온다). 그대로 두면 알약이 줄을
+              넘어가며 배치가 깨졌다. 전체 내용은 상세 화면이 보여준다 — 여기는 지울 것을
+              고르는 자리라 어느 태그인지 알아볼 만큼이면 된다. 삭제 버튼은 접히지 않는다.
+            */}
+            <Text numberOfLines={1} style={s.tagText}>
+              #{tag}
+            </Text>
             <Pressable accessibilityLabel={`${tag} 태그 삭제`} onPress={() => onRemove(tag)}>
               <Ionicons name="close" size={18} color="#8A9D37" />
             </Pressable>
