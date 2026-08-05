@@ -80,8 +80,13 @@ export default function Home() {
   const focus = useMapStore((state) => state.focus);
   const clearFocus = useMapStore((state) => state.clearFocus);
   const pinOverlay = useMapStore((state) => state.pinOverlay);
-  /** 눌린 영상핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다. */
-  const showPinOverlay = useMapStore((state) => state.showPinOverlay);
+  /**
+   * 눌린 영상핀을 상세에 알리는 통로. 마커는 홈이 그리고 알림도 홈으로 오기 때문이다.
+   *
+   * **한 번 쓰고 비우는 요청이다.** 겹의 `selectedPinId`를 고치는 것이 아니다 — 그 칸을 두 쪽이
+   * 함께 쓰면 서로의 낡은 값으로 되돌리기를 주고받는다(`pressedPinId` 설명).
+   */
+  const pressPin = useMapStore((state) => state.pressPin);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
   const [mapReady, setMapReady] = useState(false);
 
@@ -391,7 +396,14 @@ export default function Home() {
       */
       if (pinOverlay !== null) {
         const pressedPin = pinOverlay.markers.some((marker) => marker.id === placeId);
-        if (pressedPin) showPinOverlay({ ...pinOverlay, selectedPinId: placeId });
+        /*
+          **겹의 값을 고쳐서 알리지 않는다.** 그 칸(`selectedPinId`)은 상세 화면이 "보고 있는
+          카드"를 쓰는 자리다. 여기서 같은 칸에 "눌린 마커"를 써 넣으면 두 쪽이 서로의 **한 커밋
+          지난 값**을 보고 되돌리기를 주고받아 카드가 튀다 렌더가 끊긴다(`pressedPinId` 설명).
+
+          그래서 눌림만 따로 한 번 알린다. 받은 화면이 카드를 맞추고 곧바로 비운다.
+        */
+        if (pressedPin) pressPin(placeId);
         return;
       }
 
@@ -416,7 +428,7 @@ export default function Home() {
 
       if (mapLevel <= REVIEW_PIN_MAX_LEVEL) openPlace(placeId);
     },
-    [focusPlace, inView.places, mapLevel, onTop, openPlace, pinOverlay, showPinOverlay],
+    [focusPlace, inView.places, mapLevel, onTop, openPlace, pinOverlay, pressPin],
   );
 
   const handleViewChange = useCallback(

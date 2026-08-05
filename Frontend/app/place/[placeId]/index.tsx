@@ -362,18 +362,30 @@ export default function Place() {
     카드가 골라지는 것과 같은 동작이다.
 
     눌린 것을 아는 쪽은 홈이다 — 지도가 홈 것이고, 이 화면은 자기 지도가 없어 마커 알림을 받을
-    길이 없다. 그래서 홈이 고른 핀만 바꿔 저장소에 되돌려 주고(`pressMapPin`), 여기서 그 값을
-    보고 카드를 맞춘다. 위 효과가 카드에 맞춰 저장소를 채우는 것과 **반대 방향**이다.
+    길이 없다. 그래서 홈이 **눌림만 한 번 알리고**(`pressPin`), 여기서 카드를 맞춘 뒤 곧바로
+    비운다.
 
-    번호가 이미 같으면 아무 일도 하지 않으므로 두 방향이 서로를 다시 부르지 않는다.
+    **위 효과가 쓰는 칸을 함께 쓰지 않는다.** 예전에는 홈이 `pinOverlay.selectedPinId`를 고쳐서
+    알렸다. 그 칸은 위 효과가 "보고 있는 카드"를 쓰는 자리라, 두 쪽이 같은 칸을 쓰는 셈이었다.
+    저장소 값은 **한 커밋 늦게** 들어오므로 두 값이 어긋난 순간부터 서로 상대의 낡은 값으로
+    되돌리기를 주고받았다 — 카드가 두 번호 사이를 튀고 그때마다 지도 이동 요청이 나가
+    홈에서 렌더가 끊겼다(2026-08-05 실기기: `1/3`·`2/3`이 수십 번, 겹이 둘일 때는 `1/9`·`7/10`).
+
+    한 번 쓰고 비우는 요청은 그 고리를 만들 수 없다. 비운 뒤에는 되돌릴 값이 남지 않는다.
+
+    **맨 위일 때만 따른다.** 저장소는 겹이 여럿이면 모두가 읽는다. 가려진 겹은 사용자가 보고
+    있지 않으므로 카드를 맞출 이유가 없고, 요청을 먼저 비워 버리면 맨 위 화면이 놓친다.
   */
-  const markedPinId = useMapStore((state) => state.pinOverlay?.selectedPinId ?? null);
+  const pressedPinId = useMapStore((state) => state.pressedPinId);
+  const clearPressedPin = useMapStore((state) => state.clearPressedPin);
   useEffect(() => {
-    if (markedPinId === null) return;
+    if (!onTop || pressedPinId === null) return;
 
-    const at = pins.findIndex((pin) => pin.pinId === markedPinId);
+    const at = pins.findIndex((pin) => pin.pinId === pressedPinId);
     if (at >= 0) setPinIndex(at);
-  }, [markedPinId, pins]);
+    // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
+    clearPressedPin();
+  }, [clearPressedPin, onTop, pins, pressedPinId]);
 
   /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 영상핀이 남는다. */
   useEffect(() => clearPinOverlay, [clearPinOverlay]);
@@ -383,9 +395,17 @@ export default function Place() {
 
     20m까지 당긴다 — 한 장소의 핀이 수십 미터 안에 모여 있어 장소용 축척(250m)으로는 여러
     개가 한 점처럼 겹쳐 어느 것이 중앙인지 알 수 없다.
+
+    **지도를 옮기는 것은 맨 위 화면의 일이다.** 지도는 하나뿐인데(홈 것) 이 화면은 여러 겹 떠
+    있을 수 있어서, 가려진 겹까지 이동을 요청하면 한 지도를 두 겹이 번갈아 끌어당긴다. 그
+    요청이 홈에서 상태 변경으로 바뀌므로(`focus` → `pendingPan`) 겹이 서로를 깨우면 렌더가
+    끝나지 않는다 — 위 `markedPinId` 설명에 그 사정을 적어 두었다.
+
+    맨 위로 돌아오면 이 효과가 다시 돌아 보고 있던 카드의 핀으로 지도를 되돌린다. 그 사이 위
+    화면이 지도를 옮겨 두었을 수 있으므로 오히려 그래야 맞다.
   */
   useEffect(() => {
-    if (focusedPin === null) return;
+    if (!onTop || focusedPin === null) return;
 
     if (focusedPin.latitude === null || focusedPin.longitude === null) {
       /*
@@ -416,7 +436,7 @@ export default function Place() {
       name: focusedPin.nickname,
       level: REVIEW_PIN_MAX_LEVEL,
     });
-  }, [focusOn, focusedPin, pinIndex, pins.length]);
+  }, [focusOn, focusedPin, onTop, pinIndex, pins.length]);
 
   useEffect(() => {
     const animation = Animated.timing(chartReveal, {
