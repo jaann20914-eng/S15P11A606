@@ -53,6 +53,27 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
+
+        {/*
+          영상핀이 없는 장소도 같은 방식으로 홈 지도 위에 겹친다.
+
+          검색에서 고른 장소가 우리 DB에 없을 때 온다. 장소 상세와 화면 구성이 같아야 하므로
+          (검색바 · 지도 · 카드) 겹치는 방식도 같게 두어야 한다 — 자기 지도를 만들면 그 화면만
+          지도가 새로 로드되고, 검색에서 이미 옮겨 둔 자리도 잃는다.
+
+          확대 연출은 없다. 그 장소에는 당겨 볼 영상핀이 없어 축척을 바꿀 이유가 없으므로,
+          장소 상세보다 짧게 넘긴다.
+        */}
+        <Stack.Screen
+          name="place/no-pins"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'fade',
+            animationDuration: 200,
+            // 이 줄이 없으면 씬 배경이 흰색으로 칠해져 아래 홈 지도가 사라진다(위 참고).
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

@@ -13,7 +13,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart } from '@/components/place';
+import { CrowdChart, PlaceSearchBar } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -388,41 +388,13 @@ export default function Place() {
         style={[s.topControls, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
       >
         {/*
-          검색바 왼쪽은 이 화면에서 **돋보기가 아니라 꺽새**다.
+          검색바는 **영상핀이 없는 장소 화면과 같은 것을 쓴다**(`PlaceSearchBar`). 왼쪽이 꺽새로
+          뒤로 가고, 검색어 자리에 찾아 들어온 장소 이름이 남는다 — 그 사정은 그 파일에 적어
+          두었다. 예전에는 시트를 끌어내려 닫았는데 그 방법이 짐작되지 않았다.
 
-          홈에서 장소를 한 번 고르고 들어온 화면이라 돌아갈 곳이 있다. 그 자리를 뒤로 가기로
-          쓰면 검색 화면·태그 결과 화면과 같은 자리·같은 모양이 되어 배울 것이 없다. 예전에는
-          시트를 끌어내려 닫았는데 그 방법이 짐작되지 않았다(`useBottomSheet` 호출부 참고).
-
-          바 전체를 누르면 검색으로 가는 것은 그대로다. 꺽새만 따로 눌리게 두었다 — 겹쳐
-          놓으면 뒤로 가려다 검색 화면이 열린다.
+          이름이 아직 오지 않았으면(조회 중·실패) 바가 안내 문구를 대신 놓는다.
         */}
-        <View style={s.search}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="뒤로 가기"
-            onPress={() => router.back()}
-            // 아이콘만으로는 손가락에 비해 좁다. 바 높이만큼 눌리는 자리를 넓힌다.
-            hitSlop={{ top: spacing.x3, bottom: spacing.x3, left: spacing.x3, right: spacing.x2 }}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.dark} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.searchField}>
-            {/*
-              **찾아 들어온 장소의 이름이 검색어 자리에 남는다.**
-
-              꺽새가 붙은 뒤로 이 바는 검색 화면과 같은 모양이 됐다. 그 화면에서 장소를 골라
-              들어온 것과 이 화면이 다르지 않으므로, 고른 값이 검색어 자리에 그대로 있어야
-              "무엇을 찾아본 결과인지"가 위에서 읽힌다.
-
-              이름이 아직 오지 않았으면(조회 중·실패) 안내 문구를 둔다 — 빈 바를 두면 값을
-              지운 것처럼 보인다. 두 경우의 글자색이 달라 안내와 값이 구분된다.
-            */}
-            <Text numberOfLines={1} style={place === null ? s.searchText : s.searchValue}>
-              {place === null ? '장소명이나 태그를 검색해보세요' : place.name}
-            </Text>
-          </Pressable>
-        </View>
+        <PlaceSearchBar keyword={place?.name ?? null} />
         {/*
           최대화 단계에서는 시트가 검색바 바로 아래까지 올라와 이 버튼과 겹친다. 그래서 감춘다.
 
@@ -713,32 +685,7 @@ const s = StyleSheet.create({
   /** 지도 제스처를 받는 자리. 아무것도 그리지 않고 손가락만 받는다. */
   mapGestureArea: StyleSheet.absoluteFillObject,
   topControls: { position: 'absolute' },
-  /**
-   * 검색바는 불투명한 흰색이다.
-   *
-   * 반투명(0.92)으로 두면 아래 지도가 배어 나오는데, 지도는 자리마다 색이 달라 **바 안에서
-   * 흰 농도가 갈려 투톤으로 보였다.** 지도 위에 뜬 컨트롤이라 글자를 읽는 것이 먼저다.
-   */
-  search: {
-    height: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.x3,
-    paddingHorizontal: spacing.x4,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    ...shadow,
-  },
-  /**
-   * 검색으로 가는 자리. 꺽새를 뺀 나머지 전부다.
-   *
-   * 높이를 바에 맞춰 늘려 둔다(`alignSelf: stretch`). 글자 높이만큼만 눌리면 바 안에서 위아래
-   * 여백을 누를 때 아무 일도 일어나지 않아 먹통으로 읽힌다.
-   */
-  searchField: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
-  searchText: { ...type.body, color: colors.gray600 },
-  /** 찾아 들어온 장소 이름. 안내 문구와 달리 실제 값이라 본문색으로 둔다(검색 화면의 입력값과 같다). */
-  searchValue: { ...type.body, color: colors.dark },
+  // 검색바 자체의 스타일은 공용 컴포넌트가 갖는다(`components/place/PlaceSearchBar`).
   location: {
     width: 48,
     height: 48,
