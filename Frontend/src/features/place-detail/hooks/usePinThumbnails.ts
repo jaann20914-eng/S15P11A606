@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getPinThumbnails, type PinThumbnail } from '@/api/pin/thumbnail';
+import { usePinAccessStore } from '@/store/usePinAccessStore';
 import type { PlacePinCard } from '@/types/place';
 import type { PinId } from '@/types/pin';
 
@@ -18,6 +19,11 @@ const NO_PINS: PlacePinCard[] = [];
  * 작성자 본인이 false로 오는데, 그대로 두면 자기 게시물의 썸네일이 자기에게도 흐리게 보인다.
  * 핀 상세의 접근 수준은 `OWNER`까지 구분하므로 그것으로 `revealed`를 정한다.
  *
+ * **그 값도 결제 순간에는 낡는다.** 카드를 눌러 들어가 크레딧을 쓰고 돌아오면, 이 화면은 뒤에
+ * 살아 있던 그대로라 다시 묻지 않는다 — 받아 둔 접근 수준도 발급 주소도 결제 전 것이어서
+ * 썸네일이 계속 가려져 있었다(2026-08-05). 그래서 이번 실행에서 결제한 핀을 함께 본다
+ * (`usePinAccessStore`). 서버 판정을 대신하는 것이 아니라 **더해** 본다.
+ *
  * 받지 못한 핀은 주소가 없는 채로 남는다. 카드는 이미 그 경우를 색 자리로 그리고 있어서
  * 화면이 깨지지 않는다 — **한 장이 실패해도 나머지는 채워진다.**
  *
@@ -26,6 +32,7 @@ const NO_PINS: PlacePinCard[] = [];
  */
 export function usePinThumbnails(pins: PlacePinCard[] | undefined): PlacePinCard[] {
   const [resolved, setResolved] = useState<Record<PinId, PinThumbnail>>({});
+  const unlockedPinIds = usePinAccessStore((state) => state.unlockedPinIds);
   const cards = pins ?? NO_PINS;
 
   /*
@@ -60,13 +67,19 @@ export function usePinThumbnails(pins: PlacePinCard[] | undefined): PlacePinCard
   return useMemo(
     () =>
       cards.map((pin) => {
-        if (pin.thumbnailUrl !== null) return pin;
+        /*
+          방금 결제한 핀은 어느 경로로 왔든 선명해야 한다. 받아 둔 값을 덮어쓰는 것이 아니라
+          **더한다** — 한번 얻은 권한은 사라지지 않으므로 참을 거짓으로 바꿀 일은 없다.
+        */
+        const revealed = pin.revealed || unlockedPinIds.has(pin.pinId);
+        const thumbnail = pin.thumbnailUrl === null ? resolved[pin.pinId] : undefined;
 
-        const thumbnail = resolved[pin.pinId];
-        if (thumbnail === undefined) return pin;
+        if (thumbnail === undefined) {
+          return revealed === pin.revealed ? pin : { ...pin, revealed };
+        }
 
-        return { ...pin, thumbnailUrl: thumbnail.url, revealed: thumbnail.revealed };
+        return { ...pin, thumbnailUrl: thumbnail.url, revealed: revealed || thumbnail.revealed };
       }),
-    [cards, resolved],
+    [cards, resolved, unlockedPinIds],
   );
 }
