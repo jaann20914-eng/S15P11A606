@@ -66,11 +66,7 @@ export interface PinPublishState {
  * 촬영 좌표를 얻지 못했으면 등록하지 않는다. 장소 좌표를 대신 넣으면 거리 검증이 항상
  * 통과해 버려서, 엉뚱한 곳에서 찍은 영상도 그 장소의 것으로 등록된다.
  */
-function toRequest(
-  draft: PinDraft,
-  originalVideoKey: string,
-  captured: Coordinate,
-): PinCreateRequest | null {
+function toRequest(draft: PinDraft, originalVideoKey: string, captured: Coordinate): PinCreateRequest | null {
   /*
     등록은 카카오에서 고른 장소만 받는다. 그 장소가 우리 DB에 없을 수 있고, 서버가 등록
     시점에 만들기 때문이다. 내부 장소는 수정에서만 고를 수 있다.
@@ -162,6 +158,18 @@ const retryableCodes = new Set([
   'UPLOAD_URL_ISSUE_FAILED',
   'NETWORK_ERROR',
 ]);
+
+/**
+ * 다시 시도할 수 있는 실패인지.
+ *
+ * 코드 목록에 더해 **5xx 전부**를 재시도 가능으로 본다. 서버가 재시작하는 동안의 502처럼
+ * 우리 오류 규격이 없는 응답은 `UNKNOWN_ERROR`로 와서 목록에 안 걸렸고, 영상 업로드까지
+ * 끝낸 등록이 "다시 시도" 없이 막혔다 — 처음부터 다시 찍게 만들었다(2026-08-05).
+ * 5xx는 입력 문제가 아니라 서버 쪽 일시 장애라 잠시 뒤 다시 보내면 된다.
+ */
+function isRetryable(cause: ApiError): boolean {
+  return retryableCodes.has(cause.code) || cause.statusCode >= 500;
+}
 
 /**
  * 등록이 어느 단계에서 막혔는지 터미널에서 따라갈 수 있게 한다.
@@ -511,7 +519,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
               ? cause.message
               : '핀을 등록하지 못했어요',
         // 업로드 실패는 네트워크 문제가 대부분이라 다시 시도할 값이 있다.
-        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+        retryable: isApiError ? isRetryable(cause) : true,
       });
     });
   },
@@ -610,7 +618,7 @@ export const usePinPublishStore = createStore<PinPublishState>((set) => ({
             : cause instanceof Error
               ? cause.message
               : '영상핀을 수정하지 못했어요',
-        retryable: isApiError ? retryableCodes.has(cause.code) : true,
+        retryable: isApiError ? isRetryable(cause) : true,
       });
     });
   },
