@@ -14,6 +14,10 @@ import type { PlaceDetail, PlaceDetailResponse, PlacePinCard, PlacePinCardRespon
  * 그래서 경계에서 걸러 낸다. 키가 오면 없는 것으로 다루고, 화면은 자리만 비워 둔다 — 그림이
  * 없는 것과 같은 처리라 이미 준비돼 있다. 서버가 접근 가능한 URL을 주기 시작하면 이 함수가
  * 그대로 통과시킨다.
+ *
+ * **비운 자리는 화면이 따로 채운다.** 핀 상세가 요청 시점에 Presigned GET URL을 발급하므로
+ * 장소 상세 화면이 카드별로 그것을 받아 붙인다(`api/pin/thumbnail.ts`). 여기서 통과시키기
+ * 시작하면 그쪽은 물어볼 것이 없어져 저절로 조용해진다.
  */
 function toDisplayableImageUrl(value: string | null | undefined): string | null {
   if (!value) return null;

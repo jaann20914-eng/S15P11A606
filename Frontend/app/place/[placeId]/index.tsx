@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, useAppTabBarHeight } from '@/components/common';
 import { CrowdChart } from '@/components/place';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
+import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
@@ -92,6 +93,19 @@ export default function Place() {
   const { detail, loading, error } = usePlaceDetail(Number.isInteger(numericPlaceId) ? numericPlaceId : null);
   const place = detail?.place ?? null;
   const pins = detail?.pins ?? [];
+
+  /*
+    카드에 그릴 썸네일은 상세 응답으로 끝나지 않는다.
+
+    서버가 목록의 핀에는 S3 객체 키를 담아 주므로 그릴 수 없다. 볼 수 있는 주소는 핀 상세가
+    요청 시점에 발급하는 것뿐이라, 이 훅이 카드별로 받아 채운다. 못 받은 카드는 예전처럼
+    색 자리로 남는다.
+
+    **지도 쪽은 `pins`를 그대로 쓴다.** 썸네일이 도착하면 이 목록은 새로 만들어지는데, 그것을
+    마커·중앙 정렬에 쓰면 그림 하나가 들어올 때마다 마커를 다시 찍고 지도를 다시 옮기게 된다.
+    좌표는 두 목록이 같으므로 그릴 것만 이쪽에서 가져간다.
+  */
+  const cards = usePinThumbnails(detail?.pins);
 
   /*
     3단계 높이를 정하는 값. 시트 움직임은 useBottomSheet이 맡는다.
@@ -550,7 +564,7 @@ export default function Place() {
             */
             <View onLayout={(event) => setPinListTop(event.nativeEvent.layout.y)}>
               <PinCardPager
-                pins={pins}
+                pins={cards}
                 paging={!expanded}
                 onSlotHeightChange={setPinSlotHeight}
                 selectedIndex={pinIndex}

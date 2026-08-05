@@ -92,7 +92,11 @@ export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardPro
       <View style={s.body}>
         {/*
           열람하지 않은 핀도 썸네일은 블러 처리된 것이 온다(서버가 원본을 주지 않는다).
-          아직 주소가 없으므로 지금은 색 자리만 둔다.
+
+          주소는 목록 응답에 담겨 오지 않아 화면이 핀마다 따로 받아 채운다
+          (`features/place-detail/hooks/usePinThumbnails.ts`). 그래서 카드가 먼저 그려지고
+          썸네일이 나중에 들어온다 — **비어 있는 동안에도 자리는 그대로 있어야 한다.**
+          받지 못한 핀은 계속 색 자리로 남는다.
         */}
         {pin.thumbnailUrl === null ? (
           <LinearGradient colors={THUMBNAIL_TINT} style={s.thumbnail} />
