@@ -21,6 +21,14 @@ export interface CaptureFieldProps {
   existingVideoUrl?: string | null;
 }
 
+/**
+ * 카메라를 붙이기까지 기다리는 시간(ms).
+ *
+ * 앞 세션이 해제될 틈을 주는 값이다. 너무 짧으면 검은 화면이 그대로 남고, 길면 처음
+ * 들어오는 사람이 기다린다. 실기기에서 이 값이면 안정적으로 열렸다.
+ */
+const CAMERA_ATTACH_DELAY_MS = 350;
+
 /** `0:00:05` 형태. 최대 5초라 분·시는 항상 0이지만 시안 표기를 따른다. */
 function formatTimer(seconds: number): string {
   return `0:00:${String(seconds).padStart(2, '0')}`;
@@ -47,6 +55,25 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
 
   /** 등록된 영상을 보여주는 중인지. 다시 찍었으면 그 결과가 우선한다. */
   const showsExisting = existingVideoUrl !== null && !retaking && video === null;
+
+  /*
+    카메라를 붙이기 전에 잠깐 기다린다.
+
+    안드로이드는 앞서 쓰던 카메라 세션을 언마운트 뒤에도 잠시 붙잡고 있다. 그 사이에 새
+    세션을 열면 실패하는데, 실패를 알리지 않고 **검은 화면으로 남는다** — 글을 하나 올리고
+    작성 화면에 다시 들어오면 미리보기가 검게 뜨고, 나갔다 들어와야 살아나던 이유다
+    (2026-08-05). 짧게 늦추면 그 사이 해제가 끝난다.
+
+    지연 동안에는 "준비 중" 안내가 보인다. 카메라가 열리는 데 어차피 그만큼 걸리므로 처음
+    들어오는 사람에게도 느려지지 않는다.
+  */
+  const [cameraSlotReady, setCameraSlotReady] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setCameraSlotReady(true), CAMERA_ATTACH_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   // 화면에 들어오면 바로 권한을 물어야 미리보기를 띄울 수 있다.
   useEffect(() => {
@@ -127,7 +154,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
 
   return (
     <View style={s.camera}>
-      {capture.ready ? (
+      {capture.ready && cameraSlotReady ? (
         <CameraView
           ref={capture.cameraRef}
           facing={capture.facing}
@@ -149,7 +176,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
       </View>
 
       {/* 녹화 중에는 렌즈를 바꿀 수 없다. 중간에 바꾸면 녹화가 끊긴다. */}
-      {!recording && capture.ready && (
+      {!recording && capture.ready && cameraSlotReady && (
         <Pressable
           accessibilityLabel="전면 · 후면 전환"
           onPress={capture.toggleFacing}
@@ -162,7 +189,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={recording ? '촬영 종료' : '촬영 시작'}
-        disabled={!capture.ready}
+        disabled={!capture.ready || !cameraSlotReady}
         onPress={recording ? capture.stopRecording : capture.startRecording}
         style={s.recordOuter}
       >
