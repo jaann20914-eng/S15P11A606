@@ -6,7 +6,9 @@
  */
 export { CrowdChart } from './CrowdChart';
 export type { CrowdChartProps } from './CrowdChart';
-export { PlacePinCard } from './PlacePinCard';
+export { NextPlaceButton } from './NextPlaceButton';
+export type { NextPlaceButtonProps } from './NextPlaceButton';
+export { PlacePinCard, PLACE_PIN_CARD_HEIGHT } from './PlacePinCard';
 export type { PlacePinCardProps } from './PlacePinCard';
 export { PlaceSearchBar } from './PlaceSearchBar';
 export type { PlaceSearchBarProps } from './PlaceSearchBar';

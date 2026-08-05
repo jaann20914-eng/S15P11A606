@@ -11,7 +11,7 @@ export { MediaLoadingSweep } from './MediaLoadingSweep';
 export { NoticeModal } from './NoticeModal';
 export type { NoticeModalProps } from './NoticeModal';
 export type { CrowdFilterToggleProps } from './CrowdFilterToggle';
-export { CardPager } from './CardPager';
+export { CardPager, CARD_SLOT_GAP } from './CardPager';
 export type { CardPagerProps } from './CardPager';
 export { ErrorView } from './ErrorView';
 export type { ErrorViewProps } from './ErrorView';

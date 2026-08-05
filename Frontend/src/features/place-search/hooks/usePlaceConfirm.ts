@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { confirmPlaceSearch } from '@/api/place/searchConfirm';
@@ -53,8 +53,27 @@ export function usePlaceConfirm(): PlaceConfirmState {
   const [notice, setNotice] = useState<string | null>(null);
   const focusOn = useMapStore((state) => state.focusOn);
 
+  /**
+   * 답을 기다리는 중인지. **`pendingId`가 아니라 ref로 본다.**
+   *
+   * 상태는 다음 렌더에나 반영되므로, 같은 줄을 연달아 누르면 두 번째 누름이 아직 `null`인 값을
+   * 보고 그대로 통과한다. 그러면 확정이 두 번 나가고 **같은 장소 상세가 두 겹 쌓인다.**
+   *
+   * 겹이 둘이면 그 화면들이 한 지도를 두고 다툰다 — 저장소로 고른 핀을 주고받으므로 위 겹이
+   * 고른 핀을 아래 겹이 자기 번호로 옮기고, 그 번호가 다시 지도 이동 요청이 되어 카드가 저절로
+   * 넘어가다 렌더가 끝나지 않았다(2026-08-05 실기기). 그쪽은 화면에서도 막았지만
+   * (`app/place/[placeId]`의 `onTop`), **애초에 두 겹이 생기지 않는 것이 먼저다.**
+   */
+  const running = useRef(false);
+
   const confirm = useCallback(
     (kakaoPlaceId: string, placeName: string, coordinate?: Coordinate) => {
+      if (running.current) {
+        log('중복 눌림 — 무시', { kakaoPlaceId, placeName });
+        return;
+      }
+      running.current = true;
+
       setPendingId(kakaoPlaceId);
       setNotice(null);
 
@@ -122,6 +141,12 @@ export function usePlaceConfirm(): PlaceConfirmState {
           router.push(`/place/${place.placeId}`);
         })
         .catch((cause: unknown) => {
+          /*
+            **실패했을 때만 자물쇠를 푼다.** 성공하면 화면을 옮기는 중이라 다시 누를 이유가 없고,
+            푸는 순간 그 사이에 들어온 두 번째 누름이 통과해 같은 화면이 또 쌓인다. 이 화면은
+            곧 사라지므로 잠긴 채로 두는 것이 맞다.
+          */
+          running.current = false;
           setPendingId(null);
           log('실패', {
             code: cause instanceof ApiError ? cause.code : 'unknown',

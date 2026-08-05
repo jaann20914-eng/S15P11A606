@@ -21,6 +21,13 @@ export interface PlaceDetailState {
   loading: boolean;
   /** 실패 문구. 성공하면 null. */
   error: string | null;
+  /**
+   * 이 장소의 최근 1시간 평균 혼잡 단계(1~4). 모르면 null.
+   *
+   * **지도 마커 색이 이 값으로 갈린다.** 상세 응답에는 없어서 좌표와 같은 곳
+   * (`resolvePlaceMapData`)에서 함께 받아 온다 — 사정은 `PlaceMapData`에 적어 두었다.
+   */
+  crowdLevel: number | null;
 }
 
 /**
@@ -68,9 +75,17 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 마커 색을 정하는 평균 혼잡 단계. 좌표와 함께 온다. */
+  const [crowdLevel, setCrowdLevel] = useState<number | null>(null);
 
-  /** 이미 조회했는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
-  const requested = useRef(false);
+  /**
+   * 이미 조회한 장소. 화면이 다시 그려져도 두 번 부르지 않는다.
+   *
+   * **참·거짓이 아니라 어느 장소였는지 담는다.** 옆 장소로 돌려 보면 이 화면은 그대로 있고
+   * 장소만 갈리므로(`useNextPlace`의 `navigate`), 한 번 불렀다는 표시만 두면 새 장소를 영영
+   * 조회하지 않는다 — 앞 장소의 카드가 그대로 남는다.
+   */
+  const requested = useRef<number | null>(null);
 
   useEffect(() => {
     if (placeId === null) {
@@ -78,8 +93,17 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
       setError('장소를 찾을 수 없어요.');
       return;
     }
-    if (requested.current) return;
-    requested.current = true;
+    if (requested.current === placeId) return;
+    requested.current = placeId;
+
+    /*
+      다른 장소로 갈렸으면 앞의 값을 버린다. 남겨 두면 새 장소를 기다리는 동안 앞 장소의 이름과
+      카드가 그대로 보여, 어느 장소를 보고 있는지 알 수 없다.
+    */
+    setDetail(null);
+    setCrowdLevel(null);
+    setError(null);
+    setLoading(true);
 
     /*
       둘을 함께 기다린다. 좌표는 홈이 이미 받아 둔 것을 꺼내 쓰는 것이 보통이라(그 경우 즉시
@@ -87,8 +111,15 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
     */
     Promise.all([withMinimumDuration(getPlaceDetail(placeId), MIN_LOADING_MS), resolvePlaceMapData(placeId)])
       .then(([received, mapData]) => {
+        /*
+          늦게 도착한 응답이 다른 장소의 화면을 덮지 않게 한다. 돌려 보기를 빠르게 두 번 누르면
+          앞 장소의 응답이 뒤에 올 수 있다.
+        */
+        if (requested.current !== placeId) return;
+
         const merged = withPinCoordinates(received, mapData);
         setDetail(merged);
+        setCrowdLevel(mapData?.averageCrowdLevel ?? null);
         setLoading(false);
 
         /*
@@ -104,12 +135,18 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
         if (!merged.pins.some((pin) => pin.latitude === null)) return;
 
         resolvePlaceMapData(placeId, mapData?.coordinate ?? null, { refresh: true })
-          .then((fresh) =>
-            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh))),
-          )
+          .then((fresh) => {
+            if (requested.current !== placeId) return;
+
+            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh)));
+            // 처음에 못 받았으면 이 응답으로 채운다. 이미 아는 값을 null로 되돌리지는 않는다.
+            if (fresh?.averageCrowdLevel != null) setCrowdLevel(fresh.averageCrowdLevel);
+          })
           .catch(() => undefined);
       })
       .catch((cause: unknown) => {
+        if (requested.current !== placeId) return;
+
         setLoading(false);
         setError(
           cause instanceof ApiError
@@ -119,5 +156,5 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
       });
   }, [placeId]);
 
-  return { detail, loading, error };
+  return { detail, loading, error, crowdLevel };
 }

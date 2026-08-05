@@ -69,8 +69,12 @@ const ESTIMATED_CARD_HEIGHT = 240;
  *
  * 목록(확장 단계)의 카드 사이 간격과 같은 값이다. 같은 카드가 단계에 따라 다른 간격으로
  * 놓이면 넘길 때와 훑을 때의 리듬이 달라진다.
+ *
+ * **밖으로도 내놓는다.** 이 칸의 높이로 시트 단계를 잡는 화면이 카드 높이에서 칸 높이를
+ * 거꾸로 구할 때 쓴다(`onSlotHeightChange`가 알리는 값이 카드 + 이 간격이다).
  */
-const SLOT_GAP = spacing.x3;
+export const CARD_SLOT_GAP = spacing.x3;
+const SLOT_GAP = CARD_SLOT_GAP;
 
 /**
  * 창 좌우에 남기는 그림자 자리.
