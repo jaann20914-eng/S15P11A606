@@ -12,6 +12,7 @@ import com.yuhan.wagglewaggle.domain.pin.entity.CrowdLevel;
 import com.yuhan.wagglewaggle.domain.pin.entity.Pin;
 import com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus;
 import com.yuhan.wagglewaggle.domain.pin.repository.PinRepository;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.domain.place.entity.Place;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.global.s3.S3ObjectInspector;
@@ -51,6 +52,7 @@ class AiBlurResultServiceTest {
 
     @Mock private AiBlurJobRepository aiBlurJobRepository;
     @Mock private PinRepository pinRepository;
+    @Mock private PinTagIndexingService pinTagIndexingService;
     @Mock private S3ObjectInspector s3ObjectInspector;
     @Mock private VideoObjectCleanupPort videoObjectCleanupPort;
 
@@ -82,8 +84,8 @@ class AiBlurResultServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(SERVER_NOW, ZoneOffset.UTC);
         service = new AiBlurResultService(
-                new AiBlurResultMessageValidator(), aiBlurJobRepository, pinRepository, s3ObjectInspector,
-                videoObjectCleanupPort, clock);
+                new AiBlurResultMessageValidator(), aiBlurJobRepository, pinRepository, pinTagIndexingService,
+                s3ObjectInspector, videoObjectCleanupPort, clock);
     }
 
     // ---------- 헬퍼 ----------
@@ -179,6 +181,8 @@ class AiBlurResultServiceTest {
         assertThat(job.getCompletedAt()).isEqualTo(COMPLETED_AT);
         // 최초 등록은 삭제 대상 등록을 하지 않는다.
         verify(videoObjectCleanupPort, never()).registerForDeletion(any());
+        // ACTIVE 전환 시 해당 핀 태그 색인을 트리거한다(커밋 후 실행이나 활성 트랜잭션이 없어 즉시 실행됨).
+        verify(pinTagIndexingService).indexPinTags(DB_PIN_ID);
     }
 
     @Test
@@ -194,6 +198,8 @@ class AiBlurResultServiceTest {
         assertThat(outcome).isEqualTo(AiBlurResultOutcome.OBJECT_NOT_FOUND);
         assertThat(pin.getVideoStatus()).isEqualTo(VideoStatus.PENDING);
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.PENDING);
+        // ACTIVE로 전환되지 않았으므로 색인을 트리거하지 않는다.
+        verify(pinTagIndexingService, never()).indexPinTags(any());
     }
 
     @Test
@@ -210,6 +216,8 @@ class AiBlurResultServiceTest {
         assertThat(job.getStatus()).isEqualTo(AiBlurJobStatus.COMPLETED);
         assertThat(job.getFinalStatus()).isEqualTo(FinalStatus.FAIL);
         verify(s3ObjectInspector, never()).findObjectMetadata(any());
+        // REJECTED는 검색 대상이 아니므로 색인을 트리거하지 않는다.
+        verify(pinTagIndexingService, never()).indexPinTags(any());
     }
 
     @Test
