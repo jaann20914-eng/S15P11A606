@@ -265,8 +265,13 @@ export const pinDetailStyles = StyleSheet.create({
     rowGap: 0,
     marginTop: spacing.x3,
   },
-  /** 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다. */
-  tag: { ...type.small, color: colors.blue, maxWidth: '100%' },
+  /**
+   * 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다.
+   *
+   * 글줄 간격을 본문(22)보다 좁게 직접 준다. 태그는 문장이 아니라 낱말 나열이라 본문
+   * 간격으로 벌리면 줄 사이가 떠 보인다(rowGap을 0으로 줄여도 남던 간격의 정체가 이것).
+   */
+  tag: { ...type.small, lineHeight: 17, color: colors.blue, maxWidth: '100%' },
 
   /* 내 핀 하단 액션 */
   ownerFooter: { flexDirection: 'row', gap: spacing.x2 },
