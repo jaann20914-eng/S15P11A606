@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,11 +19,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ViewAvatar } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import { ChatWarningSheet } from '@/features/chat/components/ChatWarningSheet';
 import { useChatDecision } from '@/features/chat/hooks/useChatDecision';
 import { useChatRoom } from '@/features/chat/hooks/useChatRoom';
 import { useChatSocket } from '@/features/chat/hooks/useChatSocket';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
-import type { ChatRoomStatus, ChatWarning } from '@/types/chat';
+import type { ChatRoomStatus } from '@/types/chat';
 import { splitAddress } from '@/utils/address';
 import { formatTimeOfDay } from '@/utils/datetime';
 
@@ -192,22 +194,22 @@ export default function Room() {
   /*
     들어올 때마다 지난 경고를 한 번 짚어 준다.
 
-    경고 팝업은 도착할 때 한 번 뜨고 마는데, 그것만으로는 방을 다시 열었을 때 이 대화에 경고가
-    있었다는 사실이 남지 않는다. 마지막 경고만 잠깐 보여주고 스스로 사라지게 둔다 — 매번 팝업으로
-    막으면 지난 대화를 다시 보는 것조차 번거로워진다.
+    경고 시트는 도착할 때 한 번 뜨고 마는데, 그것만으로는 방을 다시 열었을 때 이 대화에 경고가
+    있었다는 사실이 남지 않는다. 누적 횟수를 토스트로 잠깐 보여주고 스스로 사라지게 둔다 —
+    매번 시트로 막으면 지난 대화를 다시 보는 것조차 번거로워진다.
+
+    **진입에서 한 번만이다.** 대화 중에 도착하는 새 경고는 시트가 알리므로, 그때 토스트까지
+    겹치면 같은 말을 두 번 하는 셈이다.
   */
-  const [toast, setToast] = useState<ChatWarning | null>(null);
-  const lastWarning = room.warnings.at(-1) ?? null;
+  const [toastCount, setToastCount] = useState<number | null>(null);
+  const toastShownRef = useRef(false);
 
   useEffect(() => {
-    if (room.loading || lastWarning === null) return;
+    if (room.loading || toastShownRef.current || room.warnings.length === 0) return;
 
-    setToast(lastWarning);
-
-    const timer = setTimeout(() => setToast(null), TOAST_MS);
-
-    return () => clearTimeout(timer);
-  }, [room.loading, lastWarning]);
+    toastShownRef.current = true;
+    setToastCount(room.warnings.length);
+  }, [room.loading, room.warnings.length]);
 
   /** 주소 끝 괄호(법정동)는 헤더에서 떼어 낸다. 한 줄뿐이라 도로명이 먼저 보여야 한다. */
   const address = useMemo(() => (room.info === null ? null : splitAddress(room.info.address)), [room.info]);
@@ -350,14 +352,7 @@ export default function Room() {
         )}
 
         {/* 지난 경고 안내. 화면을 막지 않고 위에 얹혀 스스로 사라진다. */}
-        {toast !== null && (
-          <View style={s.toast}>
-            <Ionicons name="alert-circle" size={18} color="#E6C36A" />
-            <Text numberOfLines={3} style={s.toastText}>
-              {toast.content}
-            </Text>
-          </View>
-        )}
+        {toastCount !== null && <WarningToast count={toastCount} onDone={() => setToastCount(null)} />}
 
         <View style={s.composer}>
           {canWrite && room.messages.length === 0 && (
@@ -403,29 +398,63 @@ export default function Room() {
       </View>
 
       {/*
-        방금 도착한 경고는 팝업으로 막아 세운다. 대화 중에 바로 알아야 하는 내용이고, 흐르는
-        안내로 두면 스크롤에 밀려 못 보고 지나간다.
+        방금 도착한 경고는 시트로 막아 세운다. 대화 중에 바로 알아야 하는 내용이고, 흐르는
+        안내로 두면 스크롤에 밀려 못 보고 지나간다. 모양과 닫는 몸짓은 뷰포인트 결제 시트와
+        같다(`ChatWarningSheet`).
       */}
-      <Modal
-        animationType="fade"
-        transparent
-        visible={room.arrivedWarning !== null}
-        onRequestClose={room.dismissWarning}
-      >
-        <View style={s.backdrop}>
-          <View style={s.warningCard}>
-            <Image source={require('../../assets/images/chat-warning-3d.png')} style={s.warningImage} />
-            <Text style={s.warningTitle}>잠깐 확인해 주세요</Text>
-            <Text style={s.warningText}>{room.arrivedWarning?.content}</Text>
-            <Text style={s.warningMeta}>AI 실시간 감지 · 자동 안내</Text>
-
-            <Pressable accessibilityRole="button" onPress={room.dismissWarning} style={s.warningButton}>
-              <Text style={s.warningButtonText}>알겠어요</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <ChatWarningSheet warning={room.arrivedWarning} onClose={room.dismissWarning} />
     </SafeAreaView>
+  );
+}
+
+/** 토스트가 화면에 머무는 시간(ms). 나오고 들어가는 시간은 별도다. */
+const TOAST_ENTER_MS = 260;
+const TOAST_EXIT_MS = 220;
+/** 토스트 폭. 이동 거리를 계산해야 해서 고정한다. */
+const TOAST_WIDTH = 300;
+
+/**
+ * 지난 경고 요약 토스트.
+ *
+ * 왼쪽 화면 밖에서 미끄러져 나와 잠깐 머물고 같은 길로 돌아간다. 시트처럼 화면을 막지
+ * 않는다 — 다시 들어온 사람에게 필요한 것은 "이 방에 경고가 있었다"는 사실뿐이다.
+ */
+function WarningToast({ count, onDone }: { count: number; onDone: () => void }) {
+  const translateX = useRef(new Animated.Value(-(TOAST_WIDTH + layout.gutter))).current;
+
+  useEffect(() => {
+    const animation = Animated.sequence([
+      Animated.timing(translateX, {
+        toValue: 0,
+        duration: TOAST_ENTER_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.delay(TOAST_MS),
+      Animated.timing(translateX, {
+        toValue: -(TOAST_WIDTH + layout.gutter),
+        duration: TOAST_EXIT_MS,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (finished) onDone();
+    });
+
+    return () => animation.stop();
+    // 마운트에 한 번이다. onDone은 부모가 렌더마다 새로 만들어 의존값으로 부적합하다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Animated.View style={[s.toast, { transform: [{ translateX }] }]}>
+      <Image source={require('../../assets/images/chat-warning-3d.png')} style={s.toastImage} />
+      <Text style={s.toastText}>
+        {`이 채팅방에는 누적 경고 ${count}회가 있어요.\n대화할 때 유의해 주세요!`}
+      </Text>
+    </Animated.View>
   );
 }
 
@@ -515,26 +544,34 @@ const s = StyleSheet.create({
   time: { ...type.caption, fontSize: 10, color: colors.gray400 },
 
   /** 지난 경고 안내. 입력칸 위에 얹는다. */
+  /** 왼쪽에서 나오는 토스트. 이동 거리를 계산해야 해서 폭이 고정이다(`TOAST_WIDTH`). */
   toast: {
     position: 'absolute',
     left: layout.gutter,
-    right: layout.gutter,
+    width: TOAST_WIDTH,
     bottom: 104,
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.x2,
+    alignItems: 'center',
+    gap: spacing.x3,
     padding: spacing.x3,
-    borderWidth: 1,
-    borderColor: '#E6C36A',
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: '#F3F8DF',
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 4,
   },
-  toastText: { ...type.caption, flex: 1, color: colors.gray600 },
+  /** 흰 판 위에 그림을 얹어 연둣빛 바탕에서 도드라지게 한다. */
+  toastImage: {
+    width: 44,
+    height: 44,
+    padding: spacing.x1,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
+    resizeMode: 'contain',
+  },
+  toastText: { ...type.small, flex: 1, color: colors.dark },
 
   composer: {
     padding: spacing.x3,
@@ -579,33 +616,5 @@ const s = StyleSheet.create({
   },
   sendDisabled: { opacity: 0.4 },
 
-  /* 방금 도착한 경고 팝업 */
-  backdrop: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: layout.gutter,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  warningCard: {
-    width: '100%',
-    alignItems: 'center',
-    padding: spacing.x5,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-  },
-  warningImage: { width: 92, height: 92, resizeMode: 'contain' },
-  warningTitle: { ...type.title, color: colors.dark, marginTop: spacing.x2 },
-  warningText: { ...type.small, color: colors.gray600, textAlign: 'center', marginTop: spacing.x2 },
-  warningMeta: { ...type.caption, fontSize: 10, color: colors.gray400, marginTop: spacing.x2 },
-  warningButton: {
-    width: '100%',
-    height: 48,
-    marginTop: spacing.x4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.dark,
-  },
-  warningButtonText: { ...type.label, color: '#D9ED76', fontWeight: '600' },
+  /* 방금 도착한 경고의 모양은 시트가 스스로 가진다(`ChatWarningSheet`). */
 });
