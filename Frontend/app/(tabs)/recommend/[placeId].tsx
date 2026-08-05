@@ -92,6 +92,29 @@ export default function RecommendPlaceScreen() {
     if (first !== undefined) setSelectedPinId((current) => current ?? first);
   }, [detail]);
 
+  /*
+    카드 수와 마커 수가 어긋나면 개발 중에 알 수 있게 남긴다.
+
+    두 목록의 출처가 다르다 — 카드는 장소 상세(검수 중 핀도 섞임), 마커는 장소 목록의
+    활성 핀(ACTIVE·미만료만)이다. 그래서 "카드는 6장인데 마커는 5개"가 날 수 있고, 그건
+    지도가 빠뜨린 게 아니라 나머지 하나가 아직 공개 전이거나 이미 만료됐다는 뜻이다.
+  */
+  useEffect(() => {
+    if (!__DEV__ || detail === null || mapData === null) return;
+
+    const cardIds = new Set(detail.pins.map((pin) => pin.pinId));
+    const markerIds = new Set(mapData.activePins.map((pin) => pin.pinId));
+
+    if (cardIds.size !== markerIds.size) {
+      console.log('[recommend-detail] 카드·마커 수 어긋남', {
+        카드: cardIds.size,
+        마커: markerIds.size,
+        마커없는카드: [...cardIds].filter((id) => !markerIds.has(id)),
+        카드없는마커: [...markerIds].filter((id) => !cardIds.has(id)),
+      });
+    }
+  }, [detail, mapData]);
+
   /**
    * 마커를 눌러 스크롤을 옮기는 동안은 스크롤 추적을 잠근다.
    *
@@ -127,7 +150,20 @@ export default function RecommendPlaceScreen() {
       const pins = detail?.pins ?? [];
       if (pins.length === 0) return;
 
-      const anchor = event.nativeEvent.contentOffset.y + SCROLL_ANCHOR;
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+
+      /*
+        바닥에 닿으면 마지막 카드다. 아래쪽 카드들은 기준선까지 올라올 만큼 스크롤이 남아
+        있지 않아, 기준선만 보면 끝까지 내려도 선택이 마지막 몇 장에 못 닿는다.
+      */
+      if (contentOffset.y + layoutMeasurement.height >= contentSize.height - 24) {
+        const last = pins[pins.length - 1].pinId;
+
+        setSelectedPinId((previous) => (previous === last ? previous : last));
+        return;
+      }
+
+      const anchor = contentOffset.y + SCROLL_ANCHOR;
 
       let current = pins[0].pinId;
 

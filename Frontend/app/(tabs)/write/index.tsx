@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +49,18 @@ const FADE_STOPS = [0, 0.55, 1] as const;
 
 /** 키보드가 다 올라오기를 기다리는 시간(ms). 이보다 일찍 옮기면 줄어들기 전 높이로 계산된다. */
 const KEYBOARD_SETTLE_MS = 180;
+
+/**
+ * 이미 완료를 알린 핀. **모듈에 둔다** — 화면 인스턴스나 리렌더와 무관하게 한 번만 세는
+ * 것이 목적이라서다.
+ *
+ * 완료 효과는 의존값이 흔들리면 다시 돈다. 확인을 눌러 화면을 내리는 찰나에 라우트
+ * 파라미터가 사라지며 mode가 바뀌는 경우를 봤고, 컴포넌트 ref로 막았는데도 같은 알림이
+ * 두 장 쌓이는 경우가 또 나왔다(2026-08-05 — 안드로이드는 두 번째 Alert를 큐에 넣어,
+ * 첫 확인을 누르면 같은 알림이 다시 떠 "확인이 안 먹는" 것으로 보이고 그 확인이 이동을
+ * 한 번 더 실행했다). 어떤 경로로 다시 돌든 같은 핀은 다시 알리지 않는다.
+ */
+const announcedPinIds = new Set<string>();
 
 /**
  * 게시글 작성 · 수정 화면.
@@ -213,21 +233,11 @@ export default function PinCreateScreen() {
    * 화면을 떠난 뒤에 끝난 경우에는 이동하지 않는다. 사용자가 이미 다른 일을 하고 있으므로
    * 갑자기 화면을 바꾸지 않고, 그 결과는 화면을 벗어날 때 정리한다.
    */
-  /**
-   * 이미 완료를 알린 핀.
-   *
-   * 아래 효과는 의존값이 바뀌면 다시 도는데, 확인을 눌러 화면을 내리는 찰나에 라우트
-   * 파라미터가 사라지며 `mode.type`이 `edit`에서 `create`로 바뀌는 순간이 있다. 그러면
-   * 같은 완료에 대해 **등록용 안내가 한 번 더 떠서**, 그 확인이 등록용 이동(마이페이지 교체
-   * + 상세 push)까지 실행했다 — 상세가 두 번 열린 원인(2026-08-05). 핀별로 한 번만 알린다.
-   */
-  const announcedPinIdRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (!focused || phase !== 'done' || publishedPinId === null) return;
-    if (announcedPinIdRef.current === publishedPinId) return;
+    if (announcedPinIds.has(publishedPinId)) return;
 
-    announcedPinIdRef.current = publishedPinId;
+    announcedPinIds.add(publishedPinId);
 
     /*
       끝난 것을 알리고 나서 넘어간다.
@@ -266,15 +276,20 @@ export default function PinCreateScreen() {
                 /*
                   등록은 상세를 먼저 **쌓아서** 열고, 그 아래 탭을 마이페이지의 오늘 핀 목록으로
                   바꿔 둔다. 순서가 중요하다 — 탭을 먼저 바꾸면 전환이 두 번 보인다(작성 →
-                  마이페이지 → 상세). 상세를 먼저 올리면 탭 교체는 상세에 가려진 채 일어나
-                  사용자는 전환을 한 번만 본다.
+                  마이페이지 → 상세).
+
+                  탭 교체는 상세가 다 올라온 **애니메이션 뒤로** 미룬다. 같은 틱에 바꾸면
+                  상세가 미끄러져 올라오는 동안 그 밑에서 탭이 갈리는 것이 비쳐 보였다 —
+                  오늘 핀 목록이 스치듯 지나가던 원인.
 
                   탭을 바꿔 두는 이유: 이 화면이 탭 안에 있어 상세로 `replace`하면 탭 묶음의
                   뿌리가 사라져 뒤로 가기가 홈으로 떨어졌다. 상세에서 뒤로 가면 방금 등록한
                   핀이 담긴 목록이 나오게 한다.
                 */
                 router.push(`/pin/${publishedPinId}`);
-                router.replace('/(tabs)/mypage/activity');
+                InteractionManager.runAfterInteractions(() => {
+                  router.replace('/(tabs)/mypage/activity');
+                });
               }
 
               setTimeout(resetPublish, 0);
