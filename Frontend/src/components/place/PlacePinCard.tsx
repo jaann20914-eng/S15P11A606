@@ -143,36 +143,46 @@ export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardPro
 
         <View style={s.copy}>
           {/*
-            **비어 있어도 자리를 비우지 않는다.**
+            **비어 있어도 자리를 비우지 않되, 글자로 알리지도 않는다.**
 
             메모와 태그는 등록할 때 선택 입력이라 없는 핀이 흔하다. 자리를 통째로 접으면 그
-            카드만 오른쪽이 텅 비어, 값이 없는 것인지 화면이 덜 그려진 것인지 구분되지 않는다.
-            없다고 적어 두면 읽는 쪽에서 "이 사람은 글을 안 남겼다"로 읽힌다.
+            카드만 오른쪽이 텅 비어 값이 없는 것인지 덜 그려진 것인지 구분되지 않는다. 그래서
+            예전에는 `내용 없음`·`태그 없음`을 적었는데, **한 카드에 "없음"이 두 번 쌓여** 읽을
+            것이 없는 카드가 오히려 글자로 시끄러워졌다(팀 의견, 2026-08-05).
+
+            지금은 값이 없는 자리에 **줄표(—) 하나**만 둔다. 표에서 빈 칸을 적는 방식이라 뜻이
+            바로 읽히고, 눈에 걸리지 않으면서 자리는 지킨다. 태그 쪽은 칩 모양을 유지해 "태그가
+            들어올 자리"라는 것까지 보인다.
+
+            **읽어 주는 쪽에는 그대로 말로 알린다**(`accessibilityLabel`) — 줄표는 눈으로 볼 때만
+            뜻이 통하기 때문이다.
           */}
           {memo.length > 0 ? (
             <Text numberOfLines={MEMO_MAX_LINES} ellipsizeMode="tail" style={s.memo}>
               {memo}
             </Text>
           ) : (
-            <Text style={s.placeholder}>내용 없음</Text>
+            <Text accessibilityLabel="남긴 메모 없음" style={s.emptyMark}>
+              —
+            </Text>
           )}
 
-          {pin.tags.length > 0 ? (
-            <View style={s.tags}>
-              {pin.tags.map((tag) => (
+          {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
+          <View style={s.tags}>
+            {pin.tags.length > 0 ? (
+              pin.tags.map((tag) => (
                 <View key={tag} style={s.tag}>
                   <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
                     #{tag}
                   </Text>
                 </View>
-              ))}
-            </View>
-          ) : (
-            /* 태그 칩 줄과 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */
-            <View style={s.tags}>
-              <Text style={s.placeholder}>태그 없음</Text>
-            </View>
-          )}
+              ))
+            ) : (
+              <View accessibilityLabel="태그 없음" style={[s.tag, s.tagEmpty]}>
+                <Text style={s.emptyMark}>—</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </Pressable>
@@ -239,11 +249,12 @@ const s = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   memo: { ...type.small, color: colors.gray600 },
   /**
-   * 값이 없다고 적는 자리. 실제 값보다 한 단계 작고 옅게 둔다.
+   * 값이 없는 자리에 두는 줄표.
    *
-   * 메모·태그 자리에 같은 스타일을 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
+   * 메모와 태그가 같은 표시를 쓴다 — 둘이 다르면 하나는 값처럼, 하나는 안내처럼 읽힌다.
+   * 글자보다 옅게 두어 카드를 훑을 때 걸리지 않게 한다.
    */
-  placeholder: { ...type.caption, color: colors.gray400 },
+  emptyMark: { ...type.small, color: colors.gray400 },
   /**
    * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**
    *
@@ -261,6 +272,8 @@ const s = StyleSheet.create({
     marginTop: 'auto',
     overflow: 'hidden',
   },
+  /** 태그가 없을 때의 칩. 색만 빼고 모양은 같게 두어 "들어올 자리"로 읽힌다. */
+  tagEmpty: { minWidth: 44, backgroundColor: colors.gray100 },
   tag: {
     maxWidth: '45%',
     height: 28,
