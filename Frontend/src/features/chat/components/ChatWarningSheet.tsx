@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VideoView } from 'expo-video';
 import { colors, radius, spacing, type } from '@/constants/theme';
@@ -59,7 +59,16 @@ export function ChatWarningSheet({ warning, onClose }: ChatWarningSheetProps) {
   const [shown, setShown] = useState(warning);
 
   useEffect(() => {
-    if (warning !== null) setShown(warning);
+    if (warning === null) return;
+
+    setShown(warning);
+
+    /*
+      키보드를 내리고 띄운다. 대화 중에 도착하는 시트라 키보드가 올라와 있는 경우가 많은데,
+      시트가 화면 아래에 붙으므로 그대로 두면 키보드 뒤에 가려진다. 시트가 떠 있는 동안은
+      입력할 일도 없다.
+    */
+    Keyboard.dismiss();
   }, [warning]);
 
   if (!rendered || shown === null) return null;
