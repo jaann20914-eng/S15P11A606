@@ -159,6 +159,19 @@ export default function RecommendPlaceScreen() {
         닿는 순간 기준선이 마지막 카드에 정확히 닿고, 중간 카드들의 간격도 고르게 당겨진다.
       */
       const maxOffset = Math.max(1, contentSize.height - layoutMeasurement.height);
+
+      /*
+        바닥 근처는 곧장 마지막 카드다. 아래 비례식은 정확히 바닥(offset = maxOffset)에
+        닿아야 마지막 카드에 닿는데, 손으로 살살 내리면 몇 px 앞에서 멈춰 못 닿는다 —
+        관성으로 세게 내린 첫 번째만 되고 두 번째부터 안 되던 이유(2026-08-05).
+      */
+      if (maxOffset - contentOffset.y <= 48) {
+        const last = pins[pins.length - 1].pinId;
+
+        setSelectedPinId((previous) => (previous === last ? previous : last));
+        return;
+      }
+
       const lastCardY = cardPositionsRef.current[pins[pins.length - 1].pinId];
       const lastAbsoluteY = lastCardY === undefined ? 0 : pinSectionYRef.current + lastCardY;
       const shortfall = Math.max(0, lastAbsoluteY - (maxOffset + SCROLL_ANCHOR));
