@@ -11,7 +11,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import { router } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
 import { AppTabBar, NoticeModal, useAppTabBarHeight } from '@/components/common';
@@ -108,7 +109,15 @@ export default function PinCreateScreen() {
 
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
-  const [focused, setFocused] = useState(false);
+
+  /*
+    화면 초점. `useFocusEffect`가 아니라 `useIsFocused`를 쓴다.
+
+    이 화면에서 `useFocusEffect`의 blur 콜백이 **실제로 오지 않는 것을 로그로 확인했다**
+    (2026-08-05 — 자식 컴포넌트의 `useIsFocused`는 같은 순간 정확히 반응했다). 그래서 나갈 때
+    비우기로 한 폼이 그대로 남아, 직전 등록의 장소와 태그가 다음 작성에 남아 있었다.
+  */
+  const focused = useIsFocused();
   /** 아래 고정 영역이 내용 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
   const [actionBarHeight, setActionBarHeight] = useState(0);
 
@@ -168,30 +177,26 @@ export default function PinCreateScreen() {
   const dismissError = usePinPublishStore((state) => state.dismissError);
   const resetPublish = usePinPublishStore((state) => state.reset);
 
-  useFocusEffect(
-    useCallback(() => {
+  useEffect(() => {
+    if (focused) {
       logWrite('초점 받음');
-      setFocused(true);
 
       /*
-        **들어올 때도 비운다.** 나갈 때(blur) 비우는 것이 원칙이지만, 이동 경로에 따라 blur가
-        오지 않는 경우가 실제로 있었다 — 그때 직전 등록의 장소가 폼에 남아 있었다(2026-08-05).
-        발행이 돌고 있지 않은 생성 모드라면 이 화면에 남아 있어야 할 값이 없다.
+        **들어올 때 비운다.** 발행이 돌고 있지 않은 생성 모드라면 이 화면에 남아 있어야 할
+        값이 없다 — 직전 등록의 장소·태그가 남는 일을 여기서 끊는다.
       */
       if (mode.type === 'create' && usePinPublishStore.getState().phase === 'idle') {
         form.reset();
       }
+      return;
+    }
 
-      return () => {
-        logWrite('초점 잃음');
-        setFocused(false);
-        form.reset();
+    logWrite('초점 잃음');
+    form.reset();
 
-        // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
-        if (usePinPublishStore.getState().phase === 'done') resetPublish();
-      };
-    }, [form.reset, resetPublish, mode.type]),
-  );
+    // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
+    if (usePinPublishStore.getState().phase === 'done') resetPublish();
+  }, [focused, form.reset, resetPublish, mode.type]);
 
   const submit = () => {
     /*
@@ -316,6 +321,12 @@ export default function PinCreateScreen() {
     if (leaving) return;
 
     setLeaving(true);
+
+    /*
+      떠나기 전에 폼을 비운다. 초점 이동이 어떻게 오가든 이 발행의 입력이 다음 작성에 남을 수
+      없게, 내비게이션과 무관한 이 지점에서 확정적으로 비운다.
+    */
+    form.reset();
 
     if (mode.type === 'edit') {
       /*
