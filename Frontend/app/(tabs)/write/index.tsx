@@ -276,16 +276,18 @@ export default function PinCreateScreen() {
                 router.dismissTo(`/pin/${mode.pinId}`);
               } else {
                 /*
-                  등록은 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에 상세를 **쌓아서**
-                  연다. 이 순서와 타이밍을 바꾸지 않는다 — 상세를 먼저 밀고 탭 교체를 뒤로
-                  미뤄 봤더니, 교체가 실행되는 시점에는 초점이 이미 상세라 replace가 **상세를
-                  갈아치워** 오늘 핀 목록에서 멈췄다(2026-08-05).
+                  등록은 탭을 마이페이지로 돌려 두고, 그 위에 오늘 핀 목록 → 상세 순으로
+                  **쌓아서** 연다. 이 순서와 타이밍을 바꾸지 않는다 — 상세를 먼저 밀고 탭
+                  교체를 뒤로 미뤄 봤더니, 교체가 실행되는 시점에는 초점이 이미 상세라
+                  replace가 **상세를 갈아치워** 오늘 핀 목록에서 멈췄다(2026-08-05).
 
-                  탭을 바꿔 두는 이유: 이 화면이 탭 안에 있어 상세로 `replace`하면 탭 묶음의
-                  뿌리가 사라져 뒤로 가기가 홈으로 떨어졌다. 상세에서 뒤로 가면 방금 등록한
-                  핀이 담긴 목록이 나온다.
+                  마이페이지의 **입구(index)를 스택 뿌리로 남겨야 한다.** 전에는
+                  `/(tabs)/mypage/activity`로 replace해 오늘 핀 목록이 뿌리가 됐고, 그러면
+                  탭이 접혀도(popToTopOnBlur) 목록까지만 접혀 마이페이지 탭을 눌러도 입구가
+                  영영 나오지 않았다. 상세에서 뒤로 가면 오늘 핀 목록, 한 번 더 가면 입구다.
                 */
-                router.replace('/(tabs)/mypage/activity');
+                router.replace('/(tabs)/mypage');
+                router.push('/(tabs)/mypage/activity');
                 router.push(`/pin/${publishedPinId}`);
               }
 
