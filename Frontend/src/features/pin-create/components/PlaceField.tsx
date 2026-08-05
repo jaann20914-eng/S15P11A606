@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import type { PlaceNearbyItem } from '@/types/place';
@@ -113,10 +113,14 @@ export function PlaceField({ place, onSelect }: PlaceFieldProps) {
             </Text>
           ) : (
             /*
-              목록 안에서 따로 스크롤하지 않는다. 폼이 이미 스크롤 화면이라 그 안에 또 두면
-              손가락이 어느 쪽을 움직이는지 애매해져, 아래 후보가 있는지조차 알기 어려웠다.
+              목록은 제 높이 안에서 스크롤한다(`placeListScroll`의 maxHeight).
+
+              받은 만큼 그대로 펼쳤더니 후보가 많은 자리에서는 목록이 아래 입력칸(상세 위치)을
+              전부 밀어냈다. 높이를 묶고 안에서 고르게 한다. 폼도 스크롤 화면이라 스크롤이
+              겹치는데, `nestedScrollEnabled`로 목록 위의 손가락은 목록이 가져간다 — 세 줄
+              너머가 있다는 것은 잘린 마지막 줄이 보여준다.
             */
-            <View>
+            <ScrollView style={s.placeListScroll} nestedScrollEnabled>
               {nearby.places.map((found) => (
                 <Pressable
                   key={found.kakaoPlaceId}
@@ -132,7 +136,7 @@ export function PlaceField({ place, onSelect }: PlaceFieldProps) {
                   <Text style={s.placeDistance}>{found.distanceMeters}m</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
       )}
