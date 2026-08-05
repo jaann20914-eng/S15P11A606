@@ -44,8 +44,23 @@ const MY_LOCATION_WAIT_MS = 1500;
  * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다. 0으로 두면 시트가 화면 전체를
  * 덮은 채 시작해 눈에 띄게 튀므로, 실제와 가까운 값을 둔다.
  */
-const ESTIMATED_HEADER_HEIGHT = 118;
+/*
+  머리글 = 손잡이(8+4+4) + 제목 줄(44) + 현재 위치 줄(16-4) + 아래 여백(12) ≈ 84.
+  예전 값(118)은 제목과 토글이 두 줄이던 때의 것이라, 켤 때마다 시트가 34px 높게 시작해
+  측정이 도착하며 내려앉았다.
+*/
+const ESTIMATED_HEADER_HEIGHT = 84;
 const ESTIMATED_CARD_HEIGHT = 208;
+
+/**
+ * 카드가 없을 때 그 자리에 놓이는 안내 블록의 최소 높이.
+ *
+ * 네 가지 안내(불러오는 중 · 실패 · 범위에 없음 · 필터에 걸림)의 높이를 이 값으로 맞춘다.
+ * 맞추지 않으면 불러오는 중(표시 하나)과 결과 안내(두 줄)의 높이가 달라, 목록이 비는 자리에서
+ * **시트가 한 번 더 커졌다 작아진다.** 이 값이 곧 "보통" 단계의 높이가 되므로 스타일과 시트
+ * 계산이 같은 값을 봐야 한다.
+ */
+const EMPTY_BLOCK_HEIGHT = 140;
 
 /** 카드에 링으로 보여줄 작성자 수. 넘치는 핀은 `+n`으로 적는다. */
 const ANGLE_PREVIEW_COUNT = 5;
@@ -108,6 +123,8 @@ export default function Home() {
   */
   const [headerHeight, setHeaderHeight] = useState(0);
   const [cardHeight, setCardHeight] = useState(0);
+  /** 카드가 없을 때 그 자리를 채우는 안내 블록의 높이. 그 상태의 "보통" 단계 높이가 된다. */
+  const [emptyHeight, setEmptyHeight] = useState(0);
 
   /**
    * 시트가 놓이는 영역의 높이. `useWindowDimensions()`의 창 높이와 **다르다.**
@@ -135,22 +152,6 @@ export default function Home() {
   }, [screenHeight, setHomeSheetSpace]);
 
   /*
-    3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
-
-    - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
-    - 기본 — 헤더 + 카드 하나. 카드 아래로 약간 여백을 둬 잘려 보이지 않게 한다.
-    - 확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
-      `layout.searchHeight`만큼 차지하므로 그 끝에서 한 칸 띄운 자리가 상한이다.
-  */
-  const sheet = useBottomSheet({
-    space: sheetSpace,
-    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
-    middleExtra: (cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT) + spacing.x4,
-    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
-  });
-  const { level, moveTo, sheetY, coveredHeight } = sheet;
-
-  /*
     지도에 찍을 장소. **지도에 보이는 범위를 서버에 물어 받는다**(`GET /api/v1/places`).
 
     예전에는 손으로 박아 둔 배열(`@/data/mock`)을 직접 읽었다. 목업 모드에서는 그럴듯하게
@@ -162,9 +163,6 @@ export default function Home() {
   */
   const bounds = useMapStore((state) => state.bounds);
   const inView = usePlacesInView(bounds);
-
-  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
-  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
   /*
     혼잡도 필터로 거른다. **평균 혼잡도가 없는 장소는 어느 필터에도 들지 않는다** — 최근 1시간에
@@ -178,6 +176,46 @@ export default function Home() {
       ),
     [crowdFilter, inView.places],
   );
+
+  /*
+    보여줄 카드가 없는 상태인지. **시트의 "보통" 단계 높이가 이 값으로 갈린다** — 카드가 있으면
+    카드 한 장, 없으면 그 자리에 놓이는 안내 블록에 맞춘다. 그래서 시트 계산보다 먼저 구한다.
+  */
+  const listEmpty = visiblePlaces.length === 0;
+
+  /*
+    3단계 높이를 정하는 값. 시트 움직임 자체는 useBottomSheet이 맡는다.
+
+    - 축소 — 헤더만. 탭바는 이 영역 밖에 있으므로 더 보탤 것이 없다.
+    - 기본 — 헤더 + 카드 하나. 카드 아래로 약간 여백을 둬 잘려 보이지 않게 한다.
+    - 확장 — 검색바 바로 아래. 검색바는 `insets.top + spacing.x3`에서 시작해
+      `layout.searchHeight`만큼 차지하므로 그 끝에서 한 칸 띄운 자리가 상한이다.
+  */
+  const sheet = useBottomSheet({
+    space: sheetSpace,
+    collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
+    /*
+      **비어 있으면 안내 블록에 맞춘다.**
+
+      예전에는 늘 카드 높이로 잡았다. 그런데 카드가 없을 때 그 자리에 놓이는 것은 카드가 아니라
+      안내 문구라, 있지도 않은 카드 높이로 시트를 벌려 안내 아래에 빈 칸이 한참 남았다. 켤 때마다
+      크기가 달라 보인 것도 그래서다 — 카드를 한 번도 재지 못했으면 어림값이, 필터를 바꿔 비었으면
+      직전에 잰 카드 높이가 그대로 쓰였다.
+    */
+    middleExtra:
+      (listEmpty
+        ? emptyHeight > 0
+          ? emptyHeight
+          : EMPTY_BLOCK_HEIGHT
+        : cardHeight > 0
+          ? cardHeight
+          : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+    expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
+  });
+  const { level, moveTo, sheetY, coveredHeight } = sheet;
+
+  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
+  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
 
   /*
     지도에 찍을 마커.
@@ -714,27 +752,35 @@ export default function Home() {
             없다"로 똑같이 보인다. 사용자가 할 일이 각각 다르므로(기다린다 / 다시 시도한다 /
             지도를 옮긴다 / 필터를 바꾼다) 문구를 나눈다.
           */}
-          {visiblePlaces.length === 0 &&
-            (inView.loading ? (
-              <View style={s.empty}>
-                <ActivityIndicator color={colors.gray600} />
-              </View>
-            ) : inView.error !== null ? (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
-                <Text style={s.emptyText}>{inView.error}</Text>
-              </View>
-            ) : inView.places.length === 0 ? (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
-                <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
-              </View>
-            ) : (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
-                <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
-              </View>
-            ))}
+          {listEmpty && (
+            /*
+              **높이를 재서 시트에 넘긴다.** 이 블록이 카드 자리를 대신 채우므로 "보통" 단계의
+              높이도 이 블록이 정해야 한다. 네 안내의 높이는 `s.empty`가 같게 맞춰 두었으므로
+              (`EMPTY_BLOCK_HEIGHT`) 안내가 바뀌어도 시트는 움직이지 않는다.
+            */
+            <View onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}>
+              {inView.loading ? (
+                <View style={s.empty}>
+                  <ActivityIndicator color={colors.gray600} />
+                </View>
+              ) : inView.error !== null ? (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>주변 장소를 불러오지 못했어요</Text>
+                  <Text style={s.emptyText}>{inView.error}</Text>
+                </View>
+              ) : inView.places.length === 0 ? (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>이 근처에는 아직 영상핀이 없어요</Text>
+                  <Text style={s.emptyText}>지도를 옮겨 보거나 첫 영상핀을 올려보세요.</Text>
+                </View>
+              ) : (
+                <View style={s.empty}>
+                  <Text style={s.emptyTitle}>조건에 맞는 장소가 없어요</Text>
+                  <Text style={s.emptyText}>다른 혼잡도 필터를 선택해보세요.</Text>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       </Animated.View>
     </View>
@@ -895,7 +941,20 @@ const s = StyleSheet.create({
   pinUpload: { ...type.caption, color: colors.gray400 },
   angleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2, marginTop: spacing.x3 },
   morePins: { ...type.caption, color: colors.gray600, marginLeft: spacing.x1 },
-  empty: { alignItems: 'center', paddingVertical: spacing.x10 },
+  /**
+   * 카드가 없을 때 그 자리를 채우는 안내.
+   *
+   * **네 안내가 같은 높이여야 한다**(`EMPTY_BLOCK_HEIGHT`). 이 높이가 곧 시트의 "보통" 단계
+   * 높이가 되므로, 불러오는 중(표시 하나)과 결과 안내(두 줄)의 높이가 다르면 그 사이에 시트가
+   * 한 번 커졌다 작아진다. 최소 높이로 맞추고 가운데 정렬해, 글꼴 설정으로 글줄이 더 커지면
+   * 블록이 함께 자라고 그 값이 측정으로 시트에 전해진다.
+   */
+  empty: {
+    minHeight: EMPTY_BLOCK_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.x6,
+  },
   emptyTitle: { ...type.title, color: colors.dark },
   emptyText: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
 });

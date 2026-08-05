@@ -35,6 +35,8 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  */
 const ESTIMATED_HEADER_HEIGHT = 92;
 const ESTIMATED_PIN_SLOT_HEIGHT = 240;
+/** 핀이 없다고 적는 줄 하나의 높이(글줄 22 + 위아래 여백 32). */
+const ESTIMATED_EMPTY_HEIGHT = 54;
 
 /** "실시간 영상핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
 const LIVE_DOT_SIZE = 7;
@@ -137,6 +139,16 @@ export default function Place() {
   const homeSheetSpace = useMapStore((state) => state.homeSheetSpace);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [pinSlotHeight, setPinSlotHeight] = useState(0);
+  /** 핀이 없다고 적는 줄의 높이. 그 상태의 "보통" 단계 높이가 된다. */
+  const [emptyHeight, setEmptyHeight] = useState(0);
+
+  /**
+   * 보여줄 영상핀이 없는 것이 **확실한지.**
+   *
+   * 조회 중에는 참으로 보지 않는다 — 홈에서 들어온 장소는 활성 핀이 있어서 목록에 있었으므로
+   * 카드가 올 가능성이 높다. 그때 빈 높이로 잡아 두면 카드가 도착하며 시트가 한 번 뛴다.
+   */
+  const noPins = !loading && detail !== null && pins.length === 0;
 
   const sheet = useBottomSheet({
     space: homeSheetSpace > 0 ? homeSheetSpace : Math.max(0, height - navBarHeight),
@@ -148,7 +160,18 @@ export default function Place() {
       자리가 목록이 되어 카드 전부의 높이가 나오므로 화면이 직접 잴 수 없다. 머리글과 카드
       사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
-    middleExtra: (pinSlotHeight > 0 ? pinSlotHeight : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
+    /*
+      핀이 없으면 **카드 대신 놓이는 안내 줄에 맞춘다.** 있지도 않은 카드 높이로 시트를 벌리면
+      안내 한 줄 아래에 빈 칸이 한참 남는다(홈 시트도 같은 이유로 같은 처리를 한다).
+    */
+    middleExtra:
+      (noPins
+        ? emptyHeight > 0
+          ? emptyHeight
+          : ESTIMATED_EMPTY_HEIGHT
+        : pinSlotHeight > 0
+          ? pinSlotHeight
+          : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
       **끌어내려 닫지 않는다.** `onDismiss`를 주지 않으므로 축소가 하한이고, 홈 시트처럼
@@ -681,8 +704,14 @@ export default function Place() {
               핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다.
               카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
             */}
-            {!loading && detail !== null && pins.length === 0 && (
-              <Text style={s.emptyPins}>지금 이곳에 올라온 영상핀이 없어요.</Text>
+            {noPins && (
+              /* 이 줄이 카드 자리를 대신 채우므로 높이를 재서 시트에 넘긴다. */
+              <Text
+                onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}
+                style={s.emptyPins}
+              >
+                지금 이곳에 올라온 영상핀이 없어요.
+              </Text>
             )}
           </Animated.View>
         </ScrollView>
