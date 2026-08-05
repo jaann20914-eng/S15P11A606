@@ -86,12 +86,16 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
   const [previewLive, setPreviewLive] = useState(false);
 
   /**
-   * 카메라를 몇 번째로 붙이는 중인지. 이 값이 `CameraView`의 key라서, 올리면 네이티브 쪽이
-   * 완전히 새로 만들어진다.
+   * 카메라를 몇 번째로 여는 중인지.
+   *
+   * **인스턴스를 새로 만들지 않는다**(key로 갈아치우지 않는다). 안드로이드 구현의
+   * `unbindAll()`이 프로세스 전역이라, 새 인스턴스를 만들면 옛 인스턴스의 해제가 **새
+   * 세션까지 끊는다** — 다시 붙일수록 검은 화면과 깨진 배율이 번갈아 나오던 원인이다
+   * (2026-08-05). 대신 같은 인스턴스에서 세션만 다시 여는 `resumePreview`를 쓴다.
    */
   const [attachAttempt, setAttachAttempt] = useState(0);
 
-  /** 다시 붙여 볼 여지가 남았는지. 다 쓰면 안내로 넘긴다. */
+  /** 다시 열어 볼 여지가 남았는지. 다 쓰면 안내로 넘긴다. */
   const canRetryAttach = attachAttempt < CAMERA_ATTACH_ATTEMPTS - 1;
 
   /**
@@ -109,10 +113,10 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
   }, []);
 
   /*
-    열렸다는 신호를 기다리다 오지 않으면 새로 붙인다.
+    열렸다는 신호를 기다리다 오지 않으면 **같은 인스턴스에서** 세션을 다시 연다.
 
-    앞 세션이 아직 카메라를 붙잡고 있으면 이 시도는 조용히 실패한다. 그때 key를 올려 새로
-    만들면 대개 다음 시도에서 열린다 — 그 사이 해제가 끝나기 때문이다.
+    앞 화면의 미디어 정리와 겹치면 첫 시도가 조용히 실패한다. `resumePreview`는 네이티브가
+    카메라를 다시 바인딩하는 공식 통로라, 그 사이 정리가 끝났으면 이번에는 열린다.
   */
   useEffect(() => {
     if (!attachAllowed || previewLive || showsExisting || video !== null) return;
@@ -122,12 +126,13 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
     }
 
     const timer = setTimeout(() => {
-      log('신호가 오지 않아 다시 붙인다', { 시도: attachAttempt + 1, 대기ms: CAMERA_READY_TIMEOUT_MS });
+      log('신호가 오지 않아 다시 연다', { 시도: attachAttempt + 1, 대기ms: CAMERA_READY_TIMEOUT_MS });
+      void capture.cameraRef.current?.resumePreview().catch(() => undefined);
       setAttachAttempt((current) => current + 1);
     }, CAMERA_READY_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
-  }, [attachAllowed, previewLive, showsExisting, video, canRetryAttach, attachAttempt]);
+  }, [attachAllowed, previewLive, showsExisting, video, canRetryAttach, attachAttempt, capture.cameraRef]);
 
   /*
     카메라를 쓰지 않는 상태로 갔다가 돌아오면 처음부터 다시 확인한다. 찍어 둔 영상을 보다가
@@ -223,12 +228,10 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
         카메라는 권한이 있으면 **항상 붙인다.** 붙이지 않으면 열렸다는 신호도 오지 않아
         준비 여부를 알 수 없다. 열리기 전에는 아래 안내 층이 위를 덮는다.
 
-        `key`가 시도 번호다. 열리지 않아 다시 붙일 때 이 값이 올라가면 네이티브 쪽이 완전히
-        새로 만들어진다.
+        인스턴스는 하나만 둔다 — 다시 여는 것은 `resumePreview`가 한다(위 효과의 주석 참고).
       */}
       {capture.ready && attachAllowed && (
         <CameraView
-          key={attachAttempt}
           ref={capture.cameraRef}
           facing={capture.facing}
           mode="video"
