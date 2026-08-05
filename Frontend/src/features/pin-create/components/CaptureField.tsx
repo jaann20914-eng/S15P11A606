@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { MAX_VIDEO_SECONDS } from '@/types/pinCreate';
 import type { PinDraftVideo } from '@/types/pinCreate';
+import { createDevLogger } from '@/utils/devLog';
 import { useVideoCapture } from '../hooks/useVideoCapture';
 import { pinCreateStyles as s } from '../styles';
 import { CapturePreview } from './CapturePreview';
@@ -35,6 +36,19 @@ const CAMERA_READY_TIMEOUT_MS = 1200;
 
 /** 다시 붙여 보는 횟수의 상한. 이보다 더 하면 기기 문제이므로 안내로 넘긴다. */
 const CAMERA_ATTACH_ATTEMPTS = 4;
+
+/**
+ * 화면에 들어와 카메라를 붙이기까지 늦추는 시간(ms).
+ *
+ * 이 화면으로 오는 길에 방금 닫힌 화면이 미디어를 해제하는 중일 수 있다 — 핀 상세에서
+ * 뒤로 나오면 그 화면의 영상 플레이어가 정리되고, 그 정리와 카메라 열기가 겹치면 카메라가
+ * 열리지 않았다(상세 위에서 바로 + 탭을 누르면 상세가 남아 있어 겹치지 않고 잘 열린다,
+ * 2026-08-05). 한 박자 늦춰 그 정리가 끝난 뒤에 붙인다.
+ */
+const CAMERA_ATTACH_DELAY_MS = 250;
+
+/** 카메라가 어디서 막히는지 터미널에서 따라갈 수 있게 한다. */
+const log = createDevLogger('capture');
 
 /** `0:00:05` 형태. 최대 5초라 분·시는 항상 0이지만 시안 표기를 따른다. */
 function formatTimer(seconds: number): string {
@@ -80,6 +94,20 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
   /** 다시 붙여 볼 여지가 남았는지. 다 쓰면 안내로 넘긴다. */
   const canRetryAttach = attachAttempt < CAMERA_ATTACH_ATTEMPTS - 1;
 
+  /**
+   * 카메라를 붙일 때가 됐는지. 들어온 직후 한 박자 늦춘다(`CAMERA_ATTACH_DELAY_MS`).
+   */
+  const [attachAllowed, setAttachAllowed] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      log('붙이기 시작');
+      setAttachAllowed(true);
+    }, CAMERA_ATTACH_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   /*
     열렸다는 신호를 기다리다 오지 않으면 새로 붙인다.
 
@@ -87,13 +115,19 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
     만들면 대개 다음 시도에서 열린다 — 그 사이 해제가 끝나기 때문이다.
   */
   useEffect(() => {
-    if (previewLive || showsExisting || video !== null) return;
-    if (!canRetryAttach) return;
+    if (!attachAllowed || previewLive || showsExisting || video !== null) return;
+    if (!canRetryAttach) {
+      log('열지 못했다', { 시도: attachAttempt + 1 });
+      return;
+    }
 
-    const timer = setTimeout(() => setAttachAttempt((current) => current + 1), CAMERA_READY_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      log('신호가 오지 않아 다시 붙인다', { 시도: attachAttempt + 1, 대기ms: CAMERA_READY_TIMEOUT_MS });
+      setAttachAttempt((current) => current + 1);
+    }, CAMERA_READY_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
-  }, [previewLive, showsExisting, video, canRetryAttach, attachAttempt]);
+  }, [attachAllowed, previewLive, showsExisting, video, canRetryAttach, attachAttempt]);
 
   /*
     카메라를 쓰지 않는 상태로 갔다가 돌아오면 처음부터 다시 확인한다. 찍어 둔 영상을 보다가
@@ -192,7 +226,7 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
         `key`가 시도 번호다. 열리지 않아 다시 붙일 때 이 값이 올라가면 네이티브 쪽이 완전히
         새로 만들어진다.
       */}
-      {capture.ready && (
+      {capture.ready && attachAllowed && (
         <CameraView
           key={attachAttempt}
           ref={capture.cameraRef}
@@ -200,12 +234,18 @@ export function CaptureField({ video, onCaptured, existingVideoUrl = null }: Cap
           mode="video"
           videoQuality="720p"
           style={s.cameraView}
-          onCameraReady={() => setPreviewLive(true)}
+          onCameraReady={() => {
+            log('열렸다', { 시도: attachAttempt + 1 });
+            setPreviewLive(true);
+          }}
           /*
             열지 못했다고 알려 오면 기다리지 않고 바로 다시 붙인다. 신호가 아예 오지 않는
             경우는 위 효과가 시간을 재서 처리한다.
           */
-          onMountError={() => setAttachAttempt((current) => current + 1)}
+          onMountError={(event) => {
+            log('붙이기 실패', { 시도: attachAttempt + 1, 내용: event?.message });
+            setAttachAttempt((current) => current + 1);
+          }}
         />
       )}
 
