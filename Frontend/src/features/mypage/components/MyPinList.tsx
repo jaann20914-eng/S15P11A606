@@ -110,6 +110,12 @@ export function MyPinList({
             }
             renderItem={({ item, index }) => {
               const openable = isOpenable(item.status);
+              /*
+                만료된 글은 상태 문구를 "만료된 글"로 바꾼다. "게시 완료"로 남아 있으면 아직
+                공개 중인 것으로 읽힌다. 줄은 그대로 눌 수 있다 — 작성자는 만료 후에도 상세를
+                볼 수 있고, 거기서 삭제할 수 있다(수정만 잠긴다).
+              */
+              const label = item.expired ? '만료된 글' : statusLabel[item.status];
 
               return (
                 <Pressable
@@ -134,8 +140,8 @@ export function MyPinList({
                         {item.placeAddress}
                       </Text>
                     )}
-                    <Text style={[s.pinState, !openable && s.pinStatePending]}>
-                      {statusLabel[item.status]}
+                    <Text style={[s.pinState, (!openable || item.expired) && s.pinStatePending]}>
+                      {label}
                     </Text>
                   </View>
 

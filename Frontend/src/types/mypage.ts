@@ -15,6 +15,13 @@ export interface MyPin {
   placeName: string;
   placeAddress: string;
   status: TodayPinStatus;
+  /**
+   * 공개가 끝났는지(게시 후 1시간 경과).
+   *
+   * 상태(`status`)는 서버 처리 결과라 만료돼도 `ACTIVE`로 남는다. 목록은 이 값이 참이면
+   * "만료된 글"로 보여준다. 상세는 열 수 있고(작성자는 만료 후에도 조회 가능) 수정만 잠긴다.
+   */
+  expired: boolean;
 }
 
 /** 크레딧이 늘었는지 줄었는지. */

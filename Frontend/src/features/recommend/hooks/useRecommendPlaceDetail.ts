@@ -66,15 +66,27 @@ export function useRecommendPlaceDetail(
     if (requested.current) return;
     requested.current = true;
 
-    const load = Promise.all([
-      getPlaceDetail(placeId),
-      resolvePlaceMapData(placeId, coordinateRef.current),
-    ]);
+    const load = Promise.all([getPlaceDetail(placeId), resolvePlaceMapData(placeId, coordinateRef.current)]);
 
     withMinimumDuration(load, MIN_LOADING_MS)
-      .then(([received, found]) => {
+      .then(async ([received, found]) => {
+        /*
+          카드에는 있는데 마커에 없는 핀이 보이면 좌표를 **한 번 다시** 받는다.
+
+          좌표는 장소 목록 응답을 받아 둔 캐시에서 오는데, 그 값은 받은 순간의 활성 핀이다.
+          방금 등록한 핀은 캐시에 없어 지도가 비었다 — 등록 직후 상세로 들어오면 카드는 1장,
+          마커는 0개였다(2026-08-05). 한 번만 다시 묻고, 그래도 없으면 그대로 둔다(공개 전
+          핀처럼 정말 마커가 없는 경우도 있다).
+        */
+        const markerIds = new Set((found?.activePins ?? []).map((pin) => pin.pinId));
+        const missing = received.pins.some((pin) => !markerIds.has(pin.pinId));
+
+        const mapResult = missing
+          ? await resolvePlaceMapData(placeId, coordinateRef.current, { refresh: true })
+          : found;
+
         setDetail(received);
-        setMapData(found);
+        setMapData(mapResult);
         setLoading(false);
       })
       .catch((cause: unknown) => {

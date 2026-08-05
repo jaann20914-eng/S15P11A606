@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, useWindowDimensions, View } from 'react-native';
-import { router } from 'expo-router';
 import { KakaoMap, type KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { PlaceMapData } from '@/api/place/coordinates';
+import type { CrowdFilter } from '@/constants/crowdLevels';
 import type { Coordinate } from '@/store/useMapStore';
 import { RECOMMEND_MAP_HEIGHT, recommendStyles as s } from '../styles';
 
@@ -10,6 +10,20 @@ export interface RecommendPlaceMapProps {
   name: string;
   /** 구하지 못했으면 null. 그때는 지도 대신 안내를 보여준다. */
   mapData: PlaceMapData | null;
+  /**
+   * 핀 색 계열. 여유는 라임, 와글은 붉은 계열 — 홈 지도와 같은 그림을 쓴다.
+   * 어느 목록에서 열었는지가 정하므로 카드가 param으로 실어 보낸다.
+   */
+  filter: CrowdFilter;
+  /** 지금 골라 둔 핀. 이 마커만 뾰족한 핀(물방울)으로 그려진다 — 홈과 같은 규칙이다. */
+  selectedPinId: string | null;
+  /**
+   * 마커를 눌렀을 때. 화면이 아래 카드를 짚어 준다.
+   *
+   * 상세로 바로 보내지 않는다 — 지도에서 누르는 것은 "이게 어느 영상인지 보자"이지 "열자"가
+   * 아니다. 여는 것은 짚어 준 카드를 누를 때다(홈의 영상핀 선택과 같은 동선).
+   */
+  onSelectPin: (pinId: string) => void;
 }
 
 /**
@@ -59,8 +73,7 @@ function levelFor(
   const middleLatitude = (Math.max(...latitudes) + Math.min(...latitudes)) / 2;
 
   const heightMeters = latitudeSpan * METERS_PER_LATITUDE_DEGREE;
-  const widthMeters =
-    longitudeSpan * METERS_PER_LATITUDE_DEGREE * Math.cos((middleLatitude * Math.PI) / 180);
+  const widthMeters = longitudeSpan * METERS_PER_LATITUDE_DEGREE * Math.cos((middleLatitude * Math.PI) / 180);
 
   const usableWidth = Math.max(boxWidth - EDGE_PADDING_X * 2, 1);
   const usableHeight = Math.max(boxHeight - EDGE_PADDING_Y * 2, 1);
@@ -102,7 +115,13 @@ function centerOf(points: { latitude: number; longitude: number }[]): Coordinate
  *
  * `usePlaceSearch`를 켜지 않으므로 검색용 SDK 번들도 받지 않는다 — 첫 렌더가 그만큼 빠르다.
  */
-export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
+export function RecommendPlaceMap({
+  name,
+  mapData,
+  filter,
+  selectedPinId,
+  onSelectPin,
+}: RecommendPlaceMapProps) {
   const { width: windowWidth } = useWindowDimensions();
   const mapRef = useRef<KakaoMapHandle>(null);
   const [ready, setReady] = useState(false);
@@ -146,10 +165,7 @@ export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
    * 이유는, 이 화면이 탭 안에 있어 숨겨진 채 마운트되면 첫 측정이 0으로 오기 때문이다.
    */
   const level = useMemo(
-    () =>
-      markers.length > 1
-        ? levelFor(markers, windowWidth, RECOMMEND_MAP_HEIGHT)
-        : SINGLE_PIN_LEVEL,
+    () => (markers.length > 1 ? levelFor(markers, windowWidth, RECOMMEND_MAP_HEIGHT) : SINGLE_PIN_LEVEL),
     [markers, windowWidth],
   );
 
@@ -194,8 +210,7 @@ export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
         setBoxSize((current) =>
-          Math.round(current.width) === Math.round(width) &&
-          Math.round(current.height) === Math.round(height)
+          Math.round(current.width) === Math.round(width) && Math.round(current.height) === Math.round(height)
             ? current
             : { width, height },
         );
@@ -214,11 +229,13 @@ export function RecommendPlaceMap({ name, mapData }: RecommendPlaceMapProps) {
         center={focus}
         level={level}
         places={markers}
-        // 핀 색 계열은 목록 기본값과 같은 라임으로 둔다. 이 화면에는 혼잡도 토글이 없다.
-        filter="relaxed"
+        // 핀 색은 어느 목록(여유·와글)에서 열었는지를 따른다. 홈 지도와 같은 그림이다.
+        filter={filter}
+        // 고른 핀만 뾰족한 핀으로 바뀐다. 홈이 쓰는 것과 같은 그리기 규칙이다.
+        selectedPlaceId={selectedPinId}
         myLocation={null}
         onReady={() => setReady(true)}
-        onPinPress={(pinId) => router.push(`/pin/${pinId}`)}
+        onPinPress={onSelectPin}
         style={s.mapFill}
       />
     </View>

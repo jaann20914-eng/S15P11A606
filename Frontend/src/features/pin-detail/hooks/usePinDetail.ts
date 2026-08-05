@@ -53,7 +53,17 @@ export function usePinDetail(pinId: PinId | null): UsePinDetailResult {
     }
 
     const requestId = (latestRequestRef.current += 1);
-    setState({ status: 'loading', data: null, error: null, errorCode: null });
+
+    /*
+      이미 내용이 있으면 로딩으로 갈아엎지 않는다.
+
+      이 훅은 화면이 다시 보일 때마다 새로 받는데(아래 초점 효과), 그때마다 내용을 지우고
+      로딩을 거치면 상세가 사라졌다 다시 나타난다 — 수정을 마치고 돌아오면 같은 화면이 두 번
+      뜨는 것처럼 보였다. 받아 둔 것을 그대로 보여주다 새 응답으로 바꾼다.
+    */
+    setState((prev) =>
+      prev.data !== null ? prev : { status: 'loading', data: null, error: null, errorCode: null },
+    );
 
     getPinDetail(pinId)
       .then((detail) => {

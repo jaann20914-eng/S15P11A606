@@ -1,6 +1,16 @@
+import { CommonActions } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
 import { APP_TABS, AppTabBar } from '@/components/common';
 import type { AppTab } from '@/components/common';
+
+/**
+ * 탭을 벗어나면 안에 쌓인 화면을 접고 첫 화면으로 돌아가는 탭.
+ *
+ * 마이페이지(크레딧·닉네임 수정)와 추천(장소 상세)은 다른 탭에 다녀온 사람이 "이어 보던
+ * 깊은 화면"이 아니라 그 탭의 입구를 기대한다. 홈·채팅·작성은 손대지 않는다 — 홈의 검색
+ * 스택과 채팅의 연결 상태는 탭을 오가도 이어져야 한다.
+ */
+const RESET_ON_LEAVE = new Set<AppTab>(['mypage', 'recommend']);
 
 /**
  * 탭 네비게이터.
@@ -20,14 +30,48 @@ export default function TabLayout() {
           // 바 슬롯이 이미 자리를 잡아 주므로 절대 배치를 끈다.
           floating={false}
           active={state.routes[state.index]?.name as AppTab}
-          // 네비게이터의 이동을 그대로 쓴다. 각 탭이 들고 있던 스택 위치가 유지된다.
-          onTabPress={(tab) => navigation.navigate(tab)}
+          onTabPress={(tab) => {
+            /*
+              마이페이지·추천 탭은 누르면 **입구(index)로 스택을 리셋**한다. 재탭이든 다른
+              탭에서 넘어오든 같다.
+
+              접기(popToTop)가 아니라 리셋인 이유: 등록 완료 흐름이 오늘 핀 목록을 이 스택의
+              **뿌리로** 심는다(그 흐름의 제약은 `write/index.tsx`에 적혀 있다). 접기는
+              뿌리까지만 가서, 그 뒤로는 탭을 눌러도 입구가 나오지 않았다. 홈·채팅·작성의
+              동작은 그대로 둔다.
+            */
+            if (RESET_ON_LEAVE.has(tab)) {
+              const childStackKey = state.routes.find((route) => route.name === tab)?.state?.key;
+
+              if (childStackKey !== undefined) {
+                navigation.dispatch({
+                  ...CommonActions.reset({ index: 0, routes: [{ name: 'index' }] }),
+                  target: childStackKey,
+                });
+              }
+            }
+
+            const currentRoute = state.routes[state.index];
+
+            if (currentRoute?.name !== tab) {
+              // 네비게이터의 이동을 그대로 쓴다. 각 탭이 들고 있던 스택 위치가 유지된다.
+              navigation.navigate(tab);
+            }
+          }}
         />
       )}
     >
       {/* 화면 등록만 한다. 표시는 전부 AppTabBar가 맡는다. */}
       {APP_TABS.map(({ key, label }) => (
-        <Tabs.Screen key={key} name={key} options={{ title: label }} />
+        <Tabs.Screen
+          key={key}
+          name={key}
+          options={{
+            title: label,
+            // 벗어나면 첫 화면으로 접는 탭. 나머지 탭의 스택 위치는 그대로 유지된다.
+            ...(RESET_ON_LEAVE.has(key) ? { popToTopOnBlur: true } : null),
+          }}
+        />
       ))}
     </Tabs>
   );

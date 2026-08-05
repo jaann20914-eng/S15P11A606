@@ -13,7 +13,7 @@ import { usePinDetailScreen } from '@/features/pin-detail/hooks/usePinDetailScre
 import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
 import { IllustrationProvider } from '@/features/pin-detail/illustrations';
 import { pinDetailStyles as s } from '@/features/pin-detail/styles';
-import { isOwnPin } from '@/types/pin';
+import { isOwnPin, isPinExpired } from '@/types/pin';
 import type { PinDetail } from '@/types/pin';
 
 /**
@@ -137,6 +137,8 @@ function PinDetailScreen({
 
         {menu.open && (
           <OwnerMenu
+            // 만료된 글은 수정을 잠근다. 서버도 거절하므로(PIN_NOT_FOUND) 들어가기 전에 알린다.
+            editable={!isPinExpired(detail)}
             onEdit={menu.edit}
             onDelete={() => {
               menu.hide();

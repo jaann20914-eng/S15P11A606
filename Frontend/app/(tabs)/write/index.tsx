@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import { router } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
-import { AppTabBar, useAppTabBarHeight } from '@/components/common';
+import { AppTabBar, NoticeModal, useAppTabBarHeight } from '@/components/common';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
@@ -43,6 +52,35 @@ const FADE_STOPS = [0, 0.55, 1] as const;
 const KEYBOARD_SETTLE_MS = 180;
 
 /**
+ * 완료 모달을 늦어도 이만큼 뒤에는 걷는다(ms).
+ *
+ * 평소에는 전환이 끝나는 즉시 걷지만(`runAfterInteractions`), 그 신호가 오지 않는 환경에서도
+ * 모달이 화면을 덮은 채 남지 않도록 상한을 둔다.
+ */
+const COMPLETION_CLOSE_TIMEOUT_MS = 1200;
+
+/**
+ * 이미 완료를 알린 핀. **모듈에 둔다** — 화면 인스턴스나 리렌더와 무관하게 한 번만 세는
+ * 것이 목적이라서다.
+ *
+ * 완료 효과는 의존값이 흔들리면 다시 돈다. 확인을 눌러 화면을 내리는 찰나에 라우트
+ * 파라미터가 사라지며 mode가 바뀌는 경우를 봤고, 컴포넌트 ref로 막았는데도 같은 알림이
+ * 두 장 쌓이는 경우가 또 나왔다(2026-08-05 — 안드로이드는 두 번째 Alert를 큐에 넣어,
+ * 첫 확인을 누르면 같은 알림이 다시 떠 "확인이 안 먹는" 것으로 보이고 그 확인이 이동을
+ * 한 번 더 실행했다). 어떤 경로로 다시 돌든 같은 핀은 다시 알리지 않는다.
+ *
+ * **새 발행이 시작되면 비운다**(아래 효과). 안 비우면 방금 등록한 핀을 이어서 수정했을 때
+ * 같은 핀이라 완료를 알리지 않았고, phase가 done에 머물러 진행 화면에 갇혔다.
+ */
+const announcedPinIds = new Set<string>();
+
+/** 초점 이동이 실제로 오는지 확인하기 위한 기록. blur가 오지 않는 경로를 가려낼 때 본다. */
+function logWrite(step: string): void {
+  if (!__DEV__) return;
+  console.log(`[write] ${step}`);
+}
+
+/**
  * 게시글 작성 · 수정 화면.
  *
  * `pinId` 파라미터가 붙어 들어오면 수정, 없으면 생성이다. 두 흐름이 같은 화면을 쓰고
@@ -71,7 +109,15 @@ export default function PinCreateScreen() {
 
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
-  const [focused, setFocused] = useState(false);
+
+  /*
+    화면 초점. `useFocusEffect`가 아니라 `useIsFocused`를 쓴다.
+
+    이 화면에서 `useFocusEffect`의 blur 콜백이 **실제로 오지 않는 것을 로그로 확인했다**
+    (2026-08-05 — 자식 컴포넌트의 `useIsFocused`는 같은 순간 정확히 반응했다). 그래서 나갈 때
+    비우기로 한 폼이 그대로 남아, 직전 등록의 장소와 태그가 다음 작성에 남아 있었다.
+  */
+  const focused = useIsFocused();
   /** 아래 고정 영역이 내용 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다. */
   const [actionBarHeight, setActionBarHeight] = useState(0);
 
@@ -131,19 +177,26 @@ export default function PinCreateScreen() {
   const dismissError = usePinPublishStore((state) => state.dismissError);
   const resetPublish = usePinPublishStore((state) => state.reset);
 
-  useFocusEffect(
-    useCallback(() => {
-      setFocused(true);
+  useEffect(() => {
+    if (focused) {
+      logWrite('초점 받음');
 
-      return () => {
-        setFocused(false);
+      /*
+        **들어올 때 비운다.** 발행이 돌고 있지 않은 생성 모드라면 이 화면에 남아 있어야 할
+        값이 없다 — 직전 등록의 장소·태그가 남는 일을 여기서 끊는다.
+      */
+      if (mode.type === 'create' && usePinPublishStore.getState().phase === 'idle') {
         form.reset();
+      }
+      return;
+    }
 
-        // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
-        if (usePinPublishStore.getState().phase === 'done') resetPublish();
-      };
-    }, [form.reset, resetPublish]),
-  );
+    logWrite('초점 잃음');
+    form.reset();
+
+    // 업로드 중이면 그대로 두고, 끝난 결과만 지운다. 다시 들어왔을 때 진행률이 이어진다.
+    if (usePinPublishStore.getState().phase === 'done') resetPublish();
+  }, [focused, form.reset, resetPublish, mode.type]);
 
   const submit = () => {
     /*
@@ -213,52 +266,105 @@ export default function PinCreateScreen() {
    * 화면을 떠난 뒤에 끝난 경우에는 이동하지 않는다. 사용자가 이미 다른 일을 하고 있으므로
    * 갑자기 화면을 바꾸지 않고, 그 결과는 화면을 벗어날 때 정리한다.
    */
+  // 새 발행이 시작되면 지난 알림 기록을 비운다. 같은 핀을 이어서 수정해도 완료를 알려야 한다.
+  useEffect(() => {
+    if (phase === 'issuing' || phase === 'uploading' || phase === 'registering') {
+      announcedPinIds.clear();
+    }
+  }, [phase]);
+
+  /**
+   * 완료를 알리는 모달의 상태.
+   *
+   * 네이티브 `Alert`을 쓰지 않는다. 그쪽은 확인을 누르는 순간 OS가 닫아 버려, 뒤이어 일어나는
+   * 화면 전환(탭 교체 → 목록 → 상세)이 맨몸으로 드러났다. 우리가 만든 모달은 **닫는 시점을
+   * 우리가 정할 수 있어**, 이동이 끝난 뒤에 걷어 전환을 덮어 준다(2026-08-05).
+   *
+   * `leaving`은 확인을 누른 뒤 이동하는 동안이다. 그동안 버튼을 잠가 두 번 눌리지 않게 한다.
+   */
+  const [completion, setCompletion] = useState<{ title: string; message: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
     if (!focused || phase !== 'done' || publishedPinId === null) return;
+    if (announcedPinIds.has(publishedPinId)) return;
+
+    announcedPinIds.add(publishedPinId);
 
     /*
       끝난 것을 알리고 나서 넘어간다.
 
       바로 상세로 밀어 넣으면 화면만 바뀌어서, 영상이 올라갔는지 이 화면이 그냥 닫힌 것인지
       알 수 없다. 올리는 데 수십 초가 걸리는 흐름이라 끝났다는 말이 있어야 한다.
-
-      스토어는 확인을 누른 뒤에 비운다. 먼저 비우면 이 효과가 한 번 더 돌면서 안내가 두 번 뜬다.
     */
-    Alert.alert(
-      mode.type === 'edit' ? '영상핀을 수정했어요' : '영상핀을 등록했어요',
-      mode.type === 'edit' ? '고친 내용이 반영됐어요.' : '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
-      [
-        {
-          text: '확인',
-          onPress: () => {
-            resetPublish();
-
-            /*
-              수정은 그 핀의 상세 **위에 쌓여** 열린다(`/pin/{pinId}/edit`). 상세를 새로 열지
-              않고 그 상세까지 닫고 내려간다 — 새로 열면 같은 화면이 두 장 쌓여 뒤로 가기
-              한 번에 고치기 전 상세가 나온다. 상세는 다시 보일 때 스스로 새로 받아 오므로
-              고친 내용이 반영되고, 거기서 뒤로 가면 들어올 때 지나온 목록으로 이어진다.
-            */
-            if (mode.type === 'edit') {
-              router.dismissTo(`/pin/${mode.pinId}`);
-              return;
-            }
-
-            /*
-              등록은 상세를 **쌓아서** 연다.
-
-              전에는 `replace`로 열었는데, 이 화면이 탭 안에 있어 탭 묶음 자체가 상세로
-              바뀌었다 — 스택의 뿌리가 사라져, 그 뒤로는 어느 화면에서 뒤로를 눌러도 돌아갈
-              곳이 없어 홈으로 떨어졌다. 탭을 마이페이지의 오늘 핀 목록으로 돌려 두고 그 위에
-              상세를 얹으면, 상세에서 뒤로 갔을 때 방금 등록한 핀이 담긴 목록이 나온다.
-            */
-            router.replace('/(tabs)/mypage/activity');
-            router.push(`/pin/${publishedPinId}`);
+    setLeaving(false);
+    setCompletion(
+      mode.type === 'edit'
+        ? { title: '영상핀을 수정했어요', message: '고친 내용이 반영됐어요.' }
+        : {
+            title: '영상핀을 등록했어요',
+            message: '영상이 공개되어 이제 다른 사람도 볼 수 있어요.',
           },
-        },
-      ],
     );
-  }, [focused, phase, publishedPinId, resetPublish, mode.type]);
+  }, [focused, phase, publishedPinId, mode.type]);
+
+  /**
+   * 완료 모달의 확인.
+   *
+   * 모달을 **닫지 않고** 이동한다. 이동이 끝나면(전환 애니메이션까지) 그때 걷어서, 사용자는
+   * 여러 화면을 거치는 과정을 보지 않고 목적지에서 모달이 사라지는 것만 본다.
+   *
+   * 스토어는 이동 뒤에 비운다. 먼저 비우면 진행 화면이 내려가며 폼(촬영 미리보기의 영상
+   * 플레이어까지)이 한 프레임 되살아나 "already released"가 났다.
+   */
+  const leaveAfterCompletion = () => {
+    if (leaving) return;
+
+    setLeaving(true);
+
+    /*
+      떠나기 전에 폼을 비운다. 초점 이동이 어떻게 오가든 이 발행의 입력이 다음 작성에 남을 수
+      없게, 내비게이션과 무관한 이 지점에서 확정적으로 비운다.
+    */
+    form.reset();
+
+    if (mode.type === 'edit') {
+      /*
+        수정은 그 핀의 상세 **위에 쌓여** 열린다(`/pin/{pinId}/edit`). 상세를 새로 열지 않고
+        그 상세까지 닫고 내려간다 — 새로 열면 같은 화면이 두 장 쌓여 뒤로 가기 한 번에 고치기
+        전 상세가 나온다. 상세는 다시 보일 때 스스로 새로 받아 오므로 고친 내용이 반영되고,
+        거기서 뒤로 가면 들어올 때 지나온 목록으로 이어진다.
+      */
+      router.dismissTo(`/pin/${mode.pinId}`);
+    } else {
+      /*
+        등록은 홈을 깔고 그 위에 상세를 **쌓아서** 연다. 상세에서 뒤로 가면 홈이다.
+
+        전에는 오늘 핀 목록을 깔았는데, 그 목록이 마이페이지 스택의 뿌리가 되어 거기서 뒤로
+        가면 갈 곳이 없어 홈으로 떨어졌다 — 결국 한 단계를 더 거쳐 홈으로 가는 셈이라
+        곧바로 홈을 깔기로 했다(2026-08-05).
+
+        `replace`로 이 화면(작성 탭)을 대신한다. 탭 안에서 상세로 바로 replace하면 탭 묶음의
+        뿌리가 사라져 이후 뒤로 가기가 어디서도 성립하지 않는다.
+      */
+      router.replace('/(tabs)/home');
+      router.push(`/pin/${publishedPinId}`);
+    }
+
+    /*
+      전환이 끝난 뒤 모달을 걷는다. `runAfterInteractions`는 진행 중인 애니메이션이 끝나면
+      실행되므로, 상세가 다 올라온 뒤가 된다. 혹시 전환이 잡히지 않는 환경에서도 남지 않도록
+      시간 제한을 함께 둔다.
+    */
+    const close = () => {
+      setCompletion(null);
+      setLeaving(false);
+      resetPublish();
+    };
+
+    InteractionManager.runAfterInteractions(close);
+    setTimeout(close, COMPLETION_CLOSE_TIMEOUT_MS);
+  };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
@@ -376,6 +482,18 @@ export default function PinCreateScreen() {
 
       {/* 탭 밖(수정 라우트)에서는 하단 바를 직접 그린다. 상세 화면과 같은 방식이다. */}
       {mode.type === 'edit' && <AppTabBar />}
+
+      {/*
+        완료 안내. **초점 조건 밖에 둔다** — 확인을 누르고 이동하는 동안 이 화면은 초점을
+        잃지만 모달은 계속 떠 있어야 전환을 덮는다. 폼과 달리 초점이 없어도 그린다.
+      */}
+      <NoticeModal
+        visible={completion !== null}
+        title={completion?.title ?? ''}
+        message={completion?.message ?? ''}
+        busy={leaving}
+        onConfirm={leaveAfterCompletion}
+      />
     </SafeAreaView>
   );
 }

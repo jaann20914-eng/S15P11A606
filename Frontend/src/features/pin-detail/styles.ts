@@ -123,6 +123,10 @@ export const pinDetailStyles = StyleSheet.create({
   },
   menuRule: { height: 1, backgroundColor: colors.gray200 },
   menuText: { ...type.label, color: colors.gray600 },
+  /** 잠긴 메뉴 줄의 글자. 지우는 대신 눌러도 안 된다는 것이 모양으로 보이게 한다. */
+  menuTextDisabled: { color: colors.gray400 },
+  /** 잠긴 이유를 적는 작은 줄. */
+  menuHint: { ...type.caption, fontSize: 10, color: colors.gray400 },
 
   /* 영상 */
   videoFrame: { height: 294, position: 'relative', overflow: 'hidden', backgroundColor: colors.gray200 },
@@ -137,28 +141,7 @@ export const pinDetailStyles = StyleSheet.create({
    */
   videoPlayer: { width: '100%', height: '100%' },
 
-  /**
-   * 영상이 준비되기 전 프레임을 채우는 층.
-   *
-   * 영상 위에 얹되 음소거 버튼보다 아래에 온다(그리는 순서). 판 위로 빛줄기가 지나가며
-   * 받는 중임을 알린다.
-   *
-   * 바탕은 테마의 회색보다 진하게 둔다. 옅은 회색은 흰 화면에 묻혀 빈 자리처럼 보이고,
-   * 그 위를 지나는 흰 빛줄기도 드러나지 않는다.
-   */
-  mediaLoading: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6D6D6D',
-  },
-  /** 회색 판 위를 위에서 아래로 지나가는 빛줄기. 높이와 위치는 화면이 프레임 높이로 정한다. */
-  mediaLoadingBand: { position: 'absolute', top: 0, left: 0, right: 0 },
-  mediaLoadingBandFill: { flex: 1 },
+  /* 영상 로딩 층은 공용 컴포넌트로 옮겼다(`components/common/MediaLoadingSweep`). */
 
   /**
    * 시안 영상 전용 배치. 프레임보다 크게 잡아 아래에 붙이고 위를 잘라낸다.

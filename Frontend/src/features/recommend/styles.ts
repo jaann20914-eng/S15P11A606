@@ -148,6 +148,8 @@ export const recommendStyles = StyleSheet.create({
   /** 카드가 흰색이라 바탕은 옅은 회색이다. 흰 배경에 두면 카드 경계가 사라진다. */
   detailSafe: { flex: 1, backgroundColor: colors.gray100 },
   detail: { paddingBottom: spacing.x10 },
+  /** 지도가 스크롤 밖에 고정되면서, 스크롤은 남은 높이를 가져야 한다. */
+  detailScroll: { flex: 1 },
   /** 카드 영역. 지도만 여백 없이 폭을 다 쓰므로 여백은 이 안쪽에서 준다. */
   detailBody: { gap: spacing.x3, paddingHorizontal: spacing.x4, paddingTop: spacing.x4 },
   /** 지도는 좌우로 붙는다. 위치를 보여주는 자리라 이 높이면 충분하다. */

@@ -1,6 +1,8 @@
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { PlacePinCard } from '@/components/place';
+import type { CrowdFilter } from '@/constants/crowdLevels';
+import { colors } from '@/constants/theme';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
 import { recommendStyles as s } from '../styles';
 
@@ -8,6 +10,17 @@ export interface RecommendPlacePinsProps {
   pins: PlacePinCardData[];
   /** 빈 상태 안내에 쓰는 장소 이름. */
   placeName: string;
+  /** 핀 색 계열. 선택 테두리가 지도 핀과 같은 계열이어야 짝으로 읽힌다. */
+  filter: CrowdFilter;
+  /** 지도에서 골라 둔 핀. 그 카드에 계열 색 테두리를 두른다. */
+  selectedPinId?: string | null;
+  /**
+   * 카드가 목록 안에서 어디에 놓였는지 알린다(목록 윗변 기준 y).
+   *
+   * 지도의 마커를 누르면 화면이 그 카드로 스크롤해야 하는데, 카드의 위치는 이 목록만 안다.
+   * 화면은 이 값에 목록 자체의 위치를 더해 스크롤 지점을 만든다.
+   */
+  onCardPosition?: (pinId: string, y: number) => void;
 }
 
 /**
@@ -16,7 +29,16 @@ export interface RecommendPlacePinsProps {
  * 카드는 장소 상세와 같은 공용 컴포넌트다(`components/place/PlacePinCard`). 두 화면이
  * 각자 만들면 한쪽만 고쳐져 서로 달라진다.
  */
-export function RecommendPlacePins({ pins, placeName }: RecommendPlacePinsProps) {
+export function RecommendPlacePins({
+  pins,
+  placeName,
+  filter,
+  selectedPinId = null,
+  onCardPosition,
+}: RecommendPlacePinsProps) {
+  // 와글은 지도 핀과 같은 붉은 계열로 두른다. 여유는 기본(라임)이라 넘기지 않는다.
+  const selectedColor = filter === 'wagle' ? colors.crowdedActive : undefined;
+
   if (pins.length === 0) {
     return (
       <Pressable
@@ -34,7 +56,14 @@ export function RecommendPlacePins({ pins, placeName }: RecommendPlacePinsProps)
   return (
     <View style={s.pinList}>
       {pins.map((pin) => (
-        <PlacePinCard key={pin.pinId} pin={pin} onPress={() => router.push(`/pin/${pin.pinId}`)} />
+        <View key={pin.pinId} onLayout={(event) => onCardPosition?.(pin.pinId, event.nativeEvent.layout.y)}>
+          <PlacePinCard
+            pin={pin}
+            selected={pin.pinId === selectedPinId}
+            selectedColor={selectedColor}
+            onPress={() => router.push(`/pin/${pin.pinId}`)}
+          />
+        </View>
       ))}
     </View>
   );
