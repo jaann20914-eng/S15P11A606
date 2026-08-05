@@ -713,6 +713,18 @@ export default function Home() {
     }
     if (!hadPinOverlay.current) return;
 
+    /*
+      **겹이 비는 순간이 곧 상세가 닫힌 것은 아니다.**
+
+      화면이 갈릴 때도 잠깐 빈다. 그때 넓히면 20m를 벗어나 방금 연 상세가 접히고, 다시 20m로
+      돌아와 첫 장소가 열린다 — 옆 장소 버튼 한 번에 홈을 거쳐 한 바퀴 도는 것으로 보였다
+      (2026-08-05 실기기). 돌려 보기는 이제 화면을 갈아 끼우지 않지만, 판단의 근거를 "겹이
+      비었다"에서 **"홈이 실제로 맨 위로 돌아왔다"**로 옮겨 둔다.
+
+      표시는 그때까지 남겨 둔다 — 늦게 돌아와도 넓히는 일을 놓치지 않는다.
+    */
+    if (!onTop) return;
+
     hadPinOverlay.current = false;
 
     if (closedByZoom.current) {
@@ -721,7 +733,7 @@ export default function Home() {
     }
 
     if (mapLevel < PLACE_FOCUS_MAP_LEVEL) mapRef.current?.setLevel(PLACE_FOCUS_MAP_LEVEL);
-  }, [mapLevel, pinOverlay]);
+  }, [mapLevel, onTop, pinOverlay]);
 
   /* 홈이 사라지면 이 지도도 없다. 손잡이를 남겨 두면 없는 WebView에 명령을 보낸다. */
   useEffect(() => () => setGestureControl(null), [setGestureControl]);

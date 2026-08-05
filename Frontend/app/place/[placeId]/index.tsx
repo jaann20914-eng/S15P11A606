@@ -281,12 +281,13 @@ export default function Place() {
   const locationButton = useFadeToggle(!expanded);
 
   /**
-   * 옆 장소로 돌려 보기. **화면을 갈아 끼운다** — 돌려 볼 때마다 상세가 쌓이면 안 된다.
+   * 옆 장소로 돌려 보기. **이 화면의 장소만 갈린다** — 훅이 `navigate`로 파라미터만 바꾸므로
+   * 시트는 제자리에 있고 지도만 옆으로 미끄러진다.
    *
-   * 버튼이 있을 조건(20m·두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치 버튼과 같은 이유로
-   * 최대화 단계에서는 함께 감춘다.
+   * 버튼이 있을 조건(20m)과 누를 수 있을 조건(두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치
+   * 버튼과 같은 이유로 최대화 단계에서는 함께 감춘다.
    */
-  const nextPlace = useNextPlace({ replace: true });
+  const nextPlace = useNextPlace();
   const nextPlaceButton = useFadeToggle(nextPlace.visible && !expanded);
 
   /*
@@ -299,6 +300,15 @@ export default function Place() {
     비어 있고, 목업에서는 채워진다. 비면 마커를 올리지 않고 지도는 장소 자리에 머문다.
   */
   const [pinIndex, setPinIndex] = useState(0);
+
+  /*
+    **다른 장소로 갈리면 첫 카드에서 시작한다.**
+
+    옆 장소로 돌려 보면 이 화면은 그대로 있고 장소만 갈린다(`useNextPlace`의 `navigate`).
+    번호를 그대로 두면 카드가 넷인 장소에서 셋째를 보다 넘어간 장소가 한 장뿐일 때 빈 자리를
+    보게 되고, 지도도 없는 핀으로 옮기려 든다.
+  */
+  useEffect(() => setPinIndex(0), [numericPlaceId]);
 
   /*
     목록(확장) 단계에서 지금 보고 있는 핀을 정하는 값들.

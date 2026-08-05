@@ -13,8 +13,8 @@ import { useMapStore } from '@/store/useMapStore';
  * 훑을 목록은 **당기는 순간에 정해져 저장소에 있다**(`nearbyPlaces`). 이 훅은 그 목록에서 지금
  * 고른 장소의 다음을 찾아 넘기기만 한다 — 끝에서는 처음으로 돌아와 계속 돌 수 있다.
  *
- * 홈과 장소 상세가 함께 쓴다. 두 화면의 버튼이 같은 자리에 같은 모양으로 있어야 하고, 무엇보다
- * **누르는 곳에 따라 화면을 쌓는 방식이 달라야** 한다(`replace` 참고).
+ * 홈과 장소 상세가 같은 것을 쓴다. 넘기는 방식도 하나다 — `navigate`가 상세를 보고 있을 때는
+ * 그 화면의 장소만 갈아 주고, 홈에서는 새로 띄운다(`goNext`에 그 사정을 적었다).
  */
 
 export interface NextPlace {
@@ -37,19 +37,7 @@ export interface NextPlace {
   goNext: () => void;
 }
 
-export interface NextPlaceOptions {
-  /**
-   * 지금 화면을 **갈아 끼울지.**
-   *
-   * 장소 상세에서 누르면 `true`다 — 그러지 않으면 돌려 볼 때마다 상세가 한 겹씩 쌓인다. 겹이
-   * 쌓이면 화면들이 하나뿐인 지도를 두고 다투고, 뒤로 가기가 지나온 장소를 되짚는다.
-   *
-   * 홈에서 누르면 `false`다. 상세를 처음 여는 것이므로 쌓는 것이 맞고, 뒤로 가면 홈으로 온다.
-   */
-  replace?: boolean;
-}
-
-export function useNextPlace({ replace = false }: NextPlaceOptions = {}): NextPlace {
+export function useNextPlace(): NextPlace {
   const mapLevel = useMapStore((state) => state.mapLevel);
   const nearbyPlaces = useMapStore((state) => state.nearbyPlaces);
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
@@ -82,10 +70,22 @@ export function useNextPlace({ replace = false }: NextPlaceOptions = {}): NextPl
       level: REVIEW_PIN_MAX_LEVEL,
     });
 
-    const path = `/place/${next.id}` as const;
-    if (replace) router.replace(path);
-    else router.push(path);
-  }, [focusOn, nearbyPlaces, replace, selectPlace, selectedPlaceId]);
+    /*
+      **`navigate`다 — `push`도 `replace`도 아니다.**
+
+      이미 장소 상세를 보고 있으면 그 화면이 스택에 있으므로, navigate는 새 화면을 만들지 않고
+      **그 화면의 장소만 갈아 준다.** 화면이 그대로 있으니 시트가 제자리에 있고 지도만 옆으로
+      미끄러진다 — 돌려 보는 손맛이 그것이다.
+
+      `replace`로 갈아 끼웠더니 앞 화면이 떨어져 나가면서 영상핀 겹이 한순간 비었고, 홈이 그것을
+      "상세가 닫혔다"로 읽어 축척을 250m로 넓혔다. 그러면 20m를 벗어났으니 새로 연 상세까지
+      접히고, 다시 20m로 돌아와 첫 장소가 열렸다 — 버튼 한 번에 홈을 거쳐 한 바퀴 도는 것으로
+      보인 것이 이것이다(2026-08-05 실기기).
+
+      홈에서 누르면 그 화면이 스택에 없으므로 navigate가 새로 띄운다. 두 경우를 한 줄로 다룬다.
+    */
+    router.navigate(`/place/${next.id}`);
+  }, [focusOn, nearbyPlaces, selectPlace, selectedPlaceId]);
 
   return {
     visible: mapLevel <= REVIEW_PIN_MAX_LEVEL,
