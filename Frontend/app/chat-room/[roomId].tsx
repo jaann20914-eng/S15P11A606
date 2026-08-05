@@ -600,8 +600,14 @@ const s = StyleSheet.create({
   emptyTitle: { ...type.title, color: colors.gray400 },
   emptyText: { ...type.small, color: colors.gray400, textAlign: 'center', marginTop: spacing.x2 },
 
+  /* 줄 구성은 [말풍선, 시각] 순서다. 상대 줄은 왼쪽부터 그대로, 내 줄은 아래에서 뒤집는다. */
   messageLine: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.x2 },
-  messageLineMe: { justifyContent: 'flex-end' },
+  /**
+   * 내 줄은 **순서를 뒤집어** 오른쪽에 붙인다(카카오톡과 같은 배치 — 시각이 말풍선 왼쪽).
+   * `justifyContent: 'flex-end'`로 밀기만 하면 시각이 말풍선 오른쪽 화면 끝에 매달려
+   * 상대 줄과 시각 위치가 어긋났다(2026-08-06).
+   */
+  messageLineMe: { flexDirection: 'row-reverse' },
   bubble: {
     maxWidth: '72%',
     paddingHorizontal: spacing.x4,
