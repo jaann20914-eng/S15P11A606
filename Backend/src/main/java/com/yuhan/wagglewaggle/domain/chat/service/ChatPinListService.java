@@ -118,7 +118,8 @@ public class ChatPinListService {
                     pin.getCreatedAt(),
                     pin.getPlace().getName(),
                     pin.getPlace().getAddressName(),
-                    unreadPinIds.contains(pin.getId())));
+                    unreadPinIds.contains(pin.getId()),
+                    pin.getPublisherStatus()));
         }
 
         String nextCursor = null;
