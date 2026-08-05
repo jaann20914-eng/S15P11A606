@@ -142,10 +142,14 @@ export default function Place() {
     middleExtra: (pinSlotHeight > 0 ? pinSlotHeight : ESTIMATED_PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
     /*
-      아래로 밀어 내리면 닫고 홈 시트로 돌아간다. 이 화면은 홈 위에 겹쳐 있으므로
-      "내려서 덮개를 걷는" 동작이 곧 뒤로 가기다. 별도 버튼을 두지 않아도 된다.
+      **끌어내려 닫지 않는다.** `onDismiss`를 주지 않으므로 축소가 하한이고, 홈 시트처럼
+      그 자리에서 멈춘다.
+
+      예전에는 아래로 밀어 내리면 닫혔다. 시트가 곧 덮개라 "걷어내는" 동작으로 읽힌다고
+      보았지만, 팀에서 확인해 보니 **닫는 방법으로 짐작되지 않았다**(2026-08-05). 게다가
+      홈 시트는 같은 자리에서 멈추기 때문에, 같은 손짓이 화면에 따라 다르게 동작했다.
+      뒤로 가기는 검색바 왼쪽 꺽새가 맡는다(아래 참고).
     */
-    onDismiss: router.back,
   });
   const { level, moveTo, sheetY } = sheet;
 
@@ -333,10 +337,30 @@ export default function Place() {
         pointerEvents="box-none"
         style={[s.topControls, { top: insets.top + spacing.x3, left: gutter, right: gutter }]}
       >
-        <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.search}>
-          <Ionicons name="search" size={22} color={colors.gray600} />
-          <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
-        </Pressable>
+        {/*
+          검색바 왼쪽은 이 화면에서 **돋보기가 아니라 꺽새**다.
+
+          홈에서 장소를 한 번 고르고 들어온 화면이라 돌아갈 곳이 있다. 그 자리를 뒤로 가기로
+          쓰면 검색 화면·태그 결과 화면과 같은 자리·같은 모양이 되어 배울 것이 없다. 예전에는
+          시트를 끌어내려 닫았는데 그 방법이 짐작되지 않았다(`useBottomSheet` 호출부 참고).
+
+          바 전체를 누르면 검색으로 가는 것은 그대로다. 꺽새만 따로 눌리게 두었다 — 겹쳐
+          놓으면 뒤로 가려다 검색 화면이 열린다.
+        */}
+        <View style={s.search}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            onPress={() => router.back()}
+            // 아이콘만으로는 손가락에 비해 좁다. 바 높이만큼 눌리는 자리를 넓힌다.
+            hitSlop={{ top: spacing.x3, bottom: spacing.x3, left: spacing.x3, right: spacing.x2 }}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.dark} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.searchField}>
+            <Text style={s.searchText}>장소명이나 태그를 검색해보세요</Text>
+          </Pressable>
+        </View>
         {/*
           최대화 단계에서는 시트가 검색바 바로 아래까지 올라와 이 버튼과 겹친다. 그래서 감춘다.
 
@@ -627,7 +651,14 @@ const s = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
-  searchText: { ...type.body, flex: 1, color: colors.gray600 },
+  /**
+   * 검색으로 가는 자리. 꺽새를 뺀 나머지 전부다.
+   *
+   * 높이를 바에 맞춰 늘려 둔다(`alignSelf: stretch`). 글자 높이만큼만 눌리면 바 안에서 위아래
+   * 여백을 누를 때 아무 일도 일어나지 않아 먹통으로 읽힌다.
+   */
+  searchField: { flex: 1, alignSelf: 'stretch', justifyContent: 'center' },
+  searchText: { ...type.body, color: colors.gray600 },
   location: {
     width: 48,
     height: 48,

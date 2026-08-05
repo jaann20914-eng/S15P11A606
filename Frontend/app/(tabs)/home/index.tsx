@@ -223,6 +223,24 @@ export default function Home() {
     (placeId: string) => {
       const place = inView.places.find((item) => item.id === placeId);
       if (place) {
+        /*
+          **먼저 시트를 "보통"으로 내린다.** 지도를 얼마나 위로 밀어 둘지는 이 시트가 가리는
+          높이로 정하는데(`bottomInset` → `focusPlace`), 목록까지 펼친 상태에서 넘어가면 그
+          펼친 높이만큼 밀어 놓고 상세는 "보통" 높이로 열려 **장소가 화면 위쪽으로 치우쳤다**
+          (2026-08-05). 상세 시트의 "보통" 단계는 홈의 그 단계와 같은 높이로 맞춰 두었으므로
+          (`homeSheetSpace`), 여기서 단계를 맞춰 두면 두 화면이 같은 자리를 가리킨다.
+
+          **어느 단계에서 왔든 맞춘다.** 상세는 늘 "보통"으로 열리므로 축소에서 넘어가도
+          어긋난다 — 그때는 가림 높이가 작아 장소가 중앙보다 아래에 놓인다(20m에서 마커를 눌러
+          바로 들어오는 경로가 그렇다).
+
+          움직이는 것은 화면 전환에 가려 보이지 않는다. 돌아오면 홈이 "보통"으로 있는데, 장소를
+          보러 목록을 떠난 흐름이라 그 자리가 자연스럽다.
+
+          카드를 눌러 지도만 옮길 때도 같은 것을 한다(`focusPlace`) — 이동 지시를 이 렌더에
+          함께 넣어야 실행 시점의 가림 높이가 최종 높이가 된다(아래 `pendingPan` 참고).
+        */
+        if (level !== 1) moveTo(1);
         setPendingPan({
           coordinate: { latitude: place.latitude, longitude: place.longitude },
           level: REVIEW_PIN_MAX_LEVEL,
@@ -231,7 +249,7 @@ export default function Home() {
 
       router.push(`/place/${placeId}`);
     },
-    [inView.places],
+    [inView.places, level, moveTo],
   );
 
   /**
