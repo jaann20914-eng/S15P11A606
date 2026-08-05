@@ -257,7 +257,12 @@ export const pinDetailStyles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     columnGap: spacing.x4,
-    rowGap: spacing.x2,
+    /*
+      줄 사이 여백은 두지 않는다. 긴 태그가 저 혼자 줄바꿈될 때는 글줄 간격만 생기는데,
+      행 사이에만 여백을 더 얹으면 두 간격이 달라 태그끼리 다른 묶음처럼 읽힌다(2026-08-05
+      스크린샷). 글줄 간격(type.small의 lineHeight)만으로 줄은 충분히 나뉜다.
+    */
+    rowGap: 0,
     marginTop: spacing.x3,
   },
   /** 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다. */
