@@ -7,6 +7,7 @@ import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -29,6 +30,7 @@ import java.util.Optional;
  * SUBSCRIBE 프레임만 폐기(preSend가 null 반환)하고, {@code /user/queue/errors}로
  * {@code SUBSCRIPTION_FAILED} 이벤트를 전송한다.
  */
+@Slf4j
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
@@ -36,6 +38,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private static final String CHAT_ROOM_TOPIC_PREFIX = "/topic/chat/rooms/";
+    // 브로커가 관리하는 destination prefix. 클라이언트는 이 prefix로 직접 SEND할 수 없다(발신은 /app/** 만 허용).
+    private static final String BROKER_TOPIC_PREFIX = "/topic/";
+    private static final String BROKER_QUEUE_PREFIX = "/queue/";
     private static final String USER_CHAT_ROOMS_DESTINATION = "/user/queue/chat-rooms";
     private static final String USER_ERRORS_DESTINATION = "/user/queue/errors";
     // convertAndSendToUser는 /user prefix를 자동으로 붙이므로 전송 시에는 prefix를 제외한 경로를 쓴다.
@@ -72,6 +77,17 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 // 구독 거부: 프레임을 폐기해 브로커에 구독이 등록되지 않게 하고, 연결은 유지한다.
                 return null;
             }
+        } else if (StompCommand.SEND.equals(command)) {
+            if (isBrokerDestinationSend(accessor)) {
+                // 클라이언트는 브로커 destination(/topic, /queue)으로 직접 발행할 수 없다.
+                // 정상 발신은 /app/** 로만 허용하며(서버가 검증·저장 후 /topic으로 발행),
+                // 규칙 위반 프레임은 폐기해 브로커 브로드캐스트를 막고 연결은 유지한다.
+                Object user = accessor.getUser();
+                Object memberId = user instanceof StompPrincipal principal ? principal.memberId() : null;
+                log.warn("클라이언트의 브로커 destination 직접 SEND 차단 (memberId={}, destination={})",
+                        memberId, accessor.getDestination());
+                return null;
+            }
         }
 
         return message;
@@ -103,6 +119,17 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             // 서명/형식 오류, purpose 클레임 파싱 실패, subject 숫자 변환 실패 등
             throw new CustomException(ErrorCode.WEBSOCKET_UNAUTHORIZED);
         }
+    }
+
+    /**
+     * SEND 프레임이 브로커 destination(/topic, /queue)을 직접 겨냥하는지 판별한다.
+     * 정상 발신은 애플리케이션 destination(/app/**)으로만 이루어지므로, 브로커 destination으로의
+     * 직접 SEND는 서버 검증·저장을 우회한 임의 브로드캐스트 시도로 간주해 차단한다.
+     */
+    private boolean isBrokerDestinationSend(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        return destination != null
+                && (destination.startsWith(BROKER_TOPIC_PREFIX) || destination.startsWith(BROKER_QUEUE_PREFIX));
     }
 
     /**
