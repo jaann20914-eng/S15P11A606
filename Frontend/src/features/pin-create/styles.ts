@@ -82,6 +82,8 @@ export const pinCreateStyles = StyleSheet.create({
     backgroundColor: colors.gray100,
   },
   cameraBlockedText: { ...type.caption, color: colors.gray600, textAlign: 'center' },
+  /** 카메라가 열리기 전 그 위를 덮는 층. 카메라는 붙어 있어야 열렸다는 신호가 온다. */
+  cameraCover: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   cameraRetry: {
     height: 36,
     paddingHorizontal: spacing.x4,
@@ -151,7 +153,8 @@ export const pinCreateStyles = StyleSheet.create({
   /* 내용 입력 */
   memo: {
     height: 100,
-    marginTop: spacing.x5,
+    // 위 여백은 늘 보이는 안내 문구(`memoLimitNotice`)가 갖는다. 문구와는 좁게 붙는다.
+    marginTop: spacing.x2,
     padding: spacing.x4,
     textAlignVertical: 'top',
     borderRadius: radius.md,
@@ -164,6 +167,8 @@ export const pinCreateStyles = StyleSheet.create({
   },
   /** 내용이 한도(50자)에 닿았을 때. 연한 연두 테두리로 "가득 찼다"를 알린다. */
   memoAtLimit: { borderColor: '#D8EB6A' },
+  /** 한도 안내 문구. 입력칸 위에 늘 놓이고 테두리와 같은 연두를 쓴다. 자리가 고정이라 한도 순간에도 칸이 밀리지 않는다. */
+  memoLimitNotice: { ...type.caption, color: '#D8EB6A', marginTop: spacing.x5 },
 
   /* 공통 라벨 */
   label: {
@@ -226,14 +231,14 @@ export const pinCreateStyles = StyleSheet.create({
   },
   placeSelectedText: { ...type.body, color: colors.dark },
   /**
-   * 장소 후보 목록.
+   * 장소 후보 목록의 스크롤 한계.
    *
-   * 높이를 제한하지 않는다. 예전에는 200으로 묶고 안에서 스크롤했는데, 폼 자체가 스크롤 화면이라
-   * 그 안의 스크롤이 잘 잡히지 않아 세 줄 아래가 있는지조차 보이지 않았다. 받은 만큼 그대로
-   * 펼치고 넘치는 만큼은 폼이 스크롤한다.
-   *
-   * 후보는 많아도 열 몇 개다 — 서버가 반경 50m 안에서 유형별로 두 곳까지만 준다.
+   * 받은 만큼 그대로 펼쳤더니 후보가 많은 자리에서는 목록이 아래 입력칸(상세 위치)을 통째로
+   * 밀어냈다. 세 줄 반쯤에서 자른다 — 마지막 줄이 반쯤 잘려 보여야 "아래가 더 있다"가
+   * 스크롤바 없이도 읽힌다. 안쪽 스크롤은 `nestedScrollEnabled`가 잡아 준다(안드로이드).
    */
+  placeListScroll: { maxHeight: 224 },
+  /** 장소 후보 목록. */
   placeList: {
     marginTop: spacing.x2,
     overflow: 'hidden',

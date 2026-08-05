@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ConfirmModal, ScreenHeader } from '@/components/common';
@@ -24,6 +24,20 @@ export default function MypageScreen() {
   const navigation = useActivityMonth();
   const { profile, loading, error } = useMypageSummary(navigation.month);
   const logout = useLogout();
+
+  /*
+    이 화면이 다시 보일 때마다 스크롤을 맨 위로 되돌린다.
+
+    탭을 벗어나면 첫 화면으로 접히는데(popToTopOnBlur), 화면은 살아 있어 스크롤 위치가
+    남는다 — 크레딧 내역을 보러 내려갔던 자리에서 입구가 열렸다. 입구는 늘 맨 위여야 한다.
+  */
+  const scrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, []),
+  );
 
   const loadedMonth = profile?.monthlyActivity;
   const { captureServiceMonth } = navigation;
@@ -48,7 +62,11 @@ export default function MypageScreen() {
         }
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.summaryContent}>
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.summaryContent}
+      >
         {/*
           달을 옮기는 동안에도 이미 받은 카드를 지우지 않는다. 매번 화면을 비우면 화살표가
           사라져 연속으로 누를 수 없고 화면이 깜빡인다. 처음 불러올 때만 자리를 비운다.

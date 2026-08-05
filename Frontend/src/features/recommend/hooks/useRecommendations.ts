@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { getRecommendations } from '@/api/recommend/places';
 import type { CrowdFilter } from '@/constants/crowdLevels';
@@ -61,11 +62,15 @@ export function useRecommendations(): RecommendationsState {
   /** 이미 조회했는지. 화면이 다시 그려져도 두 번 부르지 않는다. */
   const requested = useRef(false);
 
+  /** 무엇이든 한 번 받아 봤는지. 받아 본 뒤의 재조회는 로딩을 보여주지 않는다. */
+  const hasDataRef = useRef(false);
+
   useEffect(() => {
     if (requested.current) return;
     requested.current = true;
 
-    setLoading(true);
+    // 이미 목록이 있으면 소리 없이 바꾼다. 탭에 돌아올 때마다 화면이 로딩으로 덮이면 어수선하다.
+    setLoading(!hasDataRef.current);
     setError(null);
     log(reloadCount === 0 ? '화면 진입' : '다시 조회');
 
@@ -84,6 +89,7 @@ export function useRecommendations(): RecommendationsState {
 
     withMinimumDuration(load, MIN_LOADING_MS)
       .then((received) => {
+        hasDataRef.current = true;
         setData(received);
         setLoading(false);
       })
@@ -100,6 +106,29 @@ export function useRecommendations(): RecommendationsState {
     // 다음 조회를 허용한다. 좌표 · 요청이 모두 끝난 뒤라야 연타로 겹치지 않는다.
   }, [requestLocation, reloadCount]);
 
+  /*
+    탭에 돌아올 때 다시 받는다.
+
+    탭 화면은 옮겨도 살아 있어서, 마운트 때 한 번 받고 끝나면 그 뒤에 생긴 핀이 추천에
+    반영되지 않았다 — 로그가 처음에만 찍힌 이유다(프론트가 다시 부르지 않은 것이지 캐시가
+    아니다). 서버도 짧게 캐시하므로 매번 새로 계산되지는 않는다.
+
+    첫 초점은 건너뛴다. 마운트 효과가 방금 받아 온 직후라 같은 요청을 두 번 보내게 된다.
+  */
+  const focusedOnce = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedOnce.current) {
+        focusedOnce.current = true;
+        return;
+      }
+
+      requested.current = false;
+      setReloadCount((count) => count + 1);
+    }, []),
+  );
+
   return {
     mode,
     /*
@@ -108,7 +137,16 @@ export function useRecommendations(): RecommendationsState {
       서버가 목록 이름을 바꾸면(`relaxed`·`wagle`) 여기서 조용히 비어 버린다. 그 경우를
       화면에서 알아볼 수 있도록 요청 기록에 계열별 개수를 함께 남겨 둔다(`api/recommend/log`).
     */
-    places: data?.recommendations?.[mode] ?? [],
+    /*
+      핀이 있는 장소만 보여준다(제품 결정, 2026-08-05). 추천의 근거가 영상핀인데 핀이 하나도
+      없는 장소가 목록에 오르면 눌러도 볼 것이 없다. 서버 후보 선정이 아직 이 기준을 거르지
+      않아 프론트가 거른다 — 전부 걸러지면 기존의 빈 목록 안내(첫 핀을 남겨 보라는 화면)가 뜬다.
+
+      기준은 개수(`activePinCount`)가 아니라 **미리보기 핀이 실제로 있는지**다. 개수와 미리보기가
+      어긋난 카드가 왔는데(개수는 있는데 미리보기가 빔) 개수로 걸렀더니 핀 없는 카드가 남았다.
+      화면이 그리는 것이 미리보기이므로 그것을 기준으로 삼는다.
+    */
+    places: (data?.recommendations?.[mode] ?? []).filter((place) => place.pinPreviews.length > 0),
     generatedAt: data?.generatedAt ?? null,
     isFallback: data?.recommendationType === 'POPULAR_FALLBACK',
     loading,

@@ -3,18 +3,21 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ViewAvatar } from '@/components/common';
 import { colors } from '@/constants/theme';
+import type { CrowdFilter } from '@/constants/crowdLevels';
 import type { RecommendedPlace } from '@/types/recommend';
 import { recommendStyles as s } from '../styles';
 
 export interface RecommendCardProps {
   place: RecommendedPlace;
+  /** 이 카드가 속한 계열. 상세 지도의 핀 색이 이 값을 따른다(와글이면 홈과 같은 붉은 계열). */
+  mode: CrowdFilter;
 }
 
 /** 각도 링 지름. 한 줄에 다섯 개가 들어가야 해서 작게 쓴다. */
 const ANGLE_RING_SIZE = 30;
 
 /** 추천 장소 한 장. 누르면 장소 상세로 간다. */
-export function RecommendCard({ place }: RecommendCardProps) {
+export function RecommendCard({ place, mode }: RecommendCardProps) {
   /**
    * 대표 업로더를 뺀 사람 수.
    *
@@ -49,6 +52,8 @@ export function RecommendCard({ place }: RecommendCardProps) {
             pathname: '/(tabs)/recommend/[placeId]',
             params: {
               placeId: place.placeId,
+              // 상세 지도의 핀 색이 계열을 따른다. 와글에서 열면 홈과 같은 붉은 계열이다.
+              filter: mode,
               ...(place.latitude !== undefined && place.longitude !== undefined
                 ? { latitude: place.latitude, longitude: place.longitude }
                 : null),
@@ -72,10 +77,12 @@ export function RecommendCard({ place }: RecommendCardProps) {
         <View style={s.rule} />
 
         {/*
-          아직 사람이 올린 것이 없으면 각도 링 대신 작성으로 유도한다. "외 0명"이나 빈 줄을
-          두면 추천된 이유를 알 수 없고, 이 화면에서 할 수 있는 일도 사라진다.
+          핀이 정말 없을 때만 작성으로 유도한다. 기준은 미리보기가 비었는지다 — 예전에는
+          "업로더가 1명"(others === 0)일 때도 이 안내가 떠서, 핀이 있는 장소가 "아직 업로드된
+          핀이 없습니다"라고 말했다. 목록 훅이 미리보기 없는 장소를 걸러 주므로 이 분기는
+          사실상 안전망이다.
         */}
-        {others === 0 ? (
+        {previews.length === 0 ? (
           // 카드 전체는 장소 상세로 가지만 이 자리는 작성으로 보낸다. 문구가 그렇게 적혀 있다.
           <Pressable
             accessibilityRole="button"
@@ -88,8 +95,11 @@ export function RecommendCard({ place }: RecommendCardProps) {
           </Pressable>
         ) : (
           <>
+            {/* 혼자 올린 장소에 "외 0명"이라고 적지 않는다. */}
             <Text style={s.pinMessage}>
-              {place.representativeUploaderNickname} 외 {others}명이 핀을 업로드했습니다
+              {others === 0
+                ? `${place.representativeUploaderNickname}님이 핀을 업로드했습니다`
+                : `${place.representativeUploaderNickname} 외 ${others}명이 핀을 업로드했습니다`}
             </Text>
 
             {/*
@@ -99,11 +109,7 @@ export function RecommendCard({ place }: RecommendCardProps) {
             */}
             <View style={s.angleRow}>
               {previews.map((preview) => (
-                <ViewAvatar
-                  key={preview.pinId}
-                  angle={preview.uploaderViewAngle}
-                  size={ANGLE_RING_SIZE}
-                />
+                <ViewAvatar key={preview.pinId} angle={preview.uploaderViewAngle} size={ANGLE_RING_SIZE} />
               ))}
               {/* 링으로 보여주지 못한 나머지 핀. 다 보여줬으면 적지 않는다. */}
               {remaining > 0 && <Text style={s.more}>+{remaining}</Text>}

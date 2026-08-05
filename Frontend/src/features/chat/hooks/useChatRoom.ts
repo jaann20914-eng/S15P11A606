@@ -8,7 +8,7 @@ import type { ChatMessage, ChatRoomHistory, ChatRoomStatus, ChatWarning } from '
 import type { ChatRoomEvent } from '@/types/chatSocket';
 import { createDevLogger } from '@/utils/devLog';
 import { enterRoom, notifyRoomRead } from '../readTracker';
-import { useChatRoomEvents } from './useChatEvents';
+import { useChatRoomEvents, useUserChatEvents } from './useChatEvents';
 
 const log = createDevLogger('chat-room');
 
@@ -249,6 +249,24 @@ export function useChatRoom(roomId: number | null): ChatRoomState {
   );
 
   useChatRoomEvents(roomId, handleEvent);
+
+  /*
+    상태 변경은 **개인 큐로만** 온다.
+
+    서버는 수락·거절·떠남·삭제를 방 토픽(`/topic/chat/rooms/{roomId}`)에 쏘지 않고 상대의
+    개인 큐(`/user/queue/chat-rooms`)로만 보낸다 — 방 토픽에는 메시지와 경고뿐이다. 그래서
+    방 토픽만 듣던 동안에는, 대기 중인 방에 들어가 있는 요청자가 상대의 수락을 받아도
+    입력칸이 잠긴 채였다(2026-08-05). 개인 큐를 함께 듣고 이 방의 상태 변경만 집어 온다.
+
+    위 `handleEvent`의 상태 분기는 남겨 둔다 — 서버가 방 토픽에도 쏘기 시작하면 그대로 받는다.
+  */
+  useUserChatEvents((event) => {
+    if (event.eventType !== 'CHAT_ROOM_STATUS_CHANGED' || roomId === null) return;
+    if (event.data.roomId !== roomId) return;
+
+    setStatus(event.data.status);
+    log('상태 변경(개인 큐)', { roomId, 상태: event.data.status });
+  });
 
   const send = useCallback(
     (content: string) => {

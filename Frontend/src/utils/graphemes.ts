@@ -22,9 +22,74 @@ function createSegmenter(): Intl.Segmenter | null {
   }
 }
 
+/**
+ * 코드 포인트 뒤에 붙어 앞 글자와 한 덩어리가 되는 것들.
+ *
+ * 변형 선택자(이모지·문자 표시 지정), 피부색, 키캡, 결합 부호. 이들이 붙어도 보이는 글자는
+ * 하나다.
+ */
+const TRAILING_COMBINER = /^[\u{FE0E}\u{FE0F}\u{20E3}\u{0300}-\u{036F}\u{1F3FB}-\u{1F3FF}]$/u;
+
+/** 국기 이모지의 재료. 두 개가 나란히 오면 국기 하나다. */
+const REGIONAL_INDICATOR = /^[\u{1F1E6}-\u{1F1FF}]$/u;
+
+/** ZWJ(zero-width joiner). 앞뒤 이모지를 한 글자로 잇는다. 보이지 않는 문자라 코드로 적는다. */
+const ZERO_WIDTH_JOINER = String.fromCharCode(0x200d);
+
+/**
+ * `Intl.Segmenter`가 없는 환경(Hermes)의 대체 분할.
+ *
+ * 코드 포인트로만 나누면 ❤️(하트+변형 선택자)가 2자, 👍🏻(엄지+피부색)가 2자, 국기가 2자로
+ * 세어진다. 그래서 이모지만 채우면 50자 안내와 달리 40자 남짓에서 입력이 막혔다(2026-08-05).
+ * 흔한 결합 규칙 — 변형 선택자 · 피부색 · 키캡 · 결합 부호 · ZWJ 연결 · 국기 쌍 — 을 앞
+ * 글자에 붙여 세면 일상적인 이모지는 눈에 보이는 대로 세어진다. 완전한 구현은 아니지만
+ * 서버(ICU 기준)보다 **많게 세는 일은 없어**, 잘려도 서버가 거절하는 일은 생기지 않는다.
+ */
+function splitFallback(value: string): string[] {
+  const points = Array.from(value);
+  const clusters: string[] = [];
+
+  for (let index = 0; index < points.length; index += 1) {
+    let cluster = points[index];
+
+    // 국기: 지역 지시 문자 두 개가 한 글자다.
+    if (
+      REGIONAL_INDICATOR.test(cluster) &&
+      index + 1 < points.length &&
+      REGIONAL_INDICATOR.test(points[index + 1])
+    ) {
+      index += 1;
+      cluster += points[index];
+    }
+
+    while (index + 1 < points.length) {
+      const next = points[index + 1];
+
+      if (TRAILING_COMBINER.test(next)) {
+        index += 1;
+        cluster += next;
+        continue;
+      }
+
+      // ZWJ는 앞뒤를 한 글자로 잇는다(가족·직업 이모지). 다음 글자까지 함께 삼킨다.
+      if (next === ZERO_WIDTH_JOINER && index + 2 < points.length) {
+        index += 2;
+        cluster += next + points[index];
+        continue;
+      }
+
+      break;
+    }
+
+    clusters.push(cluster);
+  }
+
+  return clusters;
+}
+
 /** 보이는 글자 단위로 쪼갠다. */
 function split(value: string): string[] {
-  if (!segmenter) return Array.from(value);
+  if (!segmenter) return splitFallback(value);
   return Array.from(segmenter.segment(value), (part) => part.segment);
 }
 

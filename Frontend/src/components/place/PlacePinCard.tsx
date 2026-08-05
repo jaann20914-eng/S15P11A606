@@ -26,6 +26,13 @@ export interface PlacePinCardProps {
    * 홈의 장소 카드와 같은 양식으로 라임 테두리를 둘러 "지도에 보이는 그 핀"임을 알린다.
    */
   selected?: boolean;
+  /**
+   * 선택 테두리 색. 기본은 라임이다.
+   *
+   * 추천의 와글 계열은 지도 핀이 붉은 계열이라 테두리도 같은 계열이어야 한다 — 지도와 카드가
+   * 다른 색으로 같은 핀을 가리키면 짝이 아닌 것처럼 보인다.
+   */
+  selectedColor?: string;
 }
 
 /** 카드의 각도 링 지름. */
@@ -100,7 +107,7 @@ const PREVIEW_BLUR_RADIUS_WIDE = 22;
  */
 const PREVIEW_BLUR_OVERSCAN = 1.25;
 
-export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardProps) {
+export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
     없이 등록된 핀이 목록에 하나만 있어도 카드가 아니라 화면 전체가 죽었다.
@@ -154,7 +161,11 @@ export function PlacePinCard({ pin, onPress, selected = false }: PlacePinCardPro
       accessibilityRole="button"
       accessibilityLabel={`${pin.nickname}님의 영상핀 보기`}
       onPress={onPress}
-      style={[s.card, selected && s.cardSelected]}
+      style={[
+        s.card,
+        selected && s.cardSelected,
+        selected && selectedColor !== undefined && { borderColor: selectedColor },
+      ]}
     >
       <View style={s.author}>
         <ViewAvatar angle={pin.viewAngle} size={ANGLE_RING_SIZE} />

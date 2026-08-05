@@ -23,7 +23,7 @@ export function TrustSummaryCard({ profile }: TrustSummaryCardProps) {
       <View style={s.trustRow}>
         <ViewAvatar angle={profile.viewReliability} size={RING_SIZE} />
         <View style={s.trustCopy}>
-          <Text style={s.eyebrow}>나의 뷰 신뢰도</Text>
+          <Text style={s.eyebrow}>{profile.nickname}님의 뷰 신뢰도</Text>
           <Text style={s.trustValue}>{formatViewAngle(profile.viewReliability)}</Text>
           <Text style={s.trustHelp}>유익한 영상과 답변이 쌓일수록 360°에 가까워져요.</Text>
         </View>

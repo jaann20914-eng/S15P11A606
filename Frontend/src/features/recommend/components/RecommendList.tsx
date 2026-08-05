@@ -47,7 +47,7 @@ export function RecommendList({ places, mode, loading, error, onRetry }: Recomme
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={s.list}>
           {places.map((place) => (
-            <RecommendCard key={place.placeId} place={place} />
+            <RecommendCard key={place.placeId} place={place} mode={mode} />
           ))}
         </ScrollView>
       )}
