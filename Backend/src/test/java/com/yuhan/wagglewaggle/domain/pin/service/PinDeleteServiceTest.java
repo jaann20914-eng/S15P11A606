@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.pin.service;
 
 import com.yuhan.wagglewaggle.domain.blur.service.VideoObjectCleanupPort;
 import com.yuhan.wagglewaggle.domain.pin.dto.PinDeleteResponse;
+import com.yuhan.wagglewaggle.domain.pin.tag.service.PinTagIndexingService;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ class PinDeleteServiceTest {
 
     @Mock private PinDeletePersistenceService pinDeletePersistenceService;
     @Mock private VideoObjectCleanupPort videoObjectCleanupPort;
+    @Mock private PinTagIndexingService pinTagIndexingService;
 
     private PinDeleteService service;
 
@@ -42,7 +44,7 @@ class PinDeleteServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PinDeleteService(pinDeletePersistenceService, videoObjectCleanupPort);
+        service = new PinDeleteService(pinDeletePersistenceService, videoObjectCleanupPort, pinTagIndexingService);
     }
 
     @Test
@@ -58,11 +60,27 @@ class PinDeleteServiceTest {
         assertThat(response.closedChatRoomIds()).containsExactly(1L);
         assertThat(response.deletedAt()).isEqualTo(DELETED_AT);
 
-        // 반영(apply)이 정리 대상 등록보다 먼저 일어난다 — DB 커밋 후 등록.
-        InOrder inOrder = inOrder(pinDeletePersistenceService, videoObjectCleanupPort);
+        // 반영(apply)이 정리 대상 등록·인덱스 제거보다 먼저 일어난다 — DB 커밋 후 처리.
+        InOrder inOrder = inOrder(pinDeletePersistenceService, videoObjectCleanupPort, pinTagIndexingService);
         inOrder.verify(pinDeletePersistenceService).apply(PIN_ID, MEMBER_ID);
         inOrder.verify(videoObjectCleanupPort).registerForDeletion("key-a");
         inOrder.verify(videoObjectCleanupPort).registerForDeletion("key-b");
+        // 커밋 이후 검색 인덱스에서도 이 핀의 태그 문서를 제거한다.
+        inOrder.verify(pinTagIndexingService).removePinTags(PIN_ID);
+    }
+
+    @Test
+    void 검색_인덱스_제거가_실패해도_삭제_응답을_반환한다() {
+        given(pinDeletePersistenceService.apply(PIN_ID, MEMBER_ID))
+                .willReturn(new PinDeletePersistenceService.Result(
+                        DELETED_AT, List.of(), List.of()));
+        org.mockito.BDDMockito.willThrow(new RuntimeException("ES 오류"))
+                .given(pinTagIndexingService).removePinTags(any());
+
+        PinDeleteResponse response = service.delete(MEMBER_ID, RAW_PIN_ID);
+
+        assertThat(response.status()).isEqualTo("DELETED");
+        assertThat(response.deletedAt()).isEqualTo(DELETED_AT);
     }
 
     @Test
