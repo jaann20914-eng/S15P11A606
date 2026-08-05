@@ -78,6 +78,35 @@ services:
     privileged: true
     # 포트는 호스트에 안 연다. Prometheus 가 네트워크 안에서 8080 으로 긁는다.
 
+  # PostGIS 지표: 커넥션 수 / 트랜잭션 / 슬로우 쿼리 / 락 등
+  # waggle-postgis 에 접속해 지표를 뽑아 Prometheus 포맷으로 노출한다.
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: waggle-postgres-exporter
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    environment:
+      # URI/USER/PASS 를 분리해 비밀번호에 특수문자가 있어도 URL 인코딩 문제가 없게 한다.
+      DATA_SOURCE_URI: "waggle-postgis:5432/wagglewaggle?sslmode=disable"
+      DATA_SOURCE_USER: waggle
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+    # 포트는 호스트에 안 연다. Prometheus 가 네트워크 안에서 9187 로 긁는다.
+
+  # Elasticsearch 지표: 클러스터 상태 / 노드 리소스 / 인덱스 통계 등
+  # xpack.security 가 꺼져 있어 인증 없이 접속한다.
+  es-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.8.0
+    container_name: waggle-es-exporter
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    command:
+      - --es.uri=http://waggle-elasticsearch:9200
+      - --es.all          # 모든 노드 지표
+      - --es.indices      # 인덱스별 지표
+    # 포트는 호스트에 안 연다. Prometheus 가 네트워크 안에서 9114 로 긁는다.
+
 # infra/docker-compose.yml 및 Jenkins 앱 배포와 같은 네트워크를 공유한다.
 # compose 밖에서 관리하므로 external 로 참조한다(직접 만들지 않음).
 networks:
