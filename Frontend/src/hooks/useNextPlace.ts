@@ -19,13 +19,21 @@ import { useMapStore } from '@/store/useMapStore';
 
 export interface NextPlace {
   /**
-   * 버튼을 보일지.
+   * 버튼을 보일지. **20m에 닿으면 보인다.**
    *
-   * **두 곳 이상일 때만 보인다.** 한 곳뿐이면 눌러도 그 장소로 되돌아올 뿐이라, 눌리는데 아무
-   * 일도 하지 않는 버튼이 된다. 목록은 20m에서만 채워지므로 축척 조건은 이미 이 값에 들어 있다.
+   * 그 축척에서 생기고 30m 이상으로 넓히면 사라진다 — 축척이 조건의 전부다. 돌려 볼 곳이 한
+   * 곳뿐이어도 보인다: 그 축척에 이 버튼이 있다는 것을 알 수 있어야 한다. 대신 누를 수 없게
+   * 둔다(`enabled`).
    */
   visible: boolean;
-  /** 다음으로 가까운 장소로 넘어간다. */
+  /**
+   * 누를 수 있는지. **돌려 볼 곳이 두 곳 이상일 때만** 참이다.
+   *
+   * 한 곳뿐이면 눌러도 그 장소로 되돌아올 뿐이라 아무 일도 하지 않는 버튼이 된다. 감추는 대신
+   * 흐리게 두어 "지금은 돌려 볼 다른 장소가 없다"가 보이게 한다.
+   */
+  enabled: boolean;
+  /** 다음으로 가까운 장소로 넘어간다. 돌려 볼 곳이 없으면 아무것도 하지 않는다. */
   goNext: () => void;
 }
 
@@ -42,13 +50,14 @@ export interface NextPlaceOptions {
 }
 
 export function useNextPlace({ replace = false }: NextPlaceOptions = {}): NextPlace {
+  const mapLevel = useMapStore((state) => state.mapLevel);
   const nearbyPlaces = useMapStore((state) => state.nearbyPlaces);
   const selectedPlaceId = useMapStore((state) => state.selectedPlaceId);
   const selectPlace = useMapStore((state) => state.selectPlace);
   const focusOn = useMapStore((state) => state.focusOn);
 
   const goNext = useCallback(() => {
-    if (nearbyPlaces.length === 0) return;
+    if (nearbyPlaces.length < 2) return;
 
     /*
       지금 고른 장소의 **다음**을 고른다. 목록에 없으면(`-1`) 처음으로 간다 — 지도를 눌러 선택을
@@ -78,5 +87,9 @@ export function useNextPlace({ replace = false }: NextPlaceOptions = {}): NextPl
     else router.push(path);
   }, [focusOn, nearbyPlaces, replace, selectPlace, selectedPlaceId]);
 
-  return { visible: nearbyPlaces.length > 1, goNext };
+  return {
+    visible: mapLevel <= REVIEW_PIN_MAX_LEVEL,
+    enabled: nearbyPlaces.length > 1,
+    goNext,
+  };
 }

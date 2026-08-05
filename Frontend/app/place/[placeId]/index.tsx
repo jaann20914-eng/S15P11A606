@@ -541,7 +541,11 @@ export default function Place() {
           목록은 20m에서만 채워지므로 축척이 넓어지면 버튼도 사라진다.
         */}
         {nextPlaceButton.mounted && (
-          <NextPlaceButton onPress={nextPlace.goNext} style={nextPlaceButton.style} />
+          <NextPlaceButton
+            onPress={nextPlace.goNext}
+            enabled={nextPlace.enabled}
+            style={nextPlaceButton.style}
+          />
         )}
       </View>
 

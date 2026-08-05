@@ -88,6 +88,16 @@ export interface MapGestureControl {
 export interface MapState {
   center: Coordinate;
   bounds: MapBounds | null;
+  /**
+   * 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다.
+   *
+   * 홈이 지도가 멈출 때마다 올린다. **지도를 갖지 않은 화면도 이 값을 봐야 한다** — 20m에서만
+   * 있는 컨트롤(옆 장소 버튼)이 장소 상세 위에 뜨는데, 그 화면은 축척을 알 길이 없다.
+   *
+   * 초기값은 `components/home/kakaoMapHtml`의 `DEFAULT_MAP_LEVEL`과 같은 값이다. 저장소가
+   * 컴포넌트를 import하면 순환이 되므로 여기에 다시 적는다(`MapGestureControl`과 같은 사정이다).
+   */
+  mapLevel: number;
   /** 상세 화면이 넘긴 영상핀 마커. null이면 홈이 장소 마커를 찍는다. */
   pinOverlay: PinMarkerOverlay | null;
   /**
@@ -143,6 +153,8 @@ export interface MapState {
   selectedPlaceId: string | null;
   setCenter: (center: Coordinate) => void;
   setBounds: (bounds: MapBounds | null) => void;
+  /** 지도가 멈출 때마다 홈이 축척을 올린다. */
+  setMapLevel: (level: number) => void;
   /** 검색 화면에서 장소를 골랐을 때. 홈이 처리하고 `clearFocus`로 비운다. */
   focusOn: (focus: MapFocus) => void;
   clearFocus: () => void;
@@ -169,6 +181,7 @@ const NO_NEARBY_PLACES: MapMarker[] = [];
 export const useMapStore = createStore<MapState>((set, get) => ({
   center: DEFAULT_CENTER,
   bounds: null,
+  mapLevel: 5,
   pinOverlay: null,
   pressedPinId: null,
   nearbyPlaces: NO_NEARBY_PLACES,
@@ -179,6 +192,7 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   selectedPlaceId: null,
   setCenter: (center) => set({ center }),
   setBounds: (bounds) => set({ bounds }),
+  setMapLevel: (mapLevel) => set({ mapLevel }),
   focusOn: (focus) => set({ focus }),
   clearFocus: () => set({ focus: null }),
   setCrowdFilter: (crowdFilter) => set({ crowdFilter }),

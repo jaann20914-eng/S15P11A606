@@ -14,11 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { KakaoMap } from '@/components/home/KakaoMap';
 import type { KakaoMapHandle } from '@/components/home/KakaoMap';
 import type { MapViewState } from '@/components/home/kakaoMapHtml';
-import {
-  DEFAULT_MAP_LEVEL,
-  PLACE_FOCUS_MAP_LEVEL,
-  REVIEW_PIN_MAX_LEVEL,
-} from '@/components/home/kakaoMapHtml';
+import { PLACE_FOCUS_MAP_LEVEL, REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
 import {
   CARD_SLOT_GAP,
   CardPager,
@@ -296,8 +292,14 @@ export default function Home() {
   });
   const { level, moveTo, sheetY, coveredHeight } = sheet;
 
-  /** 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다. */
-  const [mapLevel, setMapLevel] = useState(DEFAULT_MAP_LEVEL);
+  /**
+   * 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다.
+   *
+   * **저장소에 둔다.** 20m에서만 있는 컨트롤(옆 장소 버튼)이 위에 겹치는 장소 상세에도 떠야
+   * 하는데, 그 화면은 자기 지도가 없어 축척을 알 길이 없다.
+   */
+  const mapLevel = useMapStore((state) => state.mapLevel);
+  const setMapLevel = useMapStore((state) => state.setMapLevel);
 
   /*
     지도에 찍을 마커.
@@ -579,13 +581,54 @@ export default function Home() {
     그 길들은 같은 tick에 상세를 띄우므로, 확대가 끝나 축척이 도착할 때는 맨 위가 아니다.
   */
   const previousMapLevel = useRef(mapLevel);
+  /**
+   * 지금 열려 있는 상세를 **축척 때문에 우리가 열었는지.**
+   *
+   * 그렇다면 축척이 그 자리를 벗어날 때 우리가 접는다(아래). 사용자가 카드 꺽새나 검색으로 직접
+   * 연 상세는 건드리지 않는다 — 그 화면은 축척과 무관하게 보러 들어온 것이다.
+   */
+  const openedByZoom = useRef(false);
+  /**
+   * 축척을 넓혀서 그 상세를 접었는지.
+   *
+   * 상세가 닫히면 홈은 장소용 축척(250m)으로 넓히지만, 손으로 넓혀서 닫힌 경우에는 사용자가
+   * 이미 축척을 정한 것이라 그대로 둬야 한다(아래 `hadPinOverlay` 효과에서 소비한다).
+   */
+  const closedByZoom = useRef(false);
+
   useEffect(() => {
     const from = previousMapLevel.current;
     previousMapLevel.current = mapLevel;
 
-    // 그 축척을 벗어나면 돌려 볼 목록을 버린다. 버튼도 함께 사라진다.
+    /*
+      **그 축척을 벗어나면 상세도 접는다.**
+
+      20m는 장소 하나를 들여다보는 축척이고, 넓히는 것은 다시 둘러보겠다는 뜻이다. 그런데 상세는
+      열린 채로 남아 **지도를 쓰는 값을 다 끌고 다녔다** — 핀 마커와 썸네일을 그대로 들고 있고,
+      무엇보다 그 화면은 자기 지도가 없어 **손가락 움직임 하나하나를 명령으로 바꿔** 아래 지도에
+      보낸다(`useMapGestures` → `dragBy`). 홈에서는 손가락이 WebView에 곧바로 닿는데 그 경로는
+      프레임마다 스크립트를 주입하므로, 상세를 열어 둔 채 지도를 다루면 눈에 띄게 버벅였다
+      (2026-08-05 실기기). 접어 두면 그 뒤의 지도 조작은 다시 홈의 빠른 길로 돌아간다.
+
+      우리가 연 것만 접는다. 그리고 목록도 함께 버려 버튼이 사라진다.
+    */
     if (mapLevel > REVIEW_PIN_MAX_LEVEL) {
       if (nearbyPlaces.length > 0) setNearbyPlaces([]);
+
+      if (openedByZoom.current) {
+        openedByZoom.current = false;
+        /*
+          맨 위가 아닐 때만 접는다 — 맨 위면 이미 접힌 것이다. 우리가 연 상세 위에 사용자가 또
+          다른 화면을 얹었을 가능성은 두지 않는다: 그 화면들에는 지도가 없어 축척이 바뀌지 않고,
+          홈이 다시 맨 위가 되는 순간 이 표시를 지우기 때문이다(`useFocusEffect`).
+        */
+        if (!onTop && router.canGoBack()) {
+          log('20m 벗어남 — 상세를 접는다', { 축척: mapLevel });
+          // 닫힌 뒤 축척을 다시 넓히지 않도록 알려 둔다. 손이 정한 축척이 그대로 남아야 한다.
+          closedByZoom.current = true;
+          router.back();
+        }
+      }
       return;
     }
 
@@ -627,6 +670,8 @@ export default function Home() {
       return;
     }
 
+    // 우리가 여는 것이므로 표시해 둔다. 축척이 그 자리를 벗어나면 우리가 접는다.
+    openedByZoom.current = true;
     openPlace(found[0].id);
   }, [
     bounds,
@@ -655,6 +700,10 @@ export default function Home() {
     장소용 축척(250m)으로 넓혀 주변 장소가 함께 보이게 한다.
 
     이미 그보다 넓게 보고 있으면 건드리지 않는다 — 사용자가 손으로 잡은 축척을 되돌리지 않는다.
+
+    **축척을 넓혀서 닫힌 경우에는 그대로 둔다.** 20m를 벗어나면 우리가 상세를 접는데(위), 그때는
+    사용자가 이미 손으로 축척을 정한 것이다. 여기서 또 넓히면 한 단계 벌린 손짓이 250m로 뛰어
+    엉뚱한 동네가 나온다.
   */
   const hadPinOverlay = useRef(false);
   useEffect(() => {
@@ -665,6 +714,12 @@ export default function Home() {
     if (!hadPinOverlay.current) return;
 
     hadPinOverlay.current = false;
+
+    if (closedByZoom.current) {
+      closedByZoom.current = false;
+      return;
+    }
+
     if (mapLevel < PLACE_FOCUS_MAP_LEVEL) mapRef.current?.setLevel(PLACE_FOCUS_MAP_LEVEL);
   }, [mapLevel, pinOverlay]);
 
@@ -680,6 +735,11 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       setOnTop(true);
+      /*
+        맨 위로 돌아왔다는 것은 우리가 열어 둔 상세가 이미 닫혔다는 뜻이다. 표시를 지워야 다음
+        축척 변화에서 엉뚱한 화면을 접지 않는다(`openedByZoom` 설명).
+      */
+      openedByZoom.current = false;
       mapRef.current?.relayout();
       return () => setOnTop(false);
     }, []),
@@ -820,7 +880,11 @@ export default function Home() {
           내 위치 버튼과 같은 조건으로 함께 감춘다. 최대화 단계에서는 시트가 그 자리를 덮는다.
         */}
         {nextPlaceButton.mounted && (
-          <NextPlaceButton onPress={nextPlace.goNext} style={nextPlaceButton.style} />
+          <NextPlaceButton
+            onPress={nextPlace.goNext}
+            enabled={nextPlace.enabled}
+            style={nextPlaceButton.style}
+          />
         )}
       </View>
 
