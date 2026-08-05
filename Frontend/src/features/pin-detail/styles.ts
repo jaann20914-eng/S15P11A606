@@ -263,7 +263,8 @@ export const pinDetailStyles = StyleSheet.create({
       스크린샷). 글줄 간격(type.small의 lineHeight)만으로 줄은 충분히 나뉜다.
     */
     rowGap: 0,
-    marginTop: spacing.x3,
+    // 본문과 넉넉히 떨어뜨린다. 태그 줄 사이는 못 좁혀서, 본문과의 거리로 묶음을 가른다.
+    marginTop: spacing.x6,
   },
   /**
    * 화면 폭을 넘는 태그는 글자 단위로 줄을 바꿔 끝까지 보여준다.
