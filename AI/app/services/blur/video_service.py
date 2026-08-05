@@ -16,6 +16,7 @@ from app.common.exceptions import (
 from app.core.config import settings
 from app.services.blur.blur_service import BlurService
 from app.services.blur.face_detector import FaceDetector
+from app.services.blur.face_tracker import FaceTracker
 from app.services.blur.validation_service import (
     ValidationService,
 )
@@ -123,6 +124,18 @@ class VideoService:
 
         reasons: set[str] = set()
 
+        tracker = FaceTracker(
+            iou_threshold=(
+                settings.tracking_iou_threshold
+            ),
+            smoothing_alpha=(
+                settings.tracking_smoothing_alpha
+            ),
+            max_missed_frames=(
+                settings.tracking_max_missed_frames
+            ),
+        )
+
         detected_frame_count = 0
         processed_frame_count = 0
         thumbnail_frame_index = (
@@ -140,27 +153,31 @@ class VideoService:
 
                 original = frame.copy()
 
-                faces = self.detector.detect(
+                detected_faces = self.detector.detect(
                     original
+                )
+                detected += len(detected_faces)
+
+                tracked_faces = tracker.update(
+                    detected_faces
                 )
 
                 blurred = frame.copy()
 
                 records = []
 
-                for face in faces:
-                    detected += 1
-
+                for tracked_face in tracked_faces:
                     blurred, blur_bbox = (
                         self.blur_service.apply(
                             blurred,
-                            face.bbox,
+                            tracked_face.bbox,
                         )
                     )
 
-                    records.append(
-                        blur_bbox
-                    )
+                    if tracked_face.detected_this_frame:
+                        records.append(
+                            blur_bbox
+                        )
 
                 if records:
                     should_validate = (

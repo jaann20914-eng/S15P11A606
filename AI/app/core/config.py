@@ -83,6 +83,22 @@ class Settings(BaseSettings):
     blur_kernel_size: int = 51
     blur_iterations: int = 2
 
+    # Face tracking
+    tracking_max_missed_frames: int = Field(
+        default=3,
+        ge=0,
+    )
+    tracking_iou_threshold: float = Field(
+        default=0.3,
+        gt=0.0,
+        le=1.0,
+    )
+    tracking_smoothing_alpha: float = Field(
+        default=0.3,
+        gt=0.0,
+        le=1.0,
+    )
+
     # Validation
     validate_interval: int = 5
     max_sharpness_ratio: float = 0.6

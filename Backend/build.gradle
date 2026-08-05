@@ -86,6 +86,12 @@ dependencies {
 	implementation platform('software.amazon.awssdk:bom:2.31.6')
 	implementation 'software.amazon.awssdk:s3'
 
+	// monitoring (actuator + Prometheus 지표 노출)
+	// actuator 가 /actuator/prometheus 엔드포인트를, micrometer-registry-prometheus 가
+	// JVM/HTTP/DB 커넥션풀 등 지표를 Prometheus 포맷으로 내보낸다.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
 	testRuntimeOnly 'com.h2database:h2'
 }
 

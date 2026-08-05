@@ -1,0 +1,90 @@
+# 와글와글 모니터링 스택 (Prometheus / Grafana / Exporters)
+#
+# infra/docker-compose.yml(지원 서비스)과 같은 waggle-network 위에 올라가서,
+# 각 서비스를 "컨테이너 이름"으로 긁어온다(scrape).
+#
+# 실행:  docker compose -f infra/monitoring/docker-compose.yml up -d
+# 접근:  포트는 호스트 localhost 에만 열고, 브라우저는 SSH 터널로 붙는다(README 참고).
+# 비밀값은 같은 폴더의 .env 에서 주입된다 (.env.example 참고).
+
+name: waggle-monitoring
+
+services:
+  # 수집/저장: 설정된 대상들을 주기적으로 긁어 시계열 DB 에 저장
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: waggle-prometheus
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - waggle-prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d   # 15일치 보관(디스크 절약)
+    # 호스트 로컬에만 노출. 외부 접근은 SSH 터널.
+    # 호스트 9090 은 Jenkins 가 사용 중이라 9091 로 매핑(컨테이너 내부는 9090 유지).
+    ports:
+      - "127.0.0.1:9091:9090"
+
+  # 시각화: Prometheus 를 데이터소스로 대시보드를 그림
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: waggle-grafana
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 를 .env 에 설정하세요}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - waggle-grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # EC2 호스트 자체 지표: CPU / 메모리 / 디스크 / 네트워크
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: waggle-node-exporter
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+    # 포트는 호스트에 안 연다. Prometheus 가 네트워크 안에서 9100 으로 긁는다.
+
+  # 컨테이너별 지표: 어떤 컨테이너가 CPU/메모리를 얼마나 쓰는지
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: waggle-cadvisor
+    restart: unless-stopped
+    networks:
+      - waggle-network
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    privileged: true
+    # 포트는 호스트에 안 연다. Prometheus 가 네트워크 안에서 8080 으로 긁는다.
+
+# infra/docker-compose.yml 및 Jenkins 앱 배포와 같은 네트워크를 공유한다.
+# compose 밖에서 관리하므로 external 로 참조한다(직접 만들지 않음).
+networks:
+  waggle-network:
+    external: true
+
+# 모니터링 데이터는 이 스택 전용 볼륨에 저장한다(지원 서비스 볼륨과 무관).
+volumes:
+  waggle-prometheus-data:
+  waggle-grafana-data:

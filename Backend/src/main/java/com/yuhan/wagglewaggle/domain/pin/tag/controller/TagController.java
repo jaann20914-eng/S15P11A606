@@ -1,6 +1,6 @@
 package com.yuhan.wagglewaggle.domain.pin.tag.controller;
 
-import com.yuhan.wagglewaggle.domain.pin.dto.TaggedPinsResponse;
+import com.yuhan.wagglewaggle.domain.pin.dto.TaggedPlacesResponse;
 import com.yuhan.wagglewaggle.domain.pin.tag.dto.TagSearchResponse;
 import com.yuhan.wagglewaggle.domain.pin.tag.service.TagSearchService;
 import com.yuhan.wagglewaggle.domain.pin.tag.service.TaggedPinService;
@@ -34,11 +34,11 @@ public class TagController {
 
 
     /**
-     * 요청한 태그가 포함된 활성 핀 목록을 지도 영역 기준으로 조회한다(태그 검색 확정).
+     * 요청한 태그가 포함된 활성 핀을 지도 영역 기준으로 조회하고 장소별로 묶어 반환한다(태그 검색 확정).
      * 태그는 '#'을 포함해 전달되며 서비스에서 정규화한다. 검색어는 최근 검색기록으로 저장된다.
      */
     @PostMapping("/search")
-    public ApiResponse<TaggedPinsResponse> searchPinsByTag(
+    public ApiResponse<TaggedPlacesResponse> searchPinsByTag(
             @AuthenticationPrincipal Long memberId,
             @RequestParam String tag,
             @RequestParam double southWestLatitude,
@@ -46,11 +46,11 @@ public class TagController {
             @RequestParam double northEastLatitude,
             @RequestParam double northEastLongitude
     ) {
-        TaggedPinsResponse result = taggedPinService.searchPinsByTag(
+        TaggedPlacesResponse result = taggedPinService.searchPinsByTag(
                 memberId, tag,
                 southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
         return ApiResponse.success(HttpStatus.OK.value(),
-                "태그가 포함된 핀 목록 조회가 완료되었습니다.", result);
+                "태그와 관련된 장소 목록 조회가 완료되었습니다.", result);
     }
 }

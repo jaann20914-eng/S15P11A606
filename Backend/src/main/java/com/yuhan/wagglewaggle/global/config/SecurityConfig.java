@@ -42,7 +42,10 @@ public class SecurityConfig {
             "/oauth/callback/**",
             // WebSocket 핸드셰이크(HTTP 업그레이드)는 서블릿 요청이지만 Authorization 헤더를 싣지 않는다.
             // 실제 인증은 STOMP CONNECT 프레임 단계(ChannelInterceptor)에서 수행하므로 핸드셰이크는 열어 둔다.
-            "/ws/**"
+            "/ws/**",
+            // 모니터링용 actuator 엔드포인트. Prometheus 가 인증 없이 /actuator/prometheus 를 긁는다.
+            // 노출 대상은 application.yml 의 management.endpoints.web.exposure.include 로 제한된다(health/info/prometheus).
+            "/actuator/**"
     };
 
     private final JwtProvider jwtProvider;
