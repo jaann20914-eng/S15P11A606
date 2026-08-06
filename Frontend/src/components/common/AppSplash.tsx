@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { colors } from '@/constants/theme';
+import { warmUpVideos } from '@/utils/videoWarmup';
 import { RING_FRAMES, SPLASH_DOT } from './splashFrames';
 
 /*
@@ -15,8 +16,8 @@ const SPIN_MS = 1300;
 const DOT_AT_MS = 1650;
 const DOT_MS = 500;
 
-/** 다 보여준 뒤 화면을 걷기까지 머무는 시간(ms)과 걷히는 시간(ms). */
-const HOLD_MS = 420;
+/** 다 보여준 뒤 화면을 걷기까지 머무는 시간(ms)과 걷히는 시간(ms). 로고를 읽을 만큼 둔다. */
+const HOLD_MS = 1000;
 const FADE_MS = 320;
 
 /** 시안 상자(340) 대비 실제 크기. */
@@ -61,6 +62,12 @@ export function AppSplash({ onFinish }: AppSplashProps) {
   const dotOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    /*
+      시작 화면이 도는 동안 장식 영상을 기기로 받아 둔다. 어차피 이 화면이 시간을 벌어 주는
+      자리라, 그 뒤에 여는 시트들(결제·채팅 요청·경고)의 영상이 바로 뜬다.
+    */
+    warmUpVideos();
+
     /* 그리기와 돌기는 같은 순간 출발한다(시안의 0.3s 지연). 전부 네이티브 드라이버다. */
     Animated.parallel([
       Animated.timing(draw, {

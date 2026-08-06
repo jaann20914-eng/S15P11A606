@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { VideoView } from 'expo-video';
 import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { warmedVideoSource } from '@/utils/videoWarmup';
 import type { VideoUploadPhase } from '@/types/pinCreate';
 import { pinCreateStyles as s } from '../styles';
 import { AiLoadingCircle } from './AiLoadingCircle';
@@ -53,7 +54,7 @@ const messageByPhase: Record<VideoUploadPhase, PhaseMessage> = {
  * 멈춰 있으면 앱이 멈춘 것처럼 읽힌다.
  */
 export function PublishingOverlay({ phase, progress, onCancel }: PublishingOverlayProps) {
-  const backdrop = useAutoplayVideo(BACKDROP, { loop: true, muted: true });
+  const backdrop = useAutoplayVideo(warmedVideoSource(BACKDROP), { loop: true, muted: true });
   const uploading = phase === 'uploading';
   const message = messageByPhase[phase];
 

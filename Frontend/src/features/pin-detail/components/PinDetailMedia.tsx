@@ -7,6 +7,7 @@ import type { VideoSource } from 'expo-video';
 import { MediaLoadingSweep } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { warmedVideoSource } from '@/utils/videoWarmup';
 import { pinDetailStyles as s } from '../styles';
 
 /**
@@ -88,7 +89,7 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
   // 열람 전에는 미리보기만 내려온다. 둘 다 비어 있으면 시안 영상으로 대체한다.
   const mediaUrl = unlocked ? videoUrl : previewUrl;
   const usesPlaceholder = !mediaUrl;
-  const source: VideoSource = usesPlaceholder ? PLACEHOLDER_MEDIA : { uri: mediaUrl };
+  const source: VideoSource = usesPlaceholder ? warmedVideoSource(PLACEHOLDER_MEDIA) : { uri: mediaUrl };
 
   const [muted, setMuted] = useState(true);
 

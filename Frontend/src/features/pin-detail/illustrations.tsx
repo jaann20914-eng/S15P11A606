@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useVideoPlayer } from 'expo-video';
-import type { VideoPlayer, VideoSource } from 'expo-video';
+import type { VideoPlayer } from 'expo-video';
+import { warmedVideoSource } from '@/utils/videoWarmup';
 
 /**
  * 이 화면에서 쓰는 3D 장식 영상.
@@ -10,11 +11,11 @@ import type { VideoPlayer, VideoSource } from 'expo-video';
  */
 const SOURCES = {
   /** 결제 시트의 코인. */
-  coin: require('../../../assets/videos/credit-coin-3d.mp4') as VideoSource,
+  coin: require('../../../assets/videos/credit-coin-3d.mp4') as number,
   /** 채팅 요청 시트의 반딧불. */
-  chat: require('../../../assets/videos/chat-request-3d.mp4') as VideoSource,
+  chat: require('../../../assets/videos/chat-request-3d.mp4') as number,
   /** 평가 보상 자리의 나뭇잎. */
-  leaf: require('../../../assets/videos/credit-leaf-3d.mp4') as VideoSource,
+  leaf: require('../../../assets/videos/credit-leaf-3d.mp4') as number,
 };
 
 export type IllustrationKey = keyof typeof SOURCES;
@@ -72,7 +73,7 @@ export function IllustrationProvider({ children }: { children: React.ReactNode }
  * 빈 플레이어로 만들어 두고 `load()`를 부를 때 소스를 넣는다. 만들어 두는 것 자체는 비용이
  * 거의 없고, 실제로 받아 오는 일은 그때 시작된다.
  */
-function useLazyPlayer(source: VideoSource): { player: VideoPlayer; ready: boolean; load: () => void } {
+function useLazyPlayer(source: number): { player: VideoPlayer; ready: boolean; load: () => void } {
   const [ready, setReady] = useState(false);
   const requested = useRef(false);
 
@@ -93,7 +94,8 @@ function useLazyPlayer(source: VideoSource): { player: VideoPlayer; ready: boole
     if (requested.current) return;
 
     requested.current = true;
-    player.replace(source);
+    // 시작 화면이 데워 둔 파일이 있으면 그것을 쓴다. 없으면 그때그때 받는 예전 길이다.
+    player.replace(warmedVideoSource(source));
 
     // 구독보다 준비가 먼저 끝나는 경우가 있어 한 번 더 본다.
     if (player.status === 'readyToPlay') setReady(true);
