@@ -42,6 +42,11 @@ pipeline {
         // AI 파이프라인과 같은 크리덴셜(waggle-ai-internal-api-key)을 사용한다.
         INTERNAL_API_KEY      = credentials('waggle-ai-internal-api-key')
 
+        // AI Worker가 /api/v1/internal/** 콜백에 싣는 X-Internal-Secret 검증값.
+        // 워커가 보내는 값(AI 파이프라인의 waggle-ai-internal-api-secret)과 반드시 동일해야 하므로
+        // AI 파이프라인과 같은 크리덴셜을 사용한다. 비어 있으면 InternalSecretAuthFilter가 콜백을 전부 401 처리한다.
+        INTERNAL_API_SECRET   = credentials('waggle-ai-internal-api-secret')
+
         // 비밀값이 아니므로 직접 작성 가능
         KAKAO_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/kakao'
         NAVER_REDIRECT_URI = 'https://i15a606.p.ssafy.io/oauth/callback/naver'
@@ -144,6 +149,7 @@ pipeline {
                         -e ES_URIS="$ES_URIS" \
                         -e AI_RECOMMENDATION_BASE_URL="$AI_RECOMMENDATION_BASE_URL" \
                         -e INTERNAL_API_KEY="$INTERNAL_API_KEY" \
+                        -e INTERNAL_API_SECRET="$INTERNAL_API_SECRET" \
                         -e RABBITMQ_HOST="$RABBITMQ_HOST" \
                         -e RABBITMQ_PORT="$RABBITMQ_PORT" \
                         -e RABBITMQ_USERNAME="$RABBITMQ_USERNAME" \

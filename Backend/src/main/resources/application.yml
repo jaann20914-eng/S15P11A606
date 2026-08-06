@@ -126,5 +126,14 @@ ai:
     analysis:
       # AI 2차 분석 배치 스케줄러 사용 여부.
       enabled: ${AI_CHAT_ANALYSIS_ENABLED:true}
-      # 방별 미분석 메시지 그룹핑·발행 주기(ms). 기본 30초.
-      interval-ms: ${AI_CHAT_ANALYSIS_INTERVAL_MS:30000}
+      # 방별 미분석 메시지 그룹핑·발행 주기(ms). 기본 5초.
+      interval-ms: ${AI_CHAT_ANALYSIS_INTERVAL_MS:5000}
+    republish:
+      # 실패·장기 미완료(PENDING/PROCESSING/FAILED) 작업 재발행 스케줄러 사용 여부.
+      enabled: ${AI_CHAT_REPUBLISH_ENABLED:true}
+      # 재발행 조회 주기(ms). 기본 20초.
+      interval-ms: ${AI_CHAT_REPUBLISH_INTERVAL_MS:20000}
+      # 생성된 지 이 시간 이상 지났고 아직 미완료면 재발행 대상. 기본 10초.
+      stale-threshold: ${AI_CHAT_REPUBLISH_STALE_THRESHOLD:PT10S}
+      # 생성된 지 이 시간을 넘은 미완료 작업은 재발행을 포기하고 FAILED로 마감. 기본 3분.
+      max-retry-age: ${AI_CHAT_REPUBLISH_MAX_RETRY_AGE:PT3M}

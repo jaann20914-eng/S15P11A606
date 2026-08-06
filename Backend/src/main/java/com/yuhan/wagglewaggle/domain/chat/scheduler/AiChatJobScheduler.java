@@ -31,7 +31,7 @@ public class AiChatJobScheduler {
     private final AiChatJobService aiChatJobService;
     private final AiChatJobPublisher aiChatJobPublisher;
 
-    @Scheduled(fixedDelayString = "${ai.chat.analysis.interval-ms:30000}")
+    @Scheduled(fixedDelayString = "${ai.chat.analysis.interval-ms:5000}")
     public void dispatchAnalysisBatches() {
         if (!properties.enabled()) {
             return;

@@ -23,6 +23,12 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findByChatRoomIdAndIdGreaterThanOrderByIdAsc(Long roomId, Long afterId);
 
     /**
+     * 특정 채팅방에서 주어진 id 구간(start~end, 양끝 포함)의 메시지를 id 오름차순으로 조회한다.
+     * AI 2차 분석 작업 재발행 시 저장된 구간(start_message_id~end_message_id)의 payload를 재조립하는 데 사용한다.
+     */
+    List<ChatMessage> findByChatRoomIdAndIdBetweenOrderByIdAsc(Long roomId, Long startId, Long endId);
+
+    /**
      * 주어진 메시지 id가 해당 채팅방에 속하는지 여부를 조회한다.
      * 읽음 위치 갱신 시 {@code lastReadMessageId}가 요청한 방의 메시지인지 검증하는 데 사용한다.
      */

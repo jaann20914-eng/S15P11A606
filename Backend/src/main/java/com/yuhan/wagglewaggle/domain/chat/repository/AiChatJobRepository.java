@@ -1,10 +1,14 @@
 package com.yuhan.wagglewaggle.domain.chat.repository;
 
 import com.yuhan.wagglewaggle.domain.chat.entity.AiChatJob;
+import com.yuhan.wagglewaggle.domain.chat.entity.AiChatJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,4 +24,34 @@ public interface AiChatJobRepository extends JpaRepository<AiChatJob, UUID> {
      */
     @Query("SELECT MAX(j.endMessageId) FROM AiChatJob j WHERE j.chatRoomId = :roomId")
     Optional<Long> findMaxEndMessageIdByChatRoomId(@Param("roomId") Long roomId);
+
+    /**
+     * 재발행 대상 작업을 조회한다. 지정 상태(미완료: PENDING/PROCESSING/FAILED)이면서
+     * 생성된 지 오래되어(created_at < staleBefore) 아직 결과를 못 받았고,
+     * 포기 나이(created_at >= giveUpAfter)를 넘지 않은 작업만 대상으로 한다.
+     */
+    @Query("""
+            SELECT j FROM AiChatJob j
+            WHERE j.status IN :statuses
+              AND j.createdAt < :staleBefore
+              AND j.createdAt >= :giveUpAfter
+            ORDER BY j.createdAt ASC
+            """)
+    List<AiChatJob> findRepublishTargets(
+            @Param("statuses") Collection<AiChatJobStatus> statuses,
+            @Param("staleBefore") Instant staleBefore,
+            @Param("giveUpAfter") Instant giveUpAfter);
+
+    /**
+     * 재발행을 포기할 대상 작업을 조회한다. 지정 상태(PENDING/PROCESSING)이면서
+     * 생성된 지 최대 재시도 나이를 넘긴(created_at < giveUpBefore) 작업을 FAILED로 마감하는 데 사용한다.
+     */
+    @Query("""
+            SELECT j FROM AiChatJob j
+            WHERE j.status IN :statuses
+              AND j.createdAt < :giveUpBefore
+            """)
+    List<AiChatJob> findGiveUpTargets(
+            @Param("statuses") Collection<AiChatJobStatus> statuses,
+            @Param("giveUpBefore") Instant giveUpBefore);
 }

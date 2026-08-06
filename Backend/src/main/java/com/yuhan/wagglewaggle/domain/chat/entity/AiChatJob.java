@@ -69,6 +69,15 @@ public class AiChatJob extends BaseEntity {
     }
 
     /**
+     * 재발행을 위해 작업을 다시 대기(PENDING) 상태로 되돌린다.
+     * FAILED 콜백이 terminal로 무시되지 않도록 상태를 초기화하고 완료 시각을 비운다.
+     */
+    public void reopenToPending() {
+        this.status = AiChatJobStatus.PENDING;
+        this.completedAt = null;
+    }
+
+    /**
      * 작업을 완료 처리한다. 상태를 COMPLETED로 바꾸고 완료 시각을 기록한다.
      */
     public void markCompleted(Instant completedAt) {
