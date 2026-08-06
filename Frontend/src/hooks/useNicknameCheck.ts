@@ -13,6 +13,14 @@ export interface NicknameCheck {
   checking: boolean;
   /** 쓸 수 없는 이유. 문제가 없으면 null. */
   error: string | null;
+  /**
+   * 지금 쓰고 있는 이름 그대로인지.
+   *
+   * 서버는 자기 이름도 "이미 있음"으로 답하므로(`existsByNickname`) 그 경우를 갈라 둔다.
+   * 확인은 묻지 않고 통과시키고, 화면은 "지금 쓰고 있는 이름"이라고 알린다.
+   * 비교 대상을 넘기지 않은 곳(온보딩)에서는 늘 거짓이다.
+   */
+  isOwn: boolean;
   /** 중복 확인 버튼을 누를 수 있는지. */
   canCheck: boolean;
   change: (value: string) => void;
@@ -48,8 +56,13 @@ const messageByCode: Record<string, string> = {
  *
  * @param initial 입력란의 초기값. 마이페이지에서 현재 닉네임을 채워 넣을 때 쓴다.
  */
-export function useNicknameCheck(initial = ''): NicknameCheck {
+export function useNicknameCheck(initial = '', ownNickname?: string): NicknameCheck {
   const [nickname, setNickname] = useState(initial);
+  /** 지금 쓰고 있는 이름 그대로인지. 대소문자 차이는 서버가 정규화하므로 같은 기준으로 본다. */
+  const isOwn =
+    ownNickname !== undefined &&
+    ownNickname !== '' &&
+    normalizeNickname(nickname.trim()) === normalizeNickname(ownNickname);
   const [checked, setChecked] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +97,19 @@ export function useNicknameCheck(initial = ''): NicknameCheck {
     if (!isValidNickname(normalizeNickname(value))) {
       setChecked(false);
       setError(messageByCode.INVALID_NICKNAME);
+      return;
+    }
+
+    /*
+      **지금 쓰고 있는 이름은 묻지 않는다.**
+
+      서버의 중복 확인은 `existsByNickname`만 보아서 자기 이름도 "이미 있음"으로 답한다.
+      그대로 두면 이름을 그대로 두려는 사람이 자기 이름에 막힌다 — 물어보기 전에 통과시키고,
+      화면은 그 사정을 문구로 알린다(`isOwn`).
+    */
+    if (isOwn) {
+      setChecked(true);
+      setError(null);
       return;
     }
 
@@ -129,6 +155,7 @@ export function useNicknameCheck(initial = ''): NicknameCheck {
     checked,
     checking,
     error,
+    isOwn,
     canCheck: length >= NICKNAME_MIN_LENGTH && !checking,
     change,
     check,

@@ -67,7 +67,11 @@ export function NicknameField({ edit, readOnly = false }: NicknameFieldProps) {
           {readOnly
             ? '한글, 영문, 숫자를 사용할 수 있어요.'
             : (edit.error ??
-              (edit.checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.'))}
+              (edit.checked
+                ? edit.isOwn
+                  ? '지금 쓰고 있는 닉네임이에요.'
+                  : '사용할 수 있는 닉네임이에요.'
+                : '한글, 영문, 숫자를 사용할 수 있어요.'))}
         </Text>
         <Text style={s.count}>
           {edit.length} / {NICKNAME_MAX_LENGTH}

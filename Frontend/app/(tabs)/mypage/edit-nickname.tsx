@@ -82,7 +82,20 @@ export default function EditProfileScreen() {
 
 /** 지금 값을 채워 넣은 수정 폼. */
 function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => void }) {
-  const edit = useNicknameCheck(current);
+  /**
+   * 마지막으로 저장된 닉네임.
+   *
+   * 처음에는 불러온 값이고, 저장에 성공하면 서버가 돌려준 값으로 바뀐다. 바뀌었는지 판단하는
+   * 기준이라 갱신하지 않으면 저장 직후에도 "바꾼 상태"로 남아 중복 확인을 다시 요구한다.
+   */
+  const [savedNickname, setSavedNickname] = useState(current);
+
+  /*
+    지금 닉네임을 함께 넘긴다. 서버의 중복 확인은 자기 이름도 "이미 있음"으로 답해서
+    (`existsByNickname`), 그대로 두려는 사람이 자기 이름에 막힌다 — 훅이 그 경우를 갈라
+    묻지 않고 통과시킨다(`isOwn`).
+  */
+  const edit = useNicknameCheck(current, savedNickname);
   const profileEdit = useProfileEdit();
   const { notice, showNotice, confirmNotice } = useNotice();
 
@@ -122,14 +135,6 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
    * 닉네임을 **바꿨다면** 중복 확인을 통과해야 한다. 그대로 두고 관심 장소만 고친 경우에는
    * 확인을 요구하지 않는다 — 쓰던 이름을 다시 확인하게 만들 이유가 없다.
    */
-  /**
-   * 마지막으로 저장된 닉네임.
-   *
-   * 처음에는 불러온 값이고, 저장에 성공하면 서버가 돌려준 값으로 바뀐다. 바뀌었는지 판단하는
-   * 기준이라 갱신하지 않으면 저장 직후에도 "바꾼 상태"로 남아 중복 확인을 다시 요구한다.
-   */
-  const [savedNickname, setSavedNickname] = useState(current);
-
   const nicknameChanged = edit.nickname.trim() !== savedNickname;
   /**
    * 닉네임을 바꿨는데 아직 쓸 수 있다고 확인되지 않은 상태.
