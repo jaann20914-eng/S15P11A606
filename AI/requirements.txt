@@ -4,6 +4,9 @@ pydantic
 pydantic-settings
 httpx
 
+prometheus-client
+prometheus-fastapi-instrumentator
+
 aio-pika
 python-dotenv
 

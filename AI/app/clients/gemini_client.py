@@ -1,8 +1,11 @@
+import time
+
 import httpx
 from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
 
+from app.common.metrics import gemini_duration_seconds
 from app.core.config import settings
 from app.schemas.chat_risk import ReasonCode
 
@@ -71,14 +74,20 @@ class GeminiClient:
     async def judge(self, system_instruction: str, transcript: str) -> GeminiVerdict:
         client = self._require_client()
 
+        started_at = time.perf_counter()
+        # 재시도 가능한 실패가 기본값이다. 아래 분기에서 확정된 경우에만 덮어쓴다.
+        call_result = "unavailable"
+
         try:
             response = await client.aio.models.generate_content(
                 model=settings.gemini_model,
                 contents=transcript,
                 config=build_verdict_config(system_instruction),
             )
+            call_result = "ok"
         except errors.ClientError as error:
             if error.code in NON_RETRYABLE_STATUS_CODES:
+                call_result = "rejected"
                 raise GeminiRejectedError(f"Gemini rejected the request: {error.code}") from error
 
             raise GeminiUnavailableError(f"Gemini client error: {error.code}") from error
@@ -88,6 +97,10 @@ class GeminiClient:
             raise GeminiUnavailableError(
                 f"Gemini request failed: {type(error).__name__}"
             ) from error
+        finally:
+            gemini_duration_seconds.labels(result=call_result).observe(
+                time.perf_counter() - started_at
+            )
 
         verdict = response.parsed
 
