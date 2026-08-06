@@ -10,6 +10,11 @@ from aio_pika.abc import AbstractIncomingMessage
 from pydantic import ValidationError
 
 from app.common.exceptions import AIServiceError
+from app.common.metrics import (
+    blur_duration_seconds,
+    blur_e2e_seconds,
+    elapsed_since,
+)
 from app.core.config import settings
 from app.messaging.blur.consumer import get_request_queue
 from app.messaging.blur.publisher import publish_result
@@ -205,6 +210,13 @@ class BlurWorker:
         #     return
         #
         # await self._cancel_heartbeat(heartbeat)
+        blur_e2e_seconds.labels(
+            result=self._metric_result(result),
+        ).observe(elapsed_since(request.requestedAt))
+
+        if result.processingTimeSeconds is not None:
+            blur_duration_seconds.observe(result.processingTimeSeconds)
+
         await message.ack()
         logger.info(
             "Blur request completed and ACKed. requestId=%s status=%s",
@@ -325,6 +337,13 @@ class BlurWorker:
     #             "Failed to release request claim. requestId=%s",
     #             request.requestId,
     #         )
+
+    @staticmethod
+    def _metric_result(result: BlurResult) -> str:
+        if result.processingStatus == "FAILED":
+            return "error"
+
+        return "pass" if result.finalStatus == "PASS" else "fail"
 
     @staticmethod
     def _decode_message(

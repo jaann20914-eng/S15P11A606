@@ -1,12 +1,14 @@
 package com.yuhan.wagglewaggle.domain.user.controller;
 
+import com.yuhan.wagglewaggle.domain.category.dto.CategoryPreferenceResponse;
+import com.yuhan.wagglewaggle.domain.category.service.CategoryPreferenceService;
 import com.yuhan.wagglewaggle.domain.credit.dto.CreditTransactionListResponse;
 import com.yuhan.wagglewaggle.domain.credit.service.CreditTransactionService;
 import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinListResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateRequest;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
 import com.yuhan.wagglewaggle.domain.user.service.UserProfileService;
 import com.yuhan.wagglewaggle.domain.user.service.UserService;
@@ -30,6 +32,7 @@ public class UserController {
     private final UserProfileService userProfileService;
     private final TodayPinService todayPinService;
     private final CreditTransactionService creditTransactionService;
+    private final CategoryPreferenceService categoryPreferenceService;
 
     /**
      * 닉네임 중복 확인. 인증 없이 호출 가능한 공개 API.
@@ -68,20 +71,37 @@ public class UserController {
     }
 
     /**
-     * 현재 인증 사용자의 닉네임을 수정한다(인증 필요).
-     * 형식·길이·금칙어·중복 등 유효성은 Front의 사전 확인 여부와 무관하게 서비스 계층에서 다시 검증한다.
+     * 현재 인증 사용자가 선택한 관심 카테고리 목록을 조회한다(인증 필요).
+     * 설정 화면에서 기존 선택값을 미리 선택된 상태로 표시하는 데 사용한다.
      * 사용자 식별 정보는 액세스 토큰에서 가져온다.
      */
-    @PatchMapping("/me/nickname")
-    public ApiResponse<NicknameUpdateResponse> updateNickname(
-            @AuthenticationPrincipal Long memberId,
-            @RequestBody(required = false) NicknameUpdateRequest request
+    @GetMapping("/me/categories")
+    public ApiResponse<CategoryPreferenceResponse> getMyCategories(
+            @AuthenticationPrincipal Long memberId
     ) {
-        NicknameUpdateResponse data = userService.updateNickname(memberId, request);
+        CategoryPreferenceResponse data = categoryPreferenceService.getMyCategories(memberId);
 
         return ApiResponse.success(
                 HttpStatus.OK.value(),
-                "닉네임이 수정되었습니다.",
+                "관심 카테고리 조회가 완료되었습니다.",
+                data);
+    }
+
+    /**
+     * 마이페이지 '변경 저장': 현재 인증 사용자의 닉네임과 관심 카테고리를 한 번에 수정한다(인증 필요).
+     * 닉네임 수정과 카테고리 수정은 하나의 트랜잭션으로 처리되어 하나라도 실패하면 전체가 반영되지 않는다.
+     * 각 항목 검증은 Front의 사전 확인과 무관하게 서비스 계층에서 다시 수행하며, 사용자 식별 정보는 액세스 토큰에서 가져온다.
+     */
+    @PatchMapping("/me")
+    public ApiResponse<ProfileUpdateResponse> updateMyProfile(
+            @AuthenticationPrincipal Long memberId,
+            @RequestBody(required = false) ProfileUpdateRequest request
+    ) {
+        ProfileUpdateResponse data = userService.updateProfile(memberId, request);
+
+        return ApiResponse.success(
+                HttpStatus.OK.value(),
+                "프로필이 수정되었습니다.",
                 data);
     }
 

@@ -7,9 +7,10 @@ from pydantic import ValidationError
 from app.clients.back_client import back_client
 from app.clients.gemini_client import gemini_client
 from app.common.logging import get_logger
+from app.common.metrics import chat_e2e_seconds, elapsed_since
 from app.core.config import settings
 from app.messaging.chat_risk.consumer import get_message_queue
-from app.schemas.chat_risk import ChatAnalysisBatch
+from app.schemas.chat_risk import ChatAnalysisBatch, PatternResultCallback
 from app.services.chat_risk import chat_risk_service
 
 logger = get_logger(__name__)
@@ -59,6 +60,7 @@ class ChatRiskWorker:
                 batch.requestId,
                 batch.roomId,
             )
+            chat_e2e_seconds.labels(result="error").observe(elapsed_since(batch.sentAt))
             await message.reject(requeue=False)
             return
 
@@ -72,6 +74,10 @@ class ChatRiskWorker:
                 batch.roomId,
             )
 
+        chat_e2e_seconds.labels(
+            result=self._metric_result(result, delivered),
+        ).observe(elapsed_since(batch.sentAt))
+
         await message.ack()
         logger.info(
             "chat batch acked | requestId=%s roomId=%s delivered=%s",
@@ -79,6 +85,13 @@ class ChatRiskWorker:
             batch.roomId,
             delivered,
         )
+
+    @staticmethod
+    def _metric_result(result: PatternResultCallback, delivered: bool) -> str:
+        if not delivered:
+            return "dropped"
+
+        return "ok" if result.status == "COMPLETED" else "analysis_failed"
 
     @staticmethod
     def _decode_body(message: AbstractIncomingMessage) -> dict[str, Any]:

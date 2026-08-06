@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.category.repository;
 
 import com.yuhan.wagglewaggle.domain.category.entity.CategoryPreference;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,4 +21,12 @@ public interface CategoryPreferenceRepository extends JpaRepository<CategoryPref
             WHERE cp.memberId = :memberId
             """)
     List<String> findPreferredCategoryCodes(@Param("memberId") Long memberId);
+
+    /**
+     * 회원의 선호 카테고리를 모두 삭제한다(관심 카테고리 수정 시 전체 교체용).
+     * 벌크 삭제 쿼리이므로 재삽입보다 먼저 실행되어 (member_id, category_id) UNIQUE 충돌을 피한다.
+     */
+    @Modifying
+    @Query("DELETE FROM CategoryPreference cp WHERE cp.memberId = :memberId")
+    void deleteByMemberId(@Param("memberId") Long memberId);
 }
