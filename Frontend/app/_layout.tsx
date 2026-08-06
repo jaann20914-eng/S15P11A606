@@ -5,6 +5,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppSplash } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
+import { installNavigationGuard } from '@/utils/navigationGuard';
+
+/*
+  더블 탭 이동 방지. 어떤 화면이 그려지기도 전, 이 모듈이 로드되는 순간 설치해야
+  모든 이동이 빠짐없이 가드를 지난다. 무엇을 왜 막는지는 navigationGuard에 적어 두었다.
+*/
+installNavigationGuard();
 
 export default function RootLayout() {
   // 저장된 세션 복원과 세션 만료 시 로그인 복귀를 담당한다.
