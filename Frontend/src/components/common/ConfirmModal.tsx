@@ -55,7 +55,7 @@ export function ConfirmModal({
               style={[s.button, s.confirm, busy && s.busy]}
             >
               {busy ? (
-                <ActivityIndicator color={colors.danger} />
+                <ActivityIndicator color={colors.lime} />
               ) : (
                 <Text style={s.confirmText}>{confirmLabel}</Text>
               )}
@@ -103,6 +103,11 @@ const s = StyleSheet.create({
   busy: { opacity: 0.6 },
   cancel: { backgroundColor: colors.gray100 },
   cancelText: { ...type.label, color: colors.gray600, fontWeight: '600' },
-  confirm: { backgroundColor: '#FFF0F1' },
-  confirmText: { ...type.label, color: colors.danger, fontWeight: '600' },
+  /*
+    실행 버튼은 알림 모달의 확인 버튼과 같은 색을 쓴다(검정 바탕 · 연두 글자). 삭제라고
+    붉게 칠했더니 이 모달만 다른 물건처럼 보였다 — 되돌릴 수 없다는 것은 색이 아니라 문구와
+    취소 버튼이 알린다.
+  */
+  confirm: { backgroundColor: colors.dark },
+  confirmText: { ...type.label, color: '#D9ED76', fontWeight: '600' },
 });
