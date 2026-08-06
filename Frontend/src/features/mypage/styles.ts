@@ -140,8 +140,13 @@ export const mypageStyles = StyleSheet.create({
    * 퍼센트 폭은 Yoga에서 높이가 0으로 접혀 앱에서 칸이 보이지 않는다. 주 단위 행 안에서
    * `flex`로 폭을 나눠 받고 `aspectRatio`로 정사각형을 만들면 웹과 앱이 같게 계산된다.
    */
-  cell: { flex: 1, aspectRatio: 1 },
-  cellBlank: { backgroundColor: 'transparent' },
+  /*
+    칸 사이는 흰 테두리로 가른다. 붙여 두면 같은 색 칸들이 한 덩어리로 뭉쳐 며칠인지
+    세어지지 않았다. 카드 바탕과 같은 흰색이라 선이 아니라 격자의 틈으로 읽힌다.
+  */
+  cell: { flex: 1, aspectRatio: 1, borderWidth: 2, borderColor: colors.white },
+  /** 빈 자리는 테두리도 없다 — 달이 시작하기 전 칸에 격자가 이어지면 날짜가 있는 것처럼 보인다. */
+  cellBlank: { backgroundColor: 'transparent', borderWidth: 0 },
   cellEmpty: { backgroundColor: '#F3F3F3' },
   cellLow: { backgroundColor: '#EFF8B5' },
   cellMid: { backgroundColor: '#D6ED60' },
