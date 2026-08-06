@@ -53,7 +53,7 @@ export function CreditHistoryList({
     return (
       <View style={[s.listCard, s.creditListCard]}>
         <View style={s.loading}>
-          <ActivityIndicator color={colors.lime} />
+          <ActivityIndicator color={colors.gray400} />
         </View>
       </View>
     );
@@ -91,7 +91,7 @@ export function CreditHistoryList({
         initialNumToRender={pageSize}
         maxToRenderPerBatch={pageSize}
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator color={colors.lime} style={s.listFooter} /> : null
+          loadingMore ? <ActivityIndicator color={colors.gray400} style={s.listFooter} /> : null
         }
         renderItem={({ item, index }) => {
           const earned = item.flow === 'EARNED';

@@ -29,7 +29,7 @@ export function RecommendList({ places, mode, loading, error, onRetry }: Recomme
     <LinearGradient colors={backgroundByMode[mode]} locations={[0, 0.48, 1]} style={s.listGradient}>
       {loading ? (
         <View style={s.state}>
-          <ActivityIndicator color={colors.lime} />
+          <ActivityIndicator color={colors.gray400} />
         </View>
       ) : error !== null ? (
         <View style={s.state}>

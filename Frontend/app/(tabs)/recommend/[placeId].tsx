@@ -230,7 +230,7 @@ export default function RecommendPlaceScreen() {
       {detail === null ? (
         <View style={s.state}>
           {loading ? (
-            <ActivityIndicator color={colors.lime} />
+            <ActivityIndicator color={colors.gray400} />
           ) : (
             <Text style={s.stateText}>{error ?? '장소를 찾을 수 없어요'}</Text>
           )}

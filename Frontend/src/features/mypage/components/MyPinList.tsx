@@ -88,7 +88,7 @@ export function MyPinList({
       <View style={s.listCard}>
         {loading ? (
           <View style={s.loading}>
-            <ActivityIndicator color={colors.lime} />
+            <ActivityIndicator color={colors.gray400} />
           </View>
         ) : pins.length === 0 ? (
           <View style={s.empty}>
@@ -106,7 +106,7 @@ export function MyPinList({
             initialNumToRender={pageSize}
             maxToRenderPerBatch={pageSize}
             ListFooterComponent={
-              loadingMore ? <ActivityIndicator color={colors.lime} style={s.listFooter} /> : null
+              loadingMore ? <ActivityIndicator color={colors.gray400} style={s.listFooter} /> : null
             }
             renderItem={({ item, index }) => {
               const openable = isOpenable(item.status);

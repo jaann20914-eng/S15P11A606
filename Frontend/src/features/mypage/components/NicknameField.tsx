@@ -39,7 +39,7 @@ export function NicknameField({ edit, readOnly = false }: NicknameFieldProps) {
             style={[s.checkButton, !edit.canCheck && s.checkDisabled, edit.checked && s.checkedButton]}
           >
             {edit.checking ? (
-              <ActivityIndicator color={colors.lime} />
+              <ActivityIndicator color={colors.gray600} />
             ) : (
               <>
                 {edit.checked && <Ionicons name="checkmark" size={14} color={colors.gray600} />}

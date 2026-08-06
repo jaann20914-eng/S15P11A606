@@ -19,7 +19,7 @@ export default function OAuthCallback() {
   if (isOAuthLoginInFlight()) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color={colors.lime} />
+        <ActivityIndicator color={colors.gray600} />
       </View>
     );
   }
