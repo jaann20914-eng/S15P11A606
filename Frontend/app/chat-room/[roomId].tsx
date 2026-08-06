@@ -588,8 +588,9 @@ const s = StyleSheet.create({
     paddingVertical: spacing.x3,
     borderRadius: radius.lg,
   },
-  themBubble: { backgroundColor: '#D8EB6A' },
-  meBubble: { backgroundColor: colors.gray100 },
+  // 내 말이 연두, 상대가 회색이다. 내가 보낸 것이 브랜드 색을 갖는 관례(카카오톡의 노랑)를 따른다.
+  themBubble: { backgroundColor: colors.gray100 },
+  meBubble: { backgroundColor: '#D8EB6A' },
   messageText: { ...type.body, color: colors.dark },
   time: { ...type.caption, fontSize: 10, color: colors.gray400 },
 
