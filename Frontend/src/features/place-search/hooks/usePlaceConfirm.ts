@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
+import { findRegisteredPlaceByName } from '@/api/place/coordinates';
 import { confirmPlaceSearch } from '@/api/place/searchConfirm';
 import { useMapStore } from '@/store/useMapStore';
 import { createDevLogger, toRequestLine } from '@/utils/devLog';
@@ -122,25 +123,48 @@ export function usePlaceConfirm(): PlaceConfirmState {
             모달이라, 검색 화면이 앞에 남아 있으면 지도 대신 흰 배경이 비친다.
           */
           if (place.placeId === null) {
-            log('이동 — 미등록 장소', { 이름: place.name, 경로: '/place/no-pins' });
-            router.push({
-              pathname: '/place/no-pins',
-              /*
-                갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
+            /*
+              미등록 응답을 그대로 믿지 않고 **같은 이름의 등록 장소가 곁에 있는지** 한 번 더
+              본다. 한 가게가 카카오에 두 항목으로 올라 있으면 확정이 미등록으로 답하는데
+              (`findRegisteredPlaceByName` 참고), 그대로 미등록 화면으로 보내면 핀이 이미
+              있는 가게에서 "작성하러 가기"가 나온다. 찾으면 등록 장소의 상세로 간다 —
+              카드 꺽새로 들어간 것과 같은 화면이다.
 
-                **지도를 옮기는 일은 그 화면이 한다.** 여기서 먼저 옮기면 장소 축척으로 한 번,
-                그 화면이 20m로 또 한 번 명령이 가서 확대가 두 번 끊겨 보인다. 좌표를 아는
-                경로에서는 그 값을 실어 보내고, 모르면 그 화면이 이름으로 다시 찾는다
-                (`useSearchedPlaceFocus`).
-              */
-              params: {
-                name: place.name,
-                address: place.address,
-                kakaoPlaceId,
-                ...(coordinate === undefined
-                  ? null
-                  : { latitude: coordinate.latitude, longitude: coordinate.longitude }),
-              },
+              기준 좌표가 없으면(최근 검색 재실행) 지금 보고 있는 지도 중심 주변을 본다.
+            */
+            const around = coordinate ?? useMapStore.getState().center;
+            void findRegisteredPlaceByName(place.name, around).then((registered) => {
+              if (registered !== null) {
+                log('이동 — 확정은 미등록이나 같은 이름의 등록 장소를 찾음', {
+                  이름: place.name,
+                  placeId: registered.placeId,
+                  경로: `/place/${registered.placeId}`,
+                });
+                focusOn({ coordinate: registered.coordinate, name: place.name });
+                router.push(`/place/${registered.placeId}`);
+                return;
+              }
+
+              log('이동 — 미등록 장소', { 이름: place.name, 경로: '/place/no-pins' });
+              router.push({
+                pathname: '/place/no-pins',
+                /*
+                  갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
+
+                  **지도를 옮기는 일은 그 화면이 한다.** 여기서 먼저 옮기면 장소 축척으로 한 번,
+                  그 화면이 20m로 또 한 번 명령이 가서 확대가 두 번 끊겨 보인다. 좌표를 아는
+                  경로에서는 그 값을 실어 보내고, 모르면 그 화면이 이름으로 다시 찾는다
+                  (`useSearchedPlaceFocus`).
+                */
+                params: {
+                  name: place.name,
+                  address: place.address,
+                  kakaoPlaceId,
+                  ...(coordinate === undefined
+                    ? null
+                    : { latitude: coordinate.latitude, longitude: coordinate.longitude }),
+                },
+              });
             });
             return;
           }
