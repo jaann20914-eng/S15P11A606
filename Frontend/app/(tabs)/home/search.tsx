@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { FillButton, HighlightedText, SearchRow } from '@/features/place-search/components';
@@ -70,6 +70,25 @@ export default function Search() {
   const recent = useRecentSearches();
   const confirm = usePlaceConfirm();
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * **결과 화면(장소 상세·태그·미등록 장소)이 올라와도 이 화면은 닫히지 않고 아래 남는다** —
+   * 그래야 결과에서 뒤로 가기가 이 화면으로 돌아온다. 남는 동안은 내용을 감춘다. 그 화면들은
+   * 아래 홈 지도를 비추는 반투명 화면이라, 이 목록이 남아 있으면 지도 자리를 흰 화면이 덮는다.
+   * 태그 결과가 장소 상세에게 하는 것과 같은 처리다.
+   *
+   * 감추기만 하고 떼어 내지 않으므로 검색어와 결과 목록이 그대로 살아, 돌아오면 보던 검색이
+   * 남아 있다.
+   */
+  const [onTop, setOnTop] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setOnTop(true);
+      return () => setOnTop(false);
+    }, []),
+  );
+
   const query = places.keyword.trim();
   const tagName = toTagName(places.keyword);
   const searching = query.length > 0;
@@ -95,8 +114,8 @@ export default function Search() {
     if (normalized.length === 0) return;
 
     Keyboard.dismiss();
-    // replace라 결과에서 뒤로 가면 검색 화면이 아니라 홈으로 돌아간다.
-    router.replace(`/(tabs)/home/tag/${encodeURIComponent(normalized)}`);
+    // push라 결과에서 뒤로 가면 검색어가 남아 있는 이 화면으로 돌아온다. 장소 결과와 같은 규칙이다.
+    router.push(`/(tabs)/home/tag/${encodeURIComponent(normalized)}`);
   };
 
   const openPlace = (place: PlaceSearchItem) => {
@@ -132,7 +151,8 @@ export default function Search() {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    // 맨 위가 아니면 통째로 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다.
+    <SafeAreaView edges={['top', 'left', 'right']} style={[s.safe, !onTop && s.covered]}>
       <View style={s.searchWrap}>
         <View style={s.searchField}>
           <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.iconButton}>
@@ -309,6 +329,8 @@ export default function Search() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
+  /** 위에 결과 화면이 겹쳤을 때. 반투명한 그 화면 밑에서 지도를 가리지 않게 한다. */
+  covered: { display: 'none' },
   searchWrap: { paddingHorizontal: layout.gutter, paddingTop: spacing.x3, paddingBottom: spacing.x2 },
   searchField: {
     height: 52,

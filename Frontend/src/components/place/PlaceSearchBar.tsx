@@ -42,7 +42,15 @@ export function PlaceSearchBar({ keyword = null }: PlaceSearchBarProps) {
         <Ionicons name="chevron-back" size={24} color={colors.dark} />
       </Pressable>
 
-      <Pressable onPress={() => router.push('/(tabs)/home/search')} style={s.field}>
+      {/*
+        검색으로 갈 때 **쌓지 않고 걷어낸다**(`dismissTo`). push는 이 화면 위에 탭 그룹을
+        통째로 복제해 얹어서, 검색을 이어서 할수록 화면이 한 겹씩 쌓이고 뒤로 가기가 지나온
+        상세들을 전부 되짚었다. dismissTo는 위에 쌓인 상세들을 전부 닫고 홈 스택의 검색
+        화면으로 돌아간다 — 검색에서 들어온 결과 화면이면 검색어가 남은 그 검색으로 되돌아오고,
+        홈 카드에서 곧장 들어온 상세면 검색이 없으니 홈 위에 새로 연다. 어느 쪽이든 검색에서
+        뒤로 가기는 홈이다.
+      */}
+      <Pressable onPress={() => router.dismissTo('/(tabs)/home/search')} style={s.field}>
         <Text numberOfLines={1} style={keyword === null ? s.placeholder : s.value}>
           {keyword ?? '장소명이나 태그를 검색해보세요'}
         </Text>

@@ -29,6 +29,25 @@ export default function HomeLayout() {
           contentStyle: { backgroundColor: 'transparent' },
         }}
       />
+
+      {/*
+        검색도 태그 결과와 같은 방식으로 겹친다.
+
+        검색에서 고른 장소 상세(결과 화면)는 검색을 **닫지 않고 그 위에 얹힌다** — 그래야
+        결과에서 뒤로 가기가 검색으로 돌아온다(지도 앱들의 구조). 그 상세는 아래 홈 지도를
+        비추는 반투명 화면이라, 검색이 불투명 씬으로 남아 있으면 지도 대신 흰 목록이 비친다.
+        태그 결과가 밟았던 것과 같은 문제라 같은 처리를 한다 — 반투명 씬으로 두고, 화면
+        스스로 흰 배경을 칠하고, 위에 다른 화면이 오면 내용을 감춘다(`display: 'none'`).
+      */}
+      <Stack.Screen
+        name="search"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'fade',
+          animationDuration: 220,
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
     </Stack>
   );
 }
