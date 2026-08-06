@@ -1,8 +1,13 @@
 package com.yuhan.wagglewaggle.domain.user.service;
 
+import com.yuhan.wagglewaggle.domain.category.dto.CategoryPreferenceResponse;
+import com.yuhan.wagglewaggle.domain.category.dto.CategoryPreferenceUpdateRequest;
+import com.yuhan.wagglewaggle.domain.category.service.CategoryPreferenceService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateRequest;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
@@ -27,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,6 +47,9 @@ class UserServiceTest {
 
     @Mock
     private ForbiddenNicknamePolicy forbiddenNicknamePolicy;
+
+    @Mock
+    private CategoryPreferenceService categoryPreferenceService;
 
     @InjectMocks
     private UserService userService;
@@ -272,6 +281,72 @@ class UserServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getErrorCode())
                 .isEqualTo(ErrorCode.NICKNAME_UPDATE_FAILED);
+    }
+
+    // ===== updateProfile (닉네임+카테고리 일괄 수정) =====
+
+    @Test
+    @DisplayName("닉네임과 카테고리를 함께 수정하면 두 수정 결과를 합쳐 반환한다")
+    void 프로필수정_성공() {
+        Member member = member("와글러");
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
+        given(memberRepository.existsByNickname("새와글러")).willReturn(false);
+        given(categoryPreferenceService.updateMyCategories(eq(MEMBER_ID), any()))
+                .willReturn(new CategoryPreferenceResponse(java.util.List.of("CAFE", "PARK")));
+
+        ProfileUpdateResponse result = userService.updateProfile(
+                MEMBER_ID, new ProfileUpdateRequest("새와글러", java.util.List.of("CAFE", "PARK")));
+
+        assertThat(result.nickname()).isEqualTo("새와글러");
+        assertThat(result.preferredCategories()).containsExactly("CAFE", "PARK");
+        verify(memberRepository).saveAndFlush(member);
+
+        // 카테고리 요청 본문이 그대로 위임되는지 검증한다.
+        ArgumentCaptor<CategoryPreferenceUpdateRequest> captor =
+                ArgumentCaptor.forClass(CategoryPreferenceUpdateRequest.class);
+        verify(categoryPreferenceService).updateMyCategories(eq(MEMBER_ID), captor.capture());
+        assertThat(captor.getValue().preferredCategories()).containsExactly("CAFE", "PARK");
+    }
+
+    @Test
+    @DisplayName("요청 본문이 없으면 INVALID_NICKNAME으로 실패하고 카테고리 수정을 시도하지 않는다")
+    void 프로필수정_본문없음() {
+        assertThatThrownBy(() -> userService.updateProfile(MEMBER_ID, null))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_NICKNAME);
+
+        verify(categoryPreferenceService, never()).updateMyCategories(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("닉네임이 유효하지 않으면 INVALID_NICKNAME으로 실패하고 카테고리 수정을 시도하지 않는다")
+    void 프로필수정_닉네임위반() {
+        assertThatThrownBy(() -> userService.updateProfile(
+                MEMBER_ID, new ProfileUpdateRequest("a", java.util.List.of("CAFE"))))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_NICKNAME);
+
+        verify(categoryPreferenceService, never()).updateMyCategories(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("카테고리 수정이 실패하면 예외가 전파되어(같은 트랜잭션이므로 닉네임 변경도 롤백) 처리된다")
+    void 프로필수정_카테고리실패_전파() {
+        Member member = member("와글러");
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(forbiddenNicknamePolicy.isForbidden("새와글러")).willReturn(false);
+        given(memberRepository.existsByNickname("새와글러")).willReturn(false);
+        given(categoryPreferenceService.updateMyCategories(eq(MEMBER_ID), any()))
+                .willThrow(new CustomException(ErrorCode.INVALID_CATEGORY_PREFERENCE));
+
+        assertThatThrownBy(() -> userService.updateProfile(
+                MEMBER_ID, new ProfileUpdateRequest("새와글러", java.util.List.of())))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CATEGORY_PREFERENCE);
     }
 
     // ===== helpers =====

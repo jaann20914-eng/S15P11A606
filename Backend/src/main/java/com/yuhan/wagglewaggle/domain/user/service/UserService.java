@@ -1,8 +1,13 @@
 package com.yuhan.wagglewaggle.domain.user.service;
 
+import com.yuhan.wagglewaggle.domain.category.dto.CategoryPreferenceResponse;
+import com.yuhan.wagglewaggle.domain.category.dto.CategoryPreferenceUpdateRequest;
+import com.yuhan.wagglewaggle.domain.category.service.CategoryPreferenceService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateRequest;
+import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.domain.user.repository.MemberRepository;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
@@ -14,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 회원 관련 서비스. 닉네임 중복 확인과 닉네임 수정을 담당한다.
+ * 회원 관련 서비스. 닉네임 중복 확인·수정과 마이페이지 프로필(닉네임+관심 카테고리) 일괄 수정을 담당한다.
  */
 @Slf4j
 @Service
@@ -23,6 +28,7 @@ public class UserService {
 
     private final MemberRepository memberRepository;
     private final ForbiddenNicknamePolicy forbiddenNicknamePolicy;
+    private final CategoryPreferenceService categoryPreferenceService;
 
     /**
      * 닉네임 사용 가능 여부를 확인한다.
@@ -92,5 +98,22 @@ public class UserService {
             log.error("닉네임 수정 실패: {}", e.getMessage());
             throw new CustomException(ErrorCode.NICKNAME_UPDATE_FAILED);
         }
+    }
+
+    /**
+     * 마이페이지 '변경 저장': 닉네임과 관심 카테고리를 하나의 트랜잭션에서 함께 수정한다.
+     * 닉네임 수정과 카테고리 수정 중 하나라도 실패하면 전체가 롤백되어 절반만 반영되는 상황을 막는다.
+     * 각 항목의 검증(닉네임 형식·중복, 카테고리 개수·중복·존재 여부)은 기존 수정 로직을 그대로 재사용한다.
+     */
+    @Transactional
+    public ProfileUpdateResponse updateProfile(Long memberId, ProfileUpdateRequest request) {
+        if (request == null) {
+            throw new CustomException(ErrorCode.INVALID_NICKNAME);
+        }
+        NicknameUpdateResponse nickname =
+                updateNickname(memberId, new NicknameUpdateRequest(request.nickname()));
+        CategoryPreferenceResponse categories = categoryPreferenceService.updateMyCategories(
+                memberId, new CategoryPreferenceUpdateRequest(request.preferredCategories()));
+        return new ProfileUpdateResponse(nickname.nickname(), categories.preferredCategories());
     }
 }
