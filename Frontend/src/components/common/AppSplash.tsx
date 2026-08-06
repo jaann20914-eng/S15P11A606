@@ -20,7 +20,7 @@ const HOLD_MS = 420;
 const FADE_MS = 320;
 
 /** 시안 상자(340) 대비 실제 크기. */
-const STAGE_SIZE = 150;
+const STAGE_SIZE = 76;
 
 /** 화면 정중앙에서 위로 끌어올리는 거리(px). */
 const RAISE = 72;
