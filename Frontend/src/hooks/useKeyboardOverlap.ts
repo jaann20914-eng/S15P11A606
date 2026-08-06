@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Keyboard, Platform } from 'react-native';
 import type { KeyboardEvent, View } from 'react-native';
 import type { RefObject } from 'react';
+import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * 키보드가 이 영역을 **실제로 덮는 높이**(px). 겹치지 않으면 0.
@@ -10,15 +11,38 @@ import type { RefObject } from 'react';
  * 것(`adjustResize`)에 기대는데, 이 앱은 화면 끝까지 그리는 방식(edge-to-edge)이라 창이 줄지
  * 않는다. 키보드가 화면 위를 덮을 뿐이어서 아무것도 밀려 올라가지 않는다.
  *
- * 그렇다고 키보드 높이를 그대로 쓰면 안 된다. 그 값은 **창 맨 아래** 기준이라 탭바처럼 이
- * 영역 밖에 있는 것까지 포함한다. 빼야 할 값을 손으로 계산하면 탭바가 없는 화면, 추천 단어
- * 줄이 생겨 키보드가 커지는 순간, 기기마다 다른 여백에서 어긋난다.
+ * 그렇다고 키보드 높이를 그대로 쓰면 안 된다. 그 값은 이 영역 밖에 있는 것(탭바, 안전영역
+ * 여백)까지 포함한다. 그래서 이 영역의 아래 끝과 키보드의 윗변을 비교해 겹치는 만큼만 잰다.
  *
- * 그래서 재서 쓴다 — 이 영역의 아래 끝과 키보드의 윗변을 창 좌표에서 비교하면, 겹치는 만큼이
- * 그대로 나온다. 키보드가 커지면 다시 재므로 따라간다.
+ * 무엇을 기준으로 재는지가 이 훅의 역사다. 안드로이드에서 `measureInWindow`의 원점은
+ * 창의 맨 위가 아니라 **상태바 아래**에서 시작한다(기기 로그로 확인). 그래서 화면 원점
+ * 기준인 키보드 이벤트의 `screenY`와 직접 비교하면 상태바만큼 어긋났고, 그다음에 쓴
+ * `Dimensions.get('window').height`는 상태바·내비게이션 바를 뺀 값이라 우연히 맞았지만
+ * 안드로이드 15부터 의미가 바뀌었다 — targetSdk 35 이상이면 시스템 바를 더 이상 빼지
+ * 않아, 같은 앱이 OS 버전에 따라 다른 높이를 받는다. 그래서 14 이하에서는 맞던 계산이
+ * 15부터 내비게이션 바 높이만큼 모자랐고, 버튼이 그만큼 가려졌다.
+ *
+ * 지금은 안드로이드에서 OS가 해석해 주는 값을 쓰지 않고 **직접 잰 값만** 쓴다.
+ * `useSafeAreaFrame`은 실제 뷰를 잰 전체 화면 높이다. 키보드 이벤트의 높이는 내비게이션
+ * 바 윗변부터 잰 값이므로(RN 안드로이드 구현), 키보드의 바닥은 화면 기준으로
+ * "프레임 높이 − 내비게이션 바 inset"이고, 이를 `measureInWindow`의 원점(상태바 아래)으로
+ * 옮기면 상태바 inset을 한 번 더 뺀 값이 된다. 세 값 모두 OS가 버전에 따라 다르게
+ * 해석할 여지가 없는 실측치라, 어느 안드로이드 버전에서든 같은 결과가 나온다.
+ * iOS는 이 문제가 없어 기존 그대로 창 높이를 쓴다.
  */
 export function useKeyboardOverlap(ref: RefObject<View | null>): number {
   const [overlap, setOverlap] = useState(0);
+
+  /*
+    키보드가 딛고 올라오는 바닥의 위치. 리스너는 한 번만 등록하므로 ref로 최신 값을 넘긴다.
+
+    회전이나 폴더블 전개로 프레임이 바뀌어도 키보드 이벤트가 다시 오기 전에는 계산할 일이
+    없으므로, 값이 렌더마다 갱신되는 것으로 충분하다.
+  */
+  const frame = useSafeAreaFrame();
+  const insets = useSafeAreaInsets();
+  const androidKeyboardBase = useRef(0);
+  androidKeyboardBase.current = frame.height - insets.bottom - insets.top;
 
   useEffect(() => {
     const measure = (event: KeyboardEvent) => {
@@ -26,18 +50,12 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
 
       if (node === null) return;
 
-      /*
-        **아래에서부터** 잰다.
-
-        키보드 위치(`screenY`)는 화면 기준이고 `measureInWindow`는 창 기준이라, 상태바만큼
-        원점이 어긋나 있다. 그 차이가 그대로 오차가 되어 버튼이 조금 가렸다. 둘 다 아래에서
-        떨어진 거리로 바꾸면 위쪽 원점 차이가 상쇄된다.
-      */
       const keyboardHeight = event.endCoordinates.height;
-      const windowHeight = Dimensions.get('window').height;
+      const keyboardBase =
+        Platform.OS === 'android' ? androidKeyboardBase.current : Dimensions.get('window').height;
 
       node.measureInWindow((_x, y, _width, height) => {
-        const gapBelow = windowHeight - (y + height);
+        const gapBelow = keyboardBase - (y + height);
 
         setOverlap(Math.max(0, keyboardHeight - gapBelow));
       });
