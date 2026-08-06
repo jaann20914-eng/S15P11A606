@@ -17,11 +17,22 @@ import type { RefObject } from 'react';
  * 그래서 재서 쓴다 — 이 영역의 아래 끝과 키보드의 윗변을 창 좌표에서 비교하면, 겹치는 만큼이
  * 그대로 나온다. 키보드가 커지면 다시 재므로 따라간다.
  */
+/**
+ * 창이 줄어드는 것까지 끝나기를 기다리는 시간(ms).
+ *
+ * 키보드가 뜨는 애니메이션보다 넉넉히 잡는다. 이 시점의 값이 최종값이 된다.
+ */
+const RESIZE_SETTLE_MS = 250;
+
 export function useKeyboardOverlap(ref: RefObject<View | null>): number {
   const [overlap, setOverlap] = useState(0);
 
   useEffect(() => {
-    const measure = (event: KeyboardEvent) => {
+    /** 예약해 둔 다시 재기. 정리할 때 취소한다. */
+    let frame: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const measureOnce = (keyboardHeight: number) => {
       const node = ref.current;
 
       if (node === null) return;
@@ -32,8 +43,11 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
         키보드 위치(`screenY`)는 화면 기준이고 `measureInWindow`는 창 기준이라, 상태바만큼
         원점이 어긋나 있다. 그 차이가 그대로 오차가 되어 버튼이 조금 가렸다. 둘 다 아래에서
         떨어진 거리로 바꾸면 위쪽 원점 차이가 상쇄된다.
+
+        **창이 이미 줄어든 경우도 이 식이 알아서 받는다.** 그때는 이 영역의 아래 끝이 창
+        바닥에 붙어 있어 `gapBelow`가 키보드 높이만큼 되고, 겹침은 0이 된다 — 화면이 스스로
+        올라갔으니 우리가 더 올릴 것이 없다.
       */
-      const keyboardHeight = event.endCoordinates.height;
       const windowHeight = Dimensions.get('window').height;
 
       node.measureInWindow((_x, y, _width, height) => {
@@ -41,6 +55,27 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
 
         setOverlap(Math.max(0, keyboardHeight - gapBelow));
       });
+    };
+
+    /**
+     * 키보드 사건 하나에 **여러 번** 잰다.
+     *
+     * 안드로이드 15부터 화면 끝까지 그리기가 강제되면서, 키보드가 뜰 때 창이 줄어드는 시점과
+     * `keyboardDidShow`가 오는 순서가 버전마다 다르다. 한 번만 재면 리사이즈가 나중에 오는
+     * 기기에서 옛 좌표로 계산해 버튼이 그대로 가렸다(안드로이드 16, 2026-08-06 제보).
+     *
+     * 값이 같으면 상태가 바뀌지 않아 다시 그리지도 않으므로, 여러 번 재는 비용은 없다.
+     */
+    const measure = (event: KeyboardEvent) => {
+      const keyboardHeight = event.endCoordinates.height;
+
+      measureOnce(keyboardHeight);
+
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => measureOnce(keyboardHeight));
+
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => measureOnce(keyboardHeight), RESIZE_SETTLE_MS);
     };
 
     /*
@@ -55,7 +90,11 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
       ),
     ];
 
-    return () => subscriptions.forEach((subscription) => subscription.remove());
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (timer !== null) clearTimeout(timer);
+    };
   }, [ref]);
 
   return overlap;
