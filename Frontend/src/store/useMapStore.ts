@@ -130,6 +130,18 @@ export interface MapState {
    */
   pressedPinId: string | null;
   /**
+   * **다음 홈 복귀에서 축척을 건드리지 말라는 일회성 요청.** 탭바의 홈 버튼이 올린다.
+   *
+   * 홈에는 "상세가 닫히면 250m로 넓힌다"는 규칙이 있는데, 그 표시(`hadPinOverlay`)는 홈이
+   * 늦게 돌아와도 남아 있다. 그래서 상세를 거쳐 다른 탭을 돌다 **탭바 홈 버튼**으로 돌아오면
+   * 그 순간 축척이 강제로 넓어졌다 — 가려져 있던 지도의 주변 타일이 없어 보던 범위만 섬처럼
+   * 남았다(2026-08-06 실기기). 버튼으로 돌아온 홈은 보던 축척 그대로가 맞다. 뒤로 가기로
+   * 상세를 직접 닫는 길은 이 요청이 없으므로 기존대로 넓힌다.
+   *
+   * `pressedPinId`와 같은 한 번 쓰고 비우는 요청이다 — 홈이 복귀하며 소비한다.
+   */
+  keepMapLevelOnce: boolean;
+  /**
    * 홈 시트가 놓이는 영역의 높이. 홈이 직접 재서 올린다. 아직 재지 못했으면 0.
    *
    * **위에 겹치는 장소 상세가 자기 시트를 같은 자리에 놓으려고 쓴다.** 두 시트는 3단계 높이를
@@ -169,6 +181,9 @@ export interface MapState {
   /** 지도에서 핀 마커가 눌렸다고 알린다. 받는 화면이 처리하고 `clearPressedPin`으로 비운다. */
   pressPin: (pinId: string) => void;
   clearPressedPin: () => void;
+  /** 탭바 홈 버튼이 "이번 복귀는 축척 그대로"를 올린다. 홈이 복귀하며 소비한다. */
+  requestKeepMapLevel: () => void;
+  consumeKeepMapLevel: () => boolean;
   /** 20m에서 돌려 볼 장소를 정한다. 그 축척을 벗어나면 빈 배열로 비운다(홈이 맡는다). */
   setNearbyPlaces: (places: MapMarker[]) => void;
   /** 홈이 시트 영역을 재서 올린다. 상세 시트가 같은 기준으로 높이를 잡는다. */
@@ -186,6 +201,7 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   mapLevel: 5,
   pinOverlay: null,
   pressedPinId: null,
+  keepMapLevelOnce: false,
   nearbyPlaces: NO_NEARBY_PLACES,
   homeSheetSpace: 0,
   gestureControl: null,
@@ -205,6 +221,12 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   clearPinOverlay: () => set({ pinOverlay: null, pressedPinId: null }),
   pressPin: (pressedPinId) => set({ pressedPinId }),
   clearPressedPin: () => set({ pressedPinId: null }),
+  requestKeepMapLevel: () => set({ keepMapLevelOnce: true }),
+  consumeKeepMapLevel: () => {
+    const keep = get().keepMapLevelOnce;
+    if (keep) set({ keepMapLevelOnce: false });
+    return keep;
+  },
   // 빈 목록은 같은 배열을 돌려준다. 비울 때마다 새 배열이면 그때마다 구독자가 다시 그려진다.
   setNearbyPlaces: (places) => set({ nearbyPlaces: places.length === 0 ? NO_NEARBY_PLACES : places }),
   setHomeSheetSpace: (homeSheetSpace) => set({ homeSheetSpace }),

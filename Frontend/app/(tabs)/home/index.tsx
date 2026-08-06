@@ -431,8 +431,12 @@ export default function Home() {
       if (!place) return;
 
       selectPlace(placeId);
-      // 시트가 다 펼쳐져 있으면 내려서 지도를 보여준다. 이동 지시는 그 뒤로 미룬다(아래 참고).
-      if (level === 2) moveTo(1);
+      /*
+        시트를 "보통"으로 맞춘다. 다 펼쳐져 있으면 내려서 지도를 보여주고, **접혀 있으면 올려서
+        방금 고른 카드를 보여준다** — 마커를 눌러 골랐는데 카드가 화면 밖에 있으면 아무 일도
+        없는 것으로 읽힌다(2026-08-06). 이동 지시는 그 뒤로 미룬다(아래 참고).
+      */
+      if (level !== 1) moveTo(1);
       setPendingPan({
         coordinate: { latitude: place.latitude, longitude: place.longitude },
         level: PLACE_FOCUS_MAP_LEVEL,
@@ -708,7 +712,13 @@ export default function Home() {
   const hadPinOverlay = useRef(false);
   useEffect(() => {
     if (pinOverlay !== null) {
-      hadPinOverlay.current = true;
+      /*
+        **가려져 있는 동안만 표시를 세운다.** 홈이 맨 위인데 겹이 남아 있는 것은 위 화면이
+        닫히는 전환이 아직 끝나지 않은 순간뿐이다 — 그때 다시 세우면, 탭바 홈 버튼이 "이번
+        복귀는 축척 그대로"를 올려 지운 표시(`keepMapLevelOnce` 소비)가 겹이 걷히기 전에
+        되살아나 결국 넓혀 버린다.
+      */
+      if (!onTop) hadPinOverlay.current = true;
       return;
     }
     if (!hadPinOverlay.current) return;
@@ -752,6 +762,12 @@ export default function Home() {
         축척 변화에서 엉뚱한 화면을 접지 않는다(`openedByZoom` 설명).
       */
       openedByZoom.current = false;
+      /*
+        **탭바 홈 버튼으로 돌아왔으면 축척을 건드리지 않는다**(`keepMapLevelOnce`). 상세가
+        닫히며 남은 축척 복원 표시가 이 복귀에서 소비되면 지도가 갑자기 넓어진다 — 버튼으로
+        돌아온 홈은 보던 축척 그대로가 맞다. 뒤로 가기로 닫는 길은 이 요청이 없어 기존대로다.
+      */
+      if (useMapStore.getState().consumeKeepMapLevel()) hadPinOverlay.current = false;
       mapRef.current?.relayout();
       return () => setOnTop(false);
     }, []),
