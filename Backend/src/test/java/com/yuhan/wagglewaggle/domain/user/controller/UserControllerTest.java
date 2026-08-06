@@ -7,8 +7,6 @@ import com.yuhan.wagglewaggle.domain.credit.dto.CreditTransactionListResponse;
 import com.yuhan.wagglewaggle.domain.credit.entity.CreditTransactionType;
 import com.yuhan.wagglewaggle.domain.credit.service.CreditTransactionService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.ServiceAccess;
@@ -175,68 +173,6 @@ class UserControllerTest {
     }
 
     @Test
-    @DisplayName("닉네임 수정 성공 시 200과 변경된 닉네임을 반환하고 요청 본문을 서비스에 전달한다")
-    void 닉네임수정_200() throws Exception {
-        given(userService.updateNickname(eq(MEMBER_ID), any()))
-                .willReturn(new NicknameUpdateResponse("새와글러"));
-
-        mockMvc.perform(patch("/api/v1/users/me/nickname")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"새와글러\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.statusCode").value(200))
-                .andExpect(jsonPath("$.message").value("닉네임이 수정되었습니다."))
-                .andExpect(jsonPath("$.data.nickname").value("새와글러"));
-
-        // 요청 본문이 NicknameUpdateRequest로 바인딩되어 서비스에 그대로 전달되는지 검증한다.
-        ArgumentCaptor<NicknameUpdateRequest> captor = ArgumentCaptor.forClass(NicknameUpdateRequest.class);
-        verify(userService).updateNickname(eq(MEMBER_ID), captor.capture());
-        assertThat(captor.getValue().nickname()).isEqualTo("새와글러");
-    }
-
-    @Test
-    @DisplayName("형식 위반 시 400과 INVALID_NICKNAME 코드를 반환한다")
-    void 닉네임수정_형식위반_400() throws Exception {
-        given(userService.updateNickname(eq(MEMBER_ID), any()))
-                .willThrow(new CustomException(ErrorCode.INVALID_NICKNAME));
-
-        mockMvc.perform(patch("/api/v1/users/me/nickname")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"a\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.statusCode").value(400))
-                .andExpect(jsonPath("$.error.code").value("INVALID_NICKNAME"));
-    }
-
-    @Test
-    @DisplayName("이미 사용 중인 닉네임이면 409와 NICKNAME_ALREADY_EXISTS 코드를 반환한다")
-    void 닉네임수정_중복_409() throws Exception {
-        given(userService.updateNickname(eq(MEMBER_ID), any()))
-                .willThrow(new CustomException(ErrorCode.NICKNAME_ALREADY_EXISTS));
-
-        mockMvc.perform(patch("/api/v1/users/me/nickname")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"중복와글러\"}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.statusCode").value(409))
-                .andExpect(jsonPath("$.error.code").value("NICKNAME_ALREADY_EXISTS"));
-    }
-
-    @Test
-    @DisplayName("사용자를 찾을 수 없으면 404와 USER_NOT_FOUND 코드를 반환한다")
-    void 닉네임수정_사용자없음_404() throws Exception {
-        given(userService.updateNickname(eq(MEMBER_ID), any()))
-                .willThrow(new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        mockMvc.perform(patch("/api/v1/users/me/nickname")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nickname\":\"새와글러\"}"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.statusCode").value(404))
-                .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
-    }
-
-    @Test
     @DisplayName("관심 카테고리 조회 성공 시 200과 선택된 code 목록을 반환한다")
     void 관심카테고리조회_200() throws Exception {
         given(categoryPreferenceService.getMyCategories(MEMBER_ID))
@@ -256,7 +192,7 @@ class UserControllerTest {
         given(userService.updateProfile(eq(MEMBER_ID), any()))
                 .willReturn(new ProfileUpdateResponse("새와글러", List.of("CAFE", "RESTAURANT", "PARK")));
 
-        mockMvc.perform(patch("/api/v1/users/me/profile")
+        mockMvc.perform(patch("/api/v1/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"새와글러\",\"preferredCategories\":[\"CAFE\",\"RESTAURANT\",\"PARK\"]}"))
                 .andExpect(status().isOk())
@@ -280,7 +216,7 @@ class UserControllerTest {
         given(userService.updateProfile(eq(MEMBER_ID), any()))
                 .willThrow(new CustomException(ErrorCode.INVALID_NICKNAME));
 
-        mockMvc.perform(patch("/api/v1/users/me/profile")
+        mockMvc.perform(patch("/api/v1/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"a\",\"preferredCategories\":[\"CAFE\"]}"))
                 .andExpect(status().isBadRequest())
@@ -294,7 +230,7 @@ class UserControllerTest {
         given(userService.updateProfile(eq(MEMBER_ID), any()))
                 .willThrow(new CustomException(ErrorCode.INVALID_CATEGORY_PREFERENCE));
 
-        mockMvc.perform(patch("/api/v1/users/me/profile")
+        mockMvc.perform(patch("/api/v1/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"새와글러\",\"preferredCategories\":[]}"))
                 .andExpect(status().isBadRequest())

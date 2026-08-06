@@ -7,8 +7,6 @@ import com.yuhan.wagglewaggle.domain.credit.service.CreditTransactionService;
 import com.yuhan.wagglewaggle.domain.pin.dto.TodayPinListResponse;
 import com.yuhan.wagglewaggle.domain.pin.service.TodayPinService;
 import com.yuhan.wagglewaggle.domain.user.dto.NicknameAvailabilityResponse;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateRequest;
-import com.yuhan.wagglewaggle.domain.user.dto.NicknameUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateRequest;
 import com.yuhan.wagglewaggle.domain.user.dto.ProfileUpdateResponse;
 import com.yuhan.wagglewaggle.domain.user.dto.UserProfileResponse;
@@ -73,24 +71,6 @@ public class UserController {
     }
 
     /**
-     * 현재 인증 사용자의 닉네임을 수정한다(인증 필요).
-     * 형식·길이·금칙어·중복 등 유효성은 Front의 사전 확인 여부와 무관하게 서비스 계층에서 다시 검증한다.
-     * 사용자 식별 정보는 액세스 토큰에서 가져온다.
-     */
-    @PatchMapping("/me/nickname")
-    public ApiResponse<NicknameUpdateResponse> updateNickname(
-            @AuthenticationPrincipal Long memberId,
-            @RequestBody(required = false) NicknameUpdateRequest request
-    ) {
-        NicknameUpdateResponse data = userService.updateNickname(memberId, request);
-
-        return ApiResponse.success(
-                HttpStatus.OK.value(),
-                "닉네임이 수정되었습니다.",
-                data);
-    }
-
-    /**
      * 현재 인증 사용자가 선택한 관심 카테고리 목록을 조회한다(인증 필요).
      * 설정 화면에서 기존 선택값을 미리 선택된 상태로 표시하는 데 사용한다.
      * 사용자 식별 정보는 액세스 토큰에서 가져온다.
@@ -112,7 +92,7 @@ public class UserController {
      * 닉네임 수정과 카테고리 수정은 하나의 트랜잭션으로 처리되어 하나라도 실패하면 전체가 반영되지 않는다.
      * 각 항목 검증은 Front의 사전 확인과 무관하게 서비스 계층에서 다시 수행하며, 사용자 식별 정보는 액세스 토큰에서 가져온다.
      */
-    @PatchMapping("/me/profile")
+    @PatchMapping("/me")
     public ApiResponse<ProfileUpdateResponse> updateMyProfile(
             @AuthenticationPrincipal Long memberId,
             @RequestBody(required = false) ProfileUpdateRequest request
