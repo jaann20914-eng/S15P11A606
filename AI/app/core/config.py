@@ -43,9 +43,10 @@ class Settings(BaseSettings):
     # 채팅 분석 워커만 쓰는 값이라 비워둘 수 있게 한다. 필수로 두면 이 키가
     # 필요 없는 API 컨테이너까지 기동 시점에 같이 죽는다.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.1-flash-lite"
-    # 운영에서 별도 엔드포인트를 쓰게 될 경우를 위한 자리. None이면 구글 기본 주소.
-    gemini_base_url: str | None = None
+    gemini_model: str = "gemini-2.5-flash-lite"
+    # GMS 프록시를 거쳐 호출한다. SDK가 뒤에 /v1beta/models/...를 붙이므로 그 앞까지만 둔다.
+    # 빈 값으로 덮으면 구글 기본 주소를 쓴다.
+    gemini_base_url: str | None = "https://gms.ssafy.io/gmsapi/generativelanguage.googleapis.com"
     gemini_timeout_seconds: float = 10.0
     # 최초 1회 + 재시도 2회 = 최대 3회 호출.
     chat_analysis_max_retries: int = 2
