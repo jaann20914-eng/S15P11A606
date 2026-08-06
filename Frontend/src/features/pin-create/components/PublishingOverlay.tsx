@@ -15,6 +15,14 @@ export interface PublishingOverlayProps {
   progress: number;
   /** 업로드를 중단한다. 등록 요청까지 간 뒤에는 되돌릴 수 없어 숨긴다. */
   onCancel: () => void;
+  /**
+   * 아래에서 비워 둘 높이(px).
+   *
+   * 등록(탭 안)은 탭 바가 화면 아래를 차지해 그만큼 짧은 영역의 가운데에 링이 놓인다.
+   * 수정(탭 밖)은 화면이 바닥까지라 같은 가운데 정렬인데도 링이 더 아래에 보였다
+   * (2026-08-06). 수정에서 탭 바 높이를 넘겨 두 화면의 링 자리를 맞춘다.
+   */
+  bottomInset?: number;
 }
 
 /** 링 안에 들어갈 문구. 무게를 달리해 읽는 순서를 만든다. */
@@ -53,13 +61,13 @@ const messageByPhase: Record<VideoUploadPhase, PhaseMessage> = {
  * 배경은 천천히 도는 파스텔 구체 영상이다. AI 처리까지 수십 초를 기다리는 화면이라 완전히
  * 멈춰 있으면 앱이 멈춘 것처럼 읽힌다.
  */
-export function PublishingOverlay({ phase, progress, onCancel }: PublishingOverlayProps) {
+export function PublishingOverlay({ phase, progress, onCancel, bottomInset = 0 }: PublishingOverlayProps) {
   const backdrop = useAutoplayVideo(warmedVideoSource(BACKDROP), { loop: true, muted: true });
   const uploading = phase === 'uploading';
   const message = messageByPhase[phase];
 
   return (
-    <View style={s.publishing}>
+    <View style={[s.publishing, { paddingBottom: bottomInset }]}>
       <VideoView
         player={backdrop}
         style={StyleSheet.absoluteFill}

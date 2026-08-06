@@ -406,7 +406,13 @@ export default function PinCreateScreen() {
             )}
           </View>
         ) : phase !== 'idle' ? (
-          <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
+          <PublishingOverlay
+            phase={phase}
+            progress={progress}
+            onCancel={cancelPublish}
+            // 수정(탭 밖)은 화면이 바닥까지라, 탭 바 높이만큼 비워 등록과 링 자리를 맞춘다.
+            bottomInset={mode.type === 'edit' ? tabBarHeight : 0}
+          />
         ) : (
           /*
             키보드가 덮는 만큼 아래를 비워 둔다.
