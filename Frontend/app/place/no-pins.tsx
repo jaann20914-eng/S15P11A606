@@ -191,8 +191,9 @@ export default function PlaceWithoutPins() {
       {/*
         지도 제스처를 받는 자리. **가장 먼저 그려 맨 아래에 깐다** — 검색바·시트·탭바는 뒤에
         그려지므로 그 영역의 터치는 그쪽이 먼저 받는다(장소 상세와 같은 구조다).
+        가려지면 함께 감춘다 — 위에 겹친 반투명 화면을 뚫고 지도가 당겨지지 않게(상세와 같다).
       */}
-      <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
+      <View {...mapGestures.panHandlers} style={[s.mapGestureArea, !onTop && s.covered]} />
 
       {/* 위에 다른 화면이 겹쳐 있으면 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다. */}
       <View

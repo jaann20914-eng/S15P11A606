@@ -568,8 +568,12 @@ export default function Place() {
 
         아래 홈 지도로 터치를 통과시키는 것이 아니라 **받아서 명령으로 넘긴다.** 안드로이드에서
         통과가 되지 않기 때문이다(`useMapGestures` 참고).
+
+        **가려지면 이 판도 함께 감춘다.** 시트·컨트롤만 감추면 이 판이 남는데, 위에 겹친
+        화면(검색 등)이 반투명이라 그 화면을 뚫고 지도가 당겨졌다 — 그 상태로 20m를 벗어나면
+        홈의 접기 효과가 "상세가 바로 위"라는 전제로 맨 위 화면을 잘못 닫는다(2026-08-06).
       */}
-      <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
+      <View {...mapGestures.panHandlers} style={[s.mapGestureArea, !onTop && s.covered]} />
 
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
