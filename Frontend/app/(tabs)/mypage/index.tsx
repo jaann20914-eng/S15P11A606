@@ -85,7 +85,7 @@ export default function MypageScreen() {
           </>
         ) : loading ? (
           <View style={s.loading}>
-            <ActivityIndicator color={colors.gray400} />
+            <ActivityIndicator color={colors.lime} />
           </View>
         ) : error !== null ? (
           <View style={s.empty}>

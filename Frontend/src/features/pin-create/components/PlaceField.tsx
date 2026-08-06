@@ -85,7 +85,7 @@ export function PlaceField({ place, onSelect }: PlaceFieldProps) {
             {nearby.loading ? '지금 자리를 확인하고 있어요' : '현재 위치'}
           </Text>
           {nearby.loading ? (
-            <ActivityIndicator color={colors.gray400} size="small" />
+            <ActivityIndicator color={colors.lime} size="small" />
           ) : (
             <Ionicons name="chevron-forward" size={18} color={colors.gray400} />
           )}

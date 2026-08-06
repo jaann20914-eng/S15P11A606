@@ -12,7 +12,7 @@ export default function Index() {
   if (!hydrated) {
     return (
       <View style={styles.splash}>
-        <ActivityIndicator color={colors.gray600} />
+        <ActivityIndicator color={colors.lime} />
       </View>
     );
   }

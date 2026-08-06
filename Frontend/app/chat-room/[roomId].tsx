@@ -266,7 +266,7 @@ export default function Room() {
 
         {room.loading ? (
           <View style={s.state}>
-            <ActivityIndicator color={colors.gray400} />
+            <ActivityIndicator color={colors.lime} />
             <Text style={s.stateText}>대화를 불러오고 있어요</Text>
           </View>
         ) : room.error !== null ? (

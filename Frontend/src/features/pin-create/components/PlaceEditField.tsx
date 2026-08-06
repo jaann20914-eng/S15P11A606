@@ -49,7 +49,7 @@ export function PlaceEditField({ place, onSelect, origin }: PlaceEditFieldProps)
         <View style={s.placeList}>
           {candidates.loading ? (
             <View style={s.placeStatus}>
-              <ActivityIndicator color={colors.gray400} />
+              <ActivityIndicator color={colors.lime} />
             </View>
           ) : candidates.error ? (
             <Text style={s.placeEmpty}>{candidates.error}</Text>

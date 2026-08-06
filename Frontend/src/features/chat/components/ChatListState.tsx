@@ -22,7 +22,7 @@ export function ChatListState({ loading, error, emptyText, isEmpty, onRetry }: C
   if (loading) {
     return (
       <View style={s.state}>
-        <ActivityIndicator color={colors.gray400} />
+        <ActivityIndicator color={colors.lime} />
       </View>
     );
   }

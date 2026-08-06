@@ -400,7 +400,7 @@ export default function PinCreateScreen() {
              사용자가 값이 지워진 것으로 읽는다. */
           <View style={s.formState}>
             {editable.loading ? (
-              <ActivityIndicator color={colors.gray400} />
+              <ActivityIndicator color={colors.lime} />
             ) : (
               <Text style={s.formStateText}>{editable.error}</Text>
             )}

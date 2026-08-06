@@ -69,7 +69,7 @@ export default function EditProfileScreen() {
 
         {loading ? (
           <View style={s.loading}>
-            <ActivityIndicator color={colors.gray400} />
+            <ActivityIndicator color={colors.lime} />
           </View>
         ) : (
           // 닉네임을 못 받았으면 빈 입력란으로 시작한다.
@@ -185,7 +185,7 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
   if (profileEdit.loading) {
     return (
       <View style={s.loading}>
-        <ActivityIndicator color={colors.gray400} />
+        <ActivityIndicator color={colors.lime} />
       </View>
     );
   }
@@ -247,7 +247,7 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
         ]}
       >
         {profileEdit.saving ? (
-          <ActivityIndicator color={colors.gray600} />
+          <ActivityIndicator color={colors.lime} />
         ) : (
           <Text style={[s.saveText, !buttonEnabled && s.saveTextDisabled]}>
             {editing ? '변경 저장' : '수정하기'}
