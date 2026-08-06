@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, InteractionManager, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  BackHandler,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
 import { AppTabBar, NoticeModal, useAppTabBarHeight, useNotice } from '@/components/common';
@@ -196,6 +204,31 @@ export default function PinCreateScreen() {
     옮기지 않는다. 네이티브 `Alert`을 쓰지 않는 이유는 `useNotice`에 적어 두었다.
   */
   const { notice, showNotice, confirmNotice } = useNotice();
+
+  /*
+    **장소 화면 위에 얹혀 열렸을 때의 뒤로 가기.**
+
+    장소 화면의 "작성하러 가기"는 이 화면을 탭 그룹째로 루트에 얹는다(push — 탭 안 경로는
+    그렇게만 열 수 있다). 그때 하드웨어 뒤로 가기를 그대로 두면 **탭 라우터가 먼저 받아 얹힌
+    겹 안의 홈 탭으로 가 버린다**(탭의 기본 뒤로 가기 = 첫 탭). 들어온 장소 화면이 아니라
+    새로 만들어진 홈이 나오고, 겹은 걷히지 않고 그대로 쌓여 남는다(2026-08-06 실기기 —
+    빈 태그 화면까지 나왔다).
+
+    얹힌 겹이 있으면(`canDismiss` — 루트에 화면이 쌓여 있을 때만 참이다) 탭 라우터보다 먼저
+    받아 겹을 통째로 걷는다(`dismiss`는 POP이라 탭이 소비하지 못하고 루트 스택이 받는다).
+    + 탭으로 들어온 평소에는 겹이 없어 기존 동작(홈 탭으로 이동) 그대로다.
+  */
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (!router.canDismiss()) return false;
+        router.dismiss();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, []),
+  );
 
   const submit = () => {
     /*

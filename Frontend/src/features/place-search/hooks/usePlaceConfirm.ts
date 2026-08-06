@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
+import { findRegisteredPlaceByName } from '@/api/place/coordinates';
 import { confirmPlaceSearch } from '@/api/place/searchConfirm';
 import { useMapStore } from '@/store/useMapStore';
 import { createDevLogger, toRequestLine } from '@/utils/devLog';
@@ -44,9 +45,11 @@ export interface PlaceConfirmState {
  * - **미등록 장소**(`placeId`가 `null`) — 갈 상세가 없다. 오류가 아니라 아직 아무도 핀을 남기지
  *   않은 장소라는 뜻이라, 같은 구성의 "핀이 없는 장소" 화면으로 보낸다.
  *
- * 상세로 보낼 때 검색 화면을 **먼저 닫는다.** 장소 상세는 루트의 반투명 모달이라 그 아래
- * 화면이 그대로 비치는데, 검색 화면이 앞에 남아 있으면 지도 대신 흰 배경이 비친다. 두 명령을
- * 잇달아 부르는 것은 안전하다 — expo-router가 액션을 큐에 쌓아 순서대로 넘긴다.
+ * 상세로 보낼 때 검색 화면을 **닫지 않는다.** 그래야 결과 화면에서 뒤로 가기가 검색으로
+ * 돌아오고, 거기서 한 번 더 누르면 홈이다 — 지도 앱들의 구조다. 예전에는 여기서 검색을 먼저
+ * 닫았는데, 그러면 뒤로 가기가 검색을 건너뛰고 그 전 화면(다른 장소 상세 등)으로 떨어졌다.
+ * 검색 화면이 남아도 지도를 가리지 않는 것은 그 화면이 스스로 해결한다 — 가려지면 내용을
+ * 감춘다(`app/(tabs)/home/search.tsx`의 `onTop`).
  */
 export function usePlaceConfirm(): PlaceConfirmState {
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -65,6 +68,17 @@ export function usePlaceConfirm(): PlaceConfirmState {
    * (`app/place/[placeId]`의 `onTop`), **애초에 두 겹이 생기지 않는 것이 먼저다.**
    */
   const running = useRef(false);
+
+  /*
+    **결과 화면에서 돌아오면 자물쇠를 푼다.** 확정에 성공해도 검색 화면은 닫히지 않고 결과
+    아래 남으므로, 잠긴 채로 두면 돌아와서 다른 장소를 골라도 전부 무시된다. 같은 tick의
+    중복 눌림은 화면이 가려지기 전까지 잠겨 있으니 여전히 막힌다.
+  */
+  useFocusEffect(
+    useCallback(() => {
+      running.current = false;
+    }, []),
+  );
 
   const confirm = useCallback(
     (kakaoPlaceId: string, placeName: string, coordinate?: Coordinate) => {
@@ -109,26 +123,48 @@ export function usePlaceConfirm(): PlaceConfirmState {
             모달이라, 검색 화면이 앞에 남아 있으면 지도 대신 흰 배경이 비친다.
           */
           if (place.placeId === null) {
-            log('이동 — 미등록 장소', { 이름: place.name, 경로: '/place/no-pins' });
-            router.back();
-            router.push({
-              pathname: '/place/no-pins',
-              /*
-                갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
+            /*
+              미등록 응답을 그대로 믿지 않고 **같은 이름의 등록 장소가 곁에 있는지** 한 번 더
+              본다. 한 가게가 카카오에 두 항목으로 올라 있으면 확정이 미등록으로 답하는데
+              (`findRegisteredPlaceByName` 참고), 그대로 미등록 화면으로 보내면 핀이 이미
+              있는 가게에서 "작성하러 가기"가 나온다. 찾으면 등록 장소의 상세로 간다 —
+              카드 꺽새로 들어간 것과 같은 화면이다.
 
-                **지도를 옮기는 일은 그 화면이 한다.** 여기서 먼저 옮기면 장소 축척으로 한 번,
-                그 화면이 20m로 또 한 번 명령이 가서 확대가 두 번 끊겨 보인다. 좌표를 아는
-                경로에서는 그 값을 실어 보내고, 모르면 그 화면이 이름으로 다시 찾는다
-                (`useSearchedPlaceFocus`).
-              */
-              params: {
-                name: place.name,
-                address: place.address,
-                kakaoPlaceId,
-                ...(coordinate === undefined
-                  ? null
-                  : { latitude: coordinate.latitude, longitude: coordinate.longitude }),
-              },
+              기준 좌표가 없으면(최근 검색 재실행) 지금 보고 있는 지도 중심 주변을 본다.
+            */
+            const around = coordinate ?? useMapStore.getState().center;
+            void findRegisteredPlaceByName(place.name, around).then((registered) => {
+              if (registered !== null) {
+                log('이동 — 확정은 미등록이나 같은 이름의 등록 장소를 찾음', {
+                  이름: place.name,
+                  placeId: registered.placeId,
+                  경로: `/place/${registered.placeId}`,
+                });
+                focusOn({ coordinate: registered.coordinate, name: place.name });
+                router.push(`/place/${registered.placeId}`);
+                return;
+              }
+
+              log('이동 — 미등록 장소', { 이름: place.name, 경로: '/place/no-pins' });
+              router.push({
+                pathname: '/place/no-pins',
+                /*
+                  갈 상세가 없어 다시 물어볼 곳도 없다. 확정 응답이 준 이름과 주소를 그대로 넘긴다.
+
+                  **지도를 옮기는 일은 그 화면이 한다.** 여기서 먼저 옮기면 장소 축척으로 한 번,
+                  그 화면이 20m로 또 한 번 명령이 가서 확대가 두 번 끊겨 보인다. 좌표를 아는
+                  경로에서는 그 값을 실어 보내고, 모르면 그 화면이 이름으로 다시 찾는다
+                  (`useSearchedPlaceFocus`).
+                */
+                params: {
+                  name: place.name,
+                  address: place.address,
+                  kakaoPlaceId,
+                  ...(coordinate === undefined
+                    ? null
+                    : { latitude: coordinate.latitude, longitude: coordinate.longitude }),
+                },
+              });
             });
             return;
           }
@@ -137,14 +173,13 @@ export function usePlaceConfirm(): PlaceConfirmState {
           if (coordinate) focusOn({ coordinate, name: place.name });
 
           log('이동', { 경로: `/place/${place.placeId}` });
-          router.back();
           router.push(`/place/${place.placeId}`);
         })
         .catch((cause: unknown) => {
           /*
-            **실패했을 때만 자물쇠를 푼다.** 성공하면 화면을 옮기는 중이라 다시 누를 이유가 없고,
-            푸는 순간 그 사이에 들어온 두 번째 누름이 통과해 같은 화면이 또 쌓인다. 이 화면은
-            곧 사라지므로 잠긴 채로 두는 것이 맞다.
+            **실패했을 때만 여기서 자물쇠를 푼다.** 성공하면 화면을 옮기는 중이라 다시 누를
+            이유가 없고, 푸는 순간 그 사이에 들어온 두 번째 누름이 통과해 같은 화면이 또 쌓인다.
+            성공 쪽은 결과에서 돌아올 때 푼다(위 `useFocusEffect`).
           */
           running.current = false;
           setPendingId(null);

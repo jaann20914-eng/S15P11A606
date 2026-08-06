@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { PlaceSearchBar } from '@/components/place';
+import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
+import { PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
 import { useSearchedPlaceFocus } from '@/features/place-search/hooks/useSearchedPlaceFocus';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
@@ -10,6 +10,8 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapGestures } from '@/hooks/useMapGestures';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useMapStore } from '@/store/useMapStore';
+import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
+import { distanceBetween } from '@/utils/location';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -36,7 +38,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 덮은 채 시작해 눈에 띄게 튄다(홈·장소 상세와 같은 이유다).
  */
 const ESTIMATED_HEADER_HEIGHT = 88;
-const ESTIMATED_CARD_HEIGHT = 200;
+
+/**
+ * 카드 칸의 높이 하한. **홈·장소 상세의 "보통" 단계와 시트 높이를 맞추는 값이다.**
+ *
+ * 이 화면의 카드(`NoPinPlaceCard`)는 핀 카드보다 작다. 잰 높이를 그대로 쓰면 시트가 두 화면보다
+ * 낮아져, 검색으로 화면을 오갈 때 같은 자리에 있어야 할 시트가 오르내린다. 두 화면과 같은
+ * 근거(카드 한 칸 + 카드 사이 간격)를 하한으로 지킨다.
+ */
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
 export default function PlaceWithoutPins() {
   const { name, address, kakaoPlaceId, latitude, longitude } = useLocalSearchParams<{
@@ -72,7 +82,24 @@ export default function PlaceWithoutPins() {
     return { latitude: lat, longitude: lng };
   }, [latitude, longitude]);
 
-  useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId });
+  /* 찾은 자리의 좌표. 파라미터에 없으면(최근 검색) 훅이 이름으로 다시 찾아 준다. */
+  const placeCoordinate = useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId });
+
+  /**
+   * 이 자리에서 핀을 쓸 수 있는지 — **그 장소가 내 위치에서 50m 안일 때만.**
+   *
+   * 핀 등록은 지금 서 있는 자리의 장소만 고를 수 있다(`GET /places/nearby`가 50m 반경만
+   * 주고, 그 반경이 곧 등록 가능 범위다). 그런데 검색은 20km까지 찾으므로, 멀리 있는 장소의
+   * 이 화면에서 작성 버튼을 내밀면 눌러 봐야 등록 화면의 장소 목록에 그 장소가 없다 —
+   * 갈 수 없는 곳으로 안내하는 셈이라 그때는 버튼 없이 안내만 남긴다.
+   *
+   * 내 위치나 장소 좌표를 모르면 쓸 수 없는 쪽으로 본다. 등록 화면도 내 위치 없이는 장소를
+   * 고를 수 없으므로 판정이 같다.
+   */
+  const writable =
+    placeCoordinate !== null &&
+    myLocation.coordinate !== null &&
+    distanceBetween(myLocation.coordinate, placeCoordinate) <= MAX_PLACE_DISTANCE_METERS;
 
   /*
     손가락으로 아래 홈 지도를 끌고 당긴다.
@@ -153,8 +180,8 @@ export default function PlaceWithoutPins() {
   const sheet = useBottomSheet({
     space: homeSheetSpace > 0 ? homeSheetSpace : Math.max(0, height - navBarHeight),
     collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
-    // 기본 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 장 + 아래 여백(홈과 같은 값).
-    middleExtra: (cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+    // 기본 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 칸 + 아래 여백(홈·상세와 같은 값).
+    middleExtra: Math.max(cardHeight, PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
   });
 
@@ -164,8 +191,9 @@ export default function PlaceWithoutPins() {
       {/*
         지도 제스처를 받는 자리. **가장 먼저 그려 맨 아래에 깐다** — 검색바·시트·탭바는 뒤에
         그려지므로 그 영역의 터치는 그쪽이 먼저 받는다(장소 상세와 같은 구조다).
+        가려지면 함께 감춘다 — 위에 겹친 반투명 화면을 뚫고 지도가 당겨지지 않게(상세와 같다).
       */}
-      <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
+      <View {...mapGestures.panHandlers} style={[s.mapGestureArea, !onTop && s.covered]} />
 
       {/* 위에 다른 화면이 겹쳐 있으면 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다. */}
       <View
@@ -219,7 +247,7 @@ export default function PlaceWithoutPins() {
             onLayout={(event) => setCardHeight(Math.round(event.nativeEvent.layout.height))}
             style={{ paddingHorizontal: gutter }}
           >
-            <NoPinPlaceCard name={name} address={address ?? ''} />
+            <NoPinPlaceCard name={name} address={address ?? ''} writable={writable} />
           </View>
         )}
       </Animated.View>

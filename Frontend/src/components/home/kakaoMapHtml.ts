@@ -25,6 +25,15 @@ export interface MapPlaceMarker {
    * 생략하면 `filter`를 쓴다(옛 동작). 계열을 모르는 화면은 그대로 두면 된다.
    */
   tone?: CrowdFilter;
+  /**
+   * 처음부터 작은 마커(22px)로 그릴지. 생략하면 겹친 무리에 든 것만 작아진다.
+   *
+   * 장소 상세의 핀 마커가 쓴다. 크기를 겹침 여부에 맡기면 **같은 화면에서 모여 찍힌 핀만
+   * 작아지고 떨어져 찍힌 핀은 크게 남아**, 같은 장소의 핀들이 제각각으로 보였다(공원처럼
+   * 넓은 장소에서 그랬다). 한 묶음을 그리는 화면은 이 값으로 크기를 통일한다 — 고른 핀은
+   * 여전히 물방울이라 "지금 보고 있는 것" 표시는 그대로다.
+   */
+  small?: boolean;
 }
 
 export interface MapViewState {
@@ -179,12 +188,16 @@ export function buildKakaoMapHtml({
   }
   .pin-circle::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
   /*
-   * 한 자리에 겹친 마커. **작게 그린다.**
+   * 작은 마커 — 장소 상세의 핀(small)이 쓴다.
    *
-   * 34px 마커 열 개를 겹치지 않게 늘어놓으려면 반지름 60px이 넘는 큰 원이 되고, 가운데가 빈
-   * 고리가 되어 한 장소가 아니라 여러 장소처럼 읽힌다. 작게 그리면 같은 개수가 절반 반경 안에
-   * 촘촘히 들어와 한 송이로 보인다. 고른 핀은 물방울로 커지므로 어느 것을 보고 있는지는
+   * 핀은 한 장소에 수십 개가 몇 미터 안에 모일 수 있어 34px로는 감당이 안 된다(열 개를
+   * 겹치지 않게 늘어놓으면 반지름 60px이 넘는 고리가 된다). 22px이면 같은 개수가 절반 반경
+   * 안에 촘촘히 들어와 한 송이로 보인다. 고른 핀은 물방울로 커지므로 어느 것을 보고 있는지는
    * 크기 차이로 오히려 더 분명해진다.
+   *
+   * **홈의 장소 마커는 겹쳐도 줄이지 않는다.** 한 화면의 장소 마커가 34px과 22px로 섞이면
+   * 크기가 제각각으로 읽혔다(2026-08-06 실기기). 장소는 최대 10곳뿐이라 자리표 간격을
+   * 넓히는 것으로 충분하다(computeSpread).
    */
   .pin-circle-small { width: 22px; height: 22px; box-shadow: 0 2px 5px rgba(40, 38, 38, 0.24); }
   .pin-circle-small::after { width: 8px; height: 8px; }
@@ -239,8 +252,6 @@ export function buildKakaoMapHtml({
   var meOverlay = null;
   /** 겹친 마커를 밀어 놓은 값(id → {dx, dy}). 그릴 때와 탭 판정이 같은 값을 쓴다. */
   var spreadOffsets = {};
-  /** 한 자리에 겹쳐 모아 놓은 마커(id → true). 이 마커들은 작게 그린다. */
-  var clustered = {};
   /**
    * RN이 넘겨 준 손가락으로 지도를 끌고 있는지.
    *
@@ -326,17 +337,22 @@ export function buildKakaoMapHtml({
    * 링마다 몇 개가 들어가는지는 기하로 정한다 — 반지름 r의 원에서 중심각 t만큼 떨어진 두 점의
    * 거리가 2 x r x sin(t / 2)이므로, 그 값이 최소 간격이 되는 t로 반원을 나눈다.
    */
-  /** 링 간격 = 첫 링의 반지름(px). 작은 마커 지름(22)의 여덟 할쯤이라 살짝만 겹친다. */
-  var CLUSTER_RING_PX = 18;
-  /** 이웃한 두 마커 중심 사이의 최소 거리(px). 이 값으로 링 하나에 몇 개가 들어가는지 정해진다. */
-  var CLUSTER_GAP_PX = 16;
+  /*
+   * 링 간격(= 첫 링의 반지름)과 이웃 마커 중심 사이 최소 거리(px). **마커 크기별로 다르다** —
+   * 마커 지름의 여덟 할쯤으로 잡아 살짝만 겹치게 한다. 크기는 무리에 들었는지가 아니라
+   * 마커가 스스로 정하므로(small), 자리표 간격이 크기를 따라간다.
+   */
+  var SMALL_RING_PX = 18;
+  var SMALL_GAP_PX = 16;
+  var FULL_RING_PX = 27;
+  var FULL_GAP_PX = 24;
 
-  function clusterSlots(count) {
+  function clusterSlots(count, ringPx, gapPx) {
     var slots = [{ dx: 0, dy: 0 }];
 
     for (var ring = 1; slots.length < count; ring += 1) {
-      var radius = ring * CLUSTER_RING_PX;
-      var step = 2 * Math.asin(Math.min(1, CLUSTER_GAP_PX / (2 * radius)));
+      var radius = ring * ringPx;
+      var step = 2 * Math.asin(Math.min(1, gapPx / (2 * radius)));
       // 양 끝(3시·9시)을 포함해 나눈다. 실제 간격은 최소 간격보다 넓어진다.
       var capacity = Math.max(1, Math.floor(Math.PI / step)) + 1;
 
@@ -366,8 +382,6 @@ export function buildKakaoMapHtml({
    */
   function computeSpread() {
     var offsets = {};
-    // 무리에 든 마커를 함께 표시해 둔다. 그린 뒤에 크기를 정하는 데 쓴다.
-    clustered = {};
     if (!map || state.places.length < 2) return offsets;
 
     var projection = map.getProjection();
@@ -414,12 +428,21 @@ export function buildKakaoMapHtml({
         순서를 고정하면 물방울이 **그 게시물이 실제로 찍힌 자리**에서 모양만 바뀐다. 카드를
         넘길 때 물방울이 무리 안에서 옮겨 다니는 것이 곧 "이 게시물이 저기"라는 표시가 된다.
       */
-      var slots = clusterSlots(group.length);
+      /*
+        자리표 간격은 무리의 마커 크기를 따른다. 상세의 핀(small)은 촘촘히(22px 기준),
+        홈의 장소 마커는 제 크기 그대로 넓게(34px 기준) — **무리에 들었다고 줄이지 않는다.**
+        한 화면에서 크기가 섞이면 제각각으로 읽힌다(2026-08-06 실기기). 겹은 한 화면의
+        마커만 담으므로 첫 마커의 크기가 곧 무리의 크기다.
+      */
+      var smallGroup = state.places[group[0]].small === true;
+      var slots = clusterSlots(
+        group.length,
+        smallGroup ? SMALL_RING_PX : FULL_RING_PX,
+        smallGroup ? SMALL_GAP_PX : FULL_GAP_PX
+      );
       for (var m = 0; m < group.length; m += 1) {
         offsets[state.places[group[m]].id] = slots[m];
       }
-      // 이 무리는 촘촘히 겹쳐 놓으므로 마커를 작게 그린다(고른 핀의 물방울은 그대로).
-      for (var c = 0; c < group.length; c += 1) clustered[state.places[group[c]].id] = true;
     }
 
     return offsets;
@@ -480,10 +503,12 @@ export function buildKakaoMapHtml({
       */
       var tone = toneOf(place.tone || state.filter);
       /*
-        겹쳐 모아 놓은 마커는 **작게** 그린다. 촘촘히 놓으려면 그림도 작아야 한다(CSS 설명 참고).
+        크기는 마커가 스스로 정한다(small — 상세의 핀만 작다). 겹침 여부로 줄이지 않는다 —
+        같은 화면의 마커가 34px과 22px로 섞여 제각각으로 읽혔다. 겹친 무리는 크기 대신
+        자리표 간격이 감당한다(computeSpread).
         고른 핀은 무리에 들어도 물방울 그대로다 — 크기 차이가 곧 "지금 보고 있는 것" 표시다.
       */
-      var element = selected ? dropElement(tone) : circleElement(tone, clustered[place.id] === true);
+      var element = selected ? dropElement(tone) : circleElement(tone, place.small === true);
       element.setAttribute('aria-label', place.name);
 
       /*

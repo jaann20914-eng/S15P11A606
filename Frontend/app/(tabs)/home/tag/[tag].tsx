@@ -174,7 +174,11 @@ export default function TagSearchResult() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="다시 검색하기"
-          onPress={() => router.replace('/(tabs)/home/search')}
+          /*
+            검색 화면은 이 화면 바로 아래 남아 있다(검색이 push로 열었다). 새로 열지 않고
+            돌아가야 입력하던 검색어가 그대로 있고, 화면도 쌓이지 않는다.
+          */
+          onPress={() => router.back()}
           style={s.searchField}
         >
           <Ionicons name="search" size={20} color={colors.gray600} />

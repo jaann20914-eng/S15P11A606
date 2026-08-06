@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { FillButton, HighlightedText, SearchRow } from '@/features/place-search/components';
@@ -70,6 +70,34 @@ export default function Search() {
   const recent = useRecentSearches();
   const confirm = usePlaceConfirm();
 
+  /**
+   * 이 화면이 맨 위인지.
+   *
+   * **결과 화면(장소 상세·태그·미등록 장소)이 올라와도 이 화면은 닫히지 않고 아래 남는다** —
+   * 그래야 결과에서 뒤로 가기가 이 화면으로 돌아온다. 남는 동안은 내용을 감춘다. 그 화면들은
+   * 아래 홈 지도를 비추는 반투명 화면이라, 이 목록이 남아 있으면 지도 자리를 흰 화면이 덮는다.
+   * 태그 결과가 장소 상세에게 하는 것과 같은 처리다.
+   *
+   * 감추기만 하고 떼어 내지 않으므로 검색어와 결과 목록이 그대로 살아, 돌아오면 보던 검색이
+   * 남아 있다.
+   */
+  const [onTop, setOnTop] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setOnTop(true);
+      return () => {
+        setOnTop(false);
+        /*
+          가려지는 순간 키보드를 내린다. 장소를 고르는 경로는 각자 내리지만(`openPlace` 등)
+          최근 검색 재실행처럼 빠뜨린 경로가 있었다 — 입력 중에 결과로 넘어가면 키보드가
+          결과 화면의 지도를 덮은 채 남았다. 화면을 떠나는 모든 길이 여기를 지나므로 한 곳에서
+          막는다.
+        */
+        Keyboard.dismiss();
+      };
+    }, []),
+  );
+
   const query = places.keyword.trim();
   const tagName = toTagName(places.keyword);
   const searching = query.length > 0;
@@ -81,13 +109,16 @@ export default function Search() {
   const loading = places.loading || tags.loading;
 
   /**
-   * 추천에 이미 같은 태그가 있는지.
+   * 추천에 이미 같은 태그가 있는지. 없으면 "입력한 값으로 검색" 줄을 따로 보여준다.
    *
-   * 없으면 "입력한 값으로 검색" 줄을 따로 보여준다. 추천은 Elasticsearch 색인을 읽는데 지금
-   * 그 색인을 채우는 코드가 백엔드에 없어 사실상 늘 비어 있다. 그래도 확정(POST)은 DB를 읽으므로
-   * 방금 등록한 핀의 태그로 검색할 수 있어야 한다.
+   * **대소문자를 무시하고 견준다.** 서버는 검색어를 소문자로 정규화해 맞추고 결과는 원래
+   * 표기로 돌려주므로(`TagSuggestion`), 표기 그대로 비교하면 `CAFE`를 입력했을 때 추천
+   * `Cafe`와 다른 태그로 보고 같은 태그가 두 줄로 선다.
+   *
+   * 추천이 비어 있어도 이 줄이 검색을 끝내는 길이다 — 색인 반영 전의 핀(배포 이전 등록)은
+   * 추천에 없지만 확정(POST)은 DB를 읽으므로 찾아낸다.
    */
-  const suggested = tags.results.some((tag) => tag.name === tagName);
+  const suggested = tags.results.some((tag) => tag.name.toLowerCase() === tagName.toLowerCase());
 
   /** 태그를 고르면 결과 화면으로 넘어간다. 확정 호출과 이력 저장은 그 화면이 맡는다. */
   const openTag = (name: string) => {
@@ -95,8 +126,8 @@ export default function Search() {
     if (normalized.length === 0) return;
 
     Keyboard.dismiss();
-    // replace라 결과에서 뒤로 가면 검색 화면이 아니라 홈으로 돌아간다.
-    router.replace(`/(tabs)/home/tag/${encodeURIComponent(normalized)}`);
+    // push라 결과에서 뒤로 가면 검색어가 남아 있는 이 화면으로 돌아온다. 장소 결과와 같은 규칙이다.
+    router.push(`/(tabs)/home/tag/${encodeURIComponent(normalized)}`);
   };
 
   const openPlace = (place: PlaceSearchItem) => {
@@ -132,7 +163,8 @@ export default function Search() {
   };
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
+    // 맨 위가 아니면 통째로 감춘다. `display`로 빼야 배치와 그리기까지 건너뛴다.
+    <SafeAreaView edges={['top', 'left', 'right']} style={[s.safe, !onTop && s.covered]}>
       <View style={s.searchWrap}>
         <View style={s.searchField}>
           <Pressable accessibilityLabel="뒤로 가기" onPress={() => router.back()} style={s.iconButton}>
@@ -309,6 +341,8 @@ export default function Search() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
+  /** 위에 결과 화면이 겹쳤을 때. 반투명한 그 화면 밑에서 지도를 가리지 않게 한다. */
+  covered: { display: 'none' },
   searchWrap: { paddingHorizontal: layout.gutter, paddingTop: spacing.x3, paddingBottom: spacing.x2 },
   searchField: {
     height: 52,

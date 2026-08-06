@@ -2,6 +2,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useMapStore } from '@/store/useMapStore';
 import { colors, radius, spacing } from '@/constants/theme';
 
 /**
@@ -155,8 +156,21 @@ export function AppTabBar({ active, floating = true, onTabPress }: AppTabBarProp
             /*
               기본 이동은 push가 아니라 navigate다. push는 갈 때마다 화면을 쌓아서, 게시글에서
               홈을 누르면 홈으로 "돌아가는" 대신 홈이 하나 더 얹힌다.
+
+              홈 버튼은 "이번 복귀는 지도 축척 그대로"를 함께 올린다 — 상세를 거쳐 왔으면
+              홈이 복귀하며 축척을 250m로 되돌리는데, 버튼으로 돌아온 홈은 보던 축척이 맞다
+              (`useMapStore.keepMapLevelOnce`). 홈 화면 동작에만 쓰이는 값이라 다른 탭에는
+              아무 영향이 없다. 홈에서 홈을 다시 누르는 경우(탭 바 안에서 이미 홈이 켜져
+              있음)는 복귀가 아니므로 올리지 않는다 — 소비되지 않은 요청이 남으면 나중의
+              정당한 축척 복원까지 건너뛴다.
             */
-            onPress={() => (onTabPress ? onTabPress(key) : router.navigate(href as never))}
+            onPress={() => {
+              if (key === 'home' && (!onTabPress || active !== 'home')) {
+                useMapStore.getState().requestKeepMapLevel();
+              }
+              if (onTabPress) onTabPress(key);
+              else router.navigate(href as never);
+            }}
             style={s.item}
           >
             <TabBarIcon tab={key} focused={focused} color={tint} />

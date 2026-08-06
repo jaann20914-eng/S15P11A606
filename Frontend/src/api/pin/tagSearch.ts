@@ -13,7 +13,10 @@ import type { MapBoundsQuery, TagSearchResponse, TaggedPlacesResponse, TagSugges
  * 지도 경계가 필요하다. 서버가 그 범위 안의 활성·미만료 핀에 달린 태그만 후보로 삼기
  * 때문이다 — 결과가 하나도 없는 태그를 제안하지 않으려는 설계다.
  *
- * 오류 코드: `INVALID_TAG_NAME` `INVALID_MAP_RANGE` `UNAUTHORIZED` `TAG_SEARCH_FAILED`.
+ * 서버는 검색어를 소문자로 정규화해 맞추고, 결과는 원래 표기로 돌려준다(`TagSuggestion`).
+ * 정규화 후 비어 있거나 50자를 넘으면 400이다 — 확정(POST)과 오류 코드가 다르다.
+ *
+ * 오류 코드: `INVALID_TAG_SEARCH_QUERY` `UNAUTHORIZED` `TAG_SEARCH_FAILED`.
  */
 export async function getTagSuggestions(query: string, bounds: MapBoundsQuery): Promise<TagSuggestion[]> {
   const trimmed = query.trim();
