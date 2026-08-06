@@ -108,7 +108,7 @@ public class UserService {
     @Transactional
     public ProfileUpdateResponse updateProfile(Long memberId, ProfileUpdateRequest request) {
         if (request == null) {
-            throw new CustomException(ErrorCode.INVALID_NICKNAME);
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
         NicknameUpdateResponse nickname =
                 updateNickname(memberId, new NicknameUpdateRequest(request.nickname()));

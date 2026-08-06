@@ -72,7 +72,8 @@ public class CategoryPreferenceService {
                     .toList();
             categoryPreferenceRepository.saveAll(preferences);
 
-            List<String> codes = categoryPreferenceRepository.findPreferredCategoryCodes(memberId);
+            // 방금 저장한 카테고리 code를 그대로 반환한다(추가 조회 불필요). 순서에는 의미가 없다.
+            List<String> codes = categories.stream().map(Category::getCode).toList();
             return new CategoryPreferenceResponse(codes);
         } catch (CustomException e) {
             throw e;

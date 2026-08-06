@@ -310,12 +310,12 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("요청 본문이 없으면 INVALID_NICKNAME으로 실패하고 카테고리 수정을 시도하지 않는다")
+    @DisplayName("요청 본문이 없으면 INVALID_REQUEST로 실패하고 카테고리 수정을 시도하지 않는다")
     void 프로필수정_본문없음() {
         assertThatThrownBy(() -> userService.updateProfile(MEMBER_ID, null))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_NICKNAME);
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
 
         verify(categoryPreferenceService, never()).updateMyCategories(anyLong(), any());
     }
