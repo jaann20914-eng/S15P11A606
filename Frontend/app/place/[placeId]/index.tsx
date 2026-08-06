@@ -409,12 +409,20 @@ export default function Place() {
     가려져 있는 이 화면의 마커가 그 위 화면에 그려진다.
 
     돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아 우리 마커를 되돌려 놓는다.
+
+    **핀이 없으면 빈 겹을 올린다**(미등록 장소 화면과 같은 처리). 겹이 없으면 홈이 주변 장소
+    마커를 그대로 그리는데, 이 장소에는 핀이 없다면서 바로 옆 가게의 장소핀이 보이면 그 핀이
+    이 장소의 것으로 읽힌다(2026-08-06). 지도에는 찾은 자리만 보여야 한다. 조회가 끝나기
+    전에는 올리지 않는다 — 핀이 올지 모르는 동안 성급히 걷을 이유가 없다.
   */
   useEffect(() => {
-    if (!onTop || pinMarkers.length === 0) return;
+    if (!onTop || detail === null) return;
 
-    showPinOverlay({ markers: pinMarkers, selectedPinId: focusedPin?.pinId ?? null });
-  }, [focusedPin, onTop, pinMarkers, showPinOverlay]);
+    showPinOverlay({
+      markers: pinMarkers,
+      selectedPinId: pinMarkers.length > 0 ? (focusedPin?.pinId ?? null) : null,
+    });
+  }, [detail, focusedPin, onTop, pinMarkers, showPinOverlay]);
 
   /*
     **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
