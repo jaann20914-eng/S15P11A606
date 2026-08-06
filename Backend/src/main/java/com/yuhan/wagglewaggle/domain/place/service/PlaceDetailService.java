@@ -21,9 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +33,6 @@ public class PlaceDetailService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Duration ACTIVE_WINDOW = Duration.ofHours(1);
-    private static final Duration STAT_HALF_WINDOW = Duration.ofMinutes(30);
 
     private static final int KAKAO_RADIUS = 10;
     private static final int KAKAO_PAGE = 1;
@@ -108,18 +105,15 @@ public class PlaceDetailService {
     }
 
     /**
-     * 요청 시각(KST) 기준 ±30분 time-of-day 창으로 요일별 평균 혼잡 단계를 집계한다.
+     * 요청 시각(KST)의 정시 시간대(시, hour) 버킷으로 요일별 평균 혼잡 단계를 집계한다.
+     * 예) 요청이 14:26이면 KST 14:00~14:59:59에 등록된 핀을 대상으로 한다.
      * 집계는 DB에서 한 번에 수행하고, 여기서는 요일 매핑과 빈 요일 null 처리만 담당한다.
      * 데이터가 있는 요일이 하나도 없으면 빈 배열을 반환한다.
      */
     private List<WeeklyCrowdStat> loadWeeklyCrowdStats(Long placeId, Instant now) {
-        ZonedDateTime nowKst = now.atZone(KST);
-        LocalTime startTime = nowKst.toLocalTime().minus(STAT_HALF_WINDOW);
-        LocalTime endTime = nowKst.toLocalTime().plus(STAT_HALF_WINDOW);
-        boolean wrap = startTime.isAfter(endTime);
+        int hour = now.atZone(KST).getHour();
 
-        List<WeeklyCrowdStatRow> rows = pinRepository.findWeeklyCrowdStats(
-                placeId, startTime, endTime, wrap);
+        List<WeeklyCrowdStatRow> rows = pinRepository.findWeeklyCrowdStats(placeId, hour);
         if (rows.isEmpty()) {
             return List.of();
         }

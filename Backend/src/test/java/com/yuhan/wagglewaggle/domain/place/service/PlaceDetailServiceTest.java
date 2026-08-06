@@ -37,7 +37,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClientException;
 
 import java.time.Instant;
-import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,7 +45,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -70,6 +69,7 @@ class PlaceDetailServiceTest {
     private PlaceDetailService placeDetailService;
 
     private static final GeometryFactory GF = new GeometryFactory(new PrecisionModel(), 4326);
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Long MEMBER_ID = 1000L;
     private static final UUID PIN_1 = UUID.fromString("00000000-0000-0000-0000-000000000011");
     private static final UUID PIN_2 = UUID.fromString("00000000-0000-0000-0000-000000000012");
@@ -85,7 +85,7 @@ class PlaceDetailServiceTest {
         // 기본 스텁: 각 조회는 비어 있고 카카오는 매칭 결과 없음(주소/전화 "").
         // 개별 테스트에서 필요한 부분만 재정의한다.
         given(pinRepository.findActivePinsByPlaceId(anyLong(), any(), any())).willReturn(List.of());
-        given(pinRepository.findWeeklyCrowdStats(anyLong(), any(), any(), anyBoolean())).willReturn(List.of());
+        given(pinRepository.findWeeklyCrowdStats(anyLong(), anyInt())).willReturn(List.of());
         given(pinTagRepository.findByPin_IdIn(anyCollection())).willReturn(List.of());
         given(pinUnlockRepository.findUnlockedPinIds(anyLong(), anyCollection())).willReturn(List.of());
         given(kakaoLocalClient.searchNearby(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt(), anyInt(), anyString()))
@@ -132,7 +132,7 @@ class PlaceDetailServiceTest {
         given(pinUnlockRepository.findUnlockedPinIds(eq(MEMBER_ID), anyCollection()))
                 .willReturn(List.of(PIN_1)); // newer만 열람
 
-        given(pinRepository.findWeeklyCrowdStats(eq(1L), any(), any(), anyBoolean()))
+        given(pinRepository.findWeeklyCrowdStats(eq(1L), anyInt()))
                 .willReturn(List.of(row(1, 3.0), row(3, 2.0))); // MON, WED
 
         given(kakaoLocalClient.searchNearby(anyString(), anyDouble(), anyDouble(), anyInt(), anyInt(), anyInt(), anyString()))
@@ -203,7 +203,7 @@ class PlaceDetailServiceTest {
     void 전체_요일_통계가_없으면_weeklyCrowdStats는_빈_배열이다() {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
-        given(pinRepository.findWeeklyCrowdStats(eq(1L), any(), any(), anyBoolean())).willReturn(List.of());
+        given(pinRepository.findWeeklyCrowdStats(eq(1L), anyInt())).willReturn(List.of());
 
         PlaceDetailResponse response = placeDetailService.getPlaceDetail("1", MEMBER_ID);
 
@@ -215,7 +215,7 @@ class PlaceDetailServiceTest {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
         // 2.35 → 2.4, 3.666... → 3.7
-        given(pinRepository.findWeeklyCrowdStats(eq(1L), any(), any(), anyBoolean()))
+        given(pinRepository.findWeeklyCrowdStats(eq(1L), anyInt()))
                 .willReturn(List.of(row(2, 2.35), row(5, 3.6666666)));
 
         PlaceDetailResponse response = placeDetailService.getPlaceDetail("1", MEMBER_ID);
@@ -225,17 +225,17 @@ class PlaceDetailServiceTest {
     }
 
     @Test
-    void 통계_조회창은_요청시각_기준_앞뒤_30분씩_1시간이다() {
+    void 통계_조회는_요청시각의_정시_시간대로_집계한다() {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
 
+        int expectedHour = Instant.now().atZone(KST).getHour();
         placeDetailService.getPlaceDetail("1", MEMBER_ID);
 
-        ArgumentCaptor<LocalTime> startCaptor = ArgumentCaptor.forClass(LocalTime.class);
-        ArgumentCaptor<LocalTime> endCaptor = ArgumentCaptor.forClass(LocalTime.class);
-        verify(pinRepository).findWeeklyCrowdStats(eq(1L), startCaptor.capture(), endCaptor.capture(), anyBoolean());
-        // 자정을 넘겨도(LocalTime wrap) 항상 start + 1시간 == end 여야 한다.
-        assertThat(startCaptor.getValue().plusHours(1)).isEqualTo(endCaptor.getValue());
+        ArgumentCaptor<Integer> hourCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(pinRepository).findWeeklyCrowdStats(eq(1L), hourCaptor.capture());
+        // 요청 시각(KST)의 정시 시간대(0~23)로 집계해야 한다.
+        assertThat(hourCaptor.getValue()).isEqualTo(expectedHour);
     }
 
     // ===== 실패 시 부분 응답 금지 =====
@@ -254,7 +254,7 @@ class PlaceDetailServiceTest {
     void 통계_조회가_실패하면_PLACE_DETAIL_FETCH_FAILED() {
         Place place = place(1L, "kakao-1", "와글카페", 127.030, 37.500);
         given(placeRepository.findById(1L)).willReturn(Optional.of(place));
-        given(pinRepository.findWeeklyCrowdStats(eq(1L), any(), any(), anyBoolean()))
+        given(pinRepository.findWeeklyCrowdStats(eq(1L), anyInt()))
                 .willThrow(new RuntimeException("DB 오류"));
 
         assertError(() -> placeDetailService.getPlaceDetail("1", MEMBER_ID), ErrorCode.PLACE_DETAIL_FETCH_FAILED);

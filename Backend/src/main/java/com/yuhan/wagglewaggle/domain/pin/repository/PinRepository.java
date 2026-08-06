@@ -10,7 +10,6 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -201,8 +200,8 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     /**
      * 단일 장소의 요일별 혼잡 통계를 DB에서 한 번에 집계한다(장소 홈용).
      * - 삭제된 핀 제외(deleted_at IS NULL). 만료 핀은 포함하며 최신성 창은 적용하지 않는다(전체 기간).
-     * - created_at을 KST(Asia/Seoul)로 변환한 time-of-day가 [startTime, endTime] 창에 드는 핀만 집계한다.
-     *   자정을 넘는 창(wrap)은 startTime 이상 OR endTime 이하로 판정한다.
+     * - created_at을 KST(Asia/Seoul)로 변환한 정시 시간대(시, hour)가 :hour와 일치하는 핀만 집계한다.
+     *   예) hour=14 → KST 14:00:00~14:59:59에 등록된 핀.
      * - 요일은 KST 기준 EXTRACT(DOW): 0=일 ... 6=토.
      * - crowd_level은 enum 문자열로 저장되므로 SQL에서 CASE로 가중치(1~4)를 매핑해 평균낸다.
      * 데이터가 있는 요일만 행으로 반환되며, 없는 요일은 결과에 포함되지 않는다.
@@ -218,18 +217,12 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             FROM pins p
             WHERE p.place_id = :placeId
               AND p.deleted_at IS NULL
-              AND ( (:wrap = FALSE
-                        AND (p.created_at AT TIME ZONE 'Asia/Seoul')::time BETWEEN :startTime AND :endTime)
-                 OR (:wrap = TRUE
-                        AND ((p.created_at AT TIME ZONE 'Asia/Seoul')::time >= :startTime
-                          OR (p.created_at AT TIME ZONE 'Asia/Seoul')::time <= :endTime)) )
+              AND EXTRACT(HOUR FROM (p.created_at AT TIME ZONE 'Asia/Seoul'))::int = :hour
             GROUP BY 1
             """, nativeQuery = true)
     List<WeeklyCrowdStatRow> findWeeklyCrowdStats(
             @Param("placeId") Long placeId,
-            @Param("startTime") LocalTime startTime,
-            @Param("endTime") LocalTime endTime,
-            @Param("wrap") boolean wrap
+            @Param("hour") int hour
     );
 
     // ===== 내 프로필·활동 요약(월간 활동/오늘) 집계 =====
