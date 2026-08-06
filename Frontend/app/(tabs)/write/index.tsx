@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  InteractionManager,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, InteractionManager, Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,7 +7,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
-import { AppTabBar, NoticeModal, useAppTabBarHeight } from '@/components/common';
+import { AppTabBar, NoticeModal, useAppTabBarHeight, useNotice } from '@/components/common';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
@@ -199,6 +191,12 @@ export default function PinCreateScreen() {
     if (usePinPublishStore.getState().phase === 'done') resetPublish();
   }, [focused, form.reset, resetPublish, mode.type]);
 
+  /*
+    검증 · 실패 안내. 완료 안내(`completion`)와 자리는 같지만 이쪽은 닫기만 하고 화면을
+    옮기지 않는다. 네이티브 `Alert`을 쓰지 않는 이유는 `useNotice`에 적어 두었다.
+  */
+  const { notice, showNotice, confirmNotice } = useNotice();
+
   const submit = () => {
     /*
       내용 검증은 생성 · 수정이 함께 지나간다.
@@ -213,18 +211,18 @@ export default function PinCreateScreen() {
     const memo = form.draft.memo;
 
     if (memo.length > 0 && memo.trim().length === 0) {
-      Alert.alert(
-        '내용을 확인해 주세요',
-        '공백과 줄바꿈만으로는 내용을 남길 수 없어요. 내용을 적거나 비워 주세요.',
-      );
+      showNotice({
+        title: '내용을 확인해 주세요',
+        message: '공백과 줄바꿈만으로는 내용을 남길 수 없어요.\n내용을 적거나 비워 주세요.',
+      });
       return;
     }
 
     if (countGraphemes(memo.trim()) > MAX_MEMO_LENGTH) {
-      Alert.alert(
-        '내용이 조금 길어요',
-        `내용은 ${MAX_MEMO_LENGTH}자까지 적을 수 있어요. 조금만 줄여 주세요.`,
-      );
+      showNotice({
+        title: '내용이 조금 길어요',
+        message: `내용은 ${MAX_MEMO_LENGTH}자까지 적을 수 있어요.\n조금만 줄여 주세요.`,
+      });
       return;
     }
 
@@ -254,12 +252,18 @@ export default function PinCreateScreen() {
     }
 
     if (!form.draft.video) {
-      Alert.alert('영상을 촬영해 주세요', '갤러리 영상은 등록할 수 없고 실시간 촬영이 필요해요.');
+      showNotice({
+        title: '영상을 촬영해 주세요',
+        message: '갤러리 영상은 등록할 수 없고\n실시간 촬영이 필요해요.',
+      });
       return;
     }
 
     if (!form.draft.place) {
-      Alert.alert('장소를 선택해 주세요', '현재 위치 주변의 장소를 반드시 골라야 해요.');
+      showNotice({
+        title: '장소를 선택해 주세요',
+        message: '현재 위치 주변의 장소를 반드시 골라야 해요.',
+      });
       return;
     }
 
@@ -270,9 +274,12 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!error) return;
 
-    const title = mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요';
-    Alert.alert(title, error, [{ text: '확인', onPress: dismissError }]);
-  }, [error, dismissError, mode.type]);
+    showNotice({
+      title: mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요',
+      message: error,
+      onConfirm: dismissError,
+    });
+  }, [error, dismissError, mode.type, showNotice]);
 
   /**
    * AI 처리까지 끝나면 등록한 핀으로 보낸다.
@@ -510,6 +517,14 @@ export default function PinCreateScreen() {
         message={completion?.message ?? ''}
         busy={leaving}
         onConfirm={leaveAfterCompletion}
+      />
+
+      {/* 검증·실패 안내. 완료 모달과 자리는 같지만 이쪽은 닫기만 하고 화면을 옮기지 않는다. */}
+      <NoticeModal
+        visible={completion === null && notice !== null}
+        title={notice?.title ?? ''}
+        message={notice?.message ?? ''}
+        onConfirm={confirmNotice}
       />
     </SafeAreaView>
   );

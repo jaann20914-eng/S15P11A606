@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   Image,
@@ -18,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ViewAvatar } from '@/components/common';
+import { NoticeModal, ViewAvatar, useNotice } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 import { ChatWarningSheet } from '@/features/chat/components/ChatWarningSheet';
 import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
@@ -85,13 +84,17 @@ export default function Room() {
   */
   const decision = useChatDecision(room.reload);
 
+  const { notice, showNotice, confirmNotice } = useNotice();
+
   useEffect(() => {
     if (decision.error === null) return;
 
-    Alert.alert('요청을 처리하지 못했어요', decision.error, [
-      { text: '확인', onPress: decision.dismissError },
-    ]);
-  }, [decision.error, decision.dismissError]);
+    showNotice({
+      title: '요청을 처리하지 못했어요',
+      message: decision.error,
+      onConfirm: decision.dismissError,
+    });
+  }, [decision.error, decision.dismissError, showNotice]);
 
   /*
     키보드가 덮는 만큼 화면을 접는다.
@@ -422,6 +425,13 @@ export default function Room() {
         같다(`ChatWarningSheet`).
       */}
       <ChatWarningSheet warning={room.arrivedWarning} onClose={room.dismissWarning} />
+
+      <NoticeModal
+        visible={notice !== null}
+        title={notice?.title ?? ''}
+        message={notice?.message ?? ''}
+        onConfirm={confirmNotice}
+      />
     </SafeAreaView>
   );
 }

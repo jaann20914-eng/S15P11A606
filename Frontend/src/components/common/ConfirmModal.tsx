@@ -75,26 +75,31 @@ const shadow = {
   elevation: 6,
 };
 
+/*
+  모양은 알림 모달(`NoticeModal`)을 따른다 — 같은 자리에서 같은 무게로 읽혀야 한다.
+  뒤 화면은 연한 검정으로 눌러 카드가 떠 보이게 한다(흰 막을 깔았더니 카드와 배경이
+  같은 색이라 경계가 사라졌다). 다른 점은 버튼이 둘이라는 것뿐이다.
+*/
 const s = StyleSheet.create({
   backdrop: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: layout.gutter,
-    backgroundColor: 'rgba(255,255,255,.68)',
+    padding: layout.gutter,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   card: {
     width: '100%',
     padding: spacing.x5,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: colors.white,
     ...shadow,
   },
-  title: { ...type.label, color: colors.dark, fontWeight: '600' },
-  message: { ...type.body, color: colors.gray600, marginTop: spacing.x3 },
+  title: { ...type.title, color: colors.dark },
+  message: { ...type.small, color: colors.gray600, marginTop: spacing.x2 },
   error: { ...type.caption, color: colors.danger, marginTop: spacing.x3 },
-  actions: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x5 },
-  button: { flex: 1, height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
+  actions: { flexDirection: 'row', gap: spacing.x2, marginTop: spacing.x4 },
+  button: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
   busy: { opacity: 0.6 },
   cancel: { backgroundColor: colors.gray100 },
   cancelText: { ...type.label, color: colors.gray600, fontWeight: '600' },

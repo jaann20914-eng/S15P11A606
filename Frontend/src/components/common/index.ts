@@ -10,6 +10,8 @@ export { CrowdFilterToggle } from './CrowdFilterToggle';
 export { MediaLoadingSweep } from './MediaLoadingSweep';
 export { NoticeModal } from './NoticeModal';
 export type { NoticeModalProps } from './NoticeModal';
+export { useNotice } from './useNotice';
+export type { NoticeRequest, NoticeState } from './useNotice';
 export type { CrowdFilterToggleProps } from './CrowdFilterToggle';
 export { CardPager, CARD_SLOT_GAP } from './CardPager';
 export type { CardPagerProps } from './CardPager';
