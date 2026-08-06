@@ -191,12 +191,12 @@ const s = StyleSheet.create({
       선이 끊긴 것도 이어진 것도 아닌 모양이었다(2026-08-06). 조금 더 올려 테두리가 선을
       가로지르게 하면, 흰 테두리가 선을 **끊고 그 위에 떠 있는** 것으로 읽힌다.
     */
-    marginTop: -26,
+    marginTop: -28,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.card,
-    // 선을 확실히 끊을 만큼 둔다. 3에서는 회색 선이 테두리 너머로 비쳐 보였다.
-    borderWidth: 4,
+    // 선을 끊을 만큼만 둔다. 더 두꺼우면 테두리가 버튼의 일부로 읽혀 무거워진다.
+    borderWidth: 3,
     borderColor: colors.white,
     backgroundColor: colors.limeControl,
     shadowColor: colors.dark,
