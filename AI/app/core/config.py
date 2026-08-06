@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     internal_api_secret: str
     log_level: str = "INFO"
 
+    # Metrics
+    # 워커는 HTTP 서버가 아니라서 Prometheus가 긁을 수 있도록 이 포트만 따로 연다.
+    # 도커 네트워크 안에서만 접근하므로 호스트에는 노출하지 않는다.
+    metrics_port: int = 9000
+
     # Recommendation
     scoring_timeout_ms: int = 2000
 
