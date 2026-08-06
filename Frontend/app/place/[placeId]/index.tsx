@@ -14,6 +14,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
 import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
+import { NoPinPlaceCard } from '@/features/place-search/components';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -189,14 +190,12 @@ export default function Place() {
       사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
     /*
-      핀이 없어도 **같은 높이**다. 안내 줄이 카드 한 칸을 그대로 차지한다(`PIN_SLOT_HEIGHT`) —
-      상태에 따라 시트가 오르내리지 않는 편이 낫고, 홈도 같은 값으로 맞춰 두었다.
+      핀이 없어도 **같은 높이**다. 그 자리의 카드(`NoPinPlaceCard`)가 칸보다 작으면 칸 높이를
+      하한으로 지킨다 — 상태에 따라 시트가 오르내리지 않아야 홈·상세와 같은 자리에 놓인다.
     */
     middleExtra:
       (noPins
-        ? emptyHeight > 0
-          ? emptyHeight
-          : PIN_SLOT_HEIGHT
+        ? Math.max(emptyHeight, PIN_SLOT_HEIGHT)
         : pinSlotHeight > 0
           ? pinSlotHeight
           : PIN_SLOT_HEIGHT) + spacing.x4,
@@ -327,6 +326,15 @@ export default function Place() {
     보게 되고, 지도도 없는 핀으로 옮기려 든다.
   */
   useEffect(() => setPinIndex(0), [numericPlaceId]);
+
+  /*
+    **목록이 줄면 번호를 안으로 되돌린다.** 게시물 상세에서 핀을 지우고 돌아오면 조용한
+    재조회로 목록이 짧아지는데(`usePlaceDetail`), 보고 있던 번호가 범위 밖에 남으면 빈 자리를
+    가리키고 지도도 옮길 핀을 잃는다. 범위 밖일 때만 고치므로 한 번에 수렴한다.
+  */
+  useEffect(() => {
+    if (pins.length > 0 && pinIndex >= pins.length) setPinIndex(pins.length - 1);
+  }, [pinIndex, pins.length]);
 
   /*
     목록(확장) 단계에서 지금 보고 있는 핀을 정하는 값들.
@@ -616,9 +624,17 @@ export default function Place() {
               {/*
                 장소명이 제목 자리를 갖는다. 연락처는 적지 않는다 — 지도 위 시트에서 전화번호는
                 읽을 일이 없고, 확장하면 정보 카드에 그대로 남아 있다.
+
+                **핀이 없으면 미등록 장소 화면과 같은 머리글이 된다**(`주위를 둘러볼까요?` +
+                현재 위치). 그때 장소명과 주소는 아래 카드가 갖는다(`NoPinPlaceCard`) — 핀이
+                없는 장소는 등록 여부와 무관하게 같은 화면으로 읽혀야 한다.
               */}
               {loading ? (
                 <ActivityIndicator size="small" color={colors.limeText} style={s.headingBusy} />
+              ) : noPins ? (
+                <Text numberOfLines={1} style={s.lookAroundTitle}>
+                  주위를 둘러볼까요?
+                </Text>
               ) : (
                 <Text numberOfLines={1} style={s.headingName}>
                   {place?.name ?? '장소'}
@@ -627,18 +643,27 @@ export default function Place() {
               {/*
                 `실시간 핀`은 제목 자리를 장소명에 내주고 **같은 줄 반대편으로** 옮긴다.
                 아래 카드 묶음이 무엇인지 알려 주는 이름표라 작은 글씨로 두고, 왼쪽 파란 점으로
-                "지금 올라오는 중"임을 표시한다.
+                "지금 올라오는 중"임을 표시한다. 핀이 없으면 가리킬 묶음이 없어 함께 뺀다.
               */}
-              <View style={s.liveLabel}>
-                <View style={s.liveDot} />
-                <Text style={s.liveText}>실시간 핀</Text>
-              </View>
+              {!noPins && (
+                <View style={s.liveLabel}>
+                  <View style={s.liveDot} />
+                  <Text style={s.liveText}>실시간 핀</Text>
+                </View>
+              )}
             </View>
             {/*
               주소는 제목 아래 작은 글씨 한 줄. 카카오에서 실시간으로 채우므로 비어 있을 수 있고,
               장소를 아예 불러오지 못했으면 그 자리에 이유를 적는다 — 빈 줄만 남으면 고장으로 읽힌다.
+              핀이 없으면 미등록 장소 화면과 같은 `현재 위치` 줄이 된다(모르면 줄을 비운다).
             */}
-            {place !== null ? (
+            {noPins ? (
+              myLocation.areaName !== null && (
+                <Text numberOfLines={1} style={s.lookAroundSubtitle}>
+                  현재 위치 : {myLocation.areaName}
+                </Text>
+              )
+            ) : place !== null ? (
               place.address.length > 0 && (
                 <Text numberOfLines={1} style={s.headingAddress}>
                   {place.address}
@@ -808,29 +833,16 @@ export default function Place() {
               핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다.
               카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
             */}
-            {noPins && (
+            {noPins && place !== null && (
               /*
-                이 블록이 **카드 한 칸을 그대로 차지한다.** 높이를 재서 시트에 넘기므로 글꼴
-                설정으로 글줄이 더 커져도 시트가 따라온다.
+                핀이 없으면 **미등록 장소 화면과 같은 카드**를 놓는다(`NoPinPlaceCard`) —
+                장소명·주소가 이 카드에 담기고, 50m 안이면 작성으로 부르고 밖이면 핀이 없다는
+                안내만 남는다. 등록된 장소든 아니든 "핀 없는 장소"는 같은 화면으로 읽혀야 한다.
+
+                높이를 재서 시트에 넘기므로 글꼴 설정으로 카드가 커져도 시트가 따라온다.
               */
-              <View
-                onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}
-                style={s.emptyPins}
-              >
-                <Text style={s.emptyPinsText}>지금 이곳에 올라온 핀이 없어요.</Text>
-                {/*
-                  그 자리에 서 있으면(50m 안) 첫 핀을 남기도록 부른다 — 미등록 장소 화면과
-                  같은 유도다. 멀리서 보고 있으면 안내만 남는다(위 `writable` 참고).
-                */}
-                {writable && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${place?.name ?? '이 장소'}에 핀 작성하기`}
-                    onPress={() => router.push('/(tabs)/write')}
-                  >
-                    <Text style={s.writeLink}>작성하러 가기 →</Text>
-                  </Pressable>
-                )}
+              <View onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}>
+                <NoPinPlaceCard name={place.name} address={place.address} writable={writable} />
               </View>
             )}
           </Animated.View>
@@ -1004,9 +1016,19 @@ const s = StyleSheet.create({
    * 값으로 그림자가 생기지는 않는다.
    */
   pinArea: { zIndex: 1, elevation: 5 },
-  /** 핀이 없을 때 카드 자리를 대신 채우는 블록. 카드 한 칸과 같은 높이로 잡아 시트가 제자리에 있게 한다. */
-  emptyPins: { minHeight: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  emptyPinsText: { ...type.small, color: colors.gray400 },
-  /** 첫 핀 작성으로 부르는 줄. 미등록 장소 카드의 같은 줄과 같은 값이다(`recommendStyles.writeLink`). */
-  writeLink: { ...type.h3, color: colors.dark, marginTop: spacing.x2 },
+  /**
+   * 핀이 없을 때의 머리글. **미등록 장소 화면의 제목·현재 위치 줄과 같은 값이다**
+   * (`app/place/no-pins.tsx`의 `sheetTitle`·`sheetSubtitle`) — 핀 없는 장소는 등록 여부와
+   * 무관하게 같은 화면으로 읽혀야 한다.
+   */
+  lookAroundTitle: {
+    ...type.body,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 17,
+    lineHeight: 26,
+    fontWeight: '600',
+    color: colors.dark,
+  },
+  lookAroundSubtitle: { ...type.caption, color: colors.gray600, marginTop: -spacing.x1 },
 });

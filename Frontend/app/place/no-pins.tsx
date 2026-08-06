@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { AppTabBar, useAppTabBarHeight } from '@/components/common';
-import { PlaceSearchBar } from '@/components/place';
+import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
+import { PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
 import { useSearchedPlaceFocus } from '@/features/place-search/hooks/useSearchedPlaceFocus';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
@@ -38,7 +38,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 덮은 채 시작해 눈에 띄게 튄다(홈·장소 상세와 같은 이유다).
  */
 const ESTIMATED_HEADER_HEIGHT = 88;
-const ESTIMATED_CARD_HEIGHT = 200;
+
+/**
+ * 카드 칸의 높이 하한. **홈·장소 상세의 "보통" 단계와 시트 높이를 맞추는 값이다.**
+ *
+ * 이 화면의 카드(`NoPinPlaceCard`)는 핀 카드보다 작다. 잰 높이를 그대로 쓰면 시트가 두 화면보다
+ * 낮아져, 검색으로 화면을 오갈 때 같은 자리에 있어야 할 시트가 오르내린다. 두 화면과 같은
+ * 근거(카드 한 칸 + 카드 사이 간격)를 하한으로 지킨다.
+ */
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
 export default function PlaceWithoutPins() {
   const { name, address, kakaoPlaceId, latitude, longitude } = useLocalSearchParams<{
@@ -172,8 +180,8 @@ export default function PlaceWithoutPins() {
   const sheet = useBottomSheet({
     space: homeSheetSpace > 0 ? homeSheetSpace : Math.max(0, height - navBarHeight),
     collapsed: headerHeight > 0 ? headerHeight : ESTIMATED_HEADER_HEIGHT,
-    // 기본 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 장 + 아래 여백(홈과 같은 값).
-    middleExtra: (cardHeight > 0 ? cardHeight : ESTIMATED_CARD_HEIGHT) + spacing.x4,
+    // 기본 단계에서 축소보다 더 보여야 하는 높이 = 카드 한 칸 + 아래 여백(홈·상세와 같은 값).
+    middleExtra: Math.max(cardHeight, PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
   });
 
