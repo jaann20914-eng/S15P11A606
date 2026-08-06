@@ -85,7 +85,16 @@ export default function Search() {
   useFocusEffect(
     useCallback(() => {
       setOnTop(true);
-      return () => setOnTop(false);
+      return () => {
+        setOnTop(false);
+        /*
+          가려지는 순간 키보드를 내린다. 장소를 고르는 경로는 각자 내리지만(`openPlace` 등)
+          최근 검색 재실행처럼 빠뜨린 경로가 있었다 — 입력 중에 결과로 넘어가면 키보드가
+          결과 화면의 지도를 덮은 채 남았다. 화면을 떠나는 모든 길이 여기를 지나므로 한 곳에서
+          막는다.
+        */
+        Keyboard.dismiss();
+      };
     }, []),
   );
 
