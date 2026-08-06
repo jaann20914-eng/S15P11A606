@@ -1,12 +1,23 @@
+import { useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppSplash } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 
 export default function RootLayout() {
   // 저장된 세션 복원과 세션 만료 시 로그인 복귀를 담당한다.
   useAuthSession();
+
+  /*
+    시작 화면은 앱을 열 때마다 한 번 지나간다.
+
+    라우터를 막지 않고 **위에 덮기만** 한다. 그동안 세션 복원과 첫 화면 준비가 뒤에서 이미
+    돌고 있어, 걷히는 순간 바로 쓸 수 있는 화면이 나온다 — 기다렸다가 시작하면 그만큼
+    늦어진다.
+  */
+  const [splashDone, setSplashDone] = useState(false);
 
   return (
     <SafeAreaProvider>
@@ -75,6 +86,8 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+
+      {!splashDone && <AppSplash onFinish={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }

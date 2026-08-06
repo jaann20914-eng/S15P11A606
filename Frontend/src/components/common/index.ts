@@ -6,6 +6,8 @@ export { CrowdLevelBadge } from './CrowdLevelBadge';
 export type { CrowdLevelBadgeProps } from './CrowdLevelBadge';
 export { ViewAvatar } from './ViewAvatar';
 export type { ViewAvatarProps } from './ViewAvatar';
+export { AppSplash } from './AppSplash';
+export type { AppSplashProps } from './AppSplash';
 export { CrowdFilterToggle } from './CrowdFilterToggle';
 export { MediaLoadingSweep } from './MediaLoadingSweep';
 export { NoticeModal } from './NoticeModal';
