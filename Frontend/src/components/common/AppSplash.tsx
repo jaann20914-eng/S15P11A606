@@ -16,8 +16,16 @@ const SPIN_MS = 1300;
 const DOT_AT_MS = 1650;
 const DOT_MS = 500;
 
-/** 다 보여준 뒤 화면을 걷기까지 머무는 시간(ms)과 걷히는 시간(ms). 로고를 읽을 만큼 둔다. */
+/** 다 보여준 뒤 화면을 걷기까지 머무는 시간(ms). 로고를 읽을 만큼 둔다. */
 const HOLD_MS = 1000;
+
+/**
+ * 로고가 먼저 사라지는 시간과, 그 뒤에 흰 바탕이 걷히는 시간(ms).
+ *
+ * 한 번에 걷으면 로고와 바탕이 같이 옅어지는 사이로 홈이 비쳐, 로고가 홈 위에 겹쳐 보였다
+ * (2026-08-06). 로고를 먼저 지우고 빈 흰 화면만 남긴 다음 걷으면 겹칠 것이 없다.
+ */
+const LOGO_FADE_MS = 220;
 const FADE_MS = 320;
 
 /** 시안 상자(340) 대비 실제 크기. */
@@ -57,6 +65,7 @@ export function AppSplash({ onFinish }: AppSplashProps) {
   /** 그리기 진행률 0~1. 프레임마다 자기 구간에서만 보이도록 투명도로 보간된다. */
   const draw = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  const logoOpacity = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
   const dotScale = useRef(new Animated.Value(0.2)).current;
   const dotOpacity = useRef(new Animated.Value(0)).current;
@@ -118,6 +127,13 @@ export function AppSplash({ onFinish }: AppSplashProps) {
         ]),
       ]),
       Animated.delay(HOLD_MS),
+      // 로고부터 지운다. 빈 흰 화면이 된 뒤에 바탕을 걷어야 로고가 홈 위에 겹쳐 보이지 않는다.
+      Animated.timing(logoOpacity, {
+        toValue: 0,
+        duration: LOGO_FADE_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
       Animated.timing(opacity, {
         toValue: 0,
         duration: FADE_MS,
@@ -139,7 +155,7 @@ export function AppSplash({ onFinish }: AppSplashProps) {
   */
   return (
     <Animated.View style={[s.screen, { opacity }]}>
-      <View style={s.stage}>
+      <Animated.View style={[s.stage, { opacity: logoOpacity }]}>
         {/*
           점은 링과 **함께 돌지 않는다.** 시안에서도 점은 제자리에서 튀어나오고 링만 돈다.
           그래서 회전은 프레임 묶음에만 건다.
@@ -159,7 +175,7 @@ export function AppSplash({ onFinish }: AppSplashProps) {
         <Animated.View style={[s.dot, { opacity: dotOpacity, transform: [{ scale: dotScale }] }]}>
           <Image source={SPLASH_DOT} fadeDuration={0} style={s.dotImage} />
         </Animated.View>
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 }
