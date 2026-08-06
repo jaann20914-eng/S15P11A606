@@ -7,6 +7,9 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 네 화면(요약 · 작성한 핀 · 크레딧 내역 · 닉네임 수정)이 헤더와 목록 카드를 공유한다.
  * 같은 값을 화면마다 복사하지 않도록 여기 한 곳에 둔다.
  */
+/** 나의 정보 수정 화면에서 내용이 버튼 뒤로 사라지는 구간의 높이. 스크롤 여백도 이 값을 쓴다. */
+const EDIT_FADE_HEIGHT = 24;
+
 export const mypageStyles = StyleSheet.create({
   /* 화면 골격 */
   safe: { flex: 1, backgroundColor: colors.white },
@@ -363,11 +366,24 @@ export const mypageStyles = StyleSheet.create({
    * 스크롤 내용의 아래 여백.
    *
    * 버튼은 스크롤 **밖에** 있어 내용을 가리지 않지만, 사라짐 구간(`editFade`)이 스크롤의
-   * 아래 끝을 덮는다. 그만큼 여백을 둬야 끝까지 내렸을 때 마지막 카드 줄이 흐려지지 않는다.
+   * 아래 끝을 덮는다. 그 높이보다 넉넉히 둬야 끝까지 내렸을 때 마지막 카드 줄이 사라짐
+   * 아래로 들어가지 않는다 — 좁게 뒀더니 카드가 흰 띠에 잠겼다(2026-08-06).
    */
-  editScroll: { paddingBottom: spacing.x6 },
-  /** 내용이 버튼 밑으로 들어가며 사라지는 구간. 높이는 한 줄 남짓이면 충분하다. */
-  editFade: { position: 'absolute', left: 0, right: 0, height: 40 },
+  editScroll: { paddingBottom: EDIT_FADE_HEIGHT + spacing.x4 },
+  /**
+   * 내용이 버튼 밑으로 들어가며 사라지는 구간.
+   *
+   * 짧게 둔다. 길면 아직 읽어야 할 내용까지 흰색에 잠긴다 — 이 그라데이션이 하는 일은
+   * 스크롤이 버튼 뒤로 넘어가는 경계를 부드럽게 하는 것뿐이다.
+   */
+  editFade: { position: 'absolute', left: 0, right: 0, height: EDIT_FADE_HEIGHT },
+  /** 저장이 막힌 이유. 잠긴 버튼만 두면 눌리지 않는 까닭을 알 수 없다. */
+  saveBlockedHint: {
+    ...type.caption,
+    color: colors.gray400,
+    textAlign: 'center',
+    marginBottom: spacing.x2,
+  },
   /**
    * 읽기 상태의 "수정하기" 버튼.
    *

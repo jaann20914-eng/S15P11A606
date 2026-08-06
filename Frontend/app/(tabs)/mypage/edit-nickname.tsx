@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from '@react-navigation/native';
 
 import { NoticeModal, useNotice } from '@/components/common';
+import { MAX_PREFERENCES } from '@/constants/categories';
 import { colors, layout, spacing } from '@/constants/theme';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
@@ -130,11 +131,18 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
   const [savedNickname, setSavedNickname] = useState(current);
 
   const nicknameChanged = edit.nickname.trim() !== savedNickname;
+  /**
+   * 닉네임을 바꿨는데 아직 쓸 수 있다고 확인되지 않은 상태.
+   *
+   * 확인을 통과해야만(`checked`) 저장할 수 있다 — 중복이면 확인이 풀린 채로 남으므로 여기서
+   * 걸린다. 바꾸지 않았으면 확인을 요구하지 않는다: 중복 확인 API는 **쓰고 있는 이름도
+   * 이미 있는 이름으로** 답해서(`existsByNickname`), 관심 장소만 고치려는 사람이 자기
+   * 이름에 막히게 된다.
+   */
+  const needsNicknameCheck = nicknameChanged && !edit.checked;
+
   const canSave =
-    (!nicknameChanged || edit.checked) &&
-    profileEdit.categories.length > 0 &&
-    !profileEdit.saving &&
-    !profileEdit.loading;
+    !needsNicknameCheck && profileEdit.categories.length > 0 && !profileEdit.saving && !profileEdit.loading;
 
   /** 읽기 상태의 "수정하기"는 늘 누를 수 있다. 고치는 중에만 저장 조건을 본다. */
   const buttonEnabled = editing ? canSave : !profileEdit.loading;
@@ -206,6 +214,18 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
         locations={FADE_STOPS}
         style={[s.editFade, { bottom: BUTTON_AREA_HEIGHT + keyboardOverlap }]}
       />
+
+      {/*
+        왜 저장할 수 없는지 버튼 바로 위에 적는다. 잠긴 버튼만 두면 눌리지 않는 이유를
+        알 수 없어 계속 누르게 된다.
+      */}
+      {editing && !canSave && !profileEdit.saving && (
+        <Text style={s.saveBlockedHint}>
+          {needsNicknameCheck
+            ? '닉네임 중복 확인을 먼저 해 주세요.'
+            : `관심 장소를 1~${MAX_PREFERENCES}개 골라 주세요.`}
+        </Text>
+      )}
 
       <Pressable
         accessibilityRole="button"
