@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from '@react-navigation/native';
-import { router } from 'expo-router';
 
 import { NoticeModal, useNotice } from '@/components/common';
 import { colors, layout, spacing } from '@/constants/theme';
@@ -41,7 +40,7 @@ const BUTTON_AREA_HEIGHT = layout.buttonHeight + spacing.x4;
  * 저장)은 그 값 없이도 된다. 조회 실패로 수정 자체를 막으면 다른 API의 장애가 번지는 셈이다.
  */
 export default function EditProfileScreen() {
-  const { profile, loading } = useMypageSummary();
+  const { profile, loading, reload } = useMypageSummary();
 
   /**
    * 화면을 떠나면 고치던 것을 버린다.
@@ -73,7 +72,7 @@ export default function EditProfileScreen() {
           </View>
         ) : (
           // 닉네임을 못 받았으면 빈 입력란으로 시작한다.
-          <ProfileEditor key={formKey} current={profile?.nickname ?? ''} />
+          <ProfileEditor key={formKey} current={profile?.nickname ?? ''} onSaved={reload} />
         )}
       </View>
     </SafeAreaView>
@@ -81,7 +80,7 @@ export default function EditProfileScreen() {
 }
 
 /** 지금 값을 채워 넣은 수정 폼. */
-function ProfileEditor({ current }: { current: string }) {
+function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => void }) {
   const edit = useNicknameCheck(current);
   const profileEdit = useProfileEdit();
   const { notice, showNotice, confirmNotice } = useNotice();
@@ -122,7 +121,15 @@ function ProfileEditor({ current }: { current: string }) {
    * 닉네임을 **바꿨다면** 중복 확인을 통과해야 한다. 그대로 두고 관심 장소만 고친 경우에는
    * 확인을 요구하지 않는다 — 쓰던 이름을 다시 확인하게 만들 이유가 없다.
    */
-  const nicknameChanged = edit.nickname.trim() !== current;
+  /**
+   * 마지막으로 저장된 닉네임.
+   *
+   * 처음에는 불러온 값이고, 저장에 성공하면 서버가 돌려준 값으로 바뀐다. 바뀌었는지 판단하는
+   * 기준이라 갱신하지 않으면 저장 직후에도 "바꾼 상태"로 남아 중복 확인을 다시 요구한다.
+   */
+  const [savedNickname, setSavedNickname] = useState(current);
+
+  const nicknameChanged = edit.nickname.trim() !== savedNickname;
   const canSave =
     (!nicknameChanged || edit.checked) &&
     profileEdit.categories.length > 0 &&
@@ -143,8 +150,32 @@ function ProfileEditor({ current }: { current: string }) {
       return;
     }
 
-    router.replace('/(tabs)/mypage');
+    /*
+      저장하고도 이 화면에 머문다. 바꾼 것이 반영된 모습을 그 자리에서 확인하고, 이어서 더
+      고칠 수도 있어야 한다 — 마이페이지로 돌려보내면 무엇이 저장됐는지 다시 들어와 봐야 한다.
+
+      읽기 상태로 돌아가고, 저장된 값을 기준으로 삼는다. 카테고리는 스토어가 서버 응답으로
+      이미 갈아 끼웠고(`useProfileEdit`), 마이페이지 요약도 다시 받아 둔다 — 돌아갔을 때
+      옛 닉네임이 남아 있으면 저장이 안 된 것으로 읽힌다.
+    */
+    setSavedNickname(saved);
+    setEditing(false);
+    onSaved();
   };
+
+  /*
+    고른 카테고리를 받기 전에는 폼을 그리지 않는다.
+
+    빈 채로 먼저 그리면 카드가 연한 색으로 떴다가 값이 도착하며 초록으로 바뀌는 과정이 그대로
+    보인다 — 고르지 않은 것이 잠깐 켜지는 것처럼 읽힌다. 다 받은 뒤에 한 번에 그린다.
+  */
+  if (profileEdit.loading) {
+    return (
+      <View style={s.loading}>
+        <ActivityIndicator color={colors.gray400} />
+      </View>
+    );
+  }
 
   return (
     <View ref={contentRef} style={s.nicknameContent}>
@@ -183,6 +214,8 @@ function ProfileEditor({ current }: { current: string }) {
         onPress={editing ? save : () => setEditing(true)}
         style={[
           s.saveButton,
+          // 읽기 상태의 "수정하기"는 연한 연두다. 저장이 아니라 여는 동작이라 무게를 낮춘다.
+          !editing && s.editEnterButton,
           !buttonEnabled && s.saveDisabled,
           // 겹치지 않을 때는 0이라 원래 여백(x4)이 그대로 남는다.
           { marginBottom: spacing.x4 + keyboardOverlap },

@@ -368,6 +368,13 @@ export const mypageStyles = StyleSheet.create({
   editScroll: { paddingBottom: spacing.x6 },
   /** 내용이 버튼 밑으로 들어가며 사라지는 구간. 높이는 한 줄 남짓이면 충분하다. */
   editFade: { position: 'absolute', left: 0, right: 0, height: 40 },
+  /**
+   * 읽기 상태의 "수정하기" 버튼.
+   *
+   * 저장 버튼보다 연한 연두를 쓴다. 이 버튼은 값을 바꾸는 것이 아니라 고칠 수 있게 여는
+   * 동작이라, 같은 색이면 저장과 같은 무게로 읽혀 잘못 누르게 된다.
+   */
+  editEnterButton: { backgroundColor: colors.limeSoft },
   inputShell: {
     height: 56,
     flexDirection: 'row',
