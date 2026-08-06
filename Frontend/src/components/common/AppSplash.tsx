@@ -1,19 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { colors } from '@/constants/theme';
-import { getViewAngleImage } from '@/utils/viewAngle';
+import { LAST_RING_FRAME, SPLASH_DOT, ringFrame } from './splashFrames';
 
-/**
- * 링이 그려지는 각도의 끝. 시안의 호 길이(`stroke-dasharray 502 328`)가 원둘레의 약 60%라
- * 220도에 해당한다. 10도 단위 이미지가 있어 그 눈금에 맞춘다.
- */
-const SWEEP_END_DEGREES = 220;
-
-/** 한 칸(10도)을 넘기는 간격(ms). 22칸이라 전체는 약 1.1초다. */
+/** 한 장(10도)을 넘기는 간격(ms). 23장이라 그리는 데 약 1.1초 걸린다. */
 const FRAME_MS = 50;
 
 /** 링이 다 그려진 뒤 점이 튀어나오기까지 기다리는 시간(ms). */
-const DOT_DELAY_MS = 260;
+const DOT_DELAY_MS = 240;
 
 /** 다 보여준 뒤 화면을 걷기까지 머무는 시간(ms). */
 const HOLD_MS = 420;
@@ -21,11 +15,22 @@ const HOLD_MS = 420;
 /** 걷히는 시간(ms). */
 const FADE_MS = 320;
 
-/** 링 지름(px). 시안의 비율(340 상자에 지름 264)을 그대로 옮긴다. */
-const RING_SIZE = 264;
+/**
+ * 시안 상자(340) 대비 실제 크기.
+ *
+ * 프레임 이미지가 그 상자를 통째로 담고 있어(링은 그 안에 그려져 있다) 이 값이 곧 그림 크기다.
+ */
+const STAGE_SIZE = 300;
 
-/** 상자 대비 링 크기. 점의 자리를 시안 좌표로 계산할 때 쓴다. */
-const STAGE_SIZE = 340;
+/** 시안 좌표를 실제 크기로 옮긴다. 상자가 340 기준이다. */
+function scaled(value: number): number {
+  return Math.round((value / 340) * STAGE_SIZE);
+}
+
+/** 점의 지름과 자리. 시안의 `cx=310 cy=56 r=28`을 옮긴 값이다(그림에 여유 2px 포함). */
+const DOT_SIZE = scaled(60);
+const DOT_LEFT = scaled(310) - DOT_SIZE / 2;
+const DOT_TOP = scaled(56) - DOT_SIZE / 2;
 
 export interface AppSplashProps {
   /** 다 끝나 화면에서 빠질 때. 이때 부모가 이 컴포넌트를 내린다. */
@@ -35,44 +40,43 @@ export interface AppSplashProps {
 /**
  * 앱을 열 때 한 번 지나가는 시작 화면.
  *
- * 뷰 각도 링이 왼쪽 위에서부터 그려지고, 다 그려지면 오른쪽 위에 점이 튀어나온다. 이 앱의
- * 이름이 곧 "뷰"라, 로고 대신 그 링이 그려지는 장면을 쓴다.
+ * 시안(`assets/View-Splash.html`)을 그대로 옮겼다 — 회색 트랙 위로 그라데이션 호가 220도까지
+ * 그려지며 함께 돌고, 다 그려지면 오른쪽 위에 도넛 점이 튀어나온다. 이 앱의 이름이 곧
+ * "뷰"라 로고 대신 그 링이 그려지는 장면을 쓴다.
  *
- * **링은 화면에서 이미 쓰는 각도별 이미지를 그대로 넘긴다**(`view-angles-000-360`). 호를
- * 직접 그리려면 SVG가 필요하고 그건 네이티브 모듈이라 앱을 다시 빌드해야 한다 — 같은 그림을
- * 이미 갖고 있으므로 한 칸씩 넘겨 그리는 것으로 충분하다. 프로필의 링과 모양이 정확히 같아
- * 앱 안에서 같은 물건으로 읽히는 이점도 있다.
+ * 호는 미리 구워 둔 프레임을 넘겨 그린다(`splashFrames`). SVG로 그리면 네이티브 모듈이
+ * 늘어 앱을 다시 빌드해야 하는데, 그림이 고정이라 그럴 이유가 없다.
  *
  * 회전과 사라짐은 네이티브 드라이버로 돌린다. 자바스크립트가 첫 화면을 준비하느라 바쁜
  * 시점이라, 그쪽에서 굴리면 애니메이션이 끊긴다.
  */
 export function AppSplash({ onFinish }: AppSplashProps) {
-  /** 지금 그려진 각도. 이미지 한 장이 10도다. */
-  const [angle, setAngle] = useState(0);
+  /** 지금 보여줄 프레임. 한 장이 10도다. */
+  const [frame, setFrame] = useState(0);
 
   const opacity = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
   const dotScale = useRef(new Animated.Value(0)).current;
 
-  /* 링이 그려지는 동안 함께 돈다. 그리기와 돌기가 겹쳐 하나의 동작으로 읽힌다. */
+  /* 링이 그려지는 동안 함께 돈다. 그리기와 돌기가 겹쳐 하나의 동작으로 읽힌다(시안의 `.spin`). */
   useEffect(() => {
     Animated.timing(spin, {
       toValue: 1,
-      duration: FRAME_MS * (SWEEP_END_DEGREES / 10) + 200,
+      duration: FRAME_MS * LAST_RING_FRAME + 200,
       easing: Easing.bezier(0.3, 0, 0.15, 1),
       useNativeDriver: true,
     }).start();
   }, [spin]);
 
-  /* 한 칸씩 넘겨 호를 그린다. 끝까지 가면 점을 띄우고, 잠시 뒤 화면을 걷는다. */
+  /* 한 장씩 넘겨 호를 그린다. 끝까지 가면 점을 띄우고, 잠시 뒤 화면을 걷는다. */
   useEffect(() => {
-    let step = 0;
+    let index = 0;
 
     const timer = setInterval(() => {
-      step += 1;
-      setAngle(step * 10);
+      index += 1;
+      setFrame(index);
 
-      if (step * 10 < SWEEP_END_DEGREES) return;
+      if (index < LAST_RING_FRAME) return;
 
       clearInterval(timer);
 
@@ -109,8 +113,12 @@ export function AppSplash({ onFinish }: AppSplashProps) {
   return (
     <Animated.View style={[s.screen, { opacity }]}>
       <View style={s.stage}>
+        {/*
+          점은 링과 **함께 돌지 않는다.** 시안에서도 점은 제자리에서 튀어나오고 링만 돈다.
+          그래서 회전은 링 그림에만 건다.
+        */}
         <Animated.Image
-          source={getViewAngleImage(angle)}
+          source={ringFrame(frame)}
           style={[
             s.ring,
             {
@@ -126,21 +134,13 @@ export function AppSplash({ onFinish }: AppSplashProps) {
           ]}
         />
 
-        {/* 오른쪽 위에 튀어나오는 점. 가운데가 비어 있어 링과 같은 물건으로 읽힌다. */}
-        <Animated.View style={[s.dot, { transform: [{ scale: dotScale }] }]} />
+        <Animated.View style={[s.dot, { transform: [{ scale: dotScale }] }]}>
+          <Image source={SPLASH_DOT} style={s.dotImage} />
+        </Animated.View>
       </View>
     </Animated.View>
   );
 }
-
-/** 시안 좌표(`STAGE_SIZE` 상자 기준)를 실제 링 크기로 옮긴다. */
-function scaled(value: number): number {
-  return Math.round((value / STAGE_SIZE) * RING_SIZE);
-}
-
-/** 점의 지름과 테두리 두께. 시안의 `r=28`(안쪽 구멍 `r=9.5`)을 옮긴 값이다. */
-const DOT_OUTER = scaled(56);
-const DOT_RING = scaled(18);
 
 const s = StyleSheet.create({
   screen: {
@@ -152,19 +152,20 @@ const s = StyleSheet.create({
     // 첫 화면 위에 덮는다. 아래에서 라우터가 준비를 마쳐도 이 화면이 끝날 때까지 가려 둔다.
     zIndex: 100,
   },
-  /** 링과 점을 함께 담는 자리. 점이 링 밖으로 나가므로 상자를 시안 비율만큼 넓게 잡는다. */
-  stage: { width: RING_SIZE, height: RING_SIZE },
-  ring: { width: RING_SIZE, height: RING_SIZE, resizeMode: 'contain' },
-  dot: {
-    position: 'absolute',
-    // 시안에서 점은 링 상자의 오른쪽 위 모서리에 걸친다.
-    top: -DOT_OUTER / 3,
-    right: -DOT_OUTER / 3,
-    width: DOT_OUTER,
-    height: DOT_OUTER,
-    borderRadius: DOT_OUTER / 2,
-    borderWidth: DOT_RING,
-    borderColor: colors.lime,
-    backgroundColor: 'transparent',
+  /** 시안 상자를 그대로 옮긴 자리. 링과 점의 좌표가 모두 이 안에서 정해진다. */
+  stage: { width: STAGE_SIZE, height: STAGE_SIZE },
+  /**
+   * 링 그림. 상자 전체를 담고 있어 크기가 곧 상자 크기다.
+   *
+   * 도는 중심을 **링의 중심**으로 잡는다(시안의 `transform-origin:160px 180px`). 링이 상자
+   * 한가운데가 아니라 조금 왼쪽 아래에 놓여 있어서, 기본값(그림 중앙)으로 돌리면 제자리에서
+   * 도는 대신 원을 그리며 흔들린다.
+   */
+  ring: {
+    width: STAGE_SIZE,
+    height: STAGE_SIZE,
+    transformOrigin: [scaled(160), scaled(180), 0],
   },
+  dot: { position: 'absolute', left: DOT_LEFT, top: DOT_TOP, width: DOT_SIZE, height: DOT_SIZE },
+  dotImage: { width: '100%', height: '100%' },
 });
