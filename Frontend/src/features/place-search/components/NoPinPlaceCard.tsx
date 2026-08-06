@@ -23,16 +23,26 @@ export interface NoPinPlaceCardProps {
   name: string;
   /** 카카오에서 받은 주소. 재조회가 실패하면 빈 문자열로 오므로 그때는 줄을 그리지 않는다. */
   address: string;
+  /**
+   * 이 장소에 핀을 쓸 수 있는지 — 내 위치에서 50m 안일 때만 참(판정은 화면이 한다).
+   *
+   * 핀 등록은 지금 서 있는 자리의 장소만 고를 수 있어서, 멀리서 검색해 들어온 장소에는
+   * 작성으로 보내는 버튼을 내밀지 않는다 — 눌러 봐야 등록 화면의 장소 목록에 그 장소가 없다.
+   * 그때는 핀이 없다는 안내만 남기고 카드도 눌리지 않는다.
+   */
+  writable: boolean;
 }
 
-export function NoPinPlaceCard({ name, address }: NoPinPlaceCardProps) {
+export function NoPinPlaceCard({ name, address, writable }: NoPinPlaceCardProps) {
   const goToWrite = () => router.push('/(tabs)/write');
 
   return (
     <View style={s.cardFrame}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${name}에 핀 작성하기`}
+        accessibilityLabel={writable ? `${name}에 핀 작성하기` : name}
+        accessibilityState={{ disabled: !writable }}
+        disabled={!writable}
         onPress={goToWrite}
         style={s.card}
       >
@@ -41,7 +51,8 @@ export function NoPinPlaceCard({ name, address }: NoPinPlaceCardProps) {
             <Text style={s.placeName}>{name}</Text>
             {address.length > 0 && <Text style={s.address}>{address}</Text>}
           </View>
-          <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
+          {/* 꺽새는 "누르면 넘어간다"는 표시라 갈 수 없을 때는 함께 뺀다. */}
+          {writable && <Ionicons name="chevron-forward" size={22} color={colors.gray400} />}
         </View>
 
         <View style={s.rule} />
@@ -51,8 +62,15 @@ export function NoPinPlaceCard({ name, address }: NoPinPlaceCardProps) {
           "여기서 무엇을 할 수 있는지"가 글자로 적혀 있어야 한다.
         */}
         <View style={s.emptyPins}>
-          <Text style={s.emptyPinsText}>아직 업로드된 핀이 없습니다</Text>
-          <Text style={s.writeLink}>작성하러 가기 →</Text>
+          {writable ? (
+            <>
+              <Text style={s.emptyPinsText}>아직 업로드된 핀이 없습니다</Text>
+              <Text style={s.writeLink}>작성하러 가기 →</Text>
+            </>
+          ) : (
+            // 멀리 있는 장소. 작성으로 부르지 않고 상태만 완곡하게 알린다.
+            <Text style={s.emptyPinsText}>아직 작성된 핀이 없어요</Text>
+          )}
         </View>
       </Pressable>
     </View>

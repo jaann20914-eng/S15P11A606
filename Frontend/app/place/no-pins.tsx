@@ -10,6 +10,8 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useMapGestures } from '@/hooks/useMapGestures';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useMapStore } from '@/store/useMapStore';
+import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
+import { distanceBetween } from '@/utils/location';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -72,7 +74,24 @@ export default function PlaceWithoutPins() {
     return { latitude: lat, longitude: lng };
   }, [latitude, longitude]);
 
-  useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId });
+  /* 찾은 자리의 좌표. 파라미터에 없으면(최근 검색) 훅이 이름으로 다시 찾아 준다. */
+  const placeCoordinate = useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId });
+
+  /**
+   * 이 자리에서 핀을 쓸 수 있는지 — **그 장소가 내 위치에서 50m 안일 때만.**
+   *
+   * 핀 등록은 지금 서 있는 자리의 장소만 고를 수 있다(`GET /places/nearby`가 50m 반경만
+   * 주고, 그 반경이 곧 등록 가능 범위다). 그런데 검색은 20km까지 찾으므로, 멀리 있는 장소의
+   * 이 화면에서 작성 버튼을 내밀면 눌러 봐야 등록 화면의 장소 목록에 그 장소가 없다 —
+   * 갈 수 없는 곳으로 안내하는 셈이라 그때는 버튼 없이 안내만 남긴다.
+   *
+   * 내 위치나 장소 좌표를 모르면 쓸 수 없는 쪽으로 본다. 등록 화면도 내 위치 없이는 장소를
+   * 고를 수 없으므로 판정이 같다.
+   */
+  const writable =
+    placeCoordinate !== null &&
+    myLocation.coordinate !== null &&
+    distanceBetween(myLocation.coordinate, placeCoordinate) <= MAX_PLACE_DISTANCE_METERS;
 
   /*
     손가락으로 아래 홈 지도를 끌고 당긴다.
@@ -219,7 +238,7 @@ export default function PlaceWithoutPins() {
             onLayout={(event) => setCardHeight(Math.round(event.nativeEvent.layout.height))}
             style={{ paddingHorizontal: gutter }}
           >
-            <NoPinPlaceCard name={name} address={address ?? ''} />
+            <NoPinPlaceCard name={name} address={address ?? ''} writable={writable} />
           </View>
         )}
       </Animated.View>
