@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { getPlaces } from '@/api/place/list';
 import { isPlottableCoordinate, rememberPlaceMapData } from '@/api/place/coordinates';
@@ -137,19 +138,16 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
   /** 늦게 도착한 응답이 최신 결과를 덮지 않게 한다. */
   const sequence = useRef(0);
 
-  useEffect(() => {
-    if (bounds === null) return;
-
-    const query = looked.current ? bounds : widen(bounds, FIRST_LOOKUP_SPAN_DEGREES);
-    const key = boundsKey(query);
-    if (requestedKey.current === key) return;
-
-    requestedKey.current = key;
-    looked.current = true;
-
+  /**
+   * 범위 하나를 실제로 묻는다.
+   *
+   * `silent`면 로딩 표시를 켜지 않는다 — 이미 보여주는 목록을 조용히 갱신하는 길이라,
+   * 화면을 오갈 때마다 카드 자리가 스피너로 바뀌면 그쪽이 더 고장으로 보인다.
+   */
+  const load = useCallback((query: MapBounds, silent: boolean) => {
     const current = sequence.current + 1;
     sequence.current = current;
-    setLoading(true);
+    if (!silent) setLoading(true);
 
     /*
       혼잡도 필터를 서버에 넘기지 않는다.
@@ -191,7 +189,44 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
             : '주변 장소를 불러오지 못했어요',
         );
       });
-  }, [bounds]);
+  }, []);
+
+  useEffect(() => {
+    if (bounds === null) return;
+
+    const query = looked.current ? bounds : widen(bounds, FIRST_LOOKUP_SPAN_DEGREES);
+    const key = boundsKey(query);
+    if (requestedKey.current === key) return;
+
+    requestedKey.current = key;
+    looked.current = true;
+    load(query, false);
+  }, [bounds, load]);
+
+  /*
+    **홈이 다시 맨 위로 돌아오면 같은 범위라도 다시 묻는다.**
+
+    이 훅은 같은 범위를 두 번 묻지 않는데, 그 사이 다른 화면에서 핀을 지우거나 올렸을 수 있다.
+    그대로 두면 삭제한 게시물이 카드에 남고 방금 올린 핀이 보이지 않는다 — 지도는 그대로라
+    저절로 갱신될 계기도 없다. 조용히 다시 받아(silent) 화면이 튀지 않게 갱신한다.
+
+    첫 포커스는 넘긴다 — 위 효과가 첫 조회(넓게 훑기)를 맡고 있어 겹쳐 묻게 된다.
+  */
+  const boundsRef = useRef(bounds);
+  boundsRef.current = bounds;
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedOnce.current) {
+        focusedOnce.current = true;
+        return;
+      }
+
+      const current = boundsRef.current;
+      if (current === null) return;
+      load(current, true);
+    }, [load]),
+  );
 
   return { places, loading, error };
 }

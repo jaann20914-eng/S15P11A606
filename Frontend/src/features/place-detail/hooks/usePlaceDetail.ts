@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { getPlaceDetail } from '@/api/place/detail';
 import { resolvePlaceMapData, type PlaceMapData } from '@/api/place/coordinates';
@@ -88,85 +89,108 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
   const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
 
   /**
-   * 이미 조회한 장소. 화면이 다시 그려져도 두 번 부르지 않는다.
+   * 마지막으로 화면에 그려 둔 장소. **다시 물을 때 조용히 할지가 이 값으로 갈린다.**
    *
-   * **참·거짓이 아니라 어느 장소였는지 담는다.** 옆 장소로 돌려 보면 이 화면은 그대로 있고
-   * 장소만 갈리므로(`useNextPlace`의 `navigate`), 한 번 불렀다는 표시만 두면 새 장소를 영영
-   * 조회하지 않는다 — 앞 장소의 카드가 그대로 남는다.
+   * 같은 장소로 다시 포커스되면(위 화면에서 돌아옴) 보여주던 것을 그대로 두고 조용히 갱신하고,
+   * 다른 장소로 갈리면(옆 장소로 돌려 보기) 앞 장소의 값을 버리고 로딩부터 시작한다.
    */
-  const requested = useRef<number | null>(null);
+  const shown = useRef<number | null>(null);
+  /** 늦게 도착한 응답이 최신 결과를 덮지 않게 한다. */
+  const sequence = useRef(0);
 
-  useEffect(() => {
-    if (placeId === null) {
-      setLoading(false);
-      setError('장소를 찾을 수 없어요.');
-      return;
-    }
-    if (requested.current === placeId) return;
-    requested.current = placeId;
+  /*
+    **화면이 맨 위로 돌아올 때마다 다시 묻는다**(포커스 기반).
 
-    /*
-      다른 장소로 갈렸으면 앞의 값을 버린다. 남겨 두면 새 장소를 기다리는 동안 앞 장소의 이름과
-      카드가 그대로 보여, 어느 장소를 보고 있는지 알 수 없다.
-    */
-    setDetail(null);
-    setCrowdLevel(null);
-    setCoordinate(null);
-    setError(null);
-    setLoading(true);
+    예전에는 장소당 한 번만 조회했다. 그런데 이 화면 위에서 핀을 지우거나(게시물 상세) 새로
+    올릴 수 있어서, 돌아와도 지운 게시물이 카드에 그대로 남았다 — 조회가 화면 진입 시점의
+    캐시로 굳어 있던 셈이다. 이제 돌아올 때마다 상세와 지도 정보를 다시 받는다. 이미 보여주는
+    중이면 조용히 갱신하고(로딩 표시 없음), 실패해도 보여주던 것을 지우지 않는다.
 
-    /*
-      둘을 함께 기다린다. 좌표는 홈이 이미 받아 둔 것을 꺼내 쓰는 것이 보통이라(그 경우 즉시
-      돌아온다) 상세 조회보다 늦어지지 않는다.
-    */
-    Promise.all([withMinimumDuration(getPlaceDetail(placeId), MIN_LOADING_MS), resolvePlaceMapData(placeId)])
-      .then(([received, mapData]) => {
-        /*
-          늦게 도착한 응답이 다른 장소의 화면을 덮지 않게 한다. 돌려 보기를 빠르게 두 번 누르면
-          앞 장소의 응답이 뒤에 올 수 있다.
-        */
-        if (requested.current !== placeId) return;
-
-        const merged = withPinCoordinates(received, mapData);
-        setDetail(merged);
-        setCrowdLevel(mapData?.averageCrowdLevel ?? null);
-        setCoordinate(mapData?.coordinate ?? null);
+    지도 정보도 다시 받아야 한다(`refresh`) — `resolvePlaceMapData`는 한 번 받은 것을 기억해
+    두므로, 그대로 두면 지운 핀의 마커가 지도에 남는다.
+  */
+  useFocusEffect(
+    useCallback(() => {
+      if (placeId === null) {
         setLoading(false);
+        setError('장소를 찾을 수 없어요.');
+        return;
+      }
 
+      const silent = shown.current === placeId;
+      if (!silent) {
         /*
-          좌표를 못 붙인 핀이 남았으면 목록을 한 번 더 물어본다.
-
-          받아 둔 좌표는 홈이 지도를 그릴 때의 활성 핀이라, **그 뒤에 올라온 핀은 그 안에 없다.**
-          그러면 카드는 있는데 지도에 마커가 없어 "핀이 다 보이지 않는다"가 된다. 다시 물어
-          붙일 수 있으면 붙인다.
-
-          실패하거나 그래도 없으면 그대로 둔다 — 이미 화면은 그려져 있고, 마커 하나가 비는 것과
-          화면이 비는 것은 다르다.
+          다른 장소로 갈렸으면 앞의 값을 버린다. 남겨 두면 새 장소를 기다리는 동안 앞 장소의
+          이름과 카드가 그대로 보여, 어느 장소를 보고 있는지 알 수 없다.
         */
-        if (!merged.pins.some((pin) => pin.latitude === null)) return;
+        setDetail(null);
+        setCrowdLevel(null);
+        setCoordinate(null);
+        setError(null);
+        setLoading(true);
+      }
 
-        resolvePlaceMapData(placeId, mapData?.coordinate ?? null, { refresh: true })
-          .then((fresh) => {
-            if (requested.current !== placeId) return;
+      const current = sequence.current + 1;
+      sequence.current = current;
 
-            setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh)));
-            // 처음에 못 받았으면 이 응답으로 채운다. 이미 아는 값을 null로 되돌리지는 않는다.
-            if (fresh?.averageCrowdLevel != null) setCrowdLevel(fresh.averageCrowdLevel);
-            if (fresh?.coordinate != null) setCoordinate((current) => current ?? fresh.coordinate);
-          })
-          .catch(() => undefined);
-      })
-      .catch((cause: unknown) => {
-        if (requested.current !== placeId) return;
+      /*
+        둘을 함께 기다린다. 좌표는 홈이 이미 받아 둔 것을 꺼내 쓰는 것이 보통이라(그 경우 즉시
+        돌아온다) 상세 조회보다 늦어지지 않는다. 로딩을 보여주는 첫 조회만 최소 시간을 지킨다.
+      */
+      Promise.all([
+        silent ? getPlaceDetail(placeId) : withMinimumDuration(getPlaceDetail(placeId), MIN_LOADING_MS),
+        resolvePlaceMapData(placeId, null, { refresh: silent }),
+      ])
+        .then(([received, mapData]) => {
+          // 늦게 도착한 응답이 다른 장소의 화면을 덮지 않게 한다.
+          if (sequence.current !== current) return;
 
-        setLoading(false);
-        setError(
-          cause instanceof ApiError
-            ? (messageByCode[cause.code] ?? cause.message)
-            : '장소 정보를 불러오지 못했어요',
-        );
-      });
-  }, [placeId]);
+          const merged = withPinCoordinates(received, mapData);
+          shown.current = placeId;
+          setDetail(merged);
+          setCrowdLevel(mapData?.averageCrowdLevel ?? null);
+          setCoordinate(mapData?.coordinate ?? null);
+          setError(null);
+          setLoading(false);
+
+          /*
+            좌표를 못 붙인 핀이 남았으면 목록을 한 번 더 물어본다.
+
+            받아 둔 좌표는 홈이 지도를 그릴 때의 활성 핀이라, **그 뒤에 올라온 핀은 그 안에 없다.**
+            그러면 카드는 있는데 지도에 마커가 없어 "핀이 다 보이지 않는다"가 된다. 다시 물어
+            붙일 수 있으면 붙인다.
+
+            실패하거나 그래도 없으면 그대로 둔다 — 이미 화면은 그려져 있고, 마커 하나가 비는 것과
+            화면이 비는 것은 다르다.
+          */
+          if (!merged.pins.some((pin) => pin.latitude === null)) return;
+
+          resolvePlaceMapData(placeId, mapData?.coordinate ?? null, { refresh: true })
+            .then((fresh) => {
+              if (sequence.current !== current) return;
+
+              setDetail((now) => (now === null ? now : withPinCoordinates(now, fresh)));
+              // 처음에 못 받았으면 이 응답으로 채운다. 이미 아는 값을 null로 되돌리지는 않는다.
+              if (fresh?.averageCrowdLevel != null) setCrowdLevel(fresh.averageCrowdLevel);
+              if (fresh?.coordinate != null) setCoordinate((now) => now ?? fresh.coordinate);
+            })
+            .catch(() => undefined);
+        })
+        .catch((cause: unknown) => {
+          if (sequence.current !== current) return;
+
+          // 조용한 갱신이 실패한 것으로 보여주던 화면을 지우지 않는다. 다음 복귀 때 다시 묻는다.
+          if (silent) return;
+
+          setLoading(false);
+          setError(
+            cause instanceof ApiError
+              ? (messageByCode[cause.code] ?? cause.message)
+              : '장소 정보를 불러오지 못했어요',
+          );
+        });
+    }, [placeId]),
+  );
 
   return { detail, loading, error, crowdLevel, coordinate };
 }
