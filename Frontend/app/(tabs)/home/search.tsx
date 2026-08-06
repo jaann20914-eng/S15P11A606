@@ -109,13 +109,16 @@ export default function Search() {
   const loading = places.loading || tags.loading;
 
   /**
-   * 추천에 이미 같은 태그가 있는지.
+   * 추천에 이미 같은 태그가 있는지. 없으면 "입력한 값으로 검색" 줄을 따로 보여준다.
    *
-   * 없으면 "입력한 값으로 검색" 줄을 따로 보여준다. 추천은 Elasticsearch 색인을 읽는데 지금
-   * 그 색인을 채우는 코드가 백엔드에 없어 사실상 늘 비어 있다. 그래도 확정(POST)은 DB를 읽으므로
-   * 방금 등록한 핀의 태그로 검색할 수 있어야 한다.
+   * **대소문자를 무시하고 견준다.** 서버는 검색어를 소문자로 정규화해 맞추고 결과는 원래
+   * 표기로 돌려주므로(`TagSuggestion`), 표기 그대로 비교하면 `CAFE`를 입력했을 때 추천
+   * `Cafe`와 다른 태그로 보고 같은 태그가 두 줄로 선다.
+   *
+   * 추천이 비어 있어도 이 줄이 검색을 끝내는 길이다 — 색인 반영 전의 핀(배포 이전 등록)은
+   * 추천에 없지만 확정(POST)은 DB를 읽으므로 찾아낸다.
    */
-  const suggested = tags.results.some((tag) => tag.name === tagName);
+  const suggested = tags.results.some((tag) => tag.name.toLowerCase() === tagName.toLowerCase());
 
   /** 태그를 고르면 결과 화면으로 넘어간다. 확정 호출과 이력 저장은 그 화면이 맡는다. */
   const openTag = (name: string) => {

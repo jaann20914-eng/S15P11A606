@@ -449,10 +449,18 @@ export default function Place() {
     if (!onTop || pressedPinId === null) return;
 
     const at = pins.findIndex((pin) => pin.pinId === pressedPinId);
-    if (at >= 0) setPinIndex(at);
+    if (at >= 0) {
+      setPinIndex(at);
+      /*
+        접혀 있으면 "보통"으로 올려 방금 고른 카드를 보여준다. 시트가 접힌 채면 마커가
+        물방울로 바뀔 뿐 화면에 아무 변화가 없는 것으로 읽힌다(홈의 `focusPlace`와 같다).
+        펼쳐진 목록(확장)은 건드리지 않는다 — 훑던 자리를 잃는다.
+      */
+      if (level === 0) moveTo(1);
+    }
     // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
     clearPressedPin();
-  }, [clearPressedPin, onTop, pins, pressedPinId]);
+  }, [clearPressedPin, level, moveTo, onTop, pins, pressedPinId]);
 
   /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 핀이 남는다. */
   useEffect(() => clearPinOverlay, [clearPinOverlay]);

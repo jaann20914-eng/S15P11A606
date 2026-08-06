@@ -310,10 +310,27 @@ export const RECENT_SEARCH_MAX_LIMIT = 50;
 export type MapBoundsQuery = Omit<PlacesQuery, 'filter'>;
 
 /**
+ * 자동완성 검색어의 최대 길이. 서버가 정규화(`#` 제거·소문자) 후 이 길이를 넘으면
+ * `INVALID_TAG_SEARCH_QUERY`(400)로 거절한다(`TagQueryNormalizer.MAX_QUERY_LENGTH`).
+ * 어차피 거절될 요청은 보내지 않는 데 쓴다.
+ */
+export const TAG_SUGGESTION_QUERY_MAX_LENGTH = 50;
+
+/**
+ * 태그 확정 검색의 태그 최대 길이(`TaggedPinService.MAX_TAG_LENGTH`). 넘으면
+ * `INVALID_TAG_NAME`(400) — 태그 결과 화면이 그 코드를 안내 문구로 바꾼다.
+ */
+export const TAG_NAME_MAX_LENGTH = 30;
+
+/**
  * 태그 자동완성 한 건.
  *
  * 서버가 지도 경계 안의 활성·미만료 핀에 달린 태그만 후보로 삼고, 완전일치 → 접두어 →
  * 부분일치 순으로 최대 10개를 준다. 그래서 결과가 없는 태그는 제안되지 않는다.
+ *
+ * **비교는 소문자, 표기는 원문이다.** 서버가 검색어를 소문자로 정규화해 맞추고 중복도
+ * 소문자 기준으로 걷어 내지만(`lowercase_normalizer` + collapse), 돌려주는 `name`은 핀에
+ * 달린 원래 표기다. 화면에서 입력값과 견줄 때는 대소문자를 무시해야 한다.
  */
 export interface TagSuggestion {
   name: string;
