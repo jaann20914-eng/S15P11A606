@@ -60,10 +60,14 @@ export function NicknameField({ edit, readOnly = false }: NicknameFieldProps) {
             !readOnly && edit.error !== null && s.helperError,
           ]}
         >
-          {(!readOnly && edit.error) ??
-            (!readOnly && edit.checked
-              ? '사용할 수 있는 닉네임이에요.'
-              : '한글, 영문, 숫자를 사용할 수 있어요.')}
+          {/*
+            읽기 상태에서는 확인 결과를 말하지 않는다 — 아직 고치기 전이라 "사용할 수 있다"도
+            "이미 쓰인다"도 지금 화면과 상관이 없다. 형식 안내만 남긴다.
+          */}
+          {readOnly
+            ? '한글, 영문, 숫자를 사용할 수 있어요.'
+            : (edit.error ??
+              (edit.checked ? '사용할 수 있는 닉네임이에요.' : '한글, 영문, 숫자를 사용할 수 있어요.'))}
         </Text>
         <Text style={s.count}>
           {edit.length} / {NICKNAME_MAX_LENGTH}

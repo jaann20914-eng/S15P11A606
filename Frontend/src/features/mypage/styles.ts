@@ -446,7 +446,13 @@ export const mypageStyles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.lime,
   },
-  saveDisabled: { backgroundColor: '#E3F58A' },
+  /**
+   * 누를 수 없는 저장 버튼.
+   *
+   * 회색으로 확실히 죽인다. 연한 라임(`#E3F58A`)을 쓰던 동안에는 활성 버튼과 색이 비슷해
+   * 눌리는 것으로 읽혔고, 중복 닉네임으로 막혀 있는데도 "안 막힌다"로 보였다(2026-08-06).
+   */
+  saveDisabled: { backgroundColor: colors.gray100 },
   saveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
   saveTextDisabled: { color: colors.gray400 },
 });
