@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
 import { AppTabBar, NoticeModal, useAppTabBarHeight, useNotice } from '@/components/common';
@@ -217,18 +217,26 @@ export default function PinCreateScreen() {
     얹힌 겹이 있으면(`canDismiss` — 루트에 화면이 쌓여 있을 때만 참이다) 탭 라우터보다 먼저
     받아 겹을 통째로 걷는다(`dismiss`는 POP이라 탭이 소비하지 못하고 루트 스택이 받는다).
     + 탭으로 들어온 평소에는 겹이 없어 기존 동작(홈 탭으로 이동) 그대로다.
-  */
-  useFocusEffect(
-    useCallback(() => {
-      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (!router.canDismiss()) return false;
-        router.dismiss();
-        return true;
-      });
 
-      return () => subscription.remove();
-    }, []),
-  );
+    **등록은 초점에 걸지 않고 마운트에 한 번, 처리 여부만 초점으로 가른다.** 이 화면은
+    `useFocusEffect`의 blur 콜백이 실제로 오지 않는 것이 확인돼 있어(위 `focused` 주석 —
+    그래서 화면 전체가 `useIsFocused`를 쓴다), 초점에 걸어 등록하면 **정리가 되지 않은
+    핸들러가 화면을 떠난 뒤에도 남는다.** 그 상태로 다른 화면에서 뒤로 가기를 누르면 이
+    핸들러가 가로챌 수 있다.
+  */
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!focusedRef.current) return false;
+      if (!router.canDismiss()) return false;
+      router.dismiss();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const submit = () => {
     /*
