@@ -184,11 +184,19 @@ const s = StyleSheet.create({
   captureButton: {
     width: 56,
     height: 56,
-    marginTop: -20,
+    /*
+      바 위로 떠오르는 깊이.
+
+      -20에서는 흰 테두리가 바의 윗선과 거의 같은 자리에서 만나 둘이 뭉개져 보였다 —
+      선이 끊긴 것도 이어진 것도 아닌 모양이었다(2026-08-06). 조금 더 올려 테두리가 선을
+      가로지르게 하면, 흰 테두리가 선을 **끊고 그 위에 떠 있는** 것으로 읽힌다.
+    */
+    marginTop: -26,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.card,
-    borderWidth: 3,
+    // 선을 확실히 끊을 만큼 둔다. 3에서는 회색 선이 테두리 너머로 비쳐 보였다.
+    borderWidth: 4,
     borderColor: colors.white,
     backgroundColor: colors.limeControl,
     shadowColor: colors.dark,
