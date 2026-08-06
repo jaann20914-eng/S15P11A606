@@ -26,7 +26,7 @@ import { useChatDecision } from '@/features/chat/hooks/useChatDecision';
 import { useChatRoom } from '@/features/chat/hooks/useChatRoom';
 import { useChatSocket } from '@/features/chat/hooks/useChatSocket';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
-import type { ChatRoomStatus, ChatWarning, WarningReasonCode } from '@/types/chat';
+import type { ChatRoomStatus } from '@/types/chat';
 import { splitAddress } from '@/utils/address';
 import { formatTimeOfDay } from '@/utils/datetime';
 
@@ -230,37 +230,11 @@ export default function Room() {
   };
 
   /*
-    [임시] 개발 모드 전용 경고 UI 트리거. 서버의 AI 콜백이 막혀 있어(INTERNAL_API_SECRET 미설정)
-    실제 이벤트로는 시트를 볼 수 없다 — 서버가 고쳐지면 이 상태와 헤더의 버튼 두 개를 지운다.
-    '시트'는 누를 때마다 사유를 바꿔 가며 띄우고, '토스트'는 재진입 안내를 그 자리에서 돌린다.
-  */
-  const [devWarning, setDevWarning] = useState<ChatWarning | null>(null);
-  const devReasonRef = useRef(0);
-
-  const triggerDevSheet = () => {
-    const reasons: WarningReasonCode[] = [
-      'EXTERNAL_MESSENGER_INDUCEMENT',
-      'FRAUD_SCAM',
-      'ILLEGAL_GOODS_TRADE',
-      'ETC_SUSPICIOUS',
-    ];
-    const reasonCode = reasons[devReasonRef.current % reasons.length];
-
-    devReasonRef.current += 1;
-    setDevWarning({
-      reasonCode,
-      content:
-        '외부 메신저로 대화를 유도하는 패턴이 감지되었습니다. 앱 밖에서의 연락·거래는 보호받기 어려우니 주의해 주세요.',
-      createdAt: new Date().toISOString(),
-    });
-  };
-
-  /*
     경고 시트가 오르내리는 동안 뒤 화면을 흐린다. 핀 상세의 결제·채팅 요청 시트와 같은
     처리다(`useBackdropBlur` — 단계별로 짙어지고 옅어지는 이유도 거기 적혀 있다).
     시트는 이 묶음 밖에 있어 또렷하게 남는다.
   */
-  const blurRadius = useBackdropBlur((room.arrivedWarning ?? devWarning) !== null);
+  const blurRadius = useBackdropBlur(room.arrivedWarning !== null);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -285,18 +259,6 @@ export default function Room() {
               </Text>
             )}
           </View>
-
-          {/* [임시] 위 devWarning 주석 참고. */}
-          {__DEV__ && (
-            <>
-              <Pressable onPress={triggerDevSheet} style={s.devTrigger}>
-                <Text style={s.devTriggerText}>시트</Text>
-              </Pressable>
-              <Pressable onPress={() => setToastCount((count) => (count ?? 0) + 1)} style={s.devTrigger}>
-                <Text style={s.devTriggerText}>토스트</Text>
-              </Pressable>
-            </>
-          )}
         </View>
 
         {room.loading ? (
@@ -459,14 +421,7 @@ export default function Room() {
         안내로 두면 스크롤에 밀려 못 보고 지나간다. 모양과 닫는 몸짓은 뷰포인트 결제 시트와
         같다(`ChatWarningSheet`).
       */}
-      <ChatWarningSheet
-        // [임시] devWarning은 개발 트리거. 서버 콜백이 뚫리면 room.arrivedWarning만 남긴다.
-        warning={room.arrivedWarning ?? devWarning}
-        onClose={() => {
-          setDevWarning(null);
-          room.dismissWarning();
-        }}
-      />
+      <ChatWarningSheet warning={room.arrivedWarning} onClose={room.dismissWarning} />
     </SafeAreaView>
   );
 }
@@ -558,17 +513,6 @@ const s = StyleSheet.create({
   headerCopy: { flex: 1 },
   headerTitle: { ...type.body, color: colors.dark, fontWeight: '600' },
   headerMeta: { ...type.caption, color: colors.gray400 },
-  /** [임시] 개발 전용 경고 트리거. 서버 콜백이 뚫리면 함께 지운다. */
-  devTrigger: {
-    height: 28,
-    paddingHorizontal: spacing.x2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.x1,
-    borderRadius: radius.sm,
-    backgroundColor: colors.gray100,
-  },
-  devTriggerText: { ...type.caption, color: colors.gray600 },
 
   /** 불러오는 중·실패가 같은 자리를 쓴다. */
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.x3 },
