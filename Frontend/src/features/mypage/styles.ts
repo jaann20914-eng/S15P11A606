@@ -144,7 +144,7 @@ export const mypageStyles = StyleSheet.create({
     칸 사이는 흰 테두리로 가른다. 붙여 두면 같은 색 칸들이 한 덩어리로 뭉쳐 며칠인지
     세어지지 않았다. 카드 바탕과 같은 흰색이라 선이 아니라 격자의 틈으로 읽힌다.
   */
-  cell: { flex: 1, aspectRatio: 1, borderWidth: 2, borderColor: colors.white },
+  cell: { flex: 1, aspectRatio: 1, borderWidth: 1, borderColor: colors.white },
   /** 빈 자리는 테두리도 없다 — 달이 시작하기 전 칸에 격자가 이어지면 날짜가 있는 것처럼 보인다. */
   cellBlank: { backgroundColor: 'transparent', borderWidth: 0 },
   cellEmpty: { backgroundColor: '#F3F3F3' },
