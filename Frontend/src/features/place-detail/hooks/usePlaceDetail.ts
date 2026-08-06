@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getPlaceDetail } from '@/api/place/detail';
 import { resolvePlaceMapData, type PlaceMapData } from '@/api/place/coordinates';
+import type { Coordinate } from '@/store/useMapStore';
 import type { PlaceDetail } from '@/types/place';
 import { withMinimumDuration } from '@/utils/promise';
 
@@ -28,6 +29,13 @@ export interface PlaceDetailState {
    * (`resolvePlaceMapData`)에서 함께 받아 온다 — 사정은 `PlaceMapData`에 적어 두었다.
    */
   crowdLevel: number | null;
+  /**
+   * 이 장소의 좌표. 상세 응답에 없어 혼잡도와 같은 곳에서 함께 받아 온다. 모르면 null.
+   *
+   * 내 위치와의 거리를 재는 데 쓴다 — 핀이 없는 장소에서 작성으로 보낼지(50m 이내)가 이 값으로
+   * 갈린다.
+   */
+  coordinate: Coordinate | null;
 }
 
 /**
@@ -77,6 +85,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
   const [error, setError] = useState<string | null>(null);
   /** 마커 색을 정하는 평균 혼잡 단계. 좌표와 함께 온다. */
   const [crowdLevel, setCrowdLevel] = useState<number | null>(null);
+  const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
 
   /**
    * 이미 조회한 장소. 화면이 다시 그려져도 두 번 부르지 않는다.
@@ -102,6 +111,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
     */
     setDetail(null);
     setCrowdLevel(null);
+    setCoordinate(null);
     setError(null);
     setLoading(true);
 
@@ -120,6 +130,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
         const merged = withPinCoordinates(received, mapData);
         setDetail(merged);
         setCrowdLevel(mapData?.averageCrowdLevel ?? null);
+        setCoordinate(mapData?.coordinate ?? null);
         setLoading(false);
 
         /*
@@ -141,6 +152,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
             setDetail((current) => (current === null ? current : withPinCoordinates(current, fresh)));
             // 처음에 못 받았으면 이 응답으로 채운다. 이미 아는 값을 null로 되돌리지는 않는다.
             if (fresh?.averageCrowdLevel != null) setCrowdLevel(fresh.averageCrowdLevel);
+            if (fresh?.coordinate != null) setCoordinate((current) => current ?? fresh.coordinate);
           })
           .catch(() => undefined);
       })
@@ -156,5 +168,5 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
       });
   }, [placeId]);
 
-  return { detail, loading, error, crowdLevel };
+  return { detail, loading, error, crowdLevel, coordinate };
 }

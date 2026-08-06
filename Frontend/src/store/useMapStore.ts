@@ -47,6 +47,8 @@ export interface MapMarker {
    * 생략하면 지도가 토글 값으로 칠한다(옛 동작). 이유는 `MapPlaceMarker.tone`에 적어 두었다.
    */
   tone?: CrowdFilter;
+  /** 처음부터 작은 마커로 그릴지. 이유는 `MapPlaceMarker.small`에 적어 두었다. */
+  small?: boolean;
 }
 
 /**

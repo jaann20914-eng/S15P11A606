@@ -25,6 +25,15 @@ export interface MapPlaceMarker {
    * 생략하면 `filter`를 쓴다(옛 동작). 계열을 모르는 화면은 그대로 두면 된다.
    */
   tone?: CrowdFilter;
+  /**
+   * 처음부터 작은 마커(22px)로 그릴지. 생략하면 겹친 무리에 든 것만 작아진다.
+   *
+   * 장소 상세의 핀 마커가 쓴다. 크기를 겹침 여부에 맡기면 **같은 화면에서 모여 찍힌 핀만
+   * 작아지고 떨어져 찍힌 핀은 크게 남아**, 같은 장소의 핀들이 제각각으로 보였다(공원처럼
+   * 넓은 장소에서 그랬다). 한 묶음을 그리는 화면은 이 값으로 크기를 통일한다 — 고른 핀은
+   * 여전히 물방울이라 "지금 보고 있는 것" 표시는 그대로다.
+   */
+  small?: boolean;
 }
 
 export interface MapViewState {
@@ -481,9 +490,13 @@ export function buildKakaoMapHtml({
       var tone = toneOf(place.tone || state.filter);
       /*
         겹쳐 모아 놓은 마커는 **작게** 그린다. 촘촘히 놓으려면 그림도 작아야 한다(CSS 설명 참고).
+        처음부터 작게 그려 달라는 마커(small - 장소 상세의 핀)도 같은 크기다 - 겹침 여부로
+        크기가 갈리면 같은 묶음의 마커가 제각각으로 보인다.
         고른 핀은 무리에 들어도 물방울 그대로다 — 크기 차이가 곧 "지금 보고 있는 것" 표시다.
       */
-      var element = selected ? dropElement(tone) : circleElement(tone, clustered[place.id] === true);
+      var element = selected
+        ? dropElement(tone)
+        : circleElement(tone, place.small === true || clustered[place.id] === true);
       element.setAttribute('aria-label', place.name);
 
       /*

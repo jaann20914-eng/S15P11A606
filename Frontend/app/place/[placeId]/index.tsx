@@ -24,6 +24,8 @@ import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
 import { useNextPlace } from '@/hooks/useNextPlace';
 import { classifyCrowdFilter } from '@/constants/crowdLevels';
+import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
+import { distanceBetween } from '@/utils/location';
 import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
@@ -99,7 +101,11 @@ export default function Place() {
     홈이 등록해 둔 손잡이로 넘긴다.
   */
   const mapGestures = useMapGestures(useMapStore((state) => state.gestureControl));
-  const myLocation = useCurrentLocation();
+  /*
+    내 위치는 들어올 때 조용히 읽어 둔다(`auto` — 권한이 있으면 묻지 않고 읽는다).
+    버튼 이동뿐 아니라 **핀 작성 가능 판정**(이 장소가 50m 안인지)에도 쓰기 때문이다.
+  */
+  const myLocation = useCurrentLocation({ auto: true });
   const navBarHeight = useAppTabBarHeight();
 
   /*
@@ -109,11 +115,23 @@ export default function Place() {
     안내를 띄운다 — NaN을 그대로 보내면 서버가 400으로 답할 뿐 원인이 드러나지 않는다.
   */
   const numericPlaceId = Number(placeId);
-  const { detail, loading, error, crowdLevel } = usePlaceDetail(
+  const { detail, loading, error, crowdLevel, coordinate } = usePlaceDetail(
     Number.isInteger(numericPlaceId) ? numericPlaceId : null,
   );
   const place = detail?.place ?? null;
   const pins = detail?.pins ?? [];
+
+  /**
+   * 이 자리에서 핀을 쓸 수 있는지 — **이 장소가 내 위치에서 50m 안일 때만.**
+   *
+   * 핀이 없는 장소에서 작성으로 보낼지가 이 값으로 갈린다. 미등록 장소 화면과 같은 규칙이다
+   * (`app/place/no-pins.tsx`) — 핀 등록은 지금 서 있는 자리의 장소만 고를 수 있어서, 멀리서
+   * 검색해 들어온 장소에 작성 버튼을 내밀면 눌러 봐야 등록 화면의 장소 목록에 그 장소가 없다.
+   */
+  const writable =
+    coordinate !== null &&
+    myLocation.coordinate !== null &&
+    distanceBetween(myLocation.coordinate, coordinate) <= MAX_PLACE_DISTANCE_METERS;
 
   /*
     카드에 그릴 썸네일은 상세 응답으로 끝나지 않는다.
@@ -363,6 +381,12 @@ export default function Place() {
           latitude: pin.latitude as number,
           longitude: pin.longitude as number,
           tone: markerTone,
+          /*
+            **전부 작은 마커로 통일한다.** 크기를 겹침 여부에 맡기면 모여 찍힌 핀만 작아지고
+            떨어져 찍힌 핀은 크게 남아, 같은 장소의 핀들이 제각각으로 보였다(공원처럼 넓은
+            장소에서 실제로 그랬다). 고른 핀은 물방울이라 구분은 그대로다.
+          */
+          small: true,
         })),
     [markerTone, pins],
   );
@@ -794,6 +818,19 @@ export default function Place() {
                 style={s.emptyPins}
               >
                 <Text style={s.emptyPinsText}>지금 이곳에 올라온 핀이 없어요.</Text>
+                {/*
+                  그 자리에 서 있으면(50m 안) 첫 핀을 남기도록 부른다 — 미등록 장소 화면과
+                  같은 유도다. 멀리서 보고 있으면 안내만 남는다(위 `writable` 참고).
+                */}
+                {writable && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${place?.name ?? '이 장소'}에 핀 작성하기`}
+                    onPress={() => router.push('/(tabs)/write')}
+                  >
+                    <Text style={s.writeLink}>작성하러 가기 →</Text>
+                  </Pressable>
+                )}
               </View>
             )}
           </Animated.View>
@@ -970,4 +1007,6 @@ const s = StyleSheet.create({
   /** 핀이 없을 때 카드 자리를 대신 채우는 블록. 카드 한 칸과 같은 높이로 잡아 시트가 제자리에 있게 한다. */
   emptyPins: { minHeight: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
   emptyPinsText: { ...type.small, color: colors.gray400 },
+  /** 첫 핀 작성으로 부르는 줄. 미등록 장소 카드의 같은 줄과 같은 값이다(`recommendStyles.writeLink`). */
+  writeLink: { ...type.h3, color: colors.dark, marginTop: spacing.x2 },
 });
