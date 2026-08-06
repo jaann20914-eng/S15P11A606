@@ -348,7 +348,7 @@ export const mypageStyles = StyleSheet.create({
   editSectionTitle: { ...type.h3, color: colors.dark },
   editSectionDescription: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
   /** 닉네임 묶음과 관심 장소 묶음 사이. 두 묶음이 서로 다른 일이라는 것이 간격으로 읽힌다. */
-  sectionGap: { marginTop: spacing.x8 },
+  sectionGap: { marginTop: spacing.x12 },
   /** 고른 순서가 곧 순위라 그 순서를 문장으로 되짚어 준다(온보딩과 같은 안내). */
   rankHint: { ...type.caption, color: '#8FA900', fontWeight: '600', marginTop: spacing.x2 },
   preferenceGrid: {
@@ -359,11 +359,20 @@ export const mypageStyles = StyleSheet.create({
     marginTop: spacing.x3,
   },
   preferenceCell: { width: '31.5%' },
+  /**
+   * 스크롤 내용의 아래 여백.
+   *
+   * 버튼은 스크롤 **밖에** 있어 내용을 가리지 않지만, 사라짐 구간(`editFade`)이 스크롤의
+   * 아래 끝을 덮는다. 그만큼 여백을 둬야 끝까지 내렸을 때 마지막 카드 줄이 흐려지지 않는다.
+   */
+  editScroll: { paddingBottom: spacing.x6 },
+  /** 내용이 버튼 밑으로 들어가며 사라지는 구간. 높이는 한 줄 남짓이면 충분하다. */
+  editFade: { position: 'absolute', left: 0, right: 0, height: 40 },
   inputShell: {
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.x12,
+    marginTop: spacing.x3,
     paddingLeft: spacing.x4,
     paddingRight: spacing.x1,
     borderWidth: 1,

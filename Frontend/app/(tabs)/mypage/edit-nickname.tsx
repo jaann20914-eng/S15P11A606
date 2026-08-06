@@ -1,11 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
 import { router } from 'expo-router';
 
 import { NoticeModal, useNotice } from '@/components/common';
-import { MAX_PREFERENCES } from '@/constants/categories';
-import { colors, spacing } from '@/constants/theme';
+import { colors, layout, spacing } from '@/constants/theme';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { MypageHeader } from '@/features/mypage/components/MypageHeader';
 import { NicknameField } from '@/features/mypage/components/NicknameField';
@@ -14,6 +15,14 @@ import { useMypageSummary } from '@/features/mypage/hooks/useMypageSummary';
 import { useProfileEdit } from '@/features/mypage/hooks/useProfileEdit';
 import { useNicknameCheck } from '@/hooks/useNicknameCheck';
 import { mypageStyles as s } from '@/features/mypage/styles';
+
+/** 사라짐 그라데이션. 안드로이드에서 `transparent`는 검은색이 섞여 회색 띠가 생긴다. */
+const FADE_TRANSPARENT = 'rgba(255,255,255,0)';
+const FADE_NEAR_WHITE = 'rgba(255,255,255,0.96)';
+const FADE_STOPS = [0, 0.55, 1] as const;
+
+/** 아래 버튼이 차지하는 높이(버튼 + 아래 여백). 스크롤 여백과 사라짐 위치가 이 값을 쓴다. */
+const BUTTON_AREA_HEIGHT = layout.buttonHeight + spacing.x4;
 
 /**
  * 나의 정보 수정 — 닉네임과 관심 장소.
@@ -34,6 +43,25 @@ import { mypageStyles as s } from '@/features/mypage/styles';
 export default function EditProfileScreen() {
   const { profile, loading } = useMypageSummary();
 
+  /**
+   * 화면을 떠나면 고치던 것을 버린다.
+   *
+   * 저장을 누르지 않고 탭을 옮기거나 뒤로 가면 그 입력은 없던 일이다. 다시 들어왔을 때
+   * 남아 있으면 저장된 것으로 읽히는데 서버에는 반영되지 않은 값이다.
+   *
+   * 초점을 다시 받을 때 **폼을 통째로 새로 만든다**(key). 입력값·중복 확인·고른 카드가
+   * 흩어져 있어 하나씩 되돌리면 빠뜨리기 쉽고, 새로 만들면 카테고리도 서버에서 다시 받아
+   * 지금 값으로 시작한다.
+   */
+  const focused = useIsFocused();
+  const [formKey, setFormKey] = useState(0);
+  const wasFocused = useRef(focused);
+
+  useEffect(() => {
+    if (focused && !wasFocused.current) setFormKey((key) => key + 1);
+    wasFocused.current = focused;
+  }, [focused]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <View style={s.screen}>
@@ -45,7 +73,7 @@ export default function EditProfileScreen() {
           </View>
         ) : (
           // 닉네임을 못 받았으면 빈 입력란으로 시작한다.
-          <ProfileEditor current={profile?.nickname ?? ''} />
+          <ProfileEditor key={formKey} current={profile?.nickname ?? ''} />
         )}
       </View>
     </SafeAreaView>
@@ -57,6 +85,15 @@ function ProfileEditor({ current }: { current: string }) {
   const edit = useNicknameCheck(current);
   const profileEdit = useProfileEdit();
   const { notice, showNotice, confirmNotice } = useNotice();
+
+  /**
+   * 고치는 중인지.
+   *
+   * 들어오면 지금 값을 **보여주기만** 한다. 이 화면은 확인하러 들어오는 일이 더 잦은데,
+   * 처음부터 입력칸이 열려 있으면 실수로 건드린 값이 저장된 것처럼 보인다. "수정하기"를
+   * 누른 뒤에야 입력과 카드가 열리고, 버튼도 "변경 저장"으로 바뀐다.
+   */
+  const [editing, setEditing] = useState(false);
 
   /*
     키보드가 저장 버튼을 덮지 않게 그만큼 올린다.
@@ -92,6 +129,9 @@ function ProfileEditor({ current }: { current: string }) {
     !profileEdit.saving &&
     !profileEdit.loading;
 
+  /** 읽기 상태의 "수정하기"는 늘 누를 수 있다. 고치는 중에만 저장 조건을 본다. */
+  const buttonEnabled = editing ? canSave : !profileEdit.loading;
+
   const save = async () => {
     if (!canSave) return;
 
@@ -108,26 +148,42 @@ function ProfileEditor({ current }: { current: string }) {
 
   return (
     <View ref={contentRef} style={s.nicknameContent}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        // 아래 버튼이 내용 위에 겹쳐 있어, 가리는 만큼을 스크롤 여백으로 돌려준다.
+        contentContainerStyle={s.editScroll}
+      >
         <Text style={s.nicknameTitle}>나의 정보</Text>
 
         <View style={s.sectionGap}>
           <Text style={s.editSectionTitle}>닉네임</Text>
           <Text style={s.editSectionDescription}>변경 전 중복 확인이 필요해요.</Text>
-          <NicknameField edit={edit} />
+          <NicknameField edit={edit} readOnly={!editing} />
         </View>
 
-        <PreferenceEditField selected={profileEdit.categories} onToggle={profileEdit.toggleCategory} />
+        <PreferenceEditField
+          selected={profileEdit.categories}
+          readOnly={!editing}
+          onToggle={profileEdit.toggleCategory}
+        />
       </ScrollView>
+
+      {/* 내용이 버튼 밑으로 들어가며 사라지도록 짧게 덧칠한다. 선 하나보다 조용하다. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={[FADE_TRANSPARENT, FADE_NEAR_WHITE, colors.white]}
+        locations={FADE_STOPS}
+        style={[s.editFade, { bottom: BUTTON_AREA_HEIGHT + keyboardOverlap }]}
+      />
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled: !canSave, busy: profileEdit.saving }}
-        disabled={!canSave}
-        onPress={save}
+        accessibilityState={{ disabled: !buttonEnabled, busy: profileEdit.saving }}
+        disabled={!buttonEnabled}
+        onPress={editing ? save : () => setEditing(true)}
         style={[
           s.saveButton,
-          !canSave && s.saveDisabled,
+          !buttonEnabled && s.saveDisabled,
           // 겹치지 않을 때는 0이라 원래 여백(x4)이 그대로 남는다.
           { marginBottom: spacing.x4 + keyboardOverlap },
         ]}
@@ -135,7 +191,9 @@ function ProfileEditor({ current }: { current: string }) {
         {profileEdit.saving ? (
           <ActivityIndicator color={colors.gray600} />
         ) : (
-          <Text style={[s.saveText, !canSave && s.saveTextDisabled]}>변경 저장</Text>
+          <Text style={[s.saveText, !buttonEnabled && s.saveTextDisabled]}>
+            {editing ? '변경 저장' : '수정하기'}
+          </Text>
         )}
       </Pressable>
 
