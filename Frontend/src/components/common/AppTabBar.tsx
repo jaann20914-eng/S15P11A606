@@ -191,7 +191,7 @@ const s = StyleSheet.create({
       선이 끊긴 것도 이어진 것도 아닌 모양이었다(2026-08-06). 조금 더 올려 테두리가 선을
       가로지르게 하면, 흰 테두리가 선을 **끊고 그 위에 떠 있는** 것으로 읽힌다.
     */
-    marginTop: -28,
+    marginTop: -29,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.card,
