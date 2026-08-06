@@ -340,10 +340,25 @@ export const mypageStyles = StyleSheet.create({
   amount: { ...type.label, fontWeight: '600', color: colors.dark },
   amountEarn: { color: '#8FA900' },
 
-  /* 닉네임 수정 */
+  /* 나의 정보 수정(닉네임 · 관심 장소) */
   nicknameContent: { flex: 1, paddingHorizontal: layout.gutter, paddingTop: spacing.x10 },
   nicknameTitle: { ...type.h2, color: colors.dark },
   nicknameDescription: { ...type.body, color: colors.gray600, marginTop: spacing.x1 },
+  /** 묶음 제목. 화면 제목(`nicknameTitle`)보다 작게 두어 그 아래 단계로 읽히게 한다. */
+  editSectionTitle: { ...type.h3, color: colors.dark },
+  editSectionDescription: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
+  /** 닉네임 묶음과 관심 장소 묶음 사이. 두 묶음이 서로 다른 일이라는 것이 간격으로 읽힌다. */
+  sectionGap: { marginTop: spacing.x8 },
+  /** 고른 순서가 곧 순위라 그 순서를 문장으로 되짚어 준다(온보딩과 같은 안내). */
+  rankHint: { ...type.caption, color: '#8FA900', fontWeight: '600', marginTop: spacing.x2 },
+  preferenceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.x3,
+    marginTop: spacing.x3,
+  },
+  preferenceCell: { width: '31.5%' },
   inputShell: {
     height: 56,
     flexDirection: 'row',
