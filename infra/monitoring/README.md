@@ -81,7 +81,6 @@ docker compose -f infra/monitoring/docker-compose.yml stop      # 중지
 - **2단계 Spring Boot**: `micrometer-registry-prometheus` 의존성 + actuator `prometheus` 엔드포인트 노출 → `spring-boot` job 주석 해제
 - **3단계 PostGIS**: `postgres_exporter` 컨테이너 추가 → `postgres` job 주석 해제
 - **3단계 Elasticsearch**: `elasticsearch-exporter` 컨테이너 추가 → `elasticsearch` job 주석 해제
-- **4단계 AI 서버**: FastAPI/Flask 계측 추가 → `ai-server` job 주석 해제
 
 주석 해제 후 반영:
 

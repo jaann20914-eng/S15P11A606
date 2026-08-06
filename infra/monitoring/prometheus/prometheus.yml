@@ -1,7 +1,6 @@
 # Prometheus 수집 설정 — "누구를 얼마나 자주 긁을지"
 #
 # 대상은 waggle-network 안의 "컨테이너 이름:포트" 로 지정한다.
-# 아래 주석 처리된 블록들은 2단계 이후(앱/DB/ES) 붙일 때 하나씩 열면 된다.
 
 global:
   scrape_interval: 15s      # 기본 15초마다 수집
@@ -42,8 +41,12 @@ scrape_configs:
     static_configs:
       - targets: ["waggle-es-exporter:9114"]
 
-  # --- 4단계: AI 서버 (FastAPI/Flask 에 계측 붙인 뒤 주석 해제) ---
-  # - job_name: ai-server
-  #   metrics_path: /metrics
-  #   static_configs:
-  #     - targets: ["waggle-ai:8000"]
+  # --- 4단계: AI 서버 ---
+  - job_name: ai-server            # 추천 API (FastAPI)
+    static_configs:
+      - targets: ["waggle-ai:8000"]
+
+  # 워커는 HTTP 서버가 아니라서 지표 노출용 포트를 따로 연다.
+  - job_name: ai-worker            # 블러 / 채팅 분석 (RabbitMQ 컨슈머)
+    static_configs:
+      - targets: ["waggle-ai-worker:9000"]

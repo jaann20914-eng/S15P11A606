@@ -202,6 +202,91 @@
         "overrides": []
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" }
+    },
+    { "id": 103, "type": "row", "title": "🤖 AI 서버", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 } },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "블러 지연 (요청 -> 결과)",
+      "description": "전체와 처리만의 차이가 큐에서 기다린 시간이다.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(ai_blur_e2e_seconds_bucket[5m])) by (le))", "legendFormat": "전체 p95", "refId": "A" },
+        { "expr": "histogram_quantile(0.50, sum(rate(ai_blur_e2e_seconds_bucket[5m])) by (le))", "legendFormat": "전체 p50", "refId": "B" },
+        { "expr": "histogram_quantile(0.95, sum(rate(ai_blur_duration_seconds_bucket[5m])) by (le))", "legendFormat": "처리만 p95", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "채팅 분석 지연 (발행 -> 콜백)",
+      "description": "Gemini 선이 전체를 따라 올라가면 외부 호출이 원인이다.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(ai_chat_e2e_seconds_bucket[5m])) by (le))", "legendFormat": "전체 p95", "refId": "A" },
+        { "expr": "histogram_quantile(0.50, sum(rate(ai_chat_e2e_seconds_bucket[5m])) by (le))", "legendFormat": "전체 p50", "refId": "B" },
+        { "expr": "histogram_quantile(0.95, sum(rate(ai_gemini_duration_seconds_bucket[5m])) by (le))", "legendFormat": "Gemini p95", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "AI 처리량 / 결과 (분당)",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "sum(rate(ai_blur_e2e_seconds_count[5m])) by (result) * 60", "legendFormat": "블러 {{result}}", "refId": "A" },
+        { "expr": "sum(rate(ai_chat_e2e_seconds_count[5m])) by (result) * 60", "legendFormat": "채팅 {{result}}", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Gemini 호출 (분당)",
+      "description": "unavailable 은 재시도 대상, rejected 는 키/형식 문제라 재시도해도 같다.",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "sum(rate(ai_gemini_duration_seconds_count[5m])) by (result) * 60", "legendFormat": "{{result}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "추천 API 응답시간",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"ai-server\"}[5m])) by (le))", "legendFormat": "p99", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"ai-server\"}[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
     }
   ]
 }

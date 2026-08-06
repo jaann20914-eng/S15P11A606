@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from app.common.metrics import start_metrics_server
 from app.core.config import settings
 from app.messaging.blur.topology import declare_blur_topology
 from app.messaging.chat_risk.topology import declare_chat_risk_topology
@@ -24,6 +25,9 @@ logging.basicConfig(
 
 
 async def main() -> None:
+    start_metrics_server()
+    logging.info("Metrics server started. port=%d", settings.metrics_port)
+
     try:
         await rabbitmq.connect()
         await declare_blur_topology()

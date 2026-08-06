@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.common.logging import get_logger
 from app.core.config import settings
@@ -12,6 +13,13 @@ from app.services.recommendation.recommendation_service import ScoringTimeoutErr
 logger = get_logger(__name__)
 
 app = FastAPI(title="와글와글 AI 서버")
+
+# 수집용 /metrics와 배포 확인용 /health는 실제 트래픽이 아니라 요청 통계에서 뺀다.
+# 상태코드를 2xx/4xx/5xx로 묶으면 타임아웃(504)과 내부 오류(500)가 섞이므로 그대로 남긴다.
+Instrumentator(
+    excluded_handlers=["/metrics", "/health"],
+    should_group_status_codes=False,
+).instrument(app).expose(app)
 
 app.include_router(recommendations.router)
 
