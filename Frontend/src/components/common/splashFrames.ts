@@ -5,13 +5,12 @@ import type { ImageSourcePropType } from 'react-native';
  *
  * 시안(`assets/View-Splash.html`)의 SVG를 4도 간격으로 미리 구워 둔 것이다. 호를 앱에서
  * 직접 그리려면 SVG가 필요하고 그건 네이티브 모듈이라 앱을 다시 빌드해야 한다 — 그림이
- * 고정이므로 미리 그려 두면 그럴 이유가 없다. 간격이 곧 부드러움이라, 10도로 구웠을 때는
- * 넘어가는 단이 눈에 보였다(2026-08-06).
+ * 고정이므로 미리 그려 두면 그럴 이유가 없다.
  *
- * 이 목록은 스크립트가 만든다(스크래치의 make-splash2.js — `_requires.txt`). 손으로 고치지
- * 말고 다시 구울 때 함께 뽑는다. 번들러가 정적 경로만 해석하므로 require를 펼쳐 둔다.
+ * 이 목록은 스크립트가 만든다(스크래치의 make-splash2.js). 손으로 고치지 말고 다시 구울 때
+ * 함께 뽑는다. 번들러가 정적 경로만 해석하므로 require를 펼쳐 둔다.
  */
-const RING_FRAMES: readonly ImageSourcePropType[] = [
+export const RING_FRAMES: readonly ImageSourcePropType[] = [
   require('../../../assets/images/splash/ring-000.png'),
   require('../../../assets/images/splash/ring-004.png'),
   require('../../../assets/images/splash/ring-008.png'),
@@ -72,11 +71,3 @@ const RING_FRAMES: readonly ImageSourcePropType[] = [
 
 /** 오른쪽 위에서 튀어나오는 도넛 점. */
 export const SPLASH_DOT = require('../../../assets/images/splash/dot.png') as ImageSourcePropType;
-
-/** 마지막 프레임의 번호. 이만큼 넘기면 링이 다 그려진다. */
-export const LAST_RING_FRAME = RING_FRAMES.length - 1;
-
-/** 프레임 한 장. 범위를 벗어나면 끝 프레임을 준다. */
-export function ringFrame(index: number): ImageSourcePropType {
-  return RING_FRAMES[Math.min(Math.max(0, index), LAST_RING_FRAME)];
-}

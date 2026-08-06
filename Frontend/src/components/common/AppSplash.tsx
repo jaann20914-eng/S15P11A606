@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { colors } from '@/constants/theme';
-import { LAST_RING_FRAME, SPLASH_DOT, ringFrame } from './splashFrames';
+import { RING_FRAMES, SPLASH_DOT } from './splashFrames';
 
 /*
   아래 시간과 곡선은 전부 시안(assets/View-Splash.html)의 CSS 애니메이션 값 그대로다.
@@ -47,36 +47,28 @@ export interface AppSplashProps {
  * 그려지며 함께 돌고, 다 그려지면 오른쪽 위에 도넛 점이 튀어나온다. 이 앱의 이름이 곧
  * "뷰"라 로고 대신 그 링이 그려지는 장면을 쓴다.
  *
- * 호는 미리 구워 둔 프레임을 넘겨 그린다(`splashFrames`). SVG로 그리면 네이티브 모듈이
- * 늘어 앱을 다시 빌드해야 하는데, 그림이 고정이라 그럴 이유가 없다.
- *
- * 프레임 넘김은 시안의 곡선을 태운 Animated 값이 정한다. 일정한 간격으로 넘겼더니
- * 처음엔 빠르고 끝에서 감속하는 시안과 속도감이 달라 버벅여 보였다(2026-08-06).
+ * 호는 미리 구워 둔 프레임(`splashFrames`)을 **전부 겹쳐 두고 투명도만 넘겨** 그린다.
+ * 상태로 소스를 갈아 끼우는 방식은 프레임마다 JS 렌더 + 이미지 디코드 + 안드로이드의
+ * 기본 페이드가 겹쳐 심하게 끊겼다(2026-08-06). 겹쳐 두면 첫 300ms 대기 동안 디코드가
+ * 끝나고, 그 뒤로는 네이티브 드라이버가 투명도만 바꾸므로 자바스크립트가 바빠도 매끈하다.
  */
 export function AppSplash({ onFinish }: AppSplashProps) {
-  /** 지금 보여줄 프레임. 한 장이 4도다. */
-  const [frame, setFrame] = useState(0);
-
-  /** 그리기 진행률 0~1. 곡선을 태워 프레임 번호로 바꾼다. 리스너가 필요해 JS 드라이버다. */
+  /** 그리기 진행률 0~1. 프레임마다 자기 구간에서만 보이도록 투명도로 보간된다. */
   const draw = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const spin = useRef(new Animated.Value(0)).current;
-  const dotScale = useRef(new Animated.Value(0)).current;
+  const dotScale = useRef(new Animated.Value(0.2)).current;
   const dotOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const listener = draw.addListener(({ value }) => {
-      setFrame(Math.round(value * LAST_RING_FRAME));
-    });
-
-    /* 그리기와 돌기는 같은 순간 출발한다(시안의 0.3s 지연). */
+    /* 그리기와 돌기는 같은 순간 출발한다(시안의 0.3s 지연). 전부 네이티브 드라이버다. */
     Animated.parallel([
       Animated.timing(draw, {
         toValue: 1,
         duration: DRAW_MS,
         delay: START_DELAY_MS,
         easing: Easing.bezier(0.35, 0, 0.12, 1),
-        useNativeDriver: false,
+        useNativeDriver: true,
       }),
       Animated.timing(spin, {
         toValue: 1,
@@ -91,7 +83,6 @@ export function AppSplash({ onFinish }: AppSplashProps) {
       점은 시안의 keyframes(0.2 → 1.25 → 0.94 → 1)를 구간별 timing으로 옮긴다.
       스프링으로 두었더니 튀는 정도가 실행마다 달라 시안과 어긋났다.
     */
-    dotScale.setValue(0.2);
     Animated.sequence([
       Animated.delay(DOT_AT_MS),
       Animated.parallel([
@@ -129,11 +120,11 @@ export function AppSplash({ onFinish }: AppSplashProps) {
     ]).start(({ finished }) => {
       if (finished) onFinish();
     });
-
-    return () => draw.removeListener(listener);
     // 마운트에 한 번이다. onFinish는 부모가 렌더마다 새로 만들 수 있어 의존값으로 부적합하다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['-180deg', '0deg'] });
 
   /*
     누름은 막는다(`pointerEvents`를 열지 않는다). 아래에는 이미 첫 화면이 그려져 있어서,
@@ -144,31 +135,59 @@ export function AppSplash({ onFinish }: AppSplashProps) {
       <View style={s.stage}>
         {/*
           점은 링과 **함께 돌지 않는다.** 시안에서도 점은 제자리에서 튀어나오고 링만 돈다.
-          그래서 회전은 링 그림에만 건다.
+          그래서 회전은 프레임 묶음에만 건다.
         */}
-        <Animated.Image
-          source={ringFrame(frame)}
-          style={[
-            s.ring,
-            {
-              transform: [
-                {
-                  rotate: spin.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['-180deg', '0deg'],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
+        <Animated.View style={[s.ring, { transform: [{ rotate }] }]}>
+          {RING_FRAMES.map((source, index) => (
+            <Animated.Image
+              key={index}
+              source={source}
+              // 안드로이드의 기본 등장 페이드(300ms)를 끈다. 겹친 프레임이 뿌옇게 섞인다.
+              fadeDuration={0}
+              style={[s.frame, { opacity: frameOpacity(draw, index) }]}
+            />
+          ))}
+        </Animated.View>
 
         <Animated.View style={[s.dot, { opacity: dotOpacity, transform: [{ scale: dotScale }] }]}>
-          <Image source={SPLASH_DOT} style={s.dotImage} />
+          <Image source={SPLASH_DOT} fadeDuration={0} style={s.dotImage} />
         </Animated.View>
       </View>
     </Animated.View>
   );
+}
+
+/**
+ * 프레임 하나가 보이는 구간.
+ *
+ * 진행률을 프레임 수로 나눈 자기 구간에서만 1이고 벗어나면 0이다. 구간 경계에 반 프레임의
+ * 겹침을 두어 하드 컷 대신 짧은 크로스페이드로 넘어간다 — 4도 간격의 단이 이것으로 지워진다.
+ * 마지막 프레임은 끝까지 남는다(clamp).
+ */
+function frameOpacity(draw: Animated.Value, index: number) {
+  const last = RING_FRAMES.length - 1;
+
+  if (index === 0) {
+    return draw.interpolate({
+      inputRange: [0, 1 / last],
+      outputRange: [1, 0],
+      extrapolate: 'clamp',
+    });
+  }
+
+  if (index === last) {
+    return draw.interpolate({
+      inputRange: [(last - 1) / last, 1],
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    });
+  }
+
+  return draw.interpolate({
+    inputRange: [(index - 1) / last, index / last, (index + 1) / last],
+    outputRange: [0, 1, 0],
+    extrapolate: 'clamp',
+  });
 }
 
 const s = StyleSheet.create({
@@ -188,7 +207,7 @@ const s = StyleSheet.create({
     transform: [{ translateY: -RAISE }],
   },
   /**
-   * 링 그림. 상자 전체를 담고 있어 크기가 곧 상자 크기다.
+   * 프레임 묶음. 상자 전체를 차지하고 그 안에 56장이 겹쳐 있다.
    *
    * 도는 중심을 **링의 중심**으로 잡는다(시안의 `transform-origin:160px 180px`). 링이 상자
    * 한가운데가 아니라 조금 왼쪽 아래에 놓여 있어서, 기본값(그림 중앙)으로 돌리면 제자리에서
@@ -199,6 +218,7 @@ const s = StyleSheet.create({
     height: STAGE_SIZE,
     transformOrigin: [scaled(160), scaled(180), 0],
   },
+  frame: { ...StyleSheet.absoluteFillObject, width: STAGE_SIZE, height: STAGE_SIZE },
   dot: { position: 'absolute', left: DOT_LEFT, top: DOT_TOP, width: DOT_SIZE, height: DOT_SIZE },
   dotImage: { width: '100%', height: '100%' },
 });
