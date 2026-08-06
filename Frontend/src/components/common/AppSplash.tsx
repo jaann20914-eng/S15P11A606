@@ -158,34 +158,25 @@ export function AppSplash({ onFinish }: AppSplashProps) {
 }
 
 /**
- * 프레임 하나가 보이는 구간.
+ * 프레임 하나가 나타나는 시점.
  *
- * 진행률을 프레임 수로 나눈 자기 구간에서만 1이고 벗어나면 0이다. 구간 경계에 반 프레임의
- * 겹침을 두어 하드 컷 대신 짧은 크로스페이드로 넘어간다 — 4도 간격의 단이 이것으로 지워진다.
- * 마지막 프레임은 끝까지 남는다(clamp).
+ * 자기 차례가 되면 한 프레임 길이 동안 떠올라 **끝까지 남는다.** 다음 프레임의 호가 이전
+ * 호를 완전히 담고 있어서(같은 트랙, 더 긴 호) 쌓아 두면 갈아 끼운 것과 같은 그림이 된다.
+ *
+ * 갈아 끼우는 방식(자기 구간에서만 1)은 경계에서 두 장이 반투명으로 겹치는데, 50%+50%는
+ * 완전한 불투명이 되지 않아 링이 주기적으로 옅어졌다 — 그것이 깜빡임으로 보였다(2026-08-06).
+ * 쌓으면 어느 순간에도 아래 프레임이 불투명하게 받치고 있어 그럴 수 없고, 새로 늘어난
+ * 조각만 부드럽게 떠오른다.
  */
 function frameOpacity(draw: Animated.Value, index: number) {
   const last = RING_FRAMES.length - 1;
 
-  if (index === 0) {
-    return draw.interpolate({
-      inputRange: [0, 1 / last],
-      outputRange: [1, 0],
-      extrapolate: 'clamp',
-    });
-  }
-
-  if (index === last) {
-    return draw.interpolate({
-      inputRange: [(last - 1) / last, 1],
-      outputRange: [0, 1],
-      extrapolate: 'clamp',
-    });
-  }
+  // 첫 프레임(빈 트랙)은 처음부터 끝까지 깔려 있다.
+  if (index === 0) return 1;
 
   return draw.interpolate({
-    inputRange: [(index - 1) / last, index / last, (index + 1) / last],
-    outputRange: [0, 1, 0],
+    inputRange: [(index - 1) / last, index / last],
+    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 }
