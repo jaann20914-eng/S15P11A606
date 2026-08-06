@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { getTagSuggestions } from '@/api/pin/tagSearch';
-import { MIN_PLACE_QUERY_LENGTH, PLACE_SEARCH_DEBOUNCE_MS } from '@/types/place';
+import {
+  MIN_PLACE_QUERY_LENGTH,
+  PLACE_SEARCH_DEBOUNCE_MS,
+  TAG_SUGGESTION_QUERY_MAX_LENGTH,
+} from '@/types/place';
 import { createDevLogger, toRequestLine } from '@/utils/devLog';
 import type { MapBoundsQuery, TagSuggestion } from '@/types/place';
 
@@ -19,11 +23,12 @@ export interface TagSuggestionsState {
  * 고르지 않고 그냥 입력하므로, 두 갈래를 한 번에 물어보고 결과를 함께 보여준다. 디바운스와
  * 최소 길이를 장소 검색과 같은 값으로 맞춰 두 목록이 같은 순간에 바뀌게 한다.
  *
- * **⚠ 지금은 거의 늘 빈 배열이 온다.** 이 API는 Elasticsearch의 태그 색인을 읽는데
- * (`TagSearchService`), 백엔드에 그 색인에 쓰는 코드가 없다 — 핀을 등록하면 태그가 MySQL의
- * `pin_tag`에만 저장된다(`PinPersistenceService`). 그래서 추천을 못 받아도 사용자가 검색을
- * 끝낼 수 있어야 한다. 화면은 **입력한 값을 그대로 태그로 확정하는 줄**을 항상 함께 둔다 —
- * 확정(POST)은 DB를 읽으므로 방금 등록한 핀도 찾아낸다.
+ * **색인은 이제 채워진다**(2026-08-06 재점검). 핀이 공개되는 순간(AI 블러 완료 →
+ * `AiBlurResultService`)과 수정·삭제 시에 백엔드가 Elasticsearch `pin-tags` 색인에 반영한다
+ * (`PinTagIndexingService`). 다만 색인은 best-effort고 **그 코드가 배포되기 전에 올라온
+ * 핀은 색인에 없다** — 추천이 비어도 사용자가 검색을 끝낼 수 있어야 하는 것은 그대로다.
+ * 화면은 **입력한 값을 그대로 태그로 확정하는 줄**을 항상 함께 둔다 — 확정(POST)은 DB를
+ * 읽으므로 색인과 무관하게 찾아낸다.
  *
  * 실패를 밖으로 내보내지 않는다. 태그는 검색의 한쪽 갈래일 뿐이라 이쪽이 안 되더라도 장소
  * 결과는 그대로 쓸 수 있어야 한다. 원인은 로그로만 남긴다.
@@ -45,7 +50,12 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
   useEffect(() => {
     const query = keyword.trim();
 
-    if (query.length < MIN_PLACE_QUERY_LENGTH) {
+    /*
+      너무 짧으면 장소 검색과 같은 하한으로 거르고, 너무 길면 보내지 않는다 — 서버가 정규화
+      후 50자를 넘는 검색어를 400으로 거절하므로(`TAG_SUGGESTION_QUERY_MAX_LENGTH`), 어차피
+      거절될 요청으로 실패 로그만 쌓인다.
+    */
+    if (query.length < MIN_PLACE_QUERY_LENGTH || query.length > TAG_SUGGESTION_QUERY_MAX_LENGTH) {
       latestRequest.current += 1;
       setResults([]);
       setLoading(false);
@@ -81,8 +91,11 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
             건수: tags.length,
             소요: `${Date.now() - startedAt}ms`,
             태그: tags.map((tag) => tag.name),
-            // 0건이 이 원인인지 한눈에 보이게 적어 둔다. 서버 색인이 비어 있으면 늘 0건이다.
-            비고: tags.length === 0 ? '0건 — 서버 태그 색인이 비어 있을 수 있다' : undefined,
+            // 0건의 흔한 이유를 적어 둔다. 색인 반영 전(배포 이전 핀)이거나 범위 밖이면 0건이다.
+            비고:
+              tags.length === 0
+                ? '0건 — 지도 범위 안에 그 태그의 활성 핀이 없거나, 색인 반영 전 핀일 수 있다'
+                : undefined,
           });
 
           setResults(tags);

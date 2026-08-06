@@ -14,6 +14,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
 import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
+import { NoPinPlaceCard } from '@/features/place-search/components';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
 import { usePlaceDetail } from '@/features/place-detail/hooks/usePlaceDetail';
@@ -24,6 +25,8 @@ import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
 import { useNextPlace } from '@/hooks/useNextPlace';
 import { classifyCrowdFilter } from '@/constants/crowdLevels';
+import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
+import { distanceBetween } from '@/utils/location';
 import { createDevLogger } from '@/utils/devLog';
 import { useMapStore } from '@/store/useMapStore';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
@@ -99,7 +102,11 @@ export default function Place() {
     홈이 등록해 둔 손잡이로 넘긴다.
   */
   const mapGestures = useMapGestures(useMapStore((state) => state.gestureControl));
-  const myLocation = useCurrentLocation();
+  /*
+    내 위치는 들어올 때 조용히 읽어 둔다(`auto` — 권한이 있으면 묻지 않고 읽는다).
+    버튼 이동뿐 아니라 **핀 작성 가능 판정**(이 장소가 50m 안인지)에도 쓰기 때문이다.
+  */
+  const myLocation = useCurrentLocation({ auto: true });
   const navBarHeight = useAppTabBarHeight();
 
   /*
@@ -109,11 +116,23 @@ export default function Place() {
     안내를 띄운다 — NaN을 그대로 보내면 서버가 400으로 답할 뿐 원인이 드러나지 않는다.
   */
   const numericPlaceId = Number(placeId);
-  const { detail, loading, error, crowdLevel } = usePlaceDetail(
+  const { detail, loading, error, crowdLevel, coordinate } = usePlaceDetail(
     Number.isInteger(numericPlaceId) ? numericPlaceId : null,
   );
   const place = detail?.place ?? null;
   const pins = detail?.pins ?? [];
+
+  /**
+   * 이 자리에서 핀을 쓸 수 있는지 — **이 장소가 내 위치에서 50m 안일 때만.**
+   *
+   * 핀이 없는 장소에서 작성으로 보낼지가 이 값으로 갈린다. 미등록 장소 화면과 같은 규칙이다
+   * (`app/place/no-pins.tsx`) — 핀 등록은 지금 서 있는 자리의 장소만 고를 수 있어서, 멀리서
+   * 검색해 들어온 장소에 작성 버튼을 내밀면 눌러 봐야 등록 화면의 장소 목록에 그 장소가 없다.
+   */
+  const writable =
+    coordinate !== null &&
+    myLocation.coordinate !== null &&
+    distanceBetween(myLocation.coordinate, coordinate) <= MAX_PLACE_DISTANCE_METERS;
 
   /*
     카드에 그릴 썸네일은 상세 응답으로 끝나지 않는다.
@@ -171,14 +190,12 @@ export default function Place() {
       사이 간격은 머리글의 `paddingBottom`이 갖는다(홈과 같다).
     */
     /*
-      핀이 없어도 **같은 높이**다. 안내 줄이 카드 한 칸을 그대로 차지한다(`PIN_SLOT_HEIGHT`) —
-      상태에 따라 시트가 오르내리지 않는 편이 낫고, 홈도 같은 값으로 맞춰 두었다.
+      핀이 없어도 **같은 높이**다. 그 자리의 카드(`NoPinPlaceCard`)가 칸보다 작으면 칸 높이를
+      하한으로 지킨다 — 상태에 따라 시트가 오르내리지 않아야 홈·상세와 같은 자리에 놓인다.
     */
     middleExtra:
       (noPins
-        ? emptyHeight > 0
-          ? emptyHeight
-          : PIN_SLOT_HEIGHT
+        ? Math.max(emptyHeight, PIN_SLOT_HEIGHT)
         : pinSlotHeight > 0
           ? pinSlotHeight
           : PIN_SLOT_HEIGHT) + spacing.x4,
@@ -196,14 +213,15 @@ export default function Place() {
   const { level, moveTo, sheetY } = sheet;
 
   /*
-    지도를 여기서 옮기지 않는다.
+    지도 이동은 보통 이 화면 밖에서 끝나 있다.
 
-    예전에는 들어오면서 목업 좌표로 아래 깔린 홈 지도를 옮겼다. 이제 홈이 카드를 누른 그
-    시점에 이미 그 장소로 옮기고 축척까지 맞춘 뒤 이 화면을 띄우므로, 여기서 또 옮기면 같은
-    자리로 한 번 더 끌려가는 셈이다.
+    홈이 카드를 누른 시점에, 검색이 결과를 고른 시점에 이미 그 장소로 옮기고 축척까지 맞춘 뒤
+    이 화면을 띄운다. 핀이 있으면 아래 핀 효과가 보고 있는 게시물로 중심을 맞춘다.
 
-    장소 상세 응답에는 좌표가 없어서(`PlaceSummary`) 옮기려면 목록 API를 한 번 더 불러야
-    한다. 홈을 거치지 않고 이 주소로 바로 들어오는 경로가 생기면 그때 붙인다.
+    **어느 쪽도 못 옮기는 경로가 하나 있다** — 최근 검색 재실행. 기록에 좌표가 없어
+    (`RecentSearch`) 확정이 지도를 옮기지 못한 채 이 화면을 열고, 그 장소에 핀이 없으면(또는
+    핀 좌표가 안 와서) 핀 효과도 돌지 않아 지도가 이전 장소에 그대로 남았다(2026-08-06
+    실기기). 그 구멍은 아래 `centeredOn` 효과가 상세 조회가 돌려준 장소 좌표로 막는다.
   */
 
   /**
@@ -311,6 +329,15 @@ export default function Place() {
   useEffect(() => setPinIndex(0), [numericPlaceId]);
 
   /*
+    **목록이 줄면 번호를 안으로 되돌린다.** 게시물 상세에서 핀을 지우고 돌아오면 조용한
+    재조회로 목록이 짧아지는데(`usePlaceDetail`), 보고 있던 번호가 범위 밖에 남으면 빈 자리를
+    가리키고 지도도 옮길 핀을 잃는다. 범위 밖일 때만 고치므로 한 번에 수렴한다.
+  */
+  useEffect(() => {
+    if (pins.length > 0 && pinIndex >= pins.length) setPinIndex(pins.length - 1);
+  }, [pinIndex, pins.length]);
+
+  /*
     목록(확장) 단계에서 지금 보고 있는 핀을 정하는 값들.
 
     한 장씩 넘기는 단계는 칸이 정해 주지만(`onIndexChange`), 훑는 단계에서는 스크롤이 멈춘
@@ -363,6 +390,12 @@ export default function Place() {
           latitude: pin.latitude as number,
           longitude: pin.longitude as number,
           tone: markerTone,
+          /*
+            **전부 작은 마커로 통일한다.** 크기를 겹침 여부에 맡기면 모여 찍힌 핀만 작아지고
+            떨어져 찍힌 핀은 크게 남아, 같은 장소의 핀들이 제각각으로 보였다(공원처럼 넓은
+            장소에서 실제로 그랬다). 고른 핀은 물방울이라 구분은 그대로다.
+          */
+          small: true,
         })),
     [markerTone, pins],
   );
@@ -376,12 +409,20 @@ export default function Place() {
     가려져 있는 이 화면의 마커가 그 위 화면에 그려진다.
 
     돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아 우리 마커를 되돌려 놓는다.
+
+    **핀이 없으면 빈 겹을 올린다**(미등록 장소 화면과 같은 처리). 겹이 없으면 홈이 주변 장소
+    마커를 그대로 그리는데, 이 장소에는 핀이 없다면서 바로 옆 가게의 장소핀이 보이면 그 핀이
+    이 장소의 것으로 읽힌다(2026-08-06). 지도에는 찾은 자리만 보여야 한다. 조회가 끝나기
+    전에는 올리지 않는다 — 핀이 올지 모르는 동안 성급히 걷을 이유가 없다.
   */
   useEffect(() => {
-    if (!onTop || pinMarkers.length === 0) return;
+    if (!onTop || detail === null) return;
 
-    showPinOverlay({ markers: pinMarkers, selectedPinId: focusedPin?.pinId ?? null });
-  }, [focusedPin, onTop, pinMarkers, showPinOverlay]);
+    showPinOverlay({
+      markers: pinMarkers,
+      selectedPinId: pinMarkers.length > 0 ? (focusedPin?.pinId ?? null) : null,
+    });
+  }, [detail, focusedPin, onTop, pinMarkers, showPinOverlay]);
 
   /*
     **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
@@ -408,10 +449,18 @@ export default function Place() {
     if (!onTop || pressedPinId === null) return;
 
     const at = pins.findIndex((pin) => pin.pinId === pressedPinId);
-    if (at >= 0) setPinIndex(at);
+    if (at >= 0) {
+      setPinIndex(at);
+      /*
+        접혀 있으면 "보통"으로 올려 방금 고른 카드를 보여준다. 시트가 접힌 채면 마커가
+        물방울로 바뀔 뿐 화면에 아무 변화가 없는 것으로 읽힌다(홈의 `focusPlace`와 같다).
+        펼쳐진 목록(확장)은 건드리지 않는다 — 훑던 자리를 잃는다.
+      */
+      if (level === 0) moveTo(1);
+    }
     // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
     clearPressedPin();
-  }, [clearPressedPin, onTop, pins, pressedPinId]);
+  }, [clearPressedPin, level, moveTo, onTop, pins, pressedPinId]);
 
   /* 상세를 닫으면 홈이 다시 장소 마커를 찍어야 한다. 비우지 않으면 핀이 남는다. */
   useEffect(() => clearPinOverlay, [clearPinOverlay]);
@@ -464,6 +513,41 @@ export default function Place() {
     });
   }, [focusOn, focusedPin, onTop, pinIndex, pins.length]);
 
+  /**
+   * 이 장소로 지도를 옮겨 뒀는지(placeId). **한 장소에 한 번만 옮긴다** — 조용한 재조회마다
+   * 좌표 객체가 새로 만들어지므로, 표시가 없으면 위 화면에서 돌아올 때마다 지도가 끌려간다.
+   */
+  const centeredOn = useRef<number | null>(null);
+
+  /*
+    핀으로 중심을 못 잡는 장소는 **장소 좌표로 지도를 옮긴다.**
+
+    최근 검색 재실행은 좌표 없이 확정되어 홈이 지도를 옮기지 못한 채 이 화면이 열린다(위
+    참고). 핀이 좌표를 갖고 있으면 위 효과가 맡으므로 표시만 남기고, 핀이 없거나 좌표가 안 온
+    장소만 상세 조회가 함께 받아 온 장소 좌표(`usePlaceDetail.coordinate`)로 옮긴다.
+
+    조회가 끝난 뒤에 판단한다(`loading`) — 핀이 올지 모르는 동안 장소로 옮기면 핀 효과와
+    연달아 두 번 끌려간다.
+  */
+  useEffect(() => {
+    if (!onTop || loading || centeredOn.current === numericPlaceId) return;
+
+    if (focusedPin !== null && focusedPin.latitude !== null && focusedPin.longitude !== null) {
+      centeredOn.current = numericPlaceId;
+      return;
+    }
+
+    if (coordinate === null || place === null) return;
+
+    centeredOn.current = numericPlaceId;
+    log('진입 — 장소 좌표로 지도 이동', {
+      장소: place.name,
+      좌표: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+      사정: '핀으로 중심을 잡을 수 없어 장소 좌표를 쓴다',
+    });
+    focusOn({ coordinate, name: place.name, level: REVIEW_PIN_MAX_LEVEL });
+  }, [coordinate, focusOn, focusedPin, loading, numericPlaceId, onTop, place]);
+
   useEffect(() => {
     const animation = Animated.timing(chartReveal, {
       toValue: expanded ? 1 : 0,
@@ -492,8 +576,12 @@ export default function Place() {
 
         아래 홈 지도로 터치를 통과시키는 것이 아니라 **받아서 명령으로 넘긴다.** 안드로이드에서
         통과가 되지 않기 때문이다(`useMapGestures` 참고).
+
+        **가려지면 이 판도 함께 감춘다.** 시트·컨트롤만 감추면 이 판이 남는데, 위에 겹친
+        화면(검색 등)이 반투명이라 그 화면을 뚫고 지도가 당겨졌다 — 그 상태로 20m를 벗어나면
+        홈의 접기 효과가 "상세가 바로 위"라는 전제로 맨 위 화면을 잘못 닫는다(2026-08-06).
       */}
-      <View {...mapGestures.panHandlers} style={s.mapGestureArea} />
+      <View {...mapGestures.panHandlers} style={[s.mapGestureArea, !onTop && s.covered]} />
 
       {/* box-none이 없으면 검색바와 버튼 사이 빈 공간이 지도 드래그를 가로챈다. */}
       <View
@@ -592,9 +680,17 @@ export default function Place() {
               {/*
                 장소명이 제목 자리를 갖는다. 연락처는 적지 않는다 — 지도 위 시트에서 전화번호는
                 읽을 일이 없고, 확장하면 정보 카드에 그대로 남아 있다.
+
+                **핀이 없으면 미등록 장소 화면과 같은 머리글이 된다**(`주위를 둘러볼까요?` +
+                현재 위치). 그때 장소명과 주소는 아래 카드가 갖는다(`NoPinPlaceCard`) — 핀이
+                없는 장소는 등록 여부와 무관하게 같은 화면으로 읽혀야 한다.
               */}
               {loading ? (
                 <ActivityIndicator size="small" color={colors.limeText} style={s.headingBusy} />
+              ) : noPins ? (
+                <Text numberOfLines={1} style={s.lookAroundTitle}>
+                  주위를 둘러볼까요?
+                </Text>
               ) : (
                 <Text numberOfLines={1} style={s.headingName}>
                   {place?.name ?? '장소'}
@@ -603,18 +699,27 @@ export default function Place() {
               {/*
                 `실시간 핀`은 제목 자리를 장소명에 내주고 **같은 줄 반대편으로** 옮긴다.
                 아래 카드 묶음이 무엇인지 알려 주는 이름표라 작은 글씨로 두고, 왼쪽 파란 점으로
-                "지금 올라오는 중"임을 표시한다.
+                "지금 올라오는 중"임을 표시한다. 핀이 없으면 가리킬 묶음이 없어 함께 뺀다.
               */}
-              <View style={s.liveLabel}>
-                <View style={s.liveDot} />
-                <Text style={s.liveText}>실시간 핀</Text>
-              </View>
+              {!noPins && (
+                <View style={s.liveLabel}>
+                  <View style={s.liveDot} />
+                  <Text style={s.liveText}>실시간 핀</Text>
+                </View>
+              )}
             </View>
             {/*
               주소는 제목 아래 작은 글씨 한 줄. 카카오에서 실시간으로 채우므로 비어 있을 수 있고,
               장소를 아예 불러오지 못했으면 그 자리에 이유를 적는다 — 빈 줄만 남으면 고장으로 읽힌다.
+              핀이 없으면 미등록 장소 화면과 같은 `현재 위치` 줄이 된다(모르면 줄을 비운다).
             */}
-            {place !== null ? (
+            {noPins ? (
+              myLocation.areaName !== null && (
+                <Text numberOfLines={1} style={s.lookAroundSubtitle}>
+                  현재 위치 : {myLocation.areaName}
+                </Text>
+              )
+            ) : place !== null ? (
               place.address.length > 0 && (
                 <Text numberOfLines={1} style={s.headingAddress}>
                   {place.address}
@@ -784,16 +889,16 @@ export default function Place() {
               핀이 없는 장소도 있다. 비어 있는 이유를 적어야 고장으로 읽히지 않는다.
               카드 묶음과 같은 이유로 단계에 따라 갈아 끼우지 않는다.
             */}
-            {noPins && (
+            {noPins && place !== null && (
               /*
-                이 블록이 **카드 한 칸을 그대로 차지한다.** 높이를 재서 시트에 넘기므로 글꼴
-                설정으로 글줄이 더 커져도 시트가 따라온다.
+                핀이 없으면 **미등록 장소 화면과 같은 카드**를 놓는다(`NoPinPlaceCard`) —
+                장소명·주소가 이 카드에 담기고, 50m 안이면 작성으로 부르고 밖이면 핀이 없다는
+                안내만 남는다. 등록된 장소든 아니든 "핀 없는 장소"는 같은 화면으로 읽혀야 한다.
+
+                높이를 재서 시트에 넘기므로 글꼴 설정으로 카드가 커져도 시트가 따라온다.
               */
-              <View
-                onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}
-                style={s.emptyPins}
-              >
-                <Text style={s.emptyPinsText}>지금 이곳에 올라온 핀이 없어요.</Text>
+              <View onLayout={(event) => setEmptyHeight(Math.round(event.nativeEvent.layout.height))}>
+                <NoPinPlaceCard name={place.name} address={place.address} writable={writable} />
               </View>
             )}
           </Animated.View>
@@ -967,7 +1072,19 @@ const s = StyleSheet.create({
    * 값으로 그림자가 생기지는 않는다.
    */
   pinArea: { zIndex: 1, elevation: 5 },
-  /** 핀이 없을 때 카드 자리를 대신 채우는 블록. 카드 한 칸과 같은 높이로 잡아 시트가 제자리에 있게 한다. */
-  emptyPins: { minHeight: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
-  emptyPinsText: { ...type.small, color: colors.gray400 },
+  /**
+   * 핀이 없을 때의 머리글. **미등록 장소 화면의 제목·현재 위치 줄과 같은 값이다**
+   * (`app/place/no-pins.tsx`의 `sheetTitle`·`sheetSubtitle`) — 핀 없는 장소는 등록 여부와
+   * 무관하게 같은 화면으로 읽혀야 한다.
+   */
+  lookAroundTitle: {
+    ...type.body,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 17,
+    lineHeight: 26,
+    fontWeight: '600',
+    color: colors.dark,
+  },
+  lookAroundSubtitle: { ...type.caption, color: colors.gray600, marginTop: -spacing.x1 },
 });

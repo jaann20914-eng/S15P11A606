@@ -1,4 +1,4 @@
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { Tabs } from 'expo-router';
 import { APP_TABS, AppTabBar } from '@/components/common';
 import type { AppTab } from '@/components/common';
@@ -31,6 +31,45 @@ export default function TabLayout() {
           floating={false}
           active={state.routes[state.index]?.name as AppTab}
           onTabPress={(tab) => {
+            /*
+              **얹힌 탭 겹 안에서 탭을 누르면, 겹을 전부 걷고 진짜 탭으로 간다.**
+
+              장소 화면의 "작성하러 가기"·핀 상세의 "채팅 보내기"는 탭 안 경로를 push로 열어
+              탭 그룹이 통째로 루트에 얹힌다. 그 안에서 탭을 누르면 navigate가 **복제 그룹
+              안의 탭**을 새로 마운트해, 겹은 그대로 쌓인 채 어긋난 홈이 나왔다(2026-08-06
+              실기기 — 파라미터 없는 태그 화면까지 나왔다).
+
+              루트 스택에 화면이 쌓여 있으면(= 이 탭 그룹이 겹으로 얹혀 있으면) 입구까지 걷고,
+              **원래 탭 그룹**의 그 탭으로 보낸다. 홈이면 홈 스택도 입구(index)로 되감는다 —
+              장소·핀 상세가 그리는 탭바(AppTabBar 기본 동작)와 같은 결과다.
+
+              **router가 아니라 dispatch로 직접 보낸다.** router 명령은 큐에 쌓였다 effect에서
+              실행되는데, 대상 키 계산은 부른 시점의 상태로 한다 — 겹을 걷는 명령과 함께 쓰면
+              두 번째 명령이 이미 사라진 겹의 키를 겨냥해 버려진다. 여기서 읽는 키는 전부
+              걷히지 않는 원래 그룹의 것이라 순서대로 안전하다.
+            */
+            const rootNavigation = navigation.getParent();
+            const rootState = rootNavigation?.getState();
+            if (rootNavigation !== undefined && rootState?.type === 'stack' && rootState.routes.length > 1) {
+              const baseTabsState = rootState.routes[0]?.state;
+              rootNavigation.dispatch(StackActions.popToTop());
+
+              if (baseTabsState?.key !== undefined) {
+                rootNavigation.dispatch({ ...CommonActions.navigate(tab), target: baseTabsState.key });
+
+                if (tab === 'home') {
+                  const homeStackState = baseTabsState.routes.find((route) => route.name === 'home')?.state;
+                  if (homeStackState?.key !== undefined) {
+                    rootNavigation.dispatch({
+                      ...CommonActions.navigate('index'),
+                      target: homeStackState.key,
+                    });
+                  }
+                }
+              }
+              return;
+            }
+
             /*
               마이페이지·추천 탭은 누르면 **입구(index)로 스택을 리셋**한다. 재탭이든 다른
               탭에서 넘어오든 같다.

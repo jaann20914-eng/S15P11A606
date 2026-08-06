@@ -1,6 +1,7 @@
 import { getPlaces } from './list';
 import { ApiError } from '../client';
 import { createDevLogger } from '@/utils/devLog';
+import { distanceBetween } from '@/utils/location';
 import type { PlaceActivePin, PlaceListItem } from '@/types/place';
 import { DEFAULT_CENTER, type Coordinate } from '@/store/useMapStore';
 
@@ -192,4 +193,60 @@ export async function resolvePlaceMapData(
 
   // 목록에 없더라도 좌표를 알고 있으면 지도는 그릴 수 있다. 핀만 비운다.
   return known ? { coordinate: around, activePins: [], averageCrowdLevel: null } : null;
+}
+
+/** 이름으로 찾은 등록 장소. 검색 확정이 놓친 장소를 상세로 안내하는 데 필요한 것만 담는다. */
+export interface RegisteredPlaceMatch {
+  placeId: number;
+  coordinate: Coordinate;
+}
+
+/**
+ * **이름이 정확히 같은 등록 장소**를 기준 좌표 주변(약 ±330m)에서 찾는다. 없으면 null.
+ *
+ * 검색 확정이 "미등록"이라고 답한 장소를 한 번 더 확인하는 데 쓴다. 한 가게가 카카오에 두
+ * 항목으로 올라 있을 수 있다 — 핀은 한쪽 항목으로 등록됐는데 검색이 다른 항목을 고르면,
+ * 확정은 `kakaoPlaceId`로만 찾으므로 핀이 있는 가게인데도 미등록으로 답한다(2026-08-06
+ * 실기기 — 핀이 보이는 자리에서 "작성하러 가기"가 나왔다). 이름이 정확히 같고 곁에 있으면
+ * 같은 가게로 보고 등록 장소의 상세로 안내한다.
+ *
+ * 목록 API의 한계는 `resolvePlaceMapData`와 같다(활성 핀 많은 순 최대 10건). 여기서 못
+ * 찾았다고 미등록이라고 단정할 수는 없지만, 어차피 원래 미등록으로 안내하던 화면이므로
+ * 잘못 안내하는 쪽이 넓어지지는 않는다. 실패도 같은 이유로 조용히 null로 답한다.
+ */
+export async function findRegisteredPlaceByName(
+  name: string,
+  around: Coordinate,
+): Promise<RegisteredPlaceMatch | null> {
+  if (!isPlottableCoordinate(around)) return null;
+
+  try {
+    const { places } = await getPlaces({
+      southWestLatitude: around.latitude - NEARBY_SPAN_DEGREES,
+      southWestLongitude: around.longitude - NEARBY_SPAN_DEGREES,
+      northEastLatitude: around.latitude + NEARBY_SPAN_DEGREES,
+      northEastLongitude: around.longitude + NEARBY_SPAN_DEGREES,
+    });
+    // 상세가 이 장소의 지도 정보를 곧 찾는다. 받은 김에 기억해 두면 그쪽은 다시 묻지 않는다.
+    rememberPlaceMapData(places);
+
+    const matches = places.filter((place) => place.name === name && isPlottableCoordinate(place));
+    if (matches.length === 0) return null;
+
+    // 같은 이름이 여럿이면(프랜차이즈) 기준 좌표에 가장 가까운 곳이 그 가게다.
+    const best = matches.reduce((closest, candidate) =>
+      distanceBetween(around, candidate) < distanceBetween(around, closest) ? candidate : closest,
+    );
+
+    return {
+      placeId: best.placeId,
+      coordinate: { latitude: best.latitude, longitude: best.longitude },
+    };
+  } catch (error) {
+    log('이름으로 등록 장소 찾기 실패', {
+      이름: name,
+      코드: error instanceof ApiError ? error.code : '알수없음',
+    });
+    return null;
+  }
 }

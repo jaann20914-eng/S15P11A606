@@ -71,8 +71,13 @@ export default function Onboarding() {
   // 화면 상태에 서버 enum을 그대로 담는다. 전송 직전에 한글 문구를 변환하지 않는다.
   const [ageGroup, setAgeGroup] = useState<AgeGroup>('TWENTIES');
   const [gender, setGender] = useState<Gender>('FEMALE');
-  // 서버로 보내는 값은 code다(`preferredCategories`). 라벨은 표시에만 쓴다.
-  const [selected, setSelected] = useState<PreferenceCategoryCode[]>(['PARK']);
+  /*
+    서버로 보내는 값은 code다(`preferredCategories`). 라벨은 표시에만 쓴다.
+
+    **빈 채로 시작한다.** 기본값을 넣어 두면 화면에 들어서자마자 그 카드가 골라져 있어,
+    사용자가 고른 적 없는 취향이 1순위로 굳는다 — 순서가 곧 순위인 화면이라 더 그렇다.
+  */
+  const [selected, setSelected] = useState<PreferenceCategoryCode[]>([]);
 
   // 입력·형식 검증·중복 확인은 전부 이 훅이 맡는다. 마이페이지 닉네임 수정과 같은 훅이라
   // 규칙이 한 곳에만 있다.
@@ -188,12 +193,19 @@ export default function Onboarding() {
         style={[s.screen, { paddingHorizontal: screenGutter, paddingBottom: keyboardOverlap }]}
       >
         {/* 온보딩은 아래에 진행 막대가 이어져 구분선을 겹치지 않는다. */}
-        <ScreenHeader
-          title={`${step} / 3`}
-          back={step > 1}
-          onBack={() => setStep(step - 1)}
-          divider={false}
-        />
+        {/*
+          헤더만 화면 여백보다 바깥으로 당긴다. 화면 전체에 여백이 있고 헤더·아이콘 버튼의
+          안쪽 여백까지 겹쳐 꺽새가 눈에 띄게 안쪽에 떠 보였다. 제목 자리는 헤더 기준
+          좌우 대칭이라 함께 당겨도 화면 가운데에 그대로 있다.
+        */}
+        <View style={s.headerPull}>
+          <ScreenHeader
+            title={`${step} / 3`}
+            back={step > 1}
+            onBack={() => setStep(step - 1)}
+            divider={false}
+          />
+        </View>
 
         <View style={s.progressTrack}>
           <LinearGradient
@@ -404,6 +416,8 @@ export default function Onboarding() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
   screen: { flex: 1 },
+  /** 뒤로 가기 꺽새를 화면 왼쪽에 붙인다. 공용 헤더는 다른 화면도 쓰므로 여기서만 당긴다. */
+  headerPull: { marginHorizontal: -spacing.x4 },
   progressTrack: {
     height: 4,
     overflow: 'hidden',

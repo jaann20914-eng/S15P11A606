@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError } from '@/api/client';
 import { searchPlaces } from '@/api/place/search';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
@@ -35,9 +35,19 @@ export interface SearchedPlaceFocusOptions {
  * 시작하면 이 재검색은 지울 수 있다(백엔드에 요청해 둔 항목).
  *
  * 들어올 때 한 번만 옮긴다. 그 뒤에 사용자가 지도를 끌어 옮긴 자리를 되돌리지 않는다.
+ *
+ * **찾은 좌표를 돌려준다.** 화면이 그 자리와 내 위치의 거리를 재는 데 쓴다(핀 작성 가능
+ * 판정). 파라미터로 받았으면 그 값이고, 재검색으로 얻었으면 그 값이다. 아직(또는 끝내)
+ * 모르면 null.
  */
-export function useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId }: SearchedPlaceFocusOptions): void {
+export function useSearchedPlaceFocus({
+  name,
+  coordinate,
+  kakaoPlaceId,
+}: SearchedPlaceFocusOptions): Coordinate | null {
   const focusOn = useMapStore((state) => state.focusOn);
+  /** 재검색으로 얻은 좌표. 파라미터로 받은 경우에는 쓰지 않는다. */
+  const [searched, setSearched] = useState<Coordinate | null>(null);
 
   useEffect(() => {
     if (name === undefined) return;
@@ -74,6 +84,7 @@ export function useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId }: Search
           return;
         }
 
+        setSearched({ latitude: found.latitude, longitude: found.longitude });
         focusOn({
           coordinate: { latitude: found.latitude, longitude: found.longitude },
           name,
@@ -91,4 +102,6 @@ export function useSearchedPlaceFocus({ name, coordinate, kakaoPlaceId }: Search
       alive = false;
     };
   }, [coordinate, focusOn, kakaoPlaceId, name]);
+
+  return coordinate ?? searched;
 }
