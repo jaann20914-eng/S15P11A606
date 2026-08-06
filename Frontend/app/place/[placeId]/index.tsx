@@ -213,14 +213,15 @@ export default function Place() {
   const { level, moveTo, sheetY } = sheet;
 
   /*
-    지도를 여기서 옮기지 않는다.
+    지도 이동은 보통 이 화면 밖에서 끝나 있다.
 
-    예전에는 들어오면서 목업 좌표로 아래 깔린 홈 지도를 옮겼다. 이제 홈이 카드를 누른 그
-    시점에 이미 그 장소로 옮기고 축척까지 맞춘 뒤 이 화면을 띄우므로, 여기서 또 옮기면 같은
-    자리로 한 번 더 끌려가는 셈이다.
+    홈이 카드를 누른 시점에, 검색이 결과를 고른 시점에 이미 그 장소로 옮기고 축척까지 맞춘 뒤
+    이 화면을 띄운다. 핀이 있으면 아래 핀 효과가 보고 있는 게시물로 중심을 맞춘다.
 
-    장소 상세 응답에는 좌표가 없어서(`PlaceSummary`) 옮기려면 목록 API를 한 번 더 불러야
-    한다. 홈을 거치지 않고 이 주소로 바로 들어오는 경로가 생기면 그때 붙인다.
+    **어느 쪽도 못 옮기는 경로가 하나 있다** — 최근 검색 재실행. 기록에 좌표가 없어
+    (`RecentSearch`) 확정이 지도를 옮기지 못한 채 이 화면을 열고, 그 장소에 핀이 없으면(또는
+    핀 좌표가 안 와서) 핀 효과도 돌지 않아 지도가 이전 장소에 그대로 남았다(2026-08-06
+    실기기). 그 구멍은 아래 `centeredOn` 효과가 상세 조회가 돌려준 장소 좌표로 막는다.
   */
 
   /**
@@ -495,6 +496,41 @@ export default function Place() {
       level: REVIEW_PIN_MAX_LEVEL,
     });
   }, [focusOn, focusedPin, onTop, pinIndex, pins.length]);
+
+  /**
+   * 이 장소로 지도를 옮겨 뒀는지(placeId). **한 장소에 한 번만 옮긴다** — 조용한 재조회마다
+   * 좌표 객체가 새로 만들어지므로, 표시가 없으면 위 화면에서 돌아올 때마다 지도가 끌려간다.
+   */
+  const centeredOn = useRef<number | null>(null);
+
+  /*
+    핀으로 중심을 못 잡는 장소는 **장소 좌표로 지도를 옮긴다.**
+
+    최근 검색 재실행은 좌표 없이 확정되어 홈이 지도를 옮기지 못한 채 이 화면이 열린다(위
+    참고). 핀이 좌표를 갖고 있으면 위 효과가 맡으므로 표시만 남기고, 핀이 없거나 좌표가 안 온
+    장소만 상세 조회가 함께 받아 온 장소 좌표(`usePlaceDetail.coordinate`)로 옮긴다.
+
+    조회가 끝난 뒤에 판단한다(`loading`) — 핀이 올지 모르는 동안 장소로 옮기면 핀 효과와
+    연달아 두 번 끌려간다.
+  */
+  useEffect(() => {
+    if (!onTop || loading || centeredOn.current === numericPlaceId) return;
+
+    if (focusedPin !== null && focusedPin.latitude !== null && focusedPin.longitude !== null) {
+      centeredOn.current = numericPlaceId;
+      return;
+    }
+
+    if (coordinate === null || place === null) return;
+
+    centeredOn.current = numericPlaceId;
+    log('진입 — 장소 좌표로 지도 이동', {
+      장소: place.name,
+      좌표: `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`,
+      사정: '핀으로 중심을 잡을 수 없어 장소 좌표를 쓴다',
+    });
+    focusOn({ coordinate, name: place.name, level: REVIEW_PIN_MAX_LEVEL });
+  }, [coordinate, focusOn, focusedPin, loading, numericPlaceId, onTop, place]);
 
   useEffect(() => {
     const animation = Animated.timing(chartReveal, {
