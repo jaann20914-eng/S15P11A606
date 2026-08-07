@@ -258,36 +258,35 @@ export function RecommendPlaceCard({
           )}
         </View>
       ) : (
-        <ScrollView
-          ref={scrollRef}
-          style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}
-          /* 진단(임시): 칸에 지시한 높이와 실제로 잡힌 높이가 같은지 본다. */
-          onLayout={(event) => {
-            if (!__DEV__) return;
-            console.log('[recommend] 핀 칸', {
-              장소: place.name,
-              카드실측: Math.round(pinCardHeight),
-              지시한높이: Math.round(pinCardHeight + PIN_SLOT_PADDING * 2),
-              실제칸높이: Math.round(event.nativeEvent.layout.height),
-            });
-          }}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={s.pagePinsContent}
-          nestedScrollEnabled
-          onScroll={trackScroll}
-          onScrollEndDrag={settleScroll}
-          onMomentumScrollEnd={settleScroll}
-          scrollEventThrottle={80}
-        >
-          <RecommendPlacePins
-            pins={pins}
-            placeName={place.name}
-            filter={mode}
-            selectedPinId={selectedPinId}
-            onCardPosition={rememberCardPosition}
-            onFirstCardHeight={setPinCardHeight}
-          />
-        </ScrollView>
+        /*
+          높이는 **이 상자**가 잡고 스크롤은 그 안을 채운다.
+
+          ScrollView에 직접 높이를 줘 봤더니 지시한 251이 아니라 367로 잡혔다(2026-08-07 실기기).
+          스크롤 뷰는 안쪽 내용에 따라 제 높이를 다시 정하려 드는 자리라, 높이를 못 박는 일은
+          평범한 상자에 맡기고 스크롤은 그 안을 가득 채우게 한다.
+        */
+        <View style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}>
+          <ScrollView
+            ref={scrollRef}
+            style={s.pagePinsFill}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={s.pagePinsContent}
+            nestedScrollEnabled
+            onScroll={trackScroll}
+            onScrollEndDrag={settleScroll}
+            onMomentumScrollEnd={settleScroll}
+            scrollEventThrottle={80}
+          >
+            <RecommendPlacePins
+              pins={pins}
+              placeName={place.name}
+              filter={mode}
+              selectedPinId={selectedPinId}
+              onCardPosition={rememberCardPosition}
+              onFirstCardHeight={setPinCardHeight}
+            />
+          </ScrollView>
+        </View>
       )}
     </View>
   );

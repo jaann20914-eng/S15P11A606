@@ -110,6 +110,8 @@ export const recommendStyles = StyleSheet.create({
    * 반쯤 걸쳐 잘린 카드처럼 보였다. 남는 높이는 지도가 가져간다.
    */
   pagePins: { height: PIN_SLOT_HEIGHT },
+  /** 높이를 잡는 것은 바깥 상자이고, 스크롤은 그 안을 가득 채우기만 한다. */
+  pagePinsFill: { flex: 1 },
   /** 위아래 여백은 짧게 둔다. 핀 카드 한 장이 통째로 들어갈 높이를 여기서 벌어 준다. */
   pagePinsContent: { paddingHorizontal: CARD_INNER_PADDING, paddingVertical: PIN_SLOT_PADDING },
   /**
