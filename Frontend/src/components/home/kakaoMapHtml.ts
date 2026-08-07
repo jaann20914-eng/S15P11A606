@@ -127,10 +127,18 @@ export const REVIEW_PIN_MAX_LEVEL = 1;
  * `unpinned`는 `MapPatch.filter`가 될 수 없다 — 혼잡도 필터가 아니라 마커가 스스로 고르는
  * 계열이라, 그 마커(`MapPlaceMarker.unpinned`)만 직접 집어 쓴다.
  */
-const pinTone: Record<CrowdFilter | 'unpinned', { fill: string; ring: string }> = {
+const pinTone: Record<CrowdFilter | 'unpinned', { fill: string; ring: string; dot?: string }> = {
   relaxed: { fill: color.pin.relaxed.strong, ring: color.pin.relaxed.soft },
   wagle: { fill: color.pin.wagle.strong, ring: color.pin.wagle.soft },
-  unpinned: { fill: color.pin.neutral.strong, ring: color.pin.neutral.soft },
+  /*
+    `dot`은 물방울 안쪽 점이다. 이 계열만 넘긴다 — 밝은 회색 위에서는 기본값인 흰 점이
+    사라지기 때문이다(`color.pin.neutral.label`에 대비값을 적어 두었다).
+  */
+  unpinned: {
+    fill: color.pin.neutral.strong,
+    ring: color.pin.neutral.soft,
+    dot: color.pin.neutral.label,
+  },
 };
 
 export interface KakaoMapHtmlOptions {
@@ -319,10 +327,16 @@ export function buildKakaoMapHtml({
   function dropElement(tone) {
     var el = document.createElement('div');
     el.className = 'pin';
+    /*
+      안쪽 점은 계열이 정할 수 있다. 기본은 흰색이고, 라임·코럴은 진해서 그대로 읽힌다.
+      밝은 계열(핀이 없는 장소의 회색)만 자기 점 색을 넘긴다 — 흰 점을 두면 사라져 물방울이
+      통짜 덩어리로 보인다.
+    */
+    var dot = tone.dot || '#ffffff';
     el.innerHTML =
       '<svg class="pin-drop" width="42" height="54" viewBox="0 0 42 54" xmlns="http://www.w3.org/2000/svg">' +
       '<path d="M21 53C21 53 39 31.5 39 19.6C39 9.3 30.9 1 21 1C11.1 1 3 9.3 3 19.6C3 31.5 21 53 21 53Z" fill="' + tone.fill + '"/>' +
-      '<circle cx="21" cy="19.6" r="7.6" fill="#ffffff"/>' +
+      '<circle cx="21" cy="19.6" r="7.6" fill="' + dot + '"/>' +
       '</svg>';
     return el;
   }

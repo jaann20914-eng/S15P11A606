@@ -49,6 +49,16 @@ const ESTIMATED_HEADER_HEIGHT = 92;
  */
 const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
 
+/**
+ * 핀이 하나도 없을 때 이 장소 자리에 찍는 마커의 id.
+ *
+ * 겹의 마커는 원래 `pinId`(UUID)인데 이 경우엔 핀이 없어 쓸 id가 없다. 고정 문자열로 둔다 —
+ * 눌렸을 때 우리 핀 중 하나가 아님을 가리는 데도 쓴다(`pressedPinId`).
+ * 미등록 장소 화면의 같은 마커와 id를 나눠 쓰지 않는다. 두 화면은 겹쳐 열릴 수 있고, 서로
+ * "내가 올린 겹"을 id로 가리기 때문이다(`app/place/no-pins.tsx`).
+ */
+const PLACE_SPOT_MARKER_ID = 'place-spot';
+
 /** "실시간 핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
 const LIVE_DOT_SIZE = 7;
 
@@ -400,6 +410,33 @@ export default function Place() {
     [markerTone, pins],
   );
 
+  /**
+   * 지도에 올릴 마커. 핀이 있으면 그 핀들이고, **하나도 없으면 이 장소를 가리키는 회색 물방울
+   * 하나다**(`MapMarker.unpinned` — 미등록 장소 화면과 같은 마커다).
+   *
+   * 등록된 장소인데도 마커가 없을 수 있다. 활성 핀은 **최근 1시간**이라 다 만료되면 이 화면은
+   * 미등록 장소와 똑같은 빈 상태가 되는데(아래 `NoPinPlaceCard`), 그때 지도에는 아무 표시도
+   * 없었다 — 검색으로 들어와 "핀이 없다"는 안내만 받고 정작 그 장소가 어디인지는 짚을 수 없었다
+   * (2026-08-07 실기기: 48~52m 거리의 메가커피). 프랜차이즈는 검색 확정이 이름으로 곁의 다른
+   * 지점을 찾아 이 화면으로 오는 경로도 있어(`findRegisteredPlaceByName`) 더 자주 걸린다.
+   *
+   * **등록 여부와 무관하게 같은 화면으로 읽혀야 한다** — 카드도 시트 높이도 이미 그렇게 맞춰
+   * 두었으므로 지도도 같아야 한다.
+   */
+  const markers = useMemo(() => {
+    if (pinMarkers.length > 0 || coordinate === null) return pinMarkers;
+
+    return [
+      {
+        id: PLACE_SPOT_MARKER_ID,
+        name: place?.name ?? '',
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+        unpinned: true,
+      },
+    ];
+  }, [coordinate, pinMarkers, place]);
+
   /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */
   const focusedPin = pins[pinIndex] ?? null;
 
@@ -419,10 +456,15 @@ export default function Place() {
     if (!onTop || detail === null) return;
 
     showPinOverlay({
-      markers: pinMarkers,
+      /*
+        핀이 없으면 이 장소를 가리키는 회색 물방울 하나다(`markers` 설명). 고른 핀은 없으므로
+        `selectedPinId`는 null이다 — 그 칸은 "보고 있는 게시물"을 가리키는 자리이고, 회색
+        물방울의 모양은 마커가 스스로 정한다.
+      */
+      markers,
       selectedPinId: pinMarkers.length > 0 ? (focusedPin?.pinId ?? null) : null,
     });
-  }, [detail, focusedPin, onTop, pinMarkers, showPinOverlay]);
+  }, [detail, focusedPin, markers, onTop, pinMarkers.length, showPinOverlay]);
 
   /*
     **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
@@ -457,6 +499,9 @@ export default function Place() {
         펼쳐진 목록(확장)은 건드리지 않는다 — 훑던 자리를 잃는다.
       */
       if (level === 0) moveTo(1);
+    } else if (pressedPinId === PLACE_SPOT_MARKER_ID && level === 0) {
+      // 핀이 없을 때 찍은 그 장소 마커. 넘길 카드는 없지만 시트는 같은 규칙으로 올린다.
+      moveTo(1);
     }
     // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
     clearPressedPin();
