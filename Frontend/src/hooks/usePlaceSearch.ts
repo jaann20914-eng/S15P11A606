@@ -78,8 +78,11 @@ export interface PlaceSearch {
 /**
  * 키워드로 주변 장소를 찾는다.
  *
- * 명세대로 입력이 멈춘 뒤 700ms를 기다리고, 앞뒤 공백을 지운 검색어가 2자 이상일 때만
- * 요청한다.
+ * 입력이 멈춘 뒤 `PLACE_SEARCH_DEBOUNCE_MS`를 기다리고, 앞뒤 공백을 지운 검색어가 2자
+ * 이상일 때만 요청한다.
+ *
+ * **기다리는 동안 앞의 결과를 지우지 않는다.** 목록이 비었다가 다시 채워지면 글자를 칠 때마다
+ * 화면이 한 번씩 깜빡인다. 새 결과가 도착할 때 한 번에 갈아 끼운다.
  *
  * 좌표는 회원가입 때 받은 위치 권한으로 바로 읽는다. 이 화면에서는 권한을 다시 묻지 않는다.
  *
@@ -89,10 +92,7 @@ export interface PlaceSearch {
  * 핀 등록은 반경을 주지 않는다. 그러면 서버가 50m로 고정하고, 그 범위가 곧 등록 가능한
  * 장소의 범위가 된다(등록 요청의 촬영 좌표도 장소에서 50m 이내여야 한다).
  */
-export function usePlaceSearch({
-  radius,
-  fallbackCoordinate,
-}: PlaceSearchOptions = {}): PlaceSearch {
+export function usePlaceSearch({ radius, fallbackCoordinate }: PlaceSearchOptions = {}): PlaceSearch {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<PlaceSearchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -245,8 +245,7 @@ export function usePlaceSearch({
           */
           setRetryable(
             cause instanceof ApiError &&
-              (cause.code === 'EXTERNAL_PLACE_API_UNAVAILABLE' ||
-                cause.code === 'EXTERNAL_PLACE_API_ERROR'),
+              (cause.code === 'EXTERNAL_PLACE_API_UNAVAILABLE' || cause.code === 'EXTERNAL_PLACE_API_ERROR'),
           );
           setError(cause instanceof Error ? cause.message : '장소를 찾지 못했어요');
         });

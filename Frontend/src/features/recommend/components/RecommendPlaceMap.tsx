@@ -113,7 +113,8 @@ function centerOf(points: { latitude: number; longitude: number }[]): Coordinate
  * "그래서 여기가 어디냐"에 답하는 것뿐이라, 조작 수단을 두면 사용자가 지도를 탐색하다 화면의
  * 목적(장소 하나 살펴보기)에서 벗어난다.
  *
- * `usePlaceSearch`를 켜지 않으므로 검색용 SDK 번들도 받지 않는다 — 첫 렌더가 그만큼 빠르다.
+ * 검색용 SDK 번들(`libraries=services`)은 어느 화면도 받지 않는다 — 장소 검색은 전부 우리
+ * 백엔드를 지나므로 지도는 본체만 받는다(`kakaoMapHtml.ts`). 첫 렌더가 그만큼 빠르다.
  */
 export function RecommendPlaceMap({
   name,

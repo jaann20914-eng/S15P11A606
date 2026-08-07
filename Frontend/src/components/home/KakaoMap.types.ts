@@ -1,5 +1,5 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import type { MapPlaceMarker, MapViewState, ResolvedPlace } from './kakaoMapHtml';
+import type { MapPlaceMarker, MapViewState } from './kakaoMapHtml';
 import type { Coordinate } from '@/store/useMapStore';
 import type { CrowdFilter } from '@/constants/crowdLevels';
 
@@ -39,12 +39,6 @@ export interface KakaoMapProps {
    * 화면에서 `onReady`로 `fitPlaces()`를 부르는 것과 결과는 같지만, 낭비되는 왕복이 없다.
    */
   fitPlacesOnReady?: boolean;
-  /**
-   * 이 화면에서 `searchPlace`를 쓰는지.
-   *
-   * 검색에 필요한 `libraries=services`는 별도 번들이라 첫 렌더를 늦춘다. 쓰는 화면만 켠다.
-   */
-  usePlaceSearch?: boolean;
   myLocation?: Coordinate | null;
   fullScreen?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -55,10 +49,6 @@ export interface KakaoMapProps {
   onViewChange?: (view: MapViewState) => void;
   /** 지도 초기화가 끝나 명령을 받을 수 있게 된 시점 */
   onReady?: () => void;
-  /** `searchPlace`로 장소를 찾았을 때 */
-  onPlaceResolved?: (place: ResolvedPlace) => void;
-  /** `searchPlace`가 결과를 찾지 못했을 때 */
-  onPlaceNotFound?: (keyword: string, reason: 'no-result' | 'search-failed') => void;
   /**
    * 바텀시트 등에 가려지는 하단 높이(px).
    * 중심 이동 시 마커가 가려지지 않도록 보이는 영역의 중앙에 오게 보정한다.
@@ -118,8 +108,6 @@ export interface KakaoMapHandle extends MapGestureControl {
    * 처리하는지는 `kakaoMapHtml.ts`의 `focusPlace`에 적어 두었다.
    */
   focusPlace: (coordinate: Coordinate, targetLevel: number) => void;
-  /** 장소명으로 검색해 그 위치로 이동한다. 결과는 `onPlaceResolved`로 온다. */
-  searchPlace: (keyword: string) => void;
   setLevel: (level: number) => void;
   /** 현재 핀이 모두 보이도록 지도 영역을 맞춘다. */
   fitPlaces: () => void;

@@ -22,14 +22,13 @@ import {
   useAppTabBarHeight,
   ViewAvatar,
 } from '@/components/common';
-import { NextPlaceButton, PLACE_PIN_CARD_HEIGHT } from '@/components/place';
+import { PLACE_PIN_CARD_HEIGHT } from '@/components/place';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate, MapBounds } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
-import { useNextPlace } from '@/hooks/useNextPlace';
 import { createDevLogger } from '@/utils/devLog';
 import { distanceBetween } from '@/utils/location';
 import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
@@ -43,6 +42,19 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 경우에만 걸리고, 넘기면 기본 중심으로 먼저 띄운다 — 지도가 안 보이는 것보다는 낫다.
  */
 const MY_LOCATION_WAIT_MS = 1500;
+
+/**
+ * 지도를 열 자리를 정할 때 받아들이는 캐시 좌표의 최대 나이(ms).
+ *
+ * 기본값은 1분인데(`utils/location`), **그 안에 든 캐시가 없으면 새로 측위해야 하고 그것이 최대
+ * 16초다.** 위 기다림은 1.5초뿐이라 그 경우 늘 기본 중심으로 떨어졌다 — 앱을 처음 열면 성수에서
+ * 시작하는 것으로 보인 원인이다(2026-08-07 실기기).
+ *
+ * 10분 지난 좌표라도 대개 같은 동네다. **지도를 어디서 열지**를 정하는 데는 그것이 서울숲보다
+ * 비교할 수 없이 낫다. 거리를 재는 자리에는 쓰지 않는다 — 이 화면은 목록 정렬과 내 위치 마커에만
+ * 쓰고, 50m 판정을 하는 화면들은 기본값을 그대로 둔다.
+ */
+const INITIAL_CENTER_MAX_AGE_MS = 10 * 60 * 1000;
 
 /**
  * 측정이 오기 전에 쓰는 어림값.
@@ -143,9 +155,6 @@ export default function Home() {
    */
   const pressPin = useMapStore((state) => state.pressPin);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
-  /** 20m에서 돌려 볼 장소들. 이 화면이 채우고 옆 장소 버튼이 읽는다. */
-  const nearbyPlaces = useMapStore((state) => state.nearbyPlaces);
-  const setNearbyPlaces = useMapStore((state) => state.setNearbyPlaces);
   const [mapReady, setMapReady] = useState(false);
 
   /** 잠깐 띄우는 한 마디. 없으면 null. */
@@ -176,6 +185,16 @@ export default function Home() {
   const [start, setStart] = useState<Coordinate | null>(null);
 
   /**
+   * 좌표를 못 기다려 기본 중심으로 지도를 열었는지.
+   *
+   * 그랬다면 좌표가 늦게 도착할 때 그 자리로 옮겨야 한다(아래 효과). 내 위치에서 시작했으면
+   * 옮길 이유가 없다.
+   */
+  const startedAtDefault = useRef(false);
+  /** 늦게 온 좌표를 이미 처리했는지. 한 번만 옮긴다. */
+  const centeredOnMyLocation = useRef(false);
+
+  /**
    * 옮겨 갈 좌표를 한 렌더 동안 들고 있는다.
    *
    * 지도 중심 보정은 **바텀시트가 가리는 높이**를 기준으로 계산한다. 카드를 누르면 시트
@@ -187,8 +206,16 @@ export default function Home() {
    */
   const [pendingPan, setPendingPan] = useState<{ coordinate: Coordinate; level: number } | null>(null);
   const mapRef = useRef<KakaoMapHandle>(null);
-  // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
-  const myLocation = useCurrentLocation({ auto: true });
+  /*
+    지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
+
+    **미리 읽기는 오래된 캐시 좌표까지 받는다**(`INITIAL_CENTER_MAX_AGE_MS`). 기본값(1분)으로는
+    앱을 오래 닫아 뒀다 열 때마다 캐시가 거부되고, 그러면 새 측위에 최대 16초가 걸려 아래
+    기다림이 먼저 끝나 버린다 — 그것이 "고정된 장소에서 시작한다"의 원인이었다. 이 화면은 그
+    좌표로 거리 판정을 하지 않으므로(목록 정렬과 내 위치 마커) 몇 분 지난 값이어도 괜찮고,
+    버튼을 누르면 그때 엄격하게 다시 읽는다(`request`).
+  */
+  const myLocation = useCurrentLocation({ auto: true, autoMaxAgeMs: INITIAL_CENTER_MAX_AGE_MS });
   const navBarHeight = useAppTabBarHeight();
 
   /*
@@ -295,8 +322,8 @@ export default function Home() {
   /**
    * 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다.
    *
-   * **저장소에 둔다.** 20m에서만 있는 컨트롤(옆 장소 버튼)이 위에 겹치는 장소 상세에도 떠야
-   * 하는데, 그 화면은 자기 지도가 없어 축척을 알 길이 없다.
+   * **저장소에 둔다.** 위에 겹치는 화면들(장소 상세·미등록 장소)은 자기 지도가 없어 축척을
+   * 알 길이 없고, 축척으로 갈리는 동작이 생기면 이 값 말고는 볼 것이 없다.
    */
   const mapLevel = useMapStore((state) => state.mapLevel);
   const setMapLevel = useMapStore((state) => state.setMapLevel);
@@ -361,11 +388,11 @@ export default function Home() {
   );
 
   /**
-   * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
+   * 상세 화면으로 넘어간다. **같은 카드를 두 번째로 누를 때**와 **꺽새를 누를 때** 온다.
    *
-   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
-   * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
-   * 이어지는 일이 없다.
+   * 첫 탭은 "저기가 어디인지 보고 싶다"로 읽어 지도 이동으로 답하고, 같은 카드를 한 번 더
+   * 누르면 그 장소를 보러 가겠다는 뜻으로 읽는다(`pressCard`). 꺽새는 그 두 단계를 건너뛰는
+   * 지름길이라 한 번에 넘어간다.
    *
    * **넘어가면서 그 장소를 핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
    * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
@@ -405,8 +432,8 @@ export default function Home() {
 
       /*
         **고른 것으로 표시해 둔다.** 카드 꺽새로 들어오는 길은 이미 골라져 있지만, 20m까지 당겨
-        저절로 열리는 길과 옆 장소로 돌려 보는 길은 여기서만 정해진다 — 그 값이 "지금 어디"의
-        기준이라(`useNextPlace`) 비어 있으면 돌려 보기가 늘 첫 장소에서 다시 시작한다.
+        저절로 열리는 길은 여기서만 정해진다 — 그 값이 비어 있으면 홈으로 돌아왔을 때 방금 본
+        장소의 카드가 골라져 있지 않다.
       */
       selectPlace(placeId);
       router.push(`/place/${placeId}`);
@@ -443,6 +470,47 @@ export default function Home() {
       });
     },
     [level, moveTo, inView.places, selectPlace],
+  );
+
+  /**
+   * 카드를 연달아 누른 횟수. **한 카드만 센다.**
+   *
+   * 다른 카드를 누르면 그 카드부터 다시 세고 앞 카드의 횟수는 버린다. 화면을 떠났다 돌아오면
+   * 통째로 비운다(아래 `useFocusEffect`). 카드마다 쌓이는 값이 아니라 **지금 손이 머무는 카드**
+   * 하나에 대한 값이다.
+   *
+   * 상태가 아니라 ref다 — 이 값으로 그리는 것이 없어 바뀔 때마다 다시 그릴 이유가 없다.
+   */
+  const cardTaps = useRef<{ placeId: string; count: number }>({ placeId: '', count: 0 });
+
+  /**
+   * 카드를 눌렀을 때. **첫 번째는 지도 이동, 두 번째는 상세다.**
+   *
+   * 예전에는 카드 안의 꺽새만 상세로 가는 길이라, 그 작은 표적을 찾아내야만 장소를 볼 수 있었다
+   * (2026-08-07 팀 의견). 카드 전체를 누를 수 있게 하되 **첫 탭을 곧바로 상세로 보내지는
+   * 않는다** — 카드를 누르는 손짓의 대부분은 "저기가 어디냐"이고, 그때마다 화면이 바뀌면 지도를
+   * 보려던 탭이 전환이 된다. 한 번 더 누르는 것이 그 뜻을 확인해 준다.
+   *
+   * **시간 제한을 두지 않는다.** 더블탭 제스처가 아니라 누른 횟수다 — 천천히 두 번 눌러도
+   * 넘어가고, 그 사이에 지도를 둘러봐도 횟수가 남는다. 초기화되는 조건은 두 가지뿐이다:
+   * 다른 카드를 누르거나, 홈을 떠났다 돌아오거나.
+   */
+  const pressCard = useCallback(
+    (placeId: string) => {
+      const previous = cardTaps.current;
+      const count = previous.placeId === placeId ? previous.count + 1 : 1;
+
+      if (count >= 2) {
+        // 상세로 가므로 비운다. 돌아왔을 때 한 번 더 누르면 다시 첫 탭이다.
+        cardTaps.current = { placeId: '', count: 0 };
+        openPlace(placeId);
+        return;
+      }
+
+      cardTaps.current = { placeId, count };
+      focusPlace(placeId);
+    },
+    [focusPlace, openPlace],
   );
 
   /**
@@ -540,9 +608,50 @@ export default function Home() {
       return;
     }
 
-    const timer = setTimeout(() => setStart(DEFAULT_CENTER), MY_LOCATION_WAIT_MS);
+    const timer = setTimeout(() => {
+      startedAtDefault.current = true;
+      setStart(DEFAULT_CENTER);
+    }, MY_LOCATION_WAIT_MS);
     return () => clearTimeout(timer);
   }, [myLocation.coordinate, start]);
+
+  /*
+    **기본 중심으로 시작했으면, 좌표가 늦게 와도 그 자리로 옮긴다.**
+
+    위 기다림은 1.5초뿐이고 지도는 **만들 때의 중심을 한 번만 심는다**(`KakaoMap.initialCenter`).
+    그래서 그 뒤에 도착한 좌표를 아무도 쓰지 않았다 — 캐시된 좌표가 없어 새로 측위해야 하는
+    경우 최대 16초가 걸리는데(`utils/location`의 두 단계 타임아웃), 그러면 그 세션 내내 서울숲에
+    머물렀다. 내 위치 버튼을 눌러야 겨우 옮겨졌다(2026-08-07 실기기).
+
+    캐시 나이를 늘려(`INITIAL_CENTER_MAX_AGE_MS`) 이 경우 자체를 드물게 만들었지만, **캐시가
+    아예 없는 첫 실행**은 여전히 여기로 온다.
+
+    **한 번만 옮기고, 사용자가 이미 무언가를 하고 있으면 두지 않는다.** 위에 겹친 화면이 있거나
+    장소를 골라 둔 상태면 그 자리를 빼앗는 셈이다. 지도를 손으로 옮겼는지는 보지 않는다 —
+    `fitPlacesOnReady`가 스스로 중심을 옮기므로 중심만 봐서는 손이 닿았는지 가릴 수 없고, 이
+    경로는 앱을 열고 몇 초 안이라 실제로 겹칠 일이 드물다.
+  */
+  useEffect(() => {
+    if (!mapReady || !startedAtDefault.current || centeredOnMyLocation.current) return;
+    if (myLocation.coordinate === null) return;
+
+    // 한 번 판단하면 끝낸다. 옮기지 않기로 했더라도 다시 묻지 않는다.
+    centeredOnMyLocation.current = true;
+
+    if (!onTop || pinOverlay !== null || selectedPlaceId !== null) {
+      log('늦게 온 내 위치 — 옮기지 않음', {
+        이유: !onTop || pinOverlay !== null ? '위에 다른 화면이 있다' : '장소를 골라 둔 상태',
+      });
+      return;
+    }
+
+    log('늦게 온 내 위치로 지도를 옮김', {
+      좌표: `${myLocation.coordinate.latitude.toFixed(6)}, ${myLocation.coordinate.longitude.toFixed(6)}`,
+      사정: '기본 중심으로 열렸다가 측위가 끝났다',
+    });
+    // 내 위치 버튼과 같은 경로다. 시트가 가리는 높이는 그쪽이 알아서 보정한다.
+    mapRef.current?.panTo(myLocation.coordinate);
+  }, [mapReady, myLocation.coordinate, onTop, pinOverlay, selectedPlaceId]);
 
   /*
     검색 화면에서 고른 장소로 이동한다.
@@ -574,8 +683,7 @@ export default function Home() {
     **사용자가 직접 20m까지 당기면 그 자리의 장소를 열어 준다.**
 
     그 축척은 카카오가 주는 가장 가까운 눈금이라, 거기까지 당긴 것은 "이 장소를 들여다보겠다"는
-    뜻으로 읽는다. 그래서 가장 가까운 장소의 상세를 띄우고, 화면에 담긴 나머지 장소는 돌려 볼
-    목록으로 저장소에 올려 둔다(`nearbyPlaces` → 옆 장소 버튼).
+    뜻으로 읽는다. 그래서 **가장 가까운 장소의 상세를 띄운다.**
 
     **당긴 그 순간에만 한다.** 20m에 머무는 동안 지도를 밀 때마다 다시 열면 손이 지도를 놓지
     못한다. 직전 축척을 들고 있다가 20m로 **넘어오는 순간**만 잡는다.
@@ -614,11 +722,9 @@ export default function Home() {
       프레임마다 스크립트를 주입하므로, 상세를 열어 둔 채 지도를 다루면 눈에 띄게 버벅였다
       (2026-08-05 실기기). 접어 두면 그 뒤의 지도 조작은 다시 홈의 빠른 길로 돌아간다.
 
-      우리가 연 것만 접는다. 그리고 목록도 함께 버려 버튼이 사라진다.
+      우리가 연 것만 접는다.
     */
     if (mapLevel > REVIEW_PIN_MAX_LEVEL) {
-      if (nearbyPlaces.length > 0) setNearbyPlaces([]);
-
       if (openedByZoom.current) {
         openedByZoom.current = false;
         /*
@@ -639,13 +745,13 @@ export default function Home() {
     if (!onTop || from <= REVIEW_PIN_MAX_LEVEL) return;
 
     /*
-      화면에 담긴, 핀이 올라온 장소들. **사용자에게 가까운 순**이다.
+      화면에 담긴, 핀이 올라온 장소들 중 **가장 가까운 한 곳**을 고른다.
 
       보이는 마커와 같은 목록을 쓴다(`visiblePlaces` — 혼잡도 토글이 걸러 낸 것). 지도에 없는
-      장소로 넘어가면 버튼이 어디로 데려간 것인지 알 수 없다.
+      장소가 열리면 무엇이 열린 것인지 알 수 없다.
 
       기준점은 내 위치이고, 없으면 지도 중심이다 — 권한을 주지 않은 사용자에게도 "가까운 순"이
-      성립해야 한다. 화면 밖은 뺀다: 당긴 화면에 담긴 것만 돌려 본다.
+      성립해야 한다. 화면 밖은 뺀다: 당긴 화면에 담긴 것만 본다.
     */
     // 지도 중심은 여기서만 필요하다. 구독하면 지도가 멈출 때마다 이 화면이 다시 그려진다.
     const origin = myLocation.coordinate ?? useMapStore.getState().center;
@@ -658,10 +764,10 @@ export default function Home() {
       .sort((left, right) => left.distance - right.distance)
       .map((item) => item.marker);
 
-    setNearbyPlaces(found);
     log('20m 도달', {
       직전축척: from,
-      돌려볼장소: found.map((place) => place.name),
+      열장소: found[0]?.name ?? '없음',
+      화면안장소: found.length,
       기준점: myLocation.coordinate ? '내 위치' : '지도 중심',
     });
 
@@ -677,16 +783,7 @@ export default function Home() {
     // 우리가 여는 것이므로 표시해 둔다. 축척이 그 자리를 벗어나면 우리가 접는다.
     openedByZoom.current = true;
     openPlace(found[0].id);
-  }, [
-    bounds,
-    mapLevel,
-    myLocation.coordinate,
-    nearbyPlaces.length,
-    onTop,
-    openPlace,
-    setNearbyPlaces,
-    visiblePlaces,
-  ]);
+  }, [bounds, mapLevel, myLocation.coordinate, onTop, openPlace, visiblePlaces]);
 
   /* 한 마디는 잠깐 있다 사라진다. 새 안내가 들어오면 그때부터 다시 센다. */
   useEffect(() => {
@@ -727,9 +824,9 @@ export default function Home() {
       **겹이 비는 순간이 곧 상세가 닫힌 것은 아니다.**
 
       화면이 갈릴 때도 잠깐 빈다. 그때 넓히면 20m를 벗어나 방금 연 상세가 접히고, 다시 20m로
-      돌아와 첫 장소가 열린다 — 옆 장소 버튼 한 번에 홈을 거쳐 한 바퀴 도는 것으로 보였다
-      (2026-08-05 실기기). 돌려 보기는 이제 화면을 갈아 끼우지 않지만, 판단의 근거를 "겹이
-      비었다"에서 **"홈이 실제로 맨 위로 돌아왔다"**로 옮겨 둔다.
+      돌아와 첫 장소가 열린다 — 한 번의 조작이 홈을 거쳐 한 바퀴 도는 것으로 보였다(2026-08-05
+      실기기, 지금은 없어진 옆 장소 버튼에서). 판단의 근거를 "겹이 비었다"에서 **"홈이 실제로
+      맨 위로 돌아왔다"**로 옮겨 두었으므로 같은 일이 다시 나지 않는다.
 
       표시는 그때까지 남겨 둔다 — 늦게 돌아와도 넓히는 일을 놓치지 않는다.
     */
@@ -763,6 +860,12 @@ export default function Home() {
       */
       openedByZoom.current = false;
       /*
+        **카드 탭 횟수를 비운다.** 탭바로 다른 화면을 거쳐 왔든 상세에서 뒤로 왔든, 돌아온
+        홈에서 카드를 처음 누르는 것은 늘 "저기가 어디냐"여야 한다. 떠나기 전의 한 번이 남아
+        있으면 돌아와서 무심코 누른 카드가 곧바로 상세로 넘어간다(`cardTaps`).
+      */
+      cardTaps.current = { placeId: '', count: 0 };
+      /*
         **탭바 홈 버튼으로 돌아왔으면 축척을 건드리지 않는다**(`keepMapLevelOnce`). 상세가
         닫히며 남은 축척 복원 표시가 이 복귀에서 소비되면 지도가 갑자기 넓어진다 — 버튼으로
         돌아온 홈은 보던 축척 그대로가 맞다. 뒤로 가기로 닫는 길은 이 요청이 없어 기존대로다.
@@ -784,15 +887,6 @@ export default function Home() {
    *   상세 화면에서 버튼이 사라지지 않은 이유가 이것이었다. 시트를 감추는 것과 같은 조건이다.
    */
   const locationButton = useFadeToggle(onTop && level !== 2);
-
-  /**
-   * 옆 장소로 돌려 보기. **20m까지 당겨 화면에 두 곳 이상이 담겼을 때만** 버튼이 있다.
-   *
-   * 이 화면에서는 상세를 처음 여는 것이라 화면을 쌓는다(장소 상세에서 누를 때는 갈아 끼운다).
-   * 내 위치 버튼과 같은 조건으로 함께 감춘다 — 최대화 단계에서는 시트가 그 자리를 덮는다.
-   */
-  const nextPlace = useNextPlace();
-  const nextPlaceButton = useFadeToggle(nextPlace.visible && onTop && level !== 2);
 
   /** 잠깐 뜨는 한 마디의 나타남·사라짐. 조건을 그대로 걸면 1초짜리 안내가 깜빡임으로 읽힌다. */
   const hintToggle = useFadeToggle(hint !== null);
@@ -898,22 +992,6 @@ export default function Home() {
             {myLocation.message}
           </Text>
         )}
-
-        {/*
-          **옆 장소로 돌려 보는 버튼.** 20m까지 당겨 화면에 여러 장소가 담겼을 때만 나타난다.
-
-          여기서는 상세를 처음 여는 것이라 화면을 쌓는다(`replace` 없이). 상세에서 누를 때는
-          갈아 끼운다 — 그쪽 화면이 그렇게 부른다.
-
-          내 위치 버튼과 같은 조건으로 함께 감춘다. 최대화 단계에서는 시트가 그 자리를 덮는다.
-        */}
-        {nextPlaceButton.mounted && (
-          <NextPlaceButton
-            onPress={nextPlace.goNext}
-            enabled={nextPlace.enabled}
-            style={nextPlaceButton.style}
-          />
-        )}
       </View>
 
       {/*
@@ -1014,8 +1092,9 @@ export default function Home() {
                 key={place.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${place.name} 지도에서 보기`}
+                accessibilityHint="한 번 더 누르면 장소 상세로 이동합니다"
                 accessibilityState={{ selected: place.id === selectedPlaceId }}
-                onPress={() => focusPlace(place.id)}
+                onPress={() => pressCard(place.id)}
                 style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
               >
                 <View style={s.cardTop}>
@@ -1028,24 +1107,27 @@ export default function Home() {
                     </Text>
                   </View>
                   {/*
-                    상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+                    상세로 가는 **지름길**이다. 카드 전체도 두 번 누르면 같은 곳으로 가지만,
+                    이쪽은 한 번이면 된다.
 
                     고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
                     예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
                     실제로는 카드와 같은 동작이라 오해를 샀다.
 
-                    글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
-                    표적은 아이콘보다 훨씬 크게 잡는다.
+                    **동그란 판에 얹어 키웠다**(2026-08-07 의견). 맨 꺽새만 두었더니 글자 옆의
+                    장식으로 읽혀 누를 수 있다는 것이 드러나지 않았다. 면이 있으면 버튼으로
+                    보이고, 표적도 32px에서 40px로 넓어진다. hitSlop은 그대로 둬 실제 표적은
+                    그보다 더 크다.
                   */}
                   {place.id === selectedPlaceId && (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`${place.name} 상세 보기`}
-                      hitSlop={16}
+                      hitSlop={12}
                       onPress={() => openPlace(place.id)}
-                      style={s.detailChevron}
+                      style={({ pressed }) => [s.detailChevron, pressed && s.detailChevronPressed]}
                     >
-                      <Ionicons name="chevron-forward" size={22} color={colors.dark} />
+                      <Ionicons name="chevron-forward" size={24} color={colors.dark} />
                     </Pressable>
                   )}
                 </View>
@@ -1274,13 +1356,24 @@ const s = StyleSheet.create({
    *
    * 글자가 없어 눌리는 넓이는 이 칸이 확보하고, 모자란 만큼은 hitSlop으로 넓힌다.
    */
+  /**
+   * 상세로 가는 지름길 버튼.
+   *
+   * 정사각형이어야 `borderRadius`가 정확한 원이 된다 — 예전에는 높이를 제목 줄 높이에 맞춰
+   * 두어 폭과 달랐다. 옅은 라임 면은 고른 카드의 라임 테두리와 같은 계열이라 이 카드에 속한
+   * 버튼으로 읽힌다.
+   */
   detailChevron: {
-    width: 32,
-    height: type.title.lineHeight,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.x2,
+    backgroundColor: colors.limeSoft,
   },
+  /** 눌린 동안. 같은 계열에서 한 단계만 진해져 눌렸다는 것이 보인다. */
+  detailChevronPressed: { backgroundColor: colors.limeControl },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },

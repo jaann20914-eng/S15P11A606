@@ -11,9 +11,29 @@ import type { MapBoundsQuery, TagSuggestion } from '@/types/place';
 
 const log = createDevLogger('tag-suggest');
 
+/** 경계의 남북 너비(m). 로그에만 쓴다 — 0건일 때 범위 탓인지 가리는 값이다. */
+function spanMeters({ southWestLatitude, northEastLatitude }: MapBoundsQuery): number {
+  return (northEastLatitude - southWestLatitude) * 111_320;
+}
+
+/** 오류 코드별 안내. 태그 칸에 그대로 적는다. */
+const messageByCode: Record<string, string> = {
+  INVALID_TAG_SEARCH_QUERY: '태그 검색 조건이 올바르지 않아요.',
+  UNAUTHORIZED: '로그인이 필요해요.',
+  TAG_SEARCH_FAILED: '태그를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+};
+
 export interface TagSuggestionsState {
   results: TagSuggestion[];
   loading: boolean;
+  /**
+   * 추천을 받아오지 못한 이유. 성공했으면 null.
+   *
+   * **삼키지 않는다.** 예전에는 실패해도 목록만 비웠는데, 그러면 화면이 "요청을 못 보냈다"
+   * ·"실패했다"·"후보가 0건이다" **세 경우를 똑같이** 그렸다 — 태그가 안 뜬다는 신고를 받고도
+   * 어느 쪽인지 가릴 수 없어 같은 곳을 세 번 들여다봤다(2026-08-07). 화면이 구분해 적는다.
+   */
+  error: string | null;
 }
 
 /**
@@ -36,6 +56,7 @@ export interface TagSuggestionsState {
 export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null): TagSuggestionsState {
   const [results, setResults] = useState<TagSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   /** 늦게 도착한 응답이 최신 결과를 덮지 않도록 마지막 요청만 반영한다. */
   const latestRequest = useRef(0);
@@ -46,6 +67,15 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
   */
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
+
+  /*
+    **경계가 있는지 없는지만 의존성에 넣는다.**
+
+    값을 넣으면 지도가 멈출 때마다 추천이 다시 나가고, ref로만 읽으면 아직 경계가 없을 때
+    한 번 건너뛴 뒤 **영영 다시 묻지 않는다** — 지도가 첫 idle을 보내기 전에 검색으로 들어오면
+    그 검색어로는 추천이 끝내 비어 있었다. 없다가 생기는 그 한 번만 다시 돈다.
+  */
+  const hasBounds = bounds !== null;
 
   useEffect(() => {
     const query = keyword.trim();
@@ -58,11 +88,13 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     if (query.length < MIN_PLACE_QUERY_LENGTH || query.length > TAG_SUGGESTION_QUERY_MAX_LENGTH) {
       latestRequest.current += 1;
       setResults([]);
+      setError(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     const requestId = latestRequest.current + 1;
     latestRequest.current = requestId;
@@ -73,6 +105,8 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       if (currentBounds === null) {
         log('건너뜀 — 지도 범위 없음', { query });
         setResults([]);
+        // 화면에 적는다. 비워 두면 "후보가 없다"로 읽혀 원인을 찾을 수 없다.
+        setError('지도가 준비된 뒤에 태그를 추천할 수 있어요.');
         setLoading(false);
         return;
       }
@@ -80,6 +114,11 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       const startedAt = Date.now();
       log('요청', {
         재현: toRequestLine('GET', '/api/v1/pins/tags/search', { q: query, ...currentBounds }),
+        /*
+          훑는 너비. 서버는 이 사각형 안의 활성 핀에 달린 태그만 후보로 삼으므로, 0건일 때
+          "범위가 좁아서"인지 "그 태그의 활성 핀이 없어서"인지 이 값으로 갈린다.
+        */
+        너비: `${Math.round(spanMeters(currentBounds) / 1000)}km`,
       });
 
       getTagSuggestions(query, currentBounds)
@@ -94,17 +133,18 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
             // 0건의 흔한 이유를 적어 둔다. 색인 반영 전(배포 이전 핀)이거나 범위 밖이면 0건이다.
             비고:
               tags.length === 0
-                ? '0건 — 지도 범위 안에 그 태그의 활성 핀이 없거나, 색인 반영 전 핀일 수 있다'
+                ? '0건 — 이 범위 안에 그 태그의 활성 핀이 없다(색인에 없거나 만료). 만료는 지금 1시간'
                 : undefined,
           });
 
           setResults(tags);
+          setError(null);
           setLoading(false);
         })
         .catch((cause: unknown) => {
           if (latestRequest.current !== requestId) return;
 
-          // 장소 결과까지 막지 않는다. 태그 칸만 비운 채 넘어간다.
+          // 장소 결과까지 막지는 않는다. 태그 칸에만 이유를 적는다.
           log('실패', {
             query,
             code: cause instanceof ApiError ? cause.code : 'unknown',
@@ -114,12 +154,17 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
           });
 
           setResults([]);
+          setError(
+            cause instanceof ApiError
+              ? (messageByCode[cause.code] ?? cause.message)
+              : '태그를 불러오지 못했어요',
+          );
           setLoading(false);
         });
     }, PLACE_SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [keyword]);
+  }, [hasBounds, keyword]);
 
-  return { results, loading };
+  return { results, loading, error };
 }

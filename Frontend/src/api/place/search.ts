@@ -12,7 +12,8 @@ import type { PlaceSearchItem, PlaceSearchResponse } from '@/types/place';
  * - **검색바**: 가려는 곳을 찾는 자리라 50m로는 대부분 빈 결과가 된다. 호출부가 넓은 반경을
  *   직접 넘긴다(`WIDE_PLACE_SEARCH_RADIUS_M`)
  *
- * 검색어는 앞뒤 공백을 지운 뒤 2자 이상일 때만, 입력이 멈추고 700ms 뒤에 부른다.
+ * 검색어는 앞뒤 공백을 지운 뒤 2자 이상일 때만, 입력이 멈추고 `PLACE_SEARCH_DEBOUNCE_MS`
+ * 뒤에 부른다.
  * 두 조건 모두 호출부(`usePlaceSearch`)가 지킨다.
  *
  * 결과는 `distanceMeters` 오름차순이며, 없으면 빈 배열이다.

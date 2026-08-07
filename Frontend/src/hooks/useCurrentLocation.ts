@@ -40,6 +40,16 @@ export interface CurrentLocationOptions {
    * 아무 일도 하지 않는다 — 실패해도 문구를 띄우지 않는다.
    */
   auto?: boolean;
+  /**
+   * 미리 읽기가 받아들일 캐시 위치의 최대 나이(ms). 생략하면 `readCurrentCoordinate`의 기본값.
+   *
+   * **미리 읽기에만 걸린다. 버튼 요청(`request`)은 늘 엄격하다** — 그쪽은 "지금 어디인지"를
+   * 묻는 것이라 오래된 좌표를 돌려주면 답이 틀린다. 미리 읽기는 화면이 자리를 잡는 데 쓰는
+   * 값이라, 캐시가 없어 몇 초씩 기다리는 것보다 조금 지난 좌표가 나은 자리가 있다.
+   *
+   * **거리 판정에 쓰는 화면은 늘리지 마라.** 50m 안인지 재는 화면(핀 작성 유도)이 그렇다.
+   */
+  autoMaxAgeMs?: number;
 }
 
 /**
@@ -48,7 +58,10 @@ export interface CurrentLocationOptions {
  * 버튼을 눌러 요청하면 권한이 없을 때 묻는다. `auto`로 미리 읽을 때는 묻지 않는다.
  * 좌표를 읽는 규칙 자체는 `utils/location`이 갖고 있다.
  */
-export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}): CurrentLocation {
+export function useCurrentLocation({
+  auto = false,
+  autoMaxAgeMs,
+}: CurrentLocationOptions = {}): CurrentLocation {
   const [coordinate, setCoordinate] = useState<Coordinate | null>(null);
   const [areaName, setAreaName] = useState<string | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');
@@ -88,7 +101,7 @@ export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}
 
     let applies = true;
 
-    void readCurrentCoordinate().then((result) => {
+    void readCurrentCoordinate({ maxAgeMs: autoMaxAgeMs }).then((result) => {
       if (!applies || 'failure' in result || inFlight.current) return;
       setCoordinate(result.coordinate);
       setStatus('granted');
@@ -97,7 +110,7 @@ export function useCurrentLocation({ auto = false }: CurrentLocationOptions = {}
     return () => {
       applies = false;
     };
-  }, [auto]);
+  }, [auto, autoMaxAgeMs]);
 
   /*
     지역명은 좌표가 정해진 뒤에 따로 조회한다. 좌표를 쓰는 쪽(지도 이동)을 지오코딩 응답까지

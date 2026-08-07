@@ -17,7 +17,13 @@ export interface SearchRowProps {
   accessibilityLabel: string;
   /** 가운데에 들어갈 것. 글자를 강조해야 해서 문자열 대신 노드로 받는다. */
   children: React.ReactNode;
-  /** 오른쪽 끝. 날짜나 입력창 채우기 버튼이 온다. */
+  /**
+   * 오른쪽 끝. **최근 검색의 날짜만 쓴다.**
+   *
+   * 검색 결과·추천 줄에는 두지 않는다. 꺽새와 화살표를 달아 뒀더니 줄마다 하는 일이 다른
+   * 것으로 읽혔다(2026-08-07) — 실제로는 어느 줄이든 눌러서 그 검색으로 가는 것이 전부다.
+   * 결과 목록은 글자만 둔다.
+   */
   trailing?: React.ReactNode;
   /** 확정 요청이 도는 줄. 오른쪽 영역을 표시로 바꾼다. */
   pending?: boolean;
@@ -50,29 +56,38 @@ export function SearchRow({
   );
 }
 
-/**
- * 입력창에 검색어를 채워 넣는 버튼. 시안 `검색(자동완성)`의 오른쪽 화살표다.
- *
- * 줄 전체를 누르면 곧바로 검색되므로, 고르지 않고 **다듬어서 다시 검색**하고 싶을 때 쓴다.
- */
-export function FillButton({ onPress, label }: { onPress: () => void; label: string }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={12} onPress={onPress}>
-      <Ionicons name="arrow-up-outline" size={18} color={colors.gray400} />
-    </Pressable>
-  );
+export interface HighlightedTextProps {
+  text: string;
+  query: string;
+  /**
+   * 뒤에 흐리게 붙일 안내말. 없으면 붙이지 않는다.
+   *
+   * 태그 줄이 `#데이트 태그로 검색`처럼 읽히게 하는 데 쓴다. 한 `Text` 안에 이어 붙이므로
+   * 태그가 길어 줄바꿈될 때 안내말이 따로 떨어지지 않는다.
+   */
+  suffix?: string;
 }
 
 /** 검색어와 겹치는 부분을 파랗게 남긴다. 어디가 맞아 떨어졌는지 바로 보인다. */
-export function HighlightedText({ text, query }: { text: string; query: string }) {
+export function HighlightedText({ text, query, suffix }: HighlightedTextProps) {
   const start = query.length > 0 ? text.indexOf(query) : -1;
-  if (start < 0) return <Text style={s.body}>{text}</Text>;
+  const tail = suffix === undefined ? null : <Text style={s.suffix}>{suffix}</Text>;
+
+  if (start < 0) {
+    return (
+      <Text style={s.body}>
+        {text}
+        {tail}
+      </Text>
+    );
+  }
 
   return (
     <Text style={s.body}>
       {text.slice(0, start)}
       <Text style={s.match}>{text.slice(start, start + query.length)}</Text>
       {text.slice(start + query.length)}
+      {tail}
     </Text>
   );
 }
@@ -98,4 +113,6 @@ const s = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   body: { ...type.label, color: colors.dark },
   match: { color: '#2F80ED', fontWeight: '600' },
+  /** 안내말(`태그로 검색`). 태그 이름보다 흐려서 무엇이 태그인지 갈린다. */
+  suffix: { color: colors.gray600, fontWeight: '400' },
 });

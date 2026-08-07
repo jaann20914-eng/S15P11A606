@@ -13,7 +13,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
+import { CrowdChart, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
@@ -23,7 +23,6 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
-import { useNextPlace } from '@/hooks/useNextPlace';
 import { classifyCrowdFilter } from '@/constants/crowdLevels';
 import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
 import { distanceBetween } from '@/utils/location';
@@ -48,6 +47,16 @@ const ESTIMATED_HEADER_HEIGHT = 92;
  * 오르내린다.** 어느 상태에서도 시트가 제자리에 있도록 한 값으로 모은다(홈도 같은 값을 쓴다).
  */
 const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
+
+/**
+ * 핀이 하나도 없을 때 이 장소 자리에 찍는 마커의 id.
+ *
+ * 겹의 마커는 원래 `pinId`(UUID)인데 이 경우엔 핀이 없어 쓸 id가 없다. 고정 문자열로 둔다 —
+ * 눌렸을 때 우리 핀 중 하나가 아님을 가리는 데도 쓴다(`pressedPinId`).
+ * 미등록 장소 화면의 같은 마커와 id를 나눠 쓰지 않는다. 두 화면은 겹쳐 열릴 수 있고, 서로
+ * "내가 올린 겹"을 id로 가리기 때문이다(`app/place/no-pins.tsx`).
+ */
+const PLACE_SPOT_MARKER_ID = 'place-spot';
 
 /** "실시간 핀" 왼쪽의 작은 점. 지금 올라오는 중임을 알리는 표시다. */
 const LIVE_DOT_SIZE = 7;
@@ -298,16 +307,6 @@ export default function Place() {
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
-  /**
-   * 옆 장소로 돌려 보기. **이 화면의 장소만 갈린다** — 훅이 `navigate`로 파라미터만 바꾸므로
-   * 시트는 제자리에 있고 지도만 옆으로 미끄러진다.
-   *
-   * 버튼이 있을 조건(20m)과 누를 수 있을 조건(두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치
-   * 버튼과 같은 이유로 최대화 단계에서는 함께 감춘다.
-   */
-  const nextPlace = useNextPlace();
-  const nextPlaceButton = useFadeToggle(nextPlace.visible && !expanded);
-
   /*
     핀을 지도에 올리고, 보고 있는 게시물에 맞춰 지도를 옮긴다.
 
@@ -322,7 +321,7 @@ export default function Place() {
   /*
     **다른 장소로 갈리면 첫 카드에서 시작한다.**
 
-    옆 장소로 돌려 보면 이 화면은 그대로 있고 장소만 갈린다(`useNextPlace`의 `navigate`).
+이 화면은 `navigate`로 열리므로 스택에 이미 있으면 **화면은 그대로 두고 장소만 갈린다.**
     번호를 그대로 두면 카드가 넷인 장소에서 셋째를 보다 넘어간 장소가 한 장뿐일 때 빈 자리를
     보게 되고, 지도도 없는 핀으로 옮기려 든다.
   */
@@ -400,13 +399,40 @@ export default function Place() {
     [markerTone, pins],
   );
 
+  /**
+   * 지도에 올릴 마커. 핀이 있으면 그 핀들이고, **하나도 없으면 이 장소를 가리키는 회색 물방울
+   * 하나다**(`MapMarker.unpinned` — 미등록 장소 화면과 같은 마커다).
+   *
+   * 등록된 장소인데도 마커가 없을 수 있다. 활성 핀은 **최근 1시간**이라 다 만료되면 이 화면은
+   * 미등록 장소와 똑같은 빈 상태가 되는데(아래 `NoPinPlaceCard`), 그때 지도에는 아무 표시도
+   * 없었다 — 검색으로 들어와 "핀이 없다"는 안내만 받고 정작 그 장소가 어디인지는 짚을 수 없었다
+   * (2026-08-07 실기기: 48~52m 거리의 메가커피). 프랜차이즈는 검색 확정이 이름으로 곁의 다른
+   * 지점을 찾아 이 화면으로 오는 경로도 있어(`findRegisteredPlaceByName`) 더 자주 걸린다.
+   *
+   * **등록 여부와 무관하게 같은 화면으로 읽혀야 한다** — 카드도 시트 높이도 이미 그렇게 맞춰
+   * 두었으므로 지도도 같아야 한다.
+   */
+  const markers = useMemo(() => {
+    if (pinMarkers.length > 0 || coordinate === null) return pinMarkers;
+
+    return [
+      {
+        id: PLACE_SPOT_MARKER_ID,
+        name: place?.name ?? '',
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+        unpinned: true,
+      },
+    ];
+  }, [coordinate, pinMarkers, place]);
+
   /** 지금 보고 있는 게시물의 좌표. 없으면 지도를 옮기지 않는다. */
   const focusedPin = pins[pinIndex] ?? null;
 
   /*
     **맨 위일 때만 올린다.** 위에 다른 화면이 겹쳐 있으면 그 화면이 자기 겹을 올려 둔다 —
-    핀이 없는 장소 화면은 마커를 하나도 두지 않으려고 빈 겹을 올리는데, 여기서 덮어쓰면
-    가려져 있는 이 화면의 마커가 그 위 화면에 그려진다.
+    핀이 없는 장소 화면은 찾은 자리의 회색 물방울 하나만 두는데, 여기서 덮어쓰면 가려져 있는
+    이 화면의 마커가 그 위 화면에 그려진다.
 
     돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아 우리 마커를 되돌려 놓는다.
 
@@ -419,10 +445,15 @@ export default function Place() {
     if (!onTop || detail === null) return;
 
     showPinOverlay({
-      markers: pinMarkers,
+      /*
+        핀이 없으면 이 장소를 가리키는 회색 물방울 하나다(`markers` 설명). 고른 핀은 없으므로
+        `selectedPinId`는 null이다 — 그 칸은 "보고 있는 게시물"을 가리키는 자리이고, 회색
+        물방울의 모양은 마커가 스스로 정한다.
+      */
+      markers,
       selectedPinId: pinMarkers.length > 0 ? (focusedPin?.pinId ?? null) : null,
     });
-  }, [detail, focusedPin, onTop, pinMarkers, showPinOverlay]);
+  }, [detail, focusedPin, markers, onTop, pinMarkers.length, showPinOverlay]);
 
   /*
     **지도에서 마커를 누르면 그 게시물 카드로 넘어간다.** 홈에서 장소 마커를 누르면 그 장소
@@ -457,6 +488,9 @@ export default function Place() {
         펼쳐진 목록(확장)은 건드리지 않는다 — 훑던 자리를 잃는다.
       */
       if (level === 0) moveTo(1);
+    } else if (pressedPinId === PLACE_SPOT_MARKER_ID && level === 0) {
+      // 핀이 없을 때 찍은 그 장소 마커. 넘길 카드는 없지만 시트는 같은 규칙으로 올린다.
+      moveTo(1);
     }
     // 우리 핀이 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
     clearPressedPin();
@@ -627,23 +661,6 @@ export default function Place() {
               />
             )}
           </AnimatedPressable>
-        )}
-
-        {/*
-          **옆 장소로 돌려 보는 버튼.** 이 화면이 저절로 열린 그 장소가 사용자가 노린 곳이 아닐 수
-          있어서 다음으로 가까운 장소로 넘겨 준다(끝에서는 처음으로 돌아온다).
-
-          **화면을 갈아 끼운다**(`replace`). 그러지 않으면 돌려 볼 때마다 상세가 한 겹씩 쌓여
-          화면들이 하나뿐인 지도를 두고 다투고, 뒤로 가기가 지나온 장소를 되짚는다.
-
-          목록은 20m에서만 채워지므로 축척이 넓어지면 버튼도 사라진다.
-        */}
-        {nextPlaceButton.mounted && (
-          <NextPlaceButton
-            onPress={nextPlace.goNext}
-            enabled={nextPlace.enabled}
-            style={nextPlaceButton.style}
-          />
         )}
       </View>
 

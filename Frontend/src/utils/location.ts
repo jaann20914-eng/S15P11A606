@@ -30,7 +30,13 @@ export type LocationResult = { coordinate: Coordinate } | { failure: LocationFai
  */
 const POSITION_TIMEOUT_MS = 8000;
 
-/** 캐시된 위치를 재사용할 수 있는 최대 나이(ms). 지도 이동·주변 검색에는 충분히 최신이다. */
+/**
+ * 캐시된 위치를 재사용할 수 있는 기본 최대 나이(ms). 지도 이동·주변 검색에는 충분히 최신이다.
+ *
+ * **부르는 쪽이 늘릴 수 있다**(`ReadCoordinateOptions.maxAgeMs`). 이 값을 넘기면 새로 측위해야
+ * 하고 그것이 최대 16초(아래 두 단계 타임아웃)라, "지금 어디인지"가 아니라 "지도를 어디서 열지"를
+ * 정하는 자리에서는 오래된 좌표가 기본 중심보다 훨씬 낫다.
+ */
 const LAST_KNOWN_MAX_AGE_MS = 60_000;
 
 /** 개발 중 어디서 끊겼는지 터미널에서 따라갈 수 있게 한다. */
@@ -87,6 +93,14 @@ export interface ReadCoordinateOptions {
    * 실패하는데 사용자는 이유를 알 수 없다.
    */
   requestPermission?: boolean;
+  /**
+   * 캐시된 위치를 얼마나 오래된 것까지 받아들일지(ms). 생략하면 1분.
+   *
+   * **정확도가 걸린 자리에서는 늘리지 마라.** 핀 등록은 촬영 좌표와 장소의 거리를 50m로 재므로
+   * (`MAX_PLACE_DISTANCE_METERS`) 몇 분 지난 좌표로는 판정이 틀린다. 늘려도 되는 것은 지도를
+   * 어디서 열지 정하는 것처럼 **틀려도 몇 백 미터 안이면 되는** 자리다.
+   */
+  maxAgeMs?: number;
 }
 
 /**
@@ -143,6 +157,7 @@ export function pullCoordinateNear(captured: Coordinate, target: Coordinate, max
 
 export async function readCurrentCoordinate({
   requestPermission = false,
+  maxAgeMs = LAST_KNOWN_MAX_AGE_MS,
 }: ReadCoordinateOptions = {}): Promise<LocationResult> {
   try {
     // 권한이 있어도 기기에서 위치 서비스를 껐으면 좌표를 읽을 수 없다.
@@ -160,9 +175,9 @@ export async function readCurrentCoordinate({
       return { failure: 'denied' };
     }
 
-    const known = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS });
+    const known = await Location.getLastKnownPositionAsync({ maxAge: maxAgeMs });
     if (known) {
-      log('좌표 확보', { source: 'lastKnown' });
+      log('좌표 확보', { source: 'lastKnown', maxAgeMs });
       return {
         coordinate: { latitude: known.coords.latitude, longitude: known.coords.longitude },
       };

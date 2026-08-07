@@ -16,12 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
-import { FillButton, HighlightedText, SearchRow } from '@/features/place-search/components';
+import { HighlightedText, SearchRow } from '@/features/place-search/components';
 import { usePlaceConfirm } from '@/features/place-search/hooks/usePlaceConfirm';
 import { useRecentSearches } from '@/features/place-search/hooks/useRecentSearches';
 import { useTagSuggestions } from '@/features/place-search/hooks/useTagSuggestions';
-import { toBoundsQuery, useMapStore } from '@/store/useMapStore';
-import { MIN_PLACE_QUERY_LENGTH, WIDE_PLACE_SEARCH_RADIUS_M } from '@/types/place';
+import { expandBounds, toBoundsQuery, useMapStore } from '@/store/useMapStore';
+import { MIN_PLACE_QUERY_LENGTH, TAG_SEARCH_MIN_SPAN_M, WIDE_PLACE_SEARCH_RADIUS_M } from '@/types/place';
 import type { PlaceSearchItem, RecentSearch } from '@/types/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -45,6 +45,14 @@ function toTagName(value: string): string {
   return value.trim().replace(/^#+/, '');
 }
 
+/**
+ * 태그 줄 뒤에 붙는 안내말. `#데이트 태그로 검색`이 된다.
+ *
+ * 입력한 값을 확정하는 줄과 추천 줄이 **같은 문구를 쓴다.** 한 곳에 두어 한쪽만 바뀌는 일을
+ * 막는다 — 나란히 서는 줄이라 문구가 갈리면 다른 기능으로 읽힌다.
+ */
+const TAG_ROW_SUFFIX = ' 태그로 검색';
+
 export default function Search() {
   /*
     검색바는 "가려는 곳"을 찾는다. 서버 기본 반경 50m는 핀 등록용이라 여기서는 거의
@@ -62,8 +70,15 @@ export default function Search() {
   /*
     경계는 지도가 멈출 때마다 새 객체가 된다. 그대로 넘기면 훅이 매번 다른 값으로 보므로
     네 숫자가 실제로 바뀔 때만 새로 만든다.
+
+    **화면 그대로가 아니라 넓혀서 보낸다.** 서버는 이 경계 안의 활성 핀에 달린 태그만 후보로
+    삼는데, 20m까지 당겨 본 상태의 화면은 사방 50m라 옆 가게의 태그도 빠진다
+    (`TAG_SEARCH_MIN_SPAN_M`). 결과 화면도 같은 값으로 넓힌다.
   */
-  const boundsQuery = useMemo(() => (bounds === null ? null : toBoundsQuery(bounds)), [bounds]);
+  const boundsQuery = useMemo(
+    () => (bounds === null ? null : toBoundsQuery(expandBounds(bounds, TAG_SEARCH_MIN_SPAN_M))),
+    [bounds],
+  );
 
   // `#`을 뗀 값을 보낸다. 서버도 떼지만, 보내는 쪽에서 맞춰야 로그와 실제 질의가 같아진다.
   const tags = useTagSuggestions(toTagName(places.keyword), boundsQuery);
@@ -212,6 +227,25 @@ export default function Search() {
               <Text style={s.sectionTitle}>태그</Text>
 
               {/*
+                **왜 추천이 없는지 적는다.** 예전에는 실패해도 목록만 비워서 "요청을 못 보냈다"
+                ·"실패했다"·"후보가 0건이다"가 화면에서 똑같이 보였다. 아래 확정 줄이 있어
+                검색은 이어 갈 수 있으므로 안내는 한 줄로만 둔다(장소 칸과 같은 모양).
+              */}
+              {tags.error !== null && (
+                <Text accessibilityRole="alert" style={s.status}>
+                  {tags.error}
+                </Text>
+              )}
+
+              {/*
+                후보가 0건일 때는 **아무 줄도 두지 않는다.** 지금 0건의 주된 이유는 핀이 공개
+                1시간 뒤 만료되는 것인데, 그 제한은 빌드 테스트 동안 S3 비용을 아끼려고 걸어 둔
+                **한시적 조건**이다(2026-08-07). 화면 문구로 박아 두면 제한이 풀린 뒤 거짓말이
+                된다. 아래 확정 줄이 있어 검색은 이어 갈 수 있고, 원인은 로그로 본다
+                (`[tag-suggest] 응답`).
+              */}
+
+              {/*
                 입력한 값을 그대로 태그로 확정하는 줄. 추천에 같은 태그가 있으면 겹치지 않게 뺀다.
                 추천이 비어 있어도 검색을 끝낼 수 있는 유일한 길이라 늘 위에 둔다.
               */}
@@ -220,28 +254,28 @@ export default function Search() {
                   icon="keyword"
                   accessibilityLabel={`${tagName} 태그로 검색`}
                   onPress={() => openTag(tagName)}
-                  trailing={<Ionicons name="chevron-forward" size={18} color={colors.gray400} />}
                 >
-                  <Text style={s.tagRunText}>
-                    <Text style={s.tagRunName}>#{tagName}</Text> 태그로 검색
-                  </Text>
+                  <HighlightedText text={`#${tagName}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
               )}
 
+              {/*
+                서버가 준 후보를 **전부** 줄로 세운다. 자동완성이라 부분일치가 섞여 온다 —
+                `카페`를 입력하면 `카페`·`카페라떼`·`예쁜카페`가 함께 온다(백엔드 설계, 2026-08-07
+                협의). 어느 줄을 눌러도 그 태그의 결과로 간다.
+
+                **글자는 위 줄과 같은 컴포넌트로 그린다.** 두 줄이 나란히 서는데 모양이 갈리면
+                하는 일이 다른 줄로 읽힌다 — 예전에는 위만 `#데이트 태그로 검색`이고 추천은
+                `#데이트`뿐이어서, 추천 줄이 눌리는 줄로 보이지 않았다.
+              */}
               {tags.results.map((tag) => (
                 <SearchRow
                   key={tag.name}
                   icon="keyword"
                   accessibilityLabel={`${tag.name} 태그로 검색`}
                   onPress={() => openTag(tag.name)}
-                  trailing={
-                    <FillButton
-                      label={`${tag.name} 검색창에 넣기`}
-                      onPress={() => places.setKeyword(tag.name)}
-                    />
-                  }
                 >
-                  <HighlightedText text={`#${tag.name}`} query={tagName} />
+                  <HighlightedText text={`#${tag.name}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
               ))}
             </View>
@@ -386,8 +420,6 @@ const s = StyleSheet.create({
   section: { marginTop: spacing.x2 },
   sectionTitle: { ...type.small, color: colors.gray600, marginTop: spacing.x2, marginBottom: spacing.x2 },
   titleRule: { height: 1, backgroundColor: colors.gray200 },
-  tagRunText: { ...type.label, color: colors.gray600 },
-  tagRunName: { color: colors.dark, fontWeight: '600' },
   status: { ...type.small, color: colors.gray600, paddingVertical: spacing.x4 },
   statusBlock: { alignItems: 'flex-start', gap: spacing.x2, paddingVertical: spacing.x4 },
   retryButton: {

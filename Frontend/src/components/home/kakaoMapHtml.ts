@@ -34,6 +34,26 @@ export interface MapPlaceMarker {
    * 여전히 물방울이라 "지금 보고 있는 것" 표시는 그대로다.
    */
   small?: boolean;
+  /**
+   * **핀이 없는 장소**의 마커인지. 참이면 회색 물방울로 그린다.
+   *
+   * 검색으로 들어간 미등록 장소 화면만 쓴다(`app/place/no-pins.tsx`). 그 화면은 지도를 찾은
+   * 자리로 옮겨 주기만 하고 마커를 하나도 찍지 않았다. 화면 가운데가 곧 그 장소라는 뜻이었지만
+   * **가운데에 아무 표시가 없으면 어느 건물인지 짚을 수 없다** — 카카오맵이 그려 준 상호명이
+   * 여러 개 몰린 자리에서는 찾던 곳이 어느 것인지 알 수 없었다.
+   *
+   * 그래서 그 자리에 물방울을 하나 찍는다. **동그라미가 아니라 물방울인 이유**는 뾰족한 끝이
+   * 좌표에 맞기 때문이다(yAnchor 1) — 이 화면의 요구가 "정확히 어디인지"라서 중심으로 가리키는
+   * 동그라미보다 낫다.
+   *
+   * **색은 회색이다.** 물방울과 색을 둘 다 장소 마커와 같게 두면 "핀이 올라온 장소"로 읽힌다.
+   * 혼잡도 계열(라임·코럴)은 그 자리가 얼마나 붐비는지를 담은 색인데 핀이 없으면 그 값도 없다
+   * (`color.pin.neutral`).
+   *
+   * `tone`·`small`은 무시된다 — 계열과 모양을 이 값이 통째로 정한다. 고른 핀 표시(물방울)와
+   * 그림이 같지만, 이 마커를 쓰는 화면에는 고를 핀이 자체가 없어 섞이지 않는다.
+   */
+  unpinned?: boolean;
 }
 
 export interface MapViewState {
@@ -44,24 +64,12 @@ export interface MapViewState {
   level: number;
 }
 
-/** 키워드 검색으로 찾은 장소. 백엔드가 좌표를 주기 전까지 상세 화면이 이 값으로 지도를 맞춘다. */
-export interface ResolvedPlace {
-  name: string;
-  address: string;
-  roadAddress: string;
-  phone: string;
-  latitude: number;
-  longitude: number;
-}
-
 export type MapOutgoingMessage =
   | { type: 'ready' }
   | { type: 'error'; reason: string }
   | { type: 'pinPress'; placeId: string }
   | { type: 'mapPress' }
-  | { type: 'idle'; view: MapViewState }
-  | { type: 'placeResolved'; place: ResolvedPlace }
-  | { type: 'placeNotFound'; keyword: string; reason: 'no-result' | 'search-failed' };
+  | { type: 'idle'; view: MapViewState };
 
 export interface MapPatch {
   places?: MapPlaceMarker[];
@@ -101,29 +109,28 @@ export const PLACE_FOCUS_MAP_LEVEL = 5;
  */
 export const REVIEW_PIN_MAX_LEVEL = 1;
 
-const pinTone: Record<CrowdFilter, { fill: string; ring: string }> = {
+/**
+ * 마커 색 계열. 혼잡도 두 계열에 **핀이 없는 장소**의 회색을 더한 것이다.
+ *
+ * `unpinned`는 `MapPatch.filter`가 될 수 없다 — 혼잡도 필터가 아니라 마커가 스스로 고르는
+ * 계열이라, 그 마커(`MapPlaceMarker.unpinned`)만 직접 집어 쓴다.
+ */
+const pinTone: Record<CrowdFilter | 'unpinned', { fill: string; ring: string }> = {
   relaxed: { fill: color.pin.relaxed.strong, ring: color.pin.relaxed.soft },
   wagle: { fill: color.pin.wagle.strong, ring: color.pin.wagle.soft },
+  unpinned: { fill: color.pin.neutral.strong, ring: color.pin.neutral.soft },
 };
 
 export interface KakaoMapHtmlOptions {
   appKey: string;
   center: { latitude: number; longitude: number };
   level?: number;
-  /**
-   * 장소 키워드 검색(`searchPlace`)을 쓸 화면인지.
-   *
-   * `libraries=services`는 SDK 본체와 **별도로 내려받는 추가 번들**이라 첫 렌더를 그만큼
-   * 늦춘다. 홈 지도는 `panTo`·`fitPlaces`만 쓰고 검색은 하지 않으므로 기본은 끈 상태다.
-   */
-  usePlaceSearch?: boolean;
 }
 
 export function buildKakaoMapHtml({
   appKey,
   center,
   level = DEFAULT_MAP_LEVEL,
-  usePlaceSearch = false,
 }: KakaoMapHtmlOptions): string {
   const initial = JSON.stringify({
     lat: center.latitude,
@@ -292,6 +299,10 @@ export function buildKakaoMapHtml({
   function dropElement(tone) {
     var el = document.createElement('div');
     el.className = 'pin';
+    /*
+      안쪽 점은 **세 계열 모두 흰색이다.** 한때 밝은 회색 계열만 짙은 점을 쓰게 했는데, 검은
+      점으로 읽혀 마커의 뜻이 달라 보였다(2026-08-07). 계열이 점 색을 정하지 않는다.
+    */
     el.innerHTML =
       '<svg class="pin-drop" width="42" height="54" viewBox="0 0 42 54" xmlns="http://www.w3.org/2000/svg">' +
       '<path d="M21 53C21 53 39 31.5 39 19.6C39 9.3 30.9 1 21 1C11.1 1 3 9.3 3 19.6C3 31.5 21 53 21 53Z" fill="' + tone.fill + '"/>' +
@@ -496,19 +507,31 @@ export function buildKakaoMapHtml({
       var place = state.places[i];
       var selected = place.id === state.selectedPlaceId;
       /*
+        핀이 없는 장소를 가리키는 마커(unpinned). 계열과 모양을 이 값이 통째로 정하므로
+        tone과 small보다 먼저 본다 — 혼잡도가 없는 자리라 칠할 값이 없고, 좌표를 정확히
+        짚어야 하므로 늘 물방울이다(MapPlaceMarker.unpinned에 사정을 적어 두었다).
+      */
+      var unpinned = place.unpinned === true;
+      /*
         색은 **마커마다** 정한다. 그 장소·핀이 실제로 얼마나 붐비는지가 담겨 오기 때문이다
         (MapPlaceMarker.tone — 이 파일은 템플릿 리터럴 하나라 주석에 백틱을 쓸 수 없다).
         계열을 모르고 온 마커만 토글 값을 쓴다 — 예전에는 전부 그랬고, 그래서 여유한 장소도
         와글 토글에서는 자몽색으로 그려졌다.
       */
-      var tone = toneOf(place.tone || state.filter);
+      var tone = unpinned ? INITIAL.tone.unpinned : toneOf(place.tone || state.filter);
+      /*
+        물방울로 그리는 두 경우. 고른 핀은 "지금 보고 있는 것" 표시이고, 핀이 없는 장소는
+        "찾던 자리가 여기" 표시다. 둘 다 뾰족한 끝이 좌표에 맞아야 하므로 아래 yAnchor와
+        기준점, 그리고 탭 판정(hitTestPlace)까지 같은 값을 본다.
+      */
+      var drop = selected || unpinned;
       /*
         크기는 마커가 스스로 정한다(small — 상세의 핀만 작다). 겹침 여부로 줄이지 않는다 —
         같은 화면의 마커가 34px과 22px로 섞여 제각각으로 읽혔다. 겹친 무리는 크기 대신
         자리표 간격이 감당한다(computeSpread).
         고른 핀은 무리에 들어도 물방울 그대로다 — 크기 차이가 곧 "지금 보고 있는 것" 표시다.
       */
-      var element = selected ? dropElement(tone) : circleElement(tone, place.small === true);
+      var element = drop ? dropElement(tone) : circleElement(tone, place.small === true);
       element.setAttribute('aria-label', place.name);
 
       /*
@@ -518,17 +541,17 @@ export function buildKakaoMapHtml({
         맞으므로(yAnchor) 그 자리를 기준으로 삼아야 줄여도 가리키는 지점이 움직이지 않는다.
       */
       var offset = spreadOffsets[place.id];
-      element.style.transformOrigin = selected ? '50% 100%' : '50% 50%';
+      element.style.transformOrigin = drop ? '50% 100%' : '50% 50%';
       pinElements.push({ element: element, dx: offset ? offset.dx : 0, dy: offset ? offset.dy : 0 });
 
       var overlay = new kakao.maps.CustomOverlay({
         map: map,
         position: new kakao.maps.LatLng(place.latitude, place.longitude),
         content: element,
-        yAnchor: selected ? 1 : 0.5,
+        yAnchor: drop ? 1 : 0.5,
         xAnchor: 0.5,
-        // 선택된 핀이 항상 위로 오도록
-        zIndex: selected ? 20 : 10,
+        // 물방울(고른 핀·핀이 없는 장소)이 항상 위로 오도록
+        zIndex: drop ? 20 : 10,
         clickable: false
       });
       overlays.push(overlay);
@@ -917,7 +940,7 @@ export function buildKakaoMapHtml({
   /**
    * 탭한 좌표에서 가장 가까운 핀을 찾는다.
    * 손가락 터치를 감안해 핀 그림보다 살짝 넉넉한 범위를 허용하고,
-   * 물방울형(선택된 핀)은 좌표가 꼬리 끝이라 위쪽으로 판정 범위를 넓힌다.
+   * 물방울형(선택된 핀 · 핀이 없는 장소)은 좌표가 꼬리 끝이라 위쪽으로 판정 범위를 넓힌다.
    */
   function hitTestPlace(latLng) {
     if (!map) return null;
@@ -933,9 +956,10 @@ export function buildKakaoMapHtml({
       var offset = spreadOffsets[place.id] || { dx: 0, dy: 0 };
       var dx = tapped.x - (point.x + offset.dx);
       var dy = tapped.y - (point.y + offset.dy);
-      var selected = place.id === state.selectedPlaceId;
+      // 그린 모양과 같은 판정을 쓴다(renderPlaces의 drop). 물방울은 좌표가 꼬리 끝이다.
+      var drop = place.id === state.selectedPlaceId || place.unpinned === true;
       var withinX = Math.abs(dx) <= 24;
-      var withinY = selected ? dy >= -56 && dy <= 10 : Math.abs(dy) <= 24;
+      var withinY = drop ? dy >= -56 && dy <= 10 : Math.abs(dy) <= 24;
       if (!withinX || !withinY) continue;
 
       var distance = dx * dx + dy * dy;
@@ -984,50 +1008,6 @@ export function buildKakaoMapHtml({
     panTo: function (lat, lng, liftPx, animate) {
       if (!map) return;
       centerOn(new kakao.maps.LatLng(lat, lng), liftPx, animate !== false);
-    },
-    /**
-     * 장소명으로 검색해 지도를 그 위치로 옮긴다.
-     *
-     * 이 호출은 카카오에 등록된 웹 도메인에서만 성공한다(실기기 WebView는 https://localhost).
-     * 웹으로 띄울 때는 iframe(srcdoc)의 origin이 opaque라 도메인을 등록해도 401이 난다.
-     * 실패하면 placeNotFound를 보내고, 화면이 등록된 좌표로 대신 지도를 맞춘다.
-     */
-    searchPlace: function (keyword, liftPx) {
-      if (!map || !kakao.maps.services) {
-        postToHost({ type: 'placeNotFound', keyword: keyword, reason: 'search-failed' });
-        return;
-      }
-
-      new kakao.maps.services.Places().keywordSearch(keyword, function (results, status) {
-        // 검색이 실패하면 이 SDK 버전은 첫 인자로 'ERROR'/'ZERO_RESULT' 문자열을 넘긴다.
-        var ok = status === kakao.maps.services.Status.OK && results && results.length && results[0].y;
-        if (!ok) {
-          postToHost({
-            type: 'placeNotFound',
-            keyword: keyword,
-            reason: status === kakao.maps.services.Status.ZERO_RESULT ? 'no-result' : 'search-failed'
-          });
-          return;
-        }
-
-        var found = results[0];
-        var latitude = parseFloat(found.y);
-        var longitude = parseFloat(found.x);
-        // 화면에 처음 자리를 잡는 용도라 즉시 이동한다.
-        centerOn(new kakao.maps.LatLng(latitude, longitude), liftPx, false);
-
-        postToHost({
-          type: 'placeResolved',
-          place: {
-            name: found.place_name || keyword,
-            address: found.address_name || '',
-            roadAddress: found.road_address_name || '',
-            phone: found.phone || '',
-            latitude: latitude,
-            longitude: longitude
-          }
-        });
-      });
     },
     /**
      * 현재 핀이 모두 보이도록 영역을 맞춘다.
@@ -1257,8 +1237,12 @@ export function buildKakaoMapHtml({
   // 이 요청에만 Referer를 빼서, 도메인 등록 없이도 SDK를 받을 수 있게 한다.
   // 문서 정책은 건드리지 않으므로 services 검색 호출은 Referer를 정상적으로 보낸다.
   sdk.referrerPolicy = 'no-referrer';
-  // services: 장소 키워드 검색. 쓰는 화면에서만 붙인다 — 안 쓰는 화면에서는 첫 렌더만 늦춘다.
-  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false${usePlaceSearch ? '&libraries=services' : ''}';
+  /*
+    지도 본체만 받는다. **libraries=services(장소 키워드 검색)는 붙이지 않는다** — 장소 검색은
+    전부 우리 백엔드를 지나므로(GET /api/v1/places/search) 프론트에서 카카오를 직접 부를 일이
+    없고, 그 번들은 별도 요청이라 첫 렌더만 늦춘다.
+  */
+  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false';
   sdk.onload = bootstrap;
   sdk.onerror = function () { postToHost({ type: 'error', reason: 'sdk-load-failed' }); };
   document.head.appendChild(sdk);
@@ -1271,7 +1255,6 @@ export type MapCommand =
   | 'update'
   | 'panTo'
   | 'focusPlace'
-  | 'searchPlace'
   | 'setLevel'
   | 'fitPlaces'
   | 'relayout'
