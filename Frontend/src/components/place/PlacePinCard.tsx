@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'rea
 import { LinearGradient } from 'expo-linear-gradient';
 import { ViewAvatar } from '@/components/common';
 import type { PlacePinCard as PlacePinCardData } from '@/types/place';
+import { SUPPORTS_FILTER_BLUR } from '@/utils/blurSupport';
 import { formatRelativeTime } from '@/utils/datetime';
 import { colors, radius, spacing, type } from '@/constants/theme';
 
@@ -210,6 +211,19 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
                 <Image
                   source={{ uri: pin.thumbnailUrl }}
                   style={s.thumbnailOverscan}
+                  /*
+                    `filter`가 듣지 않는 기기(안드로이드 11 이하)를 위한 대비. 위 `filter`는
+                    그대로 두고 **여기서 한 번 더 흐리게 한다.**
+
+                    이쪽은 영상이 아니라 그림이라 진짜 흐림이 가능하다 — `blurRadius`는 그림을
+                    받아서 흐린 비트맵으로 만들어 그리는 오래된 네이티브 구현이라 버전도
+                    아키텍처도 가리지 않는다. 그 기기에서 결제 전 현장이 선명하게 보이던 길을
+                    이 한 줄이 막는다(`blurSupport` 참고).
+
+                    되는 기기에서는 0을 줘서 아무 일도 하지 않는다. 두 흐림이 겹치면 같은 목록
+                    안에서 카드마다 흐린 정도가 달라 보인다.
+                  */
+                  blurRadius={SUPPORTS_FILTER_BLUR ? 0 : PREVIEW_BLUR_RADIUS}
                   onLoadEnd={() => setLoadedUrl(pin.thumbnailUrl)}
                 />
               </View>
