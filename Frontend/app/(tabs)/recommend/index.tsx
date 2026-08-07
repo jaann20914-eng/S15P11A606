@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIsFocused } from '@react-navigation/native';
+import { router } from 'expo-router';
 
 import { ScreenHeader } from '@/components/common';
 import { colors } from '@/constants/theme';
@@ -57,17 +58,22 @@ export default function RecommendScreen() {
   const focused = useIsFocused();
 
   /*
-    탭을 다녀오면 **처음 상태로** 되돌린다 — 여유 계열의 첫 장소다(제품 결정).
+    **다른 탭으로 갔을 때만** 처음 상태로 되돌린다 — 여유 계열의 첫 장소다(제품 결정).
 
     이 화면은 탭 안이라 다른 탭으로 가도 살아 있어서, 되돌리지 않으면 와글의 다섯 번째
     장소를 보던 자리가 그대로 남는다. 추천은 "지금 어디로 갈까"를 처음부터 훑는 자리라
     입구가 늘 같아야 한다. 빈 화면의 "핀 올리기"로 작성 탭에 다녀오는 경우도 여기에 걸린다.
 
-    핀 상세는 이 탭 위에 얹히는 화면이라 초점을 뺏지 않는다 — 거기서 뒤로 오면 보던 계열의
-    보던 장소 그대로다.
+    **핀 상세를 열어 초점을 잃은 것과 구분해야 한다.** 초점은 조상까지 함께 보므로, 핀
+    상세처럼 탭 **위에 얹히는** 화면이 열려도 이 화면은 초점을 잃는다. 그때까지 되돌리면
+    핀을 하나 열어 보고 뒤로 왔을 뿐인데 보던 자리를 잃는다(2026-08-07 실기기).
+
+    둘을 가르는 것은 루트에 얹힌 화면이 있는지다(`canDismiss`). 얹혀 있으면 위에 무언가
+    열린 것이고, 없으면 탭을 옮긴 것이다.
   */
   useEffect(() => {
     if (focused) return;
+    if (router.canDismiss()) return;
 
     setIndex(0);
     setMode('relaxed');
