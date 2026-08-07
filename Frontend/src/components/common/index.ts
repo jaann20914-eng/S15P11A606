@@ -10,6 +10,7 @@ export { AppSplash } from './AppSplash';
 export type { AppSplashProps } from './AppSplash';
 export { CrowdFilterToggle } from './CrowdFilterToggle';
 export { MediaLoadingSweep } from './MediaLoadingSweep';
+export { LegacyPreviewCover } from './LegacyPreviewCover';
 export { NoticeModal } from './NoticeModal';
 export type { NoticeModalProps } from './NoticeModal';
 export { useNotice } from './useNotice';
