@@ -30,6 +30,14 @@ const palette = {
   warmSurface: '#FAF9F5',
   gray100: '#F4F3F3',
   gray200: '#E9E8E8',
+  /**
+   * 200과 400 사이의 한가운데.
+   *
+   * **글자를 400보다 뒤로 물릴 때** 쓴다. 200은 선·바닥용이라 흰 배경에서 글자로는 거의 보이지
+   * 않는다. 흰 배경 대비 **1.5:1**로 400(2.9:1)보다 한참 낮으므로 **읽어야 하는 글에는 쓰지
+   * 않는다** — 화면이 놓은 안내처럼 지나쳐도 되는 자리에만 둔다(`PlacePinCard.memoEmpty`).
+   */
+  gray300: '#C9C6C6',
   gray400: '#9B9898',
   gray600: '#666262',
 
@@ -321,6 +329,7 @@ export const colors = {
   warmSurface: palette.warmSurface,
   gray100: palette.gray100,
   gray200: palette.gray200,
+  gray300: palette.gray300,
   gray400: palette.gray400,
   gray600: palette.gray600,
   blue: palette.blue,

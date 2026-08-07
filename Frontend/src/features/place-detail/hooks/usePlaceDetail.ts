@@ -5,7 +5,10 @@ import { getPlaceDetail } from '@/api/place/detail';
 import { resolvePlaceMapData, type PlaceMapData } from '@/api/place/coordinates';
 import type { Coordinate } from '@/store/useMapStore';
 import type { PlaceDetail } from '@/types/place';
+import { createDevLogger } from '@/utils/devLog';
 import { withMinimumDuration } from '@/utils/promise';
+
+const log = createDevLogger('place-detail-fetch');
 
 /** 오류 코드별 안내. */
 const messageByCode: Record<string, string> = {
@@ -144,6 +147,41 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
         .then(([received, mapData]) => {
           // 늦게 도착한 응답이 다른 장소의 화면을 덮지 않게 한다.
           if (sequence.current !== current) return;
+
+          /*
+            **두 API가 같은 장소를 두고 핀 개수를 다르게 말하는지 본다.**
+
+            홈 카드의 `핀 N개`와 마커는 목록(`GET /places`)의 `activePins`에서 나오고, 이 화면의
+            카드는 상세(`GET /places/{id}`)의 `pins`에서 나온다. 둘이 어긋나면 **홈에는 핀이
+            있는데 들어오면 비어 있는** 화면이 된다 — 사용자에게는 라우팅이 잘못된 것으로 보인다.
+
+            실제로 그런 적이 있다(2026-08-07). 목록 쿼리에만 `deletedAt IS NULL`이 빠져 있어
+            **지운 핀이 홈에서만 계속 세어졌고**, 원인을 좁히는 데 여러 번을 썼다. 어긋나는 순간
+            로그 한 줄이 그것을 말해 주면 다음에는 한 번에 끝난다.
+
+            프론트 쪽 사정으로도 어긋날 수 있다 — 좌표 저장소는 모듈 캐시라(`resolvePlaceMapData`)
+            조용한 갱신이 아니면 홈이 받아 둔 값을 그대로 쓴다. 그래서 어느 쪽인지 단정하지 않고
+            두 값만 남긴다.
+          */
+          const listed = mapData?.activePins ?? null;
+          if (listed !== null && listed.length !== received.pins.length) {
+            /*
+              **어긋난 핀의 id까지 남긴다.** 개수만으로는 백엔드에서 확인할 것이 없다. id가 있으면
+              `SELECT id, deleted_at, video_status FROM pins WHERE id IN (...)` 한 번으로 그 핀들이
+              왜 한쪽에만 있는지 바로 드러난다(2026-08-07: 목록에만 있던 핀은 전부 지운 핀이었다).
+            */
+            const inDetail = new Set(received.pins.map((pin) => pin.pinId));
+            const listOnly = listed.filter((pin) => !inDetail.has(pin.pinId)).map((pin) => pin.pinId);
+
+            log('핀 개수 불일치', {
+              placeId,
+              목록: listed.length,
+              상세: received.pins.length,
+              목록에만있는핀: listOnly,
+              갱신: silent ? '목록을 다시 물었음' : '홈이 받아 둔 값',
+              사정: '서버 두 응답이 다르거나, 목록 값이 오래된 것이다',
+            });
+          }
 
           const merged = withPinCoordinates(received, mapData);
           shown.current = placeId;

@@ -57,10 +57,18 @@ const MEMO_MAX_LINES = 4;
 /**
  * 메모가 없을 때 그 자리에 두는 한 마디.
  *
- * "없다"를 적지 않고 **그 카드에서 볼 것**을 적는다 — 남긴 글이 없는 핀에서 볼 것은 영상이고,
- * 카드 전체가 그 게시글로 가는 버튼이라 그대로 다음 행동이 된다.
+ * **줄바꿈을 글에 박아 둔다.** 저절로 접히게 두면 칸 너비와 기기 글꼴 크기에 따라 끊기는
+ * 자리가 달라져, 같은 목록 안에서 카드마다 다른 모양이 된다. 첫 줄을 못 박아 어느 카드에서든
+ * 같은 두 줄로 읽히게 한다(2026-08-07 지정 문구).
+ *
+ * 둘째 줄은 이 칸(약 173dp)에 **겨우 들어간다** — 14px 글자로 약 162dp다. 기기 글꼴을 크게 쓰면
+ * 접혀 세 줄이 될 수 있지만 잘리지는 않는다(`MEMO_MAX_LINES`가 4줄까지 받고 칸 높이도 그만큼
+ * 잡혀 있다). 어떤 설정에서도 두 줄이어야 하면 둘째 줄을 더 짧게 줄이면 된다.
+ *
+ * `내용 없음`처럼 없다는 사실만 적지 않는다. **그 카드에서 볼 것**을 적는 편이 그대로 다음
+ * 행동이 된다 — 카드 전체가 그 게시글로 가는 버튼이다.
  */
-const EMPTY_MEMO_MESSAGE = '영상으로 현장을 확인하세요';
+const EMPTY_MEMO_MESSAGE = '현장의 분위기를\n영상으로 확인해 보세요!';
 
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
@@ -160,7 +168,21 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
       <View style={s.author}>
         <ViewAvatar angle={pin.viewAngle} size={ANGLE_RING_SIZE} />
         <View style={s.authorCopy}>
-          <Text style={s.authorName}>{pin.nickname}</Text>
+          {/*
+            닉네임 줄. **내 글이면 이름 옆에 표시를 붙인다.**
+
+            닉네임만으로는 내 글인지 알 수 없다 — 같은 이름을 쓰는 사람이 있을 수 있고, 애초에
+            로그인한 사람의 닉네임을 앱이 들고 있지도 않다. 판정 근거는 핀 상세의 접근 수준
+            하나뿐이고, 그 값이 여기까지 오는 길은 `PlacePinCard.mine`에 적어 두었다.
+
+            이름이 길면 표시부터 밀려나지 않도록 이름 쪽만 줄인다(`flexShrink`).
+          */}
+          <View style={s.authorRow}>
+            <Text numberOfLines={1} style={s.authorName}>
+              {pin.nickname}
+            </Text>
+            {pin.mine && <Text style={s.mineMark}>(나)</Text>}
+          </View>
           <Text style={s.time}>{formatRelativeTime(pin.createdAt)}</Text>
         </View>
       </View>
@@ -265,21 +287,23 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
             </Text>
           )}
 
-          {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
+          {/*
+            태그 칩 줄. **없으면 아무것도 두지 않고 자리만 비운다.**
+
+            예전에는 빈 칩에 `#` 하나를 넣어 "태그가 들어올 자리"임을 보였는데, 달지 않은 태그가
+            달린 것처럼 읽혔다(2026-08-07 의견). 없는 것은 없는 대로 두는 편이 맞다.
+
+            줄 자체는 그대로 그린다 — `minHeight`가 높이를 지켜, 태그가 있든 없든 카드 안의
+            리듬과 썸네일 아랫변에 맞춘 정렬이 달라지지 않는다.
+          */}
           <View style={s.tags}>
-            {pin.tags.length > 0 ? (
-              pin.tags.map((tag) => (
-                <View key={tag} style={s.tag}>
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
-                    #{tag}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View accessibilityLabel="남긴 태그 없음" style={[s.tag, s.tagEmpty]}>
-                <Text style={s.emptyMark}>#</Text>
+            {pin.tags.map((tag) => (
+              <View key={tag} style={s.tag}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
+                  #{tag}
+                </Text>
               </View>
-            )}
+            ))}
           </View>
         </View>
       </View>
@@ -314,7 +338,19 @@ const s = StyleSheet.create({
   cardSelected: { borderColor: colors.lime },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },
-  authorName: { ...type.label, fontWeight: '600', color: colors.dark },
+  /** 닉네임과 `내 글` 표시가 한 줄에 선다. 이름이 길면 이름만 줄어든다. */
+  authorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
+  authorName: { ...type.label, flexShrink: 1, fontWeight: '600', color: colors.dark },
+  /**
+   * 내 글 표시. 닉네임 옆에 `(나)`만 둔다.
+   *
+   * 한때 연두색 상자에 `내 글`을 담았는데 **눈에 너무 세게 걸렸다**(2026-08-07 팀 논의). 이건
+   * 시연에서 설명을 줄이려는 보조 표시라, 이름을 읽는 흐름을 끊지 않고 곁들여 읽히면 된다.
+   *
+   * 그래서 상자를 걷고 괄호만 남긴다. 괄호는 그 자체로 "덧붙인 말"이라는 뜻이 있어 상자 없이도
+   * 닉네임과 구분된다. 색은 이름(`dark`)보다 확실히 물러난 연회색이다.
+   */
+  mineMark: { ...type.caption, color: colors.gray400 },
   time: { ...type.caption, color: colors.gray400 },
   // 높이를 고정해 카드마다 키가 같아진다. 근거는 `THUMBNAIL_HEIGHT` 주석에 있다.
   body: {
@@ -369,10 +405,17 @@ const s = StyleSheet.create({
    *
    * 실제 메모보다 옅게 둔다 — 작성자가 쓴 글이 아니라 화면이 놓은 안내라, 같은 색이면 남의 말을
    * 작성자 것으로 읽게 된다.
+   *
+   * `gray400` → `gray300`으로 물렸다(2026-08-07 의견, 두 번). 흰 카드 위에서 1.5:1이라 읽어야
+   * 하는 글의 기준에는 한참 못 미치지만, 지나쳐도 되는 안내라 그 자리가 맞다. 더 진하게
+   * 되돌리려면 `gray400`.
+   *
+   * **기울인다.** 작성자가 쓴 글이 아니라 화면이 대신 놓은 말이라는 것이 색만으로는 덜 드러난다.
+   * 이 앱은 별도 글꼴을 싣지 않아 시스템 글꼴을 쓰는데, 한글 글꼴에는 이탤릭 자형이 없어
+   * **안드로이드가 기울여 그린다**(합성 오블리크). 짧은 두 줄이라 그 정도로 충분하다 —
+   * 실기기에서 거칠어 보이면 이 한 줄만 빼면 된다.
    */
-  memoEmpty: { ...type.small, color: colors.gray400 },
-  /** 태그가 없을 때 칩에 두는 표시. 글자보다 옅게 둬 카드를 훑을 때 걸리지 않게 한다. */
-  emptyMark: { ...type.small, color: colors.gray400 },
+  memoEmpty: { ...type.small, color: colors.gray300, fontStyle: 'italic' },
   /**
    * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**
    *
@@ -380,7 +423,7 @@ const s = StyleSheet.create({
    * 썸네일 높이로 고정돼 있으므로(`body`), 결과적으로 태그 줄의 아랫변이 썸네일 아랫변과 같은
    * 선에 놓인다 — 메모가 한 줄이든 네 줄이든 카드마다 같은 자리다.
    *
-   * 태그가 없을 때도 이 줄과 높이가 그대로 있어 `태그 없음`이 같은 선에 놓인다.
+   * 태그가 없을 때도 이 줄의 높이는 그대로 남아, 카드마다 썸네일 아랫변이 같은 선에 놓인다.
    */
   tags: {
     minHeight: 28,
@@ -390,8 +433,6 @@ const s = StyleSheet.create({
     marginTop: 'auto',
     overflow: 'hidden',
   },
-  /** 태그가 없을 때의 칩. 색만 빼고 모양은 같게 두어 "들어올 자리"로 읽힌다. */
-  tagEmpty: { minWidth: 44, backgroundColor: colors.gray100 },
   tag: {
     maxWidth: '45%',
     height: 28,

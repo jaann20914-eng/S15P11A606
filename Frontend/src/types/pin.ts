@@ -227,9 +227,23 @@ export type PinUnlockResult = {
   accessGranted: boolean;
 };
 
+/**
+ * 이 접근 수준이 **작성자 본인**인지.
+ *
+ * 서버가 내 글인지 아닌지를 알려 주는 **유일한 값이다.** 장소 상세의 핀 카드에는 작성자
+ * 식별자가 없고(`PlacePinCard`), 로그인 상태로도 알 수 없다 — 인증 저장소는 토큰만 들고
+ * 있고 회원 번호나 닉네임을 담지 않는다(`useAuthStore`). 닉네임 비교는 같은 이름을 쓰는
+ * 사람이 있으면 틀리므로 기준이 될 수 없다.
+ *
+ * 그래서 판정을 여기 한 곳에 모은다(`revealsVideo`와 같은 모양이다).
+ */
+export function isOwnerAccess(access: PinVideoAccess): boolean {
+  return access === 'OWNER';
+}
+
 /** 내가 쓴 핀인지. 수정·삭제·떠났어요 노출 기준이다. */
 export function isOwnPin(detail: PinDetail): boolean {
-  return detail.videoAccess === 'OWNER';
+  return isOwnerAccess(detail.videoAccess);
 }
 
 /**

@@ -49,6 +49,11 @@ export function toPinCard({
       오는 쪽이 핀 상세의 접근 수준으로 고쳐 준다. 모르는 동안은 가려 두는 쪽이 맞다.
     */
     revealed: pin.isUnlocked,
+    /*
+      작성자 여부도 카드 응답에 없다. 위 `revealed`와 같은 사정이라 같은 곳에서 함께 채워진다
+      — 여기서는 모른다는 뜻으로 거짓을 둔다.
+    */
+    mine: false,
     // 서버는 아직 좌표를 주지 않는다. 없으면 null로 못 박아 화면이 있는 척하지 않게 한다.
     latitude: latitude ?? null,
     longitude: longitude ?? null,
