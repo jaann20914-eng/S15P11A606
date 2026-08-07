@@ -7,9 +7,11 @@
     "scheme": "waglewagle",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/images/app-icon.png",
     "android": {
       "package": "com.waglewagle.mobile",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-icon-foreground.png",
         "backgroundColor": "#FAFAFA"
       },
       "intentFilters": [
@@ -23,10 +25,7 @@
               "pathPrefix": "/oauth/callback"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
