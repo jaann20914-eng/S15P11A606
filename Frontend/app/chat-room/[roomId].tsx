@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   Image,
@@ -18,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ViewAvatar } from '@/components/common';
+import { NoticeModal, ViewAvatar, useNotice } from '@/components/common';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 import { ChatWarningSheet } from '@/features/chat/components/ChatWarningSheet';
 import { useBackdropBlur } from '@/features/pin-detail/hooks/useBackdropBlur';
@@ -85,13 +84,17 @@ export default function Room() {
   */
   const decision = useChatDecision(room.reload);
 
+  const { notice, showNotice, confirmNotice } = useNotice();
+
   useEffect(() => {
     if (decision.error === null) return;
 
-    Alert.alert('요청을 처리하지 못했어요', decision.error, [
-      { text: '확인', onPress: decision.dismissError },
-    ]);
-  }, [decision.error, decision.dismissError]);
+    showNotice({
+      title: '요청을 처리하지 못했어요',
+      message: decision.error,
+      onConfirm: decision.dismissError,
+    });
+  }, [decision.error, decision.dismissError, showNotice]);
 
   /*
     키보드가 덮는 만큼 화면을 접는다.
@@ -101,7 +104,7 @@ export default function Room() {
     않았다. 등록 화면과 같은 방식으로 겹치는 높이를 직접 재서 아래 여백으로 만든다.
   */
   const screenRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(screenRef);
+  const keyboardOverlap = useKeyboardOverlap(screenRef, 'chat-room');
 
   /*
     메시지 목록의 스크롤 위치.
@@ -422,6 +425,13 @@ export default function Room() {
         같다(`ChatWarningSheet`).
       */}
       <ChatWarningSheet warning={room.arrivedWarning} onClose={room.dismissWarning} />
+
+      <NoticeModal
+        visible={notice !== null}
+        title={notice?.title ?? ''}
+        message={notice?.message ?? ''}
+        onConfirm={confirmNotice}
+      />
     </SafeAreaView>
   );
 }
@@ -578,8 +588,9 @@ const s = StyleSheet.create({
     paddingVertical: spacing.x3,
     borderRadius: radius.lg,
   },
-  themBubble: { backgroundColor: '#D8EB6A' },
-  meBubble: { backgroundColor: colors.gray100 },
+  // 내 말이 연두, 상대가 회색이다. 내가 보낸 것이 브랜드 색을 갖는 관례(카카오톡의 노랑)를 따른다.
+  themBubble: { backgroundColor: colors.gray100 },
+  meBubble: { backgroundColor: '#D8EB6A' },
   messageText: { ...type.body, color: colors.dark },
   time: { ...type.caption, fontSize: 10, color: colors.gray400 },
 

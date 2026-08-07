@@ -30,7 +30,33 @@ import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-cont
  * 해석할 여지가 없는 실측치라, 어느 안드로이드 버전에서든 같은 결과가 나온다.
  * iOS는 이 문제가 없어 기존 그대로 창 높이를 쓴다.
  */
-export function useKeyboardOverlap(ref: RefObject<View | null>): number {
+/**
+ * 창이 줄어드는 것까지 끝나기를 기다리는 시간(ms).
+ *
+ * 키보드가 뜨는 애니메이션보다 넉넉히 잡는다. 이 시점의 값이 최종값이 된다.
+ */
+const RESIZE_SETTLE_MS = 250;
+
+/**
+ * 계산에 들어간 값을 전부 남긴다. 기기마다 다른 것이 무엇인지 가리기 위한 임시 진단이다.
+ *
+ * 이 훅의 식은 실측치만 쓰지만, "`measureInWindow`의 원점이 상태바 아래"라는 **가정** 위에
+ * 서 있다. 그 가정이 깨지는 기기가 있는지는 밖에서 볼 수 없어, 문제 기기에서 실제 숫자를
+ * 받아 맞춰 보는 수밖에 없다(2026-08-07 — 안드로이드 16에서 채팅 입력칸이 조금 가림).
+ *
+ * `label`은 어느 화면인지 구분하는 이름이다. 원인이 잡히면 이 로그와 label 인자를 지운다.
+ */
+function logOverlap(label: string, values: Record<string, number>): void {
+  if (!__DEV__) return;
+
+  const line = Object.entries(values)
+    .map(([key, value]) => `${key}=${Math.round(value)}`)
+    .join(' ');
+
+  console.log(`[keyboard:${label}] ${line}`);
+}
+
+export function useKeyboardOverlap(ref: RefObject<View | null>, label = 'unknown'): number {
   const [overlap, setOverlap] = useState(0);
 
   /*
@@ -44,21 +70,81 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
   const androidKeyboardBase = useRef(0);
   androidKeyboardBase.current = frame.height - insets.bottom - insets.top;
 
+  /* 진단 기록에 그대로 싣기 위해 재료 값도 최신으로 들고 있는다(임시). */
+  const frameHeight = useRef(0);
+  const insetTop = useRef(0);
+  const insetBottom = useRef(0);
+  frameHeight.current = frame.height;
+  insetTop.current = insets.top;
+  insetBottom.current = insets.bottom;
+
   useEffect(() => {
-    const measure = (event: KeyboardEvent) => {
+    /** 예약해 둔 다시 재기. 정리할 때 취소한다. */
+    let frame: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const measureOnce = (keyboardHeight: number) => {
       const node = ref.current;
 
       if (node === null) return;
 
-      const keyboardHeight = event.endCoordinates.height;
+      /*
+        **아래에서부터** 잰다. `measureInWindow`의 좌표와 키보드 바닥을 같은 원점의
+        "아래에서 떨어진 거리"로 바꿔 비교하면 위쪽 원점 차이가 상쇄된다. 안드로이드의
+        기준(`androidKeyboardBase`)이 왜 실측치여야 하는지는 파일 머리에 적어 두었다.
+
+        **창이 이미 줄어든 경우도 이 식이 알아서 받는다.** 그때는 이 영역의 아래 끝이 창
+        바닥에 붙어 있어 `gapBelow`가 키보드 높이만큼 되고, 겹침은 0이 된다 — 화면이 스스로
+        올라갔으니 우리가 더 올릴 것이 없다.
+      */
       const keyboardBase =
         Platform.OS === 'android' ? androidKeyboardBase.current : Dimensions.get('window').height;
 
       node.measureInWindow((_x, y, _width, height) => {
         const gapBelow = keyboardBase - (y + height);
+        const next = Math.max(0, keyboardHeight - gapBelow);
 
-        setOverlap(Math.max(0, keyboardHeight - gapBelow));
+        /*
+          진단용 기록(임시). 가려짐이 남는 기기에서 어느 항이 어긋나는지 보려면
+          `nodeBottom`(= y+height)과 `keyboardBase`를 비교한다. 이 둘이 같으면 겹침이 곧
+          키보드 높이가 되고, 그것이 의도한 결과다.
+        */
+        logOverlap(label, {
+          screenH: frameHeight.current,
+          insetTop: insetTop.current,
+          insetBottom: insetBottom.current,
+          keyboardH: keyboardHeight,
+          keyboardBase,
+          nodeY: y,
+          nodeH: height,
+          nodeBottom: y + height,
+          gapBelow,
+          overlap: next,
+        });
+
+        setOverlap(next);
       });
+    };
+
+    /**
+     * 키보드 사건 하나에 **여러 번** 잰다.
+     *
+     * 안드로이드 15부터 화면 끝까지 그리기가 강제되면서, 키보드가 뜰 때 창이 줄어드는 시점과
+     * `keyboardDidShow`가 오는 순서가 버전마다 다르다. 한 번만 재면 리사이즈가 나중에 오는
+     * 기기에서 옛 좌표로 계산해 버튼이 그대로 가렸다(안드로이드 16, 2026-08-06 제보).
+     *
+     * 값이 같으면 상태가 바뀌지 않아 다시 그리지도 않으므로, 여러 번 재는 비용은 없다.
+     */
+    const measure = (event: KeyboardEvent) => {
+      const keyboardHeight = event.endCoordinates.height;
+
+      measureOnce(keyboardHeight);
+
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => measureOnce(keyboardHeight));
+
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => measureOnce(keyboardHeight), RESIZE_SETTLE_MS);
     };
 
     /*
@@ -73,8 +159,12 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
       ),
     ];
 
-    return () => subscriptions.forEach((subscription) => subscription.remove());
-  }, [ref]);
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (timer !== null) clearTimeout(timer);
+    };
+  }, [ref, label]);
 
   return overlap;
 }

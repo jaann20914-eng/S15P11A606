@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   InteractionManager,
   Pressable,
@@ -13,10 +12,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 
 import { colors, spacing } from '@/constants/theme';
-import { AppTabBar, NoticeModal, useAppTabBarHeight } from '@/components/common';
+import { AppTabBar, NoticeModal, useAppTabBarHeight, useNotice } from '@/components/common';
 import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import { CaptureField } from '@/features/pin-create/components/CaptureField';
 import { CrowdLevelSegment } from '@/features/pin-create/components/CrowdLevelSegment';
@@ -128,7 +127,7 @@ export default function PinCreateScreen() {
     탭바 높이를 손으로 빼는 계산은 키보드가 커질 때 어긋난다(`useKeyboardOverlap` 주석).
   */
   const formRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(formRef);
+  const keyboardOverlap = useKeyboardOverlap(formRef, 'write');
 
   /*
     수정 라우트는 탭 밖이라 하단 바를 네비게이터가 그려 주지 않는다. 작성과 같은 모양이 되도록
@@ -201,6 +200,12 @@ export default function PinCreateScreen() {
   }, [focused, form.reset, resetPublish, mode.type]);
 
   /*
+    검증 · 실패 안내. 완료 안내(`completion`)와 자리는 같지만 이쪽은 닫기만 하고 화면을
+    옮기지 않는다. 네이티브 `Alert`을 쓰지 않는 이유는 `useNotice`에 적어 두었다.
+  */
+  const { notice, showNotice, confirmNotice } = useNotice();
+
+  /*
     **장소 화면 위에 얹혀 열렸을 때의 뒤로 가기.**
 
     장소 화면의 "작성하러 가기"는 이 화면을 탭 그룹째로 루트에 얹는다(push — 탭 안 경로는
@@ -212,18 +217,26 @@ export default function PinCreateScreen() {
     얹힌 겹이 있으면(`canDismiss` — 루트에 화면이 쌓여 있을 때만 참이다) 탭 라우터보다 먼저
     받아 겹을 통째로 걷는다(`dismiss`는 POP이라 탭이 소비하지 못하고 루트 스택이 받는다).
     + 탭으로 들어온 평소에는 겹이 없어 기존 동작(홈 탭으로 이동) 그대로다.
-  */
-  useFocusEffect(
-    useCallback(() => {
-      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-        if (!router.canDismiss()) return false;
-        router.dismiss();
-        return true;
-      });
 
-      return () => subscription.remove();
-    }, []),
-  );
+    **등록은 초점에 걸지 않고 마운트에 한 번, 처리 여부만 초점으로 가른다.** 이 화면은
+    `useFocusEffect`의 blur 콜백이 실제로 오지 않는 것이 확인돼 있어(위 `focused` 주석 —
+    그래서 화면 전체가 `useIsFocused`를 쓴다), 초점에 걸어 등록하면 **정리가 되지 않은
+    핸들러가 화면을 떠난 뒤에도 남는다.** 그 상태로 다른 화면에서 뒤로 가기를 누르면 이
+    핸들러가 가로챌 수 있다.
+  */
+  const focusedRef = useRef(focused);
+  focusedRef.current = focused;
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!focusedRef.current) return false;
+      if (!router.canDismiss()) return false;
+      router.dismiss();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const submit = () => {
     /*
@@ -239,18 +252,18 @@ export default function PinCreateScreen() {
     const memo = form.draft.memo;
 
     if (memo.length > 0 && memo.trim().length === 0) {
-      Alert.alert(
-        '내용을 확인해 주세요',
-        '공백과 줄바꿈만으로는 내용을 남길 수 없어요. 내용을 적거나 비워 주세요.',
-      );
+      showNotice({
+        title: '내용을 확인해 주세요',
+        message: '공백과 줄바꿈만으로는 내용을 남길 수 없어요.\n내용을 적거나 비워 주세요.',
+      });
       return;
     }
 
     if (countGraphemes(memo.trim()) > MAX_MEMO_LENGTH) {
-      Alert.alert(
-        '내용이 조금 길어요',
-        `내용은 ${MAX_MEMO_LENGTH}자까지 적을 수 있어요. 조금만 줄여 주세요.`,
-      );
+      showNotice({
+        title: '내용이 조금 길어요',
+        message: `내용은 ${MAX_MEMO_LENGTH}자까지 적을 수 있어요.\n조금만 줄여 주세요.`,
+      });
       return;
     }
 
@@ -280,12 +293,18 @@ export default function PinCreateScreen() {
     }
 
     if (!form.draft.video) {
-      Alert.alert('영상을 촬영해 주세요', '갤러리 영상은 등록할 수 없고 실시간 촬영이 필요해요.');
+      showNotice({
+        title: '영상을 촬영해 주세요',
+        message: '갤러리 영상은 등록할 수 없고\n실시간 촬영이 필요해요.',
+      });
       return;
     }
 
     if (!form.draft.place) {
-      Alert.alert('장소를 선택해 주세요', '현재 위치 주변의 장소를 반드시 골라야 해요.');
+      showNotice({
+        title: '장소를 선택해 주세요',
+        message: '현재 위치 주변의 장소를 반드시 골라야 해요.',
+      });
       return;
     }
 
@@ -296,9 +315,12 @@ export default function PinCreateScreen() {
   useEffect(() => {
     if (!error) return;
 
-    const title = mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요';
-    Alert.alert(title, error, [{ text: '확인', onPress: dismissError }]);
-  }, [error, dismissError, mode.type]);
+    showNotice({
+      title: mode.type === 'edit' ? '핀을 수정하지 못했어요' : '핀을 등록하지 못했어요',
+      message: error,
+      onConfirm: dismissError,
+    });
+  }, [error, dismissError, mode.type, showNotice]);
 
   /**
    * AI 처리까지 끝나면 등록한 핀으로 보낸다.
@@ -425,7 +447,13 @@ export default function PinCreateScreen() {
             )}
           </View>
         ) : phase !== 'idle' ? (
-          <PublishingOverlay phase={phase} progress={progress} onCancel={cancelPublish} />
+          <PublishingOverlay
+            phase={phase}
+            progress={progress}
+            onCancel={cancelPublish}
+            // 수정(탭 밖)은 화면이 바닥까지라, 탭 바 높이만큼 비워 등록과 링 자리를 맞춘다.
+            bottomInset={mode.type === 'edit' ? tabBarHeight : 0}
+          />
         ) : (
           /*
             키보드가 덮는 만큼 아래를 비워 둔다.
@@ -536,6 +564,14 @@ export default function PinCreateScreen() {
         message={completion?.message ?? ''}
         busy={leaving}
         onConfirm={leaveAfterCompletion}
+      />
+
+      {/* 검증·실패 안내. 완료 모달과 자리는 같지만 이쪽은 닫기만 하고 화면을 옮기지 않는다. */}
+      <NoticeModal
+        visible={completion === null && notice !== null}
+        title={notice?.title ?? ''}
+        message={notice?.message ?? ''}
+        onConfirm={confirmNotice}
       />
     </SafeAreaView>
   );

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { ScreenHeader } from '@/components/common';
+import { ConfirmModal, NoticeModal, ScreenHeader, useNotice } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { ChatListState } from '@/features/chat/components/ChatListState';
 import { ChatPinRow } from '@/features/chat/components/ChatPinRow';
@@ -100,19 +100,27 @@ export default function Chat() {
   const leave = usePinLeave(selectedPin?.pinId ?? null, reloadBothLists);
 
   // 처리 결과는 그 자리에서 알린다. 목록만 조용히 바뀌면 눌린 것인지 알 수 없다.
+  const { notice, showNotice, confirmNotice } = useNotice();
+
   useEffect(() => {
     if (decision.error === null) return;
 
-    Alert.alert('요청을 처리하지 못했어요', decision.error, [
-      { text: '확인', onPress: decision.dismissError },
-    ]);
-  }, [decision.error, decision.dismissError]);
+    showNotice({
+      title: '요청을 처리하지 못했어요',
+      message: decision.error,
+      onConfirm: decision.dismissError,
+    });
+  }, [decision.error, decision.dismissError, showNotice]);
 
   useEffect(() => {
     if (leave.error === null) return;
 
-    Alert.alert('채팅방을 종료하지 못했어요', leave.error, [{ text: '확인', onPress: leave.dismissError }]);
-  }, [leave.error, leave.dismissError]);
+    showNotice({
+      title: '채팅방을 종료하지 못했어요',
+      message: leave.error,
+      onConfirm: leave.dismissError,
+    });
+  }, [leave.error, leave.dismissError, showNotice]);
 
   const filteredMyRooms = useMemo(() => filterRooms(myRooms.items, query), [myRooms.items, query]);
   const filteredPinRooms = useMemo(() => filterRooms(pinRooms.items, query), [pinRooms.items, query]);
@@ -128,16 +136,8 @@ export default function Chat() {
     });
   };
 
-  const confirmLeave = () => {
-    Alert.alert(
-      '이 핀의 대화를 모두 끝낼까요?',
-      '연결된 채팅방이 모두 종료돼요. 지난 대화는 그대로 남습니다.',
-      [
-        { text: '취소', style: 'cancel' },
-        { text: '떠났어요', style: 'destructive', onPress: leave.leave },
-      ],
-    );
-  };
+  /** 되돌릴 수 없는 동작이라 확인 모달을 한 번 세운다(`ConfirmModal`). */
+  const [leaveAsked, setLeaveAsked] = useState(false);
 
   /*
     탭별 안 읽음 표시. 목록 줄의 점과 같은 재료로 계산하므로 늘 함께 켜지고 함께 꺼진다 —
@@ -288,7 +288,7 @@ export default function Chat() {
               accessibilityRole="button"
               accessibilityState={{ disabled: pinLeft }}
               disabled={leave.busy || pinLeft}
-              onPress={confirmLeave}
+              onPress={() => setLeaveAsked(true)}
               style={[s.leaveButton, leave.busy && s.leaveButtonBusy, pinLeft && s.leaveButtonDone]}
             >
               <Text style={[s.leaveText, pinLeft && s.leaveTextDone]}>떠났어요</Text>
@@ -296,6 +296,26 @@ export default function Chat() {
           </View>
         )}
       </View>
+
+      <ConfirmModal
+        visible={leaveAsked}
+        title="이 핀의 대화를 모두 끝낼까요?"
+        message={'연결된 채팅방이 모두 종료돼요.\n지난 대화는 그대로 남습니다.'}
+        confirmLabel="떠났어요"
+        busy={leave.busy}
+        onCancel={() => setLeaveAsked(false)}
+        onConfirm={() => {
+          setLeaveAsked(false);
+          leave.leave();
+        }}
+      />
+
+      <NoticeModal
+        visible={notice !== null}
+        title={notice?.title ?? ''}
+        message={notice?.message ?? ''}
+        onConfirm={confirmNotice}
+      />
     </SafeAreaView>
   );
 }
