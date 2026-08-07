@@ -37,10 +37,11 @@ export interface RecommendPlaceCardProps {
 /**
  * "지금 보고 있는 핀"을 판정하는 목록 위쪽 기준선(px).
  *
- * 마커로 이동할 때 카드를 이 자리에 세우고, 스크롤을 훑을 때도 이 선을 지난 마지막 카드를
- * 보고 있는 것으로 본다. 두 곳이 같은 값을 써야 마커로 간 카드가 그대로 선택으로 읽힌다.
+ * 스크롤을 훑을 때 이 선을 지난 마지막 카드를 보고 있는 것으로 본다. 카드가 칸 맨 위에
+ * 섰을 때의 위치(`PIN_SLOT_PADDING`)보다 조금 아래에 둔다 — 정확히 같은 값이면 경계에
+ * 걸쳐 판정이 카드 사이에서 흔들린다.
  */
-const SCROLL_ANCHOR = 24;
+const SCROLL_ANCHOR = PIN_SLOT_PADDING + 8;
 
 /** 바닥에 이만큼 가까우면 곧장 마지막 카드로 본다. 손으로 살살 내리면 정확히 바닥에 닿지 않는다. */
 const BOTTOM_SLACK = 80;
@@ -136,8 +137,16 @@ export function RecommendPlaceCard({
     // 좌표가 있는데 카드가 없는 핀(집계 어긋남)일 수 있다. 그때는 표시만 하고 머문다.
     if (cardY === undefined) return;
 
+    /*
+      **스냅 격자에 정확히 맞춰 세운다.**
+
+      카드의 위치(`cardY`)는 위 여백을 포함한 값이라, 그 여백만큼 빼야 카드가 칸 맨 위에
+      선다. 판정 기준선(`SCROLL_ANCHOR`)으로 빼면 그보다 몇 px 모자란 자리에 서는데, 그
+      자리는 스냅이 멈추는 자리가 아니라서 카드가 애매하게 걸쳐 아래가 잘려 보였다
+      (2026-08-07 실기기). 손으로 넘길 때와 마커로 갈 때가 같은 자리에 서야 한다.
+    */
     trackingPausedUntilRef.current = Date.now() + 700;
-    scrollRef.current?.scrollTo({ y: Math.max(0, cardY - SCROLL_ANCHOR), animated: true });
+    scrollRef.current?.scrollTo({ y: Math.max(0, cardY - PIN_SLOT_PADDING), animated: true });
   }, []);
 
   /**
