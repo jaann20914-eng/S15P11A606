@@ -64,24 +64,12 @@ export interface MapViewState {
   level: number;
 }
 
-/** 키워드 검색으로 찾은 장소. 백엔드가 좌표를 주기 전까지 상세 화면이 이 값으로 지도를 맞춘다. */
-export interface ResolvedPlace {
-  name: string;
-  address: string;
-  roadAddress: string;
-  phone: string;
-  latitude: number;
-  longitude: number;
-}
-
 export type MapOutgoingMessage =
   | { type: 'ready' }
   | { type: 'error'; reason: string }
   | { type: 'pinPress'; placeId: string }
   | { type: 'mapPress' }
-  | { type: 'idle'; view: MapViewState }
-  | { type: 'placeResolved'; place: ResolvedPlace }
-  | { type: 'placeNotFound'; keyword: string; reason: 'no-result' | 'search-failed' };
+  | { type: 'idle'; view: MapViewState };
 
 export interface MapPatch {
   places?: MapPlaceMarker[];
@@ -137,20 +125,12 @@ export interface KakaoMapHtmlOptions {
   appKey: string;
   center: { latitude: number; longitude: number };
   level?: number;
-  /**
-   * 장소 키워드 검색(`searchPlace`)을 쓸 화면인지.
-   *
-   * `libraries=services`는 SDK 본체와 **별도로 내려받는 추가 번들**이라 첫 렌더를 그만큼
-   * 늦춘다. 홈 지도는 `panTo`·`fitPlaces`만 쓰고 검색은 하지 않으므로 기본은 끈 상태다.
-   */
-  usePlaceSearch?: boolean;
 }
 
 export function buildKakaoMapHtml({
   appKey,
   center,
   level = DEFAULT_MAP_LEVEL,
-  usePlaceSearch = false,
 }: KakaoMapHtmlOptions): string {
   const initial = JSON.stringify({
     lat: center.latitude,
@@ -1030,50 +1010,6 @@ export function buildKakaoMapHtml({
       centerOn(new kakao.maps.LatLng(lat, lng), liftPx, animate !== false);
     },
     /**
-     * 장소명으로 검색해 지도를 그 위치로 옮긴다.
-     *
-     * 이 호출은 카카오에 등록된 웹 도메인에서만 성공한다(실기기 WebView는 https://localhost).
-     * 웹으로 띄울 때는 iframe(srcdoc)의 origin이 opaque라 도메인을 등록해도 401이 난다.
-     * 실패하면 placeNotFound를 보내고, 화면이 등록된 좌표로 대신 지도를 맞춘다.
-     */
-    searchPlace: function (keyword, liftPx) {
-      if (!map || !kakao.maps.services) {
-        postToHost({ type: 'placeNotFound', keyword: keyword, reason: 'search-failed' });
-        return;
-      }
-
-      new kakao.maps.services.Places().keywordSearch(keyword, function (results, status) {
-        // 검색이 실패하면 이 SDK 버전은 첫 인자로 'ERROR'/'ZERO_RESULT' 문자열을 넘긴다.
-        var ok = status === kakao.maps.services.Status.OK && results && results.length && results[0].y;
-        if (!ok) {
-          postToHost({
-            type: 'placeNotFound',
-            keyword: keyword,
-            reason: status === kakao.maps.services.Status.ZERO_RESULT ? 'no-result' : 'search-failed'
-          });
-          return;
-        }
-
-        var found = results[0];
-        var latitude = parseFloat(found.y);
-        var longitude = parseFloat(found.x);
-        // 화면에 처음 자리를 잡는 용도라 즉시 이동한다.
-        centerOn(new kakao.maps.LatLng(latitude, longitude), liftPx, false);
-
-        postToHost({
-          type: 'placeResolved',
-          place: {
-            name: found.place_name || keyword,
-            address: found.address_name || '',
-            roadAddress: found.road_address_name || '',
-            phone: found.phone || '',
-            latitude: latitude,
-            longitude: longitude
-          }
-        });
-      });
-    },
-    /**
      * 현재 핀이 모두 보이도록 영역을 맞춘다.
      * 핀이 아직 도착하지 않았으면(지도 준비 직후) 첫 렌더 뒤로 미룬다.
      */
@@ -1301,8 +1237,12 @@ export function buildKakaoMapHtml({
   // 이 요청에만 Referer를 빼서, 도메인 등록 없이도 SDK를 받을 수 있게 한다.
   // 문서 정책은 건드리지 않으므로 services 검색 호출은 Referer를 정상적으로 보낸다.
   sdk.referrerPolicy = 'no-referrer';
-  // services: 장소 키워드 검색. 쓰는 화면에서만 붙인다 — 안 쓰는 화면에서는 첫 렌더만 늦춘다.
-  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false${usePlaceSearch ? '&libraries=services' : ''}';
+  /*
+    지도 본체만 받는다. **libraries=services(장소 키워드 검색)는 붙이지 않는다** — 장소 검색은
+    전부 우리 백엔드를 지나므로(GET /api/v1/places/search) 프론트에서 카카오를 직접 부를 일이
+    없고, 그 번들은 별도 요청이라 첫 렌더만 늦춘다.
+  */
+  sdk.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false';
   sdk.onload = bootstrap;
   sdk.onerror = function () { postToHost({ type: 'error', reason: 'sdk-load-failed' }); };
   document.head.appendChild(sdk);
@@ -1315,7 +1255,6 @@ export type MapCommand =
   | 'update'
   | 'panTo'
   | 'focusPlace'
-  | 'searchPlace'
   | 'setLevel'
   | 'fitPlaces'
   | 'relayout'

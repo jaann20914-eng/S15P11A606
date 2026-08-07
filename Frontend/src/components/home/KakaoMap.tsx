@@ -56,7 +56,6 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     center,
     level,
     fitPlacesOnReady = false,
-    usePlaceSearch = false,
     myLocation = null,
     fullScreen = false,
     bottomInset = 0,
@@ -65,8 +64,6 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     onMapPress,
     onViewChange,
     onReady,
-    onPlaceResolved,
-    onPlaceNotFound,
   },
   ref,
 ) {
@@ -87,15 +84,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const initialCenter = useRef(fitPlacesOnReady && places.length > 0 ? centerOfPlaces(places) : center);
   /** 최초 확대도 중심과 같이 지도를 만들 때 한 번만 반영한다. */
   const initialLevel = useRef(level);
+  /* 최초 중심·확대만 심는다. 둘 다 ref라 문서는 한 번 만들어지고 다시 만들어지지 않는다. */
   const html = useMemo(
     () =>
       buildKakaoMapHtml({
         appKey: kakaoMapAppKey,
         center: initialCenter.current,
         level: initialLevel.current,
-        usePlaceSearch,
       }),
-    [usePlaceSearch],
+    [],
   );
 
   const send = useCallback((method: MapCommand, args: unknown[] = []) => {
@@ -142,7 +139,6 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         send('panTo', [latitude, longitude, Math.round(insetRef.current / 2), options?.animate ?? true]),
       focusPlace: ({ latitude, longitude }, targetLevel) =>
         send('focusPlace', [latitude, longitude, targetLevel, Math.round(insetRef.current / 2)]),
-      searchPlace: (keyword: string) => send('searchPlace', [keyword, Math.round(insetRef.current / 2)]),
       setLevel: (level: number) => send('setLevel', [level]),
       // 지도를 갖지 않은 화면(장소 상세)이 넘긴 제스처. 자세한 이유는 `MapGestureControl` 참고.
       dragBy: (dx: number, dy: number) => send('dragBy', [dx, dy]),
@@ -194,25 +190,9 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         case 'idle':
           onViewChange?.(message.view);
           break;
-        case 'placeResolved':
-          onPlaceResolved?.(message.place);
-          break;
-        case 'placeNotFound':
-          onPlaceNotFound?.(message.keyword, message.reason);
-          break;
       }
     },
-    [
-      fail,
-      fitPlacesOnReady,
-      onMapPress,
-      onPinPress,
-      onPlaceNotFound,
-      onPlaceResolved,
-      onReady,
-      onViewChange,
-      send,
-    ],
+    [fail, fitPlacesOnReady, onMapPress, onPinPress, onReady, onViewChange, send],
   );
 
   const reason = !hasKakaoMapAppKey ? 'missing-key' : failure;
