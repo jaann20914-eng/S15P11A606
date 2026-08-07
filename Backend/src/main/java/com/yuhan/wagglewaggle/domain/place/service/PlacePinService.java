@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlacePinService {
 
-    private static final int MAX_RESULT = 10;
+    private static final int MAX_RESULT = 20;
     private static final int MAX_KAKAO_CONCURRENCY = 8;
     private static final Duration ACTIVE_WINDOW = Duration.ofHours(1);
     private static final Duration CACHE_TTL = Duration.ofSeconds(30);
@@ -70,7 +70,7 @@ public class PlacePinService {
         double centerLongitude = (southWestLongitude + northEastLongitude) / 2;
 
         // 2. 필터·정렬·상한만 필터별로 다르게 적용한다.
-        //    핫플 우선: 활성 핀이 많은 순 → 동점이면 지도 중심에 가까운 순 → 최대 10개.
+        //    핫플 우선: 활성 핀이 많은 순 → 동점이면 지도 중심에 가까운 순 → 최대 20개.
         Comparator<PlaceAggregate> byHotness = Comparator
                 .comparingInt((PlaceAggregate aggregate) -> aggregate.activePins().size()).reversed()
                 .thenComparingDouble(aggregate -> distanceToCenter(
