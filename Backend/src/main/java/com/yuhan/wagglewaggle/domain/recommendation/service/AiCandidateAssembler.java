@@ -31,8 +31,10 @@ import java.util.stream.Collectors;
 public class AiCandidateAssembler {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    // expiresAt = 활성화 시각 + 1h (Pin.activate) 이므로, 활성화 시각 = expiresAt - 1h.
-    private static final Duration ACTIVE_VIDEO_TTL = Duration.ofHours(1);
+    // [DEMO] 시연용 임시 변경(원복 예정). 원래 값: Duration.ofHours(1)
+    // 데모 핀 expiresAt = 촬영시각 + 7d 로 두므로, AI에 보내는 lastPinActivatedAt 이 미래 시각이 되지 않도록
+    // 활성화 시각 = expiresAt - 7d 로 계산해 실제 촬영시각(≈now)에 맞춘다.
+    private static final Duration ACTIVE_VIDEO_TTL = Duration.ofDays(7);
 
     /**
      * @param placesById         후보 장소(id→Place)
