@@ -8,8 +8,9 @@ import { searchPlacesByTag } from '@/api/pin/tagSearch';
 import { rememberPlaceMapData } from '@/api/place/coordinates';
 import { ViewAvatar } from '@/components/common';
 import { REVIEW_PIN_MAX_LEVEL } from '@/components/home/kakaoMapHtml';
-import { toBoundsQuery, useMapStore } from '@/store/useMapStore';
+import { expandBounds, toBoundsQuery, useMapStore } from '@/store/useMapStore';
 import { createDevLogger, toRequestLine } from '@/utils/devLog';
+import { TAG_SEARCH_MIN_SPAN_M } from '@/types/place';
 import type { TaggedPlace } from '@/types/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -78,7 +79,11 @@ export default function TagSearchResult() {
       return;
     }
 
-    const query = toBoundsQuery(current);
+    /*
+      **자동완성과 같은 값으로 넓혀서 보낸다.** 추천은 넓은 범위에서 찾아 놓고 결과만 화면
+      그대로를 보면, 방금 추천된 태그를 눌렀는데 빈 화면이 된다(`TAG_SEARCH_MIN_SPAN_M`).
+    */
+    const query = toBoundsQuery(expandBounds(current, TAG_SEARCH_MIN_SPAN_M));
     const startedAt = Date.now();
     log('요청', { 재현: toRequestLine('POST', '/api/v1/pins/tags/search', { tag, ...query }) });
 

@@ -11,6 +11,11 @@ import type { MapBoundsQuery, TagSuggestion } from '@/types/place';
 
 const log = createDevLogger('tag-suggest');
 
+/** 경계의 남북 너비(m). 로그에만 쓴다 — 0건일 때 범위 탓인지 가리는 값이다. */
+function spanMeters({ southWestLatitude, northEastLatitude }: MapBoundsQuery): number {
+  return (northEastLatitude - southWestLatitude) * 111_320;
+}
+
 export interface TagSuggestionsState {
   results: TagSuggestion[];
   loading: boolean;
@@ -47,6 +52,15 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
 
+  /*
+    **경계가 있는지 없는지만 의존성에 넣는다.**
+
+    값을 넣으면 지도가 멈출 때마다 추천이 다시 나가고, ref로만 읽으면 아직 경계가 없을 때
+    한 번 건너뛴 뒤 **영영 다시 묻지 않는다** — 지도가 첫 idle을 보내기 전에 검색으로 들어오면
+    그 검색어로는 추천이 끝내 비어 있었다. 없다가 생기는 그 한 번만 다시 돈다.
+  */
+  const hasBounds = bounds !== null;
+
   useEffect(() => {
     const query = keyword.trim();
 
@@ -80,6 +94,11 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       const startedAt = Date.now();
       log('요청', {
         재현: toRequestLine('GET', '/api/v1/pins/tags/search', { q: query, ...currentBounds }),
+        /*
+          훑는 너비. 서버는 이 사각형 안의 활성 핀에 달린 태그만 후보로 삼으므로, 0건일 때
+          "범위가 좁아서"인지 "그 태그의 활성 핀이 없어서"인지 이 값으로 갈린다.
+        */
+        너비: `${Math.round(spanMeters(currentBounds) / 1000)}km`,
       });
 
       getTagSuggestions(query, currentBounds)
@@ -94,7 +113,7 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
             // 0건의 흔한 이유를 적어 둔다. 색인 반영 전(배포 이전 핀)이거나 범위 밖이면 0건이다.
             비고:
               tags.length === 0
-                ? '0건 — 지도 범위 안에 그 태그의 활성 핀이 없거나, 색인 반영 전 핀일 수 있다'
+                ? '0건 — 이 범위 안에 그 태그의 활성 핀이 없다. 핀은 공개 1시간 뒤 만료된다'
                 : undefined,
           });
 
@@ -119,7 +138,7 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     }, PLACE_SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [keyword]);
+  }, [hasBounds, keyword]);
 
   return { results, loading };
 }

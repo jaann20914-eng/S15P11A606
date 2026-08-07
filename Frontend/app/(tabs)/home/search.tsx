@@ -20,8 +20,8 @@ import { FillButton, HighlightedText, SearchRow } from '@/features/place-search/
 import { usePlaceConfirm } from '@/features/place-search/hooks/usePlaceConfirm';
 import { useRecentSearches } from '@/features/place-search/hooks/useRecentSearches';
 import { useTagSuggestions } from '@/features/place-search/hooks/useTagSuggestions';
-import { toBoundsQuery, useMapStore } from '@/store/useMapStore';
-import { MIN_PLACE_QUERY_LENGTH, WIDE_PLACE_SEARCH_RADIUS_M } from '@/types/place';
+import { expandBounds, toBoundsQuery, useMapStore } from '@/store/useMapStore';
+import { MIN_PLACE_QUERY_LENGTH, TAG_SEARCH_MIN_SPAN_M, WIDE_PLACE_SEARCH_RADIUS_M } from '@/types/place';
 import type { PlaceSearchItem, RecentSearch } from '@/types/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -70,8 +70,15 @@ export default function Search() {
   /*
     경계는 지도가 멈출 때마다 새 객체가 된다. 그대로 넘기면 훅이 매번 다른 값으로 보므로
     네 숫자가 실제로 바뀔 때만 새로 만든다.
+
+    **화면 그대로가 아니라 넓혀서 보낸다.** 서버는 이 경계 안의 활성 핀에 달린 태그만 후보로
+    삼는데, 20m까지 당겨 본 상태의 화면은 사방 50m라 옆 가게의 태그도 빠진다
+    (`TAG_SEARCH_MIN_SPAN_M`). 결과 화면도 같은 값으로 넓힌다.
   */
-  const boundsQuery = useMemo(() => (bounds === null ? null : toBoundsQuery(bounds)), [bounds]);
+  const boundsQuery = useMemo(
+    () => (bounds === null ? null : toBoundsQuery(expandBounds(bounds, TAG_SEARCH_MIN_SPAN_M))),
+    [bounds],
+  );
 
   // `#`을 뗀 값을 보낸다. 서버도 떼지만, 보내는 쪽에서 맞춰야 로그와 실제 질의가 같아진다.
   const tags = useTagSuggestions(toTagName(places.keyword), boundsQuery);

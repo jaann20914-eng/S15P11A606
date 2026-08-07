@@ -255,6 +255,51 @@ export function toBoundsQuery({ southWest, northEast }: MapBounds): MapBoundsQue
   };
 }
 
+/** 위도 1도의 거리(m). 경도는 위도에 따라 좁아지므로 아래에서 코사인을 곱한다. */
+const METERS_PER_LATITUDE_DEGREE = 111_320;
+
+/**
+ * 경계를 **최소 한 변이 `minSpanMeters`는 되도록** 넓힌다. 이미 그보다 크면 그대로 둔다.
+ *
+ * 태그 검색이 쓴다. 서버는 경계 안의 활성 핀에 달린 태그만 후보로 주는데(ES `geo_bounding_box`),
+ * 그 경계로 **지도 화면 그대로**를 보내면 20m까지 당겨 본 상태에서는 사방 50m가 전부라 바로 옆
+ * 가게의 태그도 후보에서 빠진다. 검색바는 "지금 보이는 것"이 아니라 "가려는 곳"을 찾는 자리라
+ * 장소 검색과 같은 넓이로 맞춘다(`TAG_SEARCH_MIN_SPAN_M`).
+ *
+ * 가운데를 그대로 두고 사방으로 넓힌다 — 보고 있던 자리가 여전히 한가운데다.
+ *
+ * 위경도 한계를 넘지 않게 자른다. 서버가 범위 밖 좌표를 400으로 막고(`TagQueryNormalizer`),
+ * 남서 < 북동이 아니어도 막으므로 자른 뒤에도 그 순서가 유지되어야 한다.
+ */
+export function expandBounds(bounds: MapBounds, minSpanMeters: number): MapBounds {
+  const { southWest, northEast } = bounds;
+  const centerLatitude = (southWest.latitude + northEast.latitude) / 2;
+  const centerLongitude = (southWest.longitude + northEast.longitude) / 2;
+
+  const halfLatitude = minSpanMeters / 2 / METERS_PER_LATITUDE_DEGREE;
+  /*
+    경도 1도의 거리는 위도가 높을수록 짧아진다. 코사인을 빼먹으면 우리 위도(37.5°)에서 동서로
+    필요한 것보다 20%쯤 좁게 넓혀진다. 극지방에서 0으로 나누지 않도록 하한을 둔다.
+  */
+  const longitudeScale = Math.max(0.01, Math.cos((centerLatitude * Math.PI) / 180));
+  const halfLongitude = halfLatitude / longitudeScale;
+
+  // 이미 넓으면 줄이지 않는다. 사용자가 넓게 보고 있으면 그 범위가 곧 찾는 범위다.
+  const latitudeSpan = Math.max(halfLatitude, (northEast.latitude - southWest.latitude) / 2);
+  const longitudeSpan = Math.max(halfLongitude, (northEast.longitude - southWest.longitude) / 2);
+
+  return {
+    southWest: {
+      latitude: Math.max(-90, centerLatitude - latitudeSpan),
+      longitude: Math.max(-180, centerLongitude - longitudeSpan),
+    },
+    northEast: {
+      latitude: Math.min(90, centerLatitude + latitudeSpan),
+      longitude: Math.min(180, centerLongitude + longitudeSpan),
+    },
+  };
+}
+
 /** bounds를 `/places` 쿼리 문자열 형식으로 변환한다. */
 export function serializeBounds(bounds: MapBounds): string {
   const { southWest, northEast } = bounds;
