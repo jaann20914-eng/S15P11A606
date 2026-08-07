@@ -112,7 +112,14 @@ export const recommendStyles = StyleSheet.create({
   pagePins: { height: PIN_SLOT_HEIGHT },
   /** 위아래 여백은 짧게 둔다. 핀 카드 한 장이 통째로 들어갈 높이를 여기서 벌어 준다. */
   pagePinsContent: { paddingHorizontal: CARD_INNER_PADDING, paddingVertical: PIN_SLOT_PADDING },
-  pageState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  /**
+   * 핀을 받는 동안 · 실패했을 때 그 자리.
+   *
+   * **핀 칸과 같은 높이여야 한다.** `flex`로 두었더니 지도와 남은 공간을 반씩 나눠 가져,
+   * 받는 동안에는 지도가 절반으로 눌려 아래로 내려와 있다가 핀이 도착하는 순간 지도가
+   * 커지며 화면 전체가 위로 밀려 올라갔다. 높이를 같게 두면 무엇이 바뀌든 지도는 제자리다.
+   */
+  pageState: { height: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
 
   /**
    * 자리 표시 점. 지금 자리는 길쭉한 막대로 늘여 한눈에 보이게 한다.

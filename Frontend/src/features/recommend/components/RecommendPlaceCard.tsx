@@ -212,20 +212,6 @@ export function RecommendPlaceCard({
   */
   const [pinCardHeight, setPinCardHeight] = useState(0);
 
-  /*
-    진단용 기록(임시). 잰 값이 예상(`PLACE_PIN_CARD_HEIGHT` ≈ 219)과 크게 다르면 핀 칸이
-    한 장보다 커져 다음 카드가 딸려 보인다. 실기기에서 이 줄의 숫자로 원인을 가른다.
-  */
-  useEffect(() => {
-    if (!__DEV__ || pinCardHeight === 0) return;
-
-    console.log('[recommend] 핀 카드 실측', {
-      장소: place.name,
-      카드높이: Math.round(pinCardHeight),
-      칸높이: Math.round(pinCardHeight + PIN_SLOT_PADDING * 2),
-    });
-  }, [pinCardHeight, place.name]);
-
   const updated = generatedAt === null ? '' : formatRelativeTime(generatedAt);
 
   return (
