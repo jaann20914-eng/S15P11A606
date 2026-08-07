@@ -16,9 +16,26 @@ function spanMeters({ southWestLatitude, northEastLatitude }: MapBoundsQuery): n
   return (northEastLatitude - southWestLatitude) * 111_320;
 }
 
+/** 오류 코드별 안내. 태그 칸에 그대로 적는다. */
+const messageByCode: Record<string, string> = {
+  INVALID_TAG_SEARCH_QUERY: '태그 검색 조건이 올바르지 않아요.',
+  UNAUTHORIZED: '로그인이 필요해요.',
+  TAG_SEARCH_FAILED: '태그를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+};
+
 export interface TagSuggestionsState {
   results: TagSuggestion[];
   loading: boolean;
+  /**
+   * 추천을 받아오지 못한 이유. 성공했으면 null.
+   *
+   * **삼키지 않는다.** 예전에는 실패해도 목록만 비웠는데, 그러면 화면이 "요청을 못 보냈다"
+   * ·"실패했다"·"후보가 0건이다" **세 경우를 똑같이** 그렸다 — 태그가 안 뜬다는 신고를 받고도
+   * 어느 쪽인지 가릴 수 없어 같은 곳을 세 번 들여다봤다(2026-08-07). 화면이 구분해 적는다.
+   */
+  error: string | null;
+  /** 물어봤고 후보가 0건이었는지. 실패나 미요청과 구분된다. */
+  empty: boolean;
 }
 
 /**
@@ -41,6 +58,9 @@ export interface TagSuggestionsState {
 export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null): TagSuggestionsState {
   const [results, setResults] = useState<TagSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** 요청이 끝까지 가서 0건을 받았는지. 아직 묻지 않은 상태와 구분한다. */
+  const [searched, setSearched] = useState(false);
 
   /** 늦게 도착한 응답이 최신 결과를 덮지 않도록 마지막 요청만 반영한다. */
   const latestRequest = useRef(0);
@@ -72,11 +92,14 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     if (query.length < MIN_PLACE_QUERY_LENGTH || query.length > TAG_SUGGESTION_QUERY_MAX_LENGTH) {
       latestRequest.current += 1;
       setResults([]);
+      setSearched(false);
+      setError(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     const requestId = latestRequest.current + 1;
     latestRequest.current = requestId;
@@ -87,6 +110,9 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       if (currentBounds === null) {
         log('건너뜀 — 지도 범위 없음', { query });
         setResults([]);
+        setSearched(false);
+        // 화면에 적는다. 비워 두면 "후보가 없다"로 읽혀 원인을 찾을 수 없다.
+        setError('지도가 준비된 뒤에 태그를 추천할 수 있어요.');
         setLoading(false);
         return;
       }
@@ -118,12 +144,14 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
           });
 
           setResults(tags);
+          setSearched(true);
+          setError(null);
           setLoading(false);
         })
         .catch((cause: unknown) => {
           if (latestRequest.current !== requestId) return;
 
-          // 장소 결과까지 막지 않는다. 태그 칸만 비운 채 넘어간다.
+          // 장소 결과까지 막지는 않는다. 태그 칸에만 이유를 적는다.
           log('실패', {
             query,
             code: cause instanceof ApiError ? cause.code : 'unknown',
@@ -133,6 +161,12 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
           });
 
           setResults([]);
+          setSearched(false);
+          setError(
+            cause instanceof ApiError
+              ? (messageByCode[cause.code] ?? cause.message)
+              : '태그를 불러오지 못했어요',
+          );
           setLoading(false);
         });
     }, PLACE_SEARCH_DEBOUNCE_MS);
@@ -140,5 +174,5 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     return () => clearTimeout(timer);
   }, [hasBounds, keyword]);
 
-  return { results, loading };
+  return { results, loading, error, empty: searched && results.length === 0 };
 }
