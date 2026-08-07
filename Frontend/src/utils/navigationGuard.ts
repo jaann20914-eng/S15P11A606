@@ -25,8 +25,15 @@ import { router } from 'expo-router';
  */
 const REPEAT_WINDOW_MS = 700;
 
-let lastKey = '';
-let lastAt = 0;
+/**
+ * 최근에 지나간 이동들. 열쇠마다 마지막으로 실행한 시각을 담는다.
+ *
+ * **하나만 기억하면 안 된다.** 처음에는 "마지막 호출" 한 건만 들고 있었는데, 그 사이 다른
+ * 이동이 한 번이라도 끼면 앞선 기록이 지워져 두 번째 누름이 그대로 통과했다 — 화면을 여는
+ * 동안 그 화면이 또 다른 이동을 부르는 경우가 있어서(추천에서 핀을 두 번 눌렀을 때 상세가
+ * 두 장 쌓였다, 2026-08-07 실기기), 각 이동을 따로 기억해야 한다.
+ */
+const lastCallAt = new Map<string, number>();
 
 /** 대상 메서드가 이동시키려는 곳까지 포함해 "같은 호출"인지 가리는 열쇠. */
 function callKey(name: string, args: unknown[]): string {
@@ -38,23 +45,30 @@ function callKey(name: string, args: unknown[]): string {
   }
 }
 
+/** 창이 지난 기록을 버린다. 앱이 사는 동안 열쇠가 끝없이 쌓이지 않게 한다. */
+function forgetExpired(now: number): void {
+  for (const [key, at] of lastCallAt) {
+    if (now - at >= REPEAT_WINDOW_MS) lastCallAt.delete(key);
+  }
+}
+
 function guarded<T extends (...args: never[]) => unknown>(name: string, method: T): T {
   return ((...args: never[]) => {
     const key = callKey(name, args);
     const now = Date.now();
+    const previous = lastCallAt.get(key);
 
-    if (key === lastKey && now - lastAt < REPEAT_WINDOW_MS) return undefined;
+    if (previous !== undefined && now - previous < REPEAT_WINDOW_MS) return undefined;
 
-    lastKey = key;
-    lastAt = now;
+    forgetExpired(now);
+    lastCallAt.set(key, now);
     return method(...args);
   }) as T;
 }
 
 /** 테스트가 케이스마다 깨끗한 창에서 시작하도록 기억을 비운다. 앱 코드에서는 부르지 않는다. */
 export function resetNavigationGuardMemory(): void {
-  lastKey = '';
-  lastAt = 0;
+  lastCallAt.clear();
 }
 
 let installed = false;
