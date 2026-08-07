@@ -57,10 +57,14 @@ const MEMO_MAX_LINES = 4;
 /**
  * 메모가 없을 때 그 자리에 두는 한 마디.
  *
- * "없다"를 적지 않고 **그 카드에서 볼 것**을 적는다 — 남긴 글이 없는 핀에서 볼 것은 영상이고,
- * 카드 전체가 그 게시글로 가는 버튼이라 그대로 다음 행동이 된다.
+ * **작성자를 주어로 둔다.** 예전에는 `영상으로 현장을 확인하세요`였는데, 시키는 말투라
+ * 딱딱하게 읽힌다는 의견이 있었다(2026-08-07). 지금 문구는 남긴 글이 없다는 사실을 그대로
+ * 전하면서 — `말 대신` — 그 카드에서 볼 것이 영상이라는 것까지 한 번에 말한다. 카드 전체가
+ * 그 게시글로 가는 버튼이라 그대로 다음 행동이 된다.
+ *
+ * `내용 없음`처럼 없다는 사실만 적지 않는다. 한 카드에 그런 표시가 두 번 쌓이면 시끄럽다.
  */
-const EMPTY_MEMO_MESSAGE = '영상으로 현장을 확인하세요';
+const EMPTY_MEMO_MESSAGE = '말 대신 영상으로 남겼어요';
 
 /** 썸네일이 아직 없을 때 쓰는 자리. 시안의 카드 색을 따른다. */
 const THUMBNAIL_TINT = ['#A9D6CC', '#D9E9A8'] as const;
@@ -265,21 +269,23 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
             </Text>
           )}
 
-          {/* 태그 칩 줄은 늘 같은 높이를 차지해 카드 안의 리듬이 태그 유무로 달라지지 않는다. */}
+          {/*
+            태그 칩 줄. **없으면 아무것도 두지 않고 자리만 비운다.**
+
+            예전에는 빈 칩에 `#` 하나를 넣어 "태그가 들어올 자리"임을 보였는데, 달지 않은 태그가
+            달린 것처럼 읽혔다(2026-08-07 의견). 없는 것은 없는 대로 두는 편이 맞다.
+
+            줄 자체는 그대로 그린다 — `minHeight`가 높이를 지켜, 태그가 있든 없든 카드 안의
+            리듬과 썸네일 아랫변에 맞춘 정렬이 달라지지 않는다.
+          */}
           <View style={s.tags}>
-            {pin.tags.length > 0 ? (
-              pin.tags.map((tag) => (
-                <View key={tag} style={s.tag}>
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
-                    #{tag}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View accessibilityLabel="남긴 태그 없음" style={[s.tag, s.tagEmpty]}>
-                <Text style={s.emptyMark}>#</Text>
+            {pin.tags.map((tag) => (
+              <View key={tag} style={s.tag}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={s.tagText}>
+                  #{tag}
+                </Text>
               </View>
-            )}
+            ))}
           </View>
         </View>
       </View>
@@ -371,8 +377,6 @@ const s = StyleSheet.create({
    * 작성자 것으로 읽게 된다.
    */
   memoEmpty: { ...type.small, color: colors.gray400 },
-  /** 태그가 없을 때 칩에 두는 표시. 글자보다 옅게 둬 카드를 훑을 때 걸리지 않게 한다. */
-  emptyMark: { ...type.small, color: colors.gray400 },
   /**
    * 태그 칩 줄. **썸네일 아랫변에 맞춰 바닥에 붙인다.**
    *
@@ -380,7 +384,7 @@ const s = StyleSheet.create({
    * 썸네일 높이로 고정돼 있으므로(`body`), 결과적으로 태그 줄의 아랫변이 썸네일 아랫변과 같은
    * 선에 놓인다 — 메모가 한 줄이든 네 줄이든 카드마다 같은 자리다.
    *
-   * 태그가 없을 때도 이 줄과 높이가 그대로 있어 `태그 없음`이 같은 선에 놓인다.
+   * 태그가 없을 때도 이 줄의 높이는 그대로 남아, 카드마다 썸네일 아랫변이 같은 선에 놓인다.
    */
   tags: {
     minHeight: 28,
@@ -390,8 +394,6 @@ const s = StyleSheet.create({
     marginTop: 'auto',
     overflow: 'hidden',
   },
-  /** 태그가 없을 때의 칩. 색만 빼고 모양은 같게 두어 "들어올 자리"로 읽힌다. */
-  tagEmpty: { minWidth: 44, backgroundColor: colors.gray100 },
   tag: {
     maxWidth: '45%',
     height: 28,
