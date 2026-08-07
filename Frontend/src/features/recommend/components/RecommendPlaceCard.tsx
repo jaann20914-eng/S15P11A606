@@ -238,63 +238,72 @@ export function RecommendPlaceCard({
       </View>
 
       {/*
-        지도는 목록 밖에 **고정**한다. 핀을 훑는 동안에도 어느 자리 이야기인지 계속 보여야
-        하고, 마커로 고른 핀을 찾으러 내려갈 때 기준점이 함께 사라지면 안 된다.
-      */}
-      <RecommendPlaceMap
-        name={place.name}
-        mapData={mapData}
-        filter={mode}
-        selectedPinId={selectedPinId}
-        onSelectPin={selectPin}
-      />
+        다 준비되기 전에는 **기다리는 표시 하나만** 둔다.
 
+        지도와 핀을 각자 기다리게 두었더니, 좌표가 아직 오지 않았다는 이유로 지도 칸에
+        "위치 정보를 아직 받지 못했어요"가 먼저 떴다 — 곧 올 것을 못 받은 것처럼 알리는
+        셈이라 실패한 화면으로 읽혔다. 장소 이름만 먼저 두고 나머지는 한꺼번에 채운다.
+      */}
       {detail === null ? (
-        <View style={s.pageState}>
-          {loading || !opened ? (
-            <ActivityIndicator color={colors.gray400} />
-          ) : (
+        <View style={s.pageLoading}>
+          {opened && !loading ? (
             <Text style={s.stateText}>{error ?? '장소를 찾을 수 없어요'}</Text>
+          ) : (
+            <ActivityIndicator size="large" color={colors.gray400} />
           )}
         </View>
       ) : (
-        /*
-          높이는 **이 상자**가 잡고 스크롤은 그 안을 채운다.
+        <>
+          {/*
+            지도는 목록 밖에 **고정**한다. 핀을 훑는 동안에도 어느 자리 이야기인지 계속 보여야
+            하고, 마커로 고른 핀을 찾으러 내려갈 때 기준점이 함께 사라지면 안 된다.
+          */}
+          <RecommendPlaceMap
+            name={place.name}
+            mapData={mapData}
+            filter={mode}
+            selectedPinId={selectedPinId}
+            onSelectPin={selectPin}
+          />
 
-          ScrollView에 직접 높이를 줘 봤더니 지시한 251이 아니라 367로 잡혔다(2026-08-07 실기기).
-          스크롤 뷰는 안쪽 내용에 따라 제 높이를 다시 정하려 드는 자리라, 높이를 못 박는 일은
-          평범한 상자에 맡기고 스크롤은 그 안을 가득 채우게 한다.
-        */
-        <View style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}>
-          <ScrollView
-            ref={scrollRef}
-            style={s.pagePinsFill}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={s.pagePinsContent}
-            nestedScrollEnabled
-            /*
+          {/*
+            높이는 **이 상자**가 잡고 스크롤은 그 안을 채운다.
+
+            ScrollView에 직접 높이를 줘 봤더니 지시한 251이 아니라 367로 잡혔다(2026-08-07
+            실기기). 스크롤 뷰는 안쪽 내용에 따라 제 높이를 다시 정하려 드는 자리라, 높이를
+            못 박는 일은 평범한 상자에 맡기고 스크롤은 그 안을 가득 채우게 한다.
+          */}
+          <View style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}>
+            <ScrollView
+              ref={scrollRef}
+              style={s.pagePinsFill}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={s.pagePinsContent}
+              nestedScrollEnabled
+              /*
               한 장씩 딱딱 멈춘다. 칸에 한 장만 보이는데 자유롭게 흐르면 카드가 어중간하게
               걸린 채 서서, 지도 마커와 짝이 맞는지 눈으로 가릴 수 없다. 멈추는 간격은
               카드 한 장 + 카드 사이 간격이다.
             */
-            snapToInterval={pinCardHeight > 0 ? pinCardHeight + PIN_GAP : undefined}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            onScroll={trackScroll}
-            onScrollEndDrag={settleScroll}
-            onMomentumScrollEnd={settleScroll}
-            scrollEventThrottle={80}
-          >
-            <RecommendPlacePins
-              pins={pins}
-              placeName={place.name}
-              filter={mode}
-              selectedPinId={selectedPinId}
-              onCardPosition={rememberCardPosition}
-              onFirstCardHeight={setPinCardHeight}
-            />
-          </ScrollView>
-        </View>
+              snapToInterval={pinCardHeight > 0 ? pinCardHeight + PIN_GAP : undefined}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              onScroll={trackScroll}
+              onScrollEndDrag={settleScroll}
+              onMomentumScrollEnd={settleScroll}
+              scrollEventThrottle={80}
+            >
+              <RecommendPlacePins
+                pins={pins}
+                placeName={place.name}
+                filter={mode}
+                selectedPinId={selectedPinId}
+                onCardPosition={rememberCardPosition}
+                onFirstCardHeight={setPinCardHeight}
+              />
+            </ScrollView>
+          </View>
+        </>
       )}
     </View>
   );

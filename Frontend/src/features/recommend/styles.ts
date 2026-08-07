@@ -125,6 +125,14 @@ export const recommendStyles = StyleSheet.create({
    * 커지며 화면 전체가 위로 밀려 올라갔다. 높이를 같게 두면 무엇이 바뀌든 지도는 제자리다.
    */
   pageState: { height: PIN_SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center' },
+  /**
+   * 장소를 받아 오는 동안 카드 안을 통째로 채우는 자리.
+   *
+   * 지도와 핀을 각자 기다리게 두었더니, 아직 좌표가 없다는 이유로 지도 칸에 "위치 정보를
+   * 아직 받지 못했어요"가 먼저 떴다 — 곧 올 것을 못 받은 것처럼 알리는 셈이라 실패로
+   * 읽혔다. 다 준비될 때까지는 아무 말도 하지 않고 기다리는 표시 하나만 둔다.
+   */
+  pageLoading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   /**
    * 자리 표시 점. 지금 자리는 길쭉한 막대로 늘여 한눈에 보이게 한다.
