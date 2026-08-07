@@ -137,15 +137,15 @@ class PlacePinServiceTest {
     // ===== 정렬 / 상한 =====
 
     @Test
-    void 활성핀이_많은_장소가_우선_선택되고_최대_10개만_반환한다() {
+    void 활성핀이_많은_장소가_우선_선택되고_최대_20개만_반환한다() {
         List<Place> places = new ArrayList<>();
         List<Pin> pins = new ArrayList<>();
-        // 활성 핀 수는 id=1이 가장 많고(12개) id=12가 가장 적다(1개).
+        // 활성 핀 수는 id=1이 가장 많고(22개) id=22가 가장 적다(1개).
         // 반대로 거리는 id=1이 가장 멀다 → 거리 기준이 아니라 활성 핀 수 기준으로 정렬됨을 검증.
-        for (long k = 1; k <= 12; k++) {
-            Place place = place(k, "P" + k, "장소" + k, 127.030 + (13 - k) * 0.0005, 37.500);
+        for (long k = 1; k <= 22; k++) {
+            Place place = place(k, "P" + k, "장소" + k, 127.030 + (23 - k) * 0.0005, 37.500);
             places.add(place);
-            int pinCount = (int) (13 - k);
+            int pinCount = (int) (23 - k);
             for (int i = 0; i < pinCount; i++) {
                 pins.add(pin(k * 100 + i, place, member(90), CrowdLevel.WAGLE));
             }
@@ -156,10 +156,12 @@ class PlacePinServiceTest {
 
         PlaceListResponse response = call("wagle");
 
-        assertThat(response.places()).hasSize(10);
+        assertThat(response.places()).hasSize(20);
         List<Long> ids = response.places().stream().map(PlaceListItem::placeId).toList();
-        assertThat(ids).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
-        assertThat(ids).doesNotContain(11L, 12L);
+        assertThat(ids).containsExactly(
+                1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L,
+                11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L);
+        assertThat(ids).doesNotContain(21L, 22L);
     }
 
     @Test

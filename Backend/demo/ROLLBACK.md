@@ -33,7 +33,7 @@
 | 스크립트 | 내용 | 식별자 |
 |----------|------|--------|
 | `01_setup.sql` | 실제 카카오 음식점 15곳 place(없으면 생성) + pin 15개 INSERT. `created_at` 1~15분 전 흩뿌림, `expires_at = now()+1h`, blur/썸네일 key 복사 | pin: `original_video_key LIKE 'demo/%'` / place: 15개 실제 kakao_place_id 중 "데모가 새로 만든 고아 행"만 |
-| `02_extend_recorded_pins.sql` | 직접 촬영한 히어로 핀을 방금 등록한 것처럼 리셋(`created_at=now`, `expires_at=now()+1h`) | 최근 2시간 내 ACTIVE·비데모 핀 |
+| `02_hero_pin.sql` | 직접 촬영한 히어로 핀(하루 전 업로드 등)을 id로 지정해 `created_at=now`, `expires_at=now()+1h`로 되살림 | id 직접 지정(1단계 SELECT로 확인) |
 
 > 실제 kakao_place_id 라 지도 주소·전화가 정상 표시됨. `expires_at`·`created_at`이 원본 TTL(1h)과 일치하므로
 > AI에 보내는 활성화시각도 ≈now 로 정상. **1시간만 노출되므로 시연 직전에 실행하고, 길어지면 재실행.**
