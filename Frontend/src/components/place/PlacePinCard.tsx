@@ -168,7 +168,25 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
       <View style={s.author}>
         <ViewAvatar angle={pin.viewAngle} size={ANGLE_RING_SIZE} />
         <View style={s.authorCopy}>
-          <Text style={s.authorName}>{pin.nickname}</Text>
+          {/*
+            닉네임 줄. **내 글이면 이름 옆에 표시를 붙인다.**
+
+            닉네임만으로는 내 글인지 알 수 없다 — 같은 이름을 쓰는 사람이 있을 수 있고, 애초에
+            로그인한 사람의 닉네임을 앱이 들고 있지도 않다. 판정 근거는 핀 상세의 접근 수준
+            하나뿐이고, 그 값이 여기까지 오는 길은 `PlacePinCard.mine`에 적어 두었다.
+
+            이름이 길면 표시부터 밀려나지 않도록 이름 쪽만 줄인다(`flexShrink`).
+          */}
+          <View style={s.authorRow}>
+            <Text numberOfLines={1} style={s.authorName}>
+              {pin.nickname}
+            </Text>
+            {pin.mine && (
+              <View style={s.mineBadge}>
+                <Text style={s.mineBadgeText}>내 글</Text>
+              </View>
+            )}
+          </View>
           <Text style={s.time}>{formatRelativeTime(pin.createdAt)}</Text>
         </View>
       </View>
@@ -324,7 +342,26 @@ const s = StyleSheet.create({
   cardSelected: { borderColor: colors.lime },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },
-  authorName: { ...type.label, fontWeight: '600', color: colors.dark },
+  /** 닉네임과 `내 글` 표시가 한 줄에 선다. 이름이 길면 이름만 줄어든다. */
+  authorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
+  authorName: { ...type.label, flexShrink: 1, fontWeight: '600', color: colors.dark },
+  /**
+   * 내 글 표시.
+   *
+   * **모서리를 둥글게 하되 알약은 아니다** — `radius.pill`을 주면 완전한 타원이 되어 아래 태그
+   * 칩과 같은 모양이 되고, 그러면 태그 하나가 이름 옆에 붙은 것으로 읽힌다. 8px은 직사각형의
+   * 각을 덜어 낸 정도라 칩과 구분된다.
+   *
+   * 채움은 브랜드 연두를 그대로 쓴다. 태그 칩(`limeSoft`)보다 진해 같은 카드 안에서 둘이
+   * 섞이지 않고, 이 카드에서 눈이 가장 먼저 닿아야 하는 자리라 그만한 세기가 맞다.
+   */
+  mineBadge: {
+    paddingHorizontal: spacing.x2,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.lime,
+  },
+  mineBadgeText: { ...type.caption, fontWeight: '700', color: colors.dark },
   time: { ...type.caption, color: colors.gray400 },
   // 높이를 고정해 카드마다 키가 같아진다. 근거는 `THUMBNAIL_HEIGHT` 주석에 있다.
   body: {

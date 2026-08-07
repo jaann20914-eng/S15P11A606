@@ -36,13 +36,18 @@ export function usePinThumbnails(pins: PlacePinCard[] | undefined): PlacePinCard
   const cards = pins ?? NO_PINS;
 
   /*
-    아직 주소가 없는 핀들. 목록을 **문자열 하나**로 접어 효과의 조건으로 쓴다.
+    아직 상세를 보지 않은 핀들. 목록을 **문자열 하나**로 접어 효과의 조건으로 쓴다.
 
     배열을 조건에 그대로 두면 화면이 다시 그려질 때마다 새 배열이라 효과가 매번 돌고, 그때마다
     카드 수만큼의 조회가 다시 나간다. 문자열은 내용이 같으면 같은 값이라 그런 일이 없다.
+
+    **주소가 이미 있어도 묻는다.** 상세 응답에서 얻는 것이 주소만이 아니기 때문이다 — 내 글인지
+    (`mine`)도 거기서만 알 수 있다. 실서버에서는 카드의 주소가 늘 null이라 예전과 같은 횟수이고,
+    목업에서만 한 번씩 더 부른다(그쪽은 로컬이라 부담이 없다). 서버가 카드에 작성자 여부와
+    Presigned 주소를 함께 주기 시작하면 이 훅째로 지울 수 있다.
   */
   const pendingIds = cards
-    .filter((pin) => pin.thumbnailUrl === null && resolved[pin.pinId] === undefined)
+    .filter((pin) => resolved[pin.pinId] === undefined)
     .map((pin) => pin.pinId)
     .join(',');
 
@@ -72,13 +77,19 @@ export function usePinThumbnails(pins: PlacePinCard[] | undefined): PlacePinCard
           **더한다** — 한번 얻은 권한은 사라지지 않으므로 참을 거짓으로 바꿀 일은 없다.
         */
         const revealed = pin.revealed || unlockedPinIds.has(pin.pinId);
-        const thumbnail = pin.thumbnailUrl === null ? resolved[pin.pinId] : undefined;
+        const resolvedPin = resolved[pin.pinId];
 
-        if (thumbnail === undefined) {
+        if (resolvedPin === undefined) {
           return revealed === pin.revealed ? pin : { ...pin, revealed };
         }
 
-        return { ...pin, thumbnailUrl: thumbnail.url, revealed: revealed || thumbnail.revealed };
+        return {
+          ...pin,
+          // 이미 주소가 있으면 그대로 둔다. 상세가 준 것은 없을 때만 채운다.
+          thumbnailUrl: pin.thumbnailUrl ?? resolvedPin.url,
+          revealed: revealed || resolvedPin.revealed,
+          mine: resolvedPin.mine,
+        };
       }),
     [cards, resolved, unlockedPinIds],
   );

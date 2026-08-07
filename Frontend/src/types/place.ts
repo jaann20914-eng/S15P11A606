@@ -110,6 +110,16 @@ export interface PlacePinCard {
   /** 내가 크레딧으로 열람한 핀인지. 서버가 결제 기록만 보고 정한다. */
   isUnlocked: boolean;
   /**
+   * **내가 쓴 핀인지.** 서버 카드 응답에 없는 값이라 화면이 채운다.
+   *
+   * 카드에는 작성자 식별자가 없고 로그인 상태로도 알 수 없다(`isOwnerAccess` 참고). 유일한
+   * 근거가 핀 상세의 접근 수준이라, 썸네일을 받아 오는 쪽이 같은 응답에서 함께 채운다
+   * (`features/place-detail/hooks/usePinThumbnails.ts`).
+   *
+   * **모르는 동안은 거짓이다.** 남의 글에 내 글 표시가 붙는 것보다 잠깐 안 붙는 편이 낫다.
+   */
+  mine: boolean;
+  /**
    * 썸네일을 선명하게 보여줘도 되는지. **아니면 블러로 가린다.**
    *
    * 현장 영상은 크레딧을 써야 볼 수 있고, 썸네일은 그 영상의 한 장면이라 **같은 기준으로
@@ -139,11 +149,12 @@ export interface PlacePinCard {
  * 올지 확정되지 않았다. 둘 다 선택으로 받아 두고 API 경계에서 `thumbnailUrl` 하나로 모은다.
  * 확정되면 여기 한 곳만 지우면 된다.
  *
- * `revealed`도 없다. 서버 카드에는 작성자 여부가 없어 화면이 따로 정한다(위 설명 참고).
+ * `revealed`와 `mine`도 없다. **서버 카드에는 작성자 여부가 없어** 둘 다 화면이 따로 정한다
+ * (위 설명 참고). 서버가 작성자 식별자를 주기 시작하면 그때 이 목록에서 빼면 된다.
  */
 export type PlacePinCardResponse = Omit<
   PlacePinCard,
-  'thumbnailUrl' | 'latitude' | 'longitude' | 'revealed'
+  'thumbnailUrl' | 'latitude' | 'longitude' | 'revealed' | 'mine'
 > & {
   videoThumbnailUrl?: string | null;
   thumbnailKey?: string | null;
