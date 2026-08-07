@@ -75,6 +75,15 @@ export function RecommendPager({
 
   return (
     <View style={s.pagerArea}>
+      <View style={s.dots}>
+        {places.map((place, dotIndex) => (
+          <View
+            key={place.placeId}
+            style={[s.dot, dotIndex === index && (mode === 'wagle' ? s.dotOnWagle : s.dotOn)]}
+          />
+        ))}
+      </View>
+
       <FlatList
         ref={listRef}
         data={places}
@@ -104,15 +113,6 @@ export function RecommendPager({
           </View>
         )}
       />
-
-      <View style={s.dots}>
-        {places.map((place, dotIndex) => (
-          <View
-            key={place.placeId}
-            style={[s.dot, dotIndex === index && (mode === 'wagle' ? s.dotOnWagle : s.dotOn)]}
-          />
-        ))}
-      </View>
     </View>
   );
 }

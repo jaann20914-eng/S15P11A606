@@ -16,8 +16,15 @@ const shadow = {
   elevation: 5,
 };
 
-/** 상세 지도 칸 높이. 확대 레벨 계산이 같은 값을 써야 해 상수로 둔다. */
-export const RECOMMEND_MAP_HEIGHT = 260;
+/**
+ * 카드 안 지도 칸 높이. 확대 레벨 계산이 같은 값을 써야 해 상수로 둔다.
+ *
+ * **핀 카드 한 장이 잘리지 않고 들어가는 것이 이 값의 상한을 정한다.** 핀 카드는 높이가
+ * 고정이고(약 219 — `PLACE_PIN_CARD_HEIGHT`), 카드 한 장이 반쯤 잘려 보이면 목록이 아니라
+ * 고장으로 읽힌다. 머리말 · 자리 점 · 장소 이름 줄이 쓰는 높이를 빼고 남는 만큼에서
+ * 그 한 장을 먼저 확보한 뒤 지도가 나머지를 가져간다.
+ */
+export const RECOMMEND_MAP_HEIGHT = 176;
 
 export const recommendStyles = StyleSheet.create({
   /* 화면 골격 */
@@ -33,12 +40,12 @@ export const recommendStyles = StyleSheet.create({
   content: { flex: 1, paddingBottom: spacing.x3 },
 
   /* 머리말 — 안내 문구와 계열 토글 */
-  intro: { paddingTop: spacing.x6, paddingBottom: spacing.x4 },
+  intro: { paddingTop: spacing.x4, paddingBottom: spacing.x2 },
   /** 제목과 토글을 한 줄에 둔다. 토글은 오른쪽 끝에 붙는다(시안). */
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...type.h2, color: colors.dark },
-  /** 제목 아래 한 줄. 지금 어느 계열을 보고 있는지 말로도 알린다. */
-  subtitle: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
+  /** 제목 아래 한 줄. 제목에 바짝 붙여 한 덩어리로 읽히게 한다. */
+  subtitle: { ...type.small, color: colors.gray400, marginTop: 2 },
   updateMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.x1, marginLeft: spacing.x2 },
   updateDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4A90E2' },
   updateText: { ...type.caption, color: colors.gray400 },
@@ -56,7 +63,7 @@ export const recommendStyles = StyleSheet.create({
    * 카드가 놓이는 칸. **너비는 화면이 정한다**(넘긴 만큼이 곧 한 장이라 화면 폭이어야 한다).
    * 여백은 칸이 아니라 여기 안쪽에서 준다.
    */
-  pagerSlot: { paddingHorizontal: spacing.x3, paddingBottom: spacing.x3 },
+  pagerSlot: { paddingHorizontal: spacing.x3, paddingBottom: spacing.x2 },
   pageCard: {
     flex: 1,
     borderRadius: radius.hero,
@@ -65,17 +72,21 @@ export const recommendStyles = StyleSheet.create({
     ...shadow,
   },
   /** 장소 이름 줄. 지도 위에 두어 어디 이야기인지가 먼저 읽힌다. */
-  pageHead: { paddingHorizontal: spacing.x4, paddingTop: spacing.x4, paddingBottom: spacing.x3 },
+  pageHead: { paddingHorizontal: spacing.x4, paddingTop: spacing.x3, paddingBottom: spacing.x2 },
   pageHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pageName: { ...type.title, color: colors.dark, flexShrink: 1 },
   pageAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
   /** 핀 목록. 카드 안에서 따로 스크롤한다 — 지도는 위에 고정으로 남는다. */
   pagePins: { flex: 1 },
-  pagePinsContent: { padding: spacing.x3 },
+  /** 위아래 여백은 짧게 둔다. 핀 카드 한 장이 통째로 들어갈 높이를 여기서 벌어 준다. */
+  pagePinsContent: { paddingHorizontal: spacing.x3, paddingVertical: spacing.x1 },
   pageState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   /**
    * 자리 표시 점. 지금 자리는 길쭉한 막대로 늘여 한눈에 보이게 한다.
+   *
+   * **카드 위**에 둔다. 카드 아래에 두었더니 몇 번째인지 보려면 카드 끝까지 눈을 내려야
+   * 했는데, 그 자리는 핀 목록이 스크롤하는 자리라 시선이 머무는 곳이 아니다.
    *
    * 장소가 하나뿐이면 점도 하나다 — 넘길 곳이 없다는 뜻이라 숨기지 않고 그대로 둔다.
    */
@@ -84,7 +95,7 @@ export const recommendStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.x1,
-    paddingVertical: spacing.x3,
+    paddingBottom: spacing.x2,
   },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray200 },
   dotOn: { width: 24, backgroundColor: colors.limeControl },
