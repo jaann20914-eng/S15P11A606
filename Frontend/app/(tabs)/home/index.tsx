@@ -1221,6 +1221,19 @@ const s = StyleSheet.create({
   screen: { flex: 1, overflow: 'hidden', backgroundColor: '#E9EEE8' },
   mapPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   mapTop: { position: 'absolute' },
+  /**
+   * 검색바. **채움은 불투명한 흰색이다.**
+   *
+   * 장소 상세·미등록 장소가 쓰는 공용 검색바(`components/place/PlaceSearchBar`)와 **같은 값이어야
+   * 한다** — 홈에서 그 화면으로 넘어가면 같은 자리에 같은 바가 이어지는데, 한쪽만 반투명이면
+   * 넘어가는 순간 색이 바뀐다(2026-08-07 실기기).
+   *
+   * 공용 바는 이미 같은 이유로 불투명해졌는데 홈만 0.88로 남아 있었다. 반투명이면 아래 지도가
+   * 배어 나오고, 지도는 자리마다 색이 달라 **바 안에서 흰 농도가 갈려 투톤으로 보인다.**
+   *
+   * 테두리도 뺀다. 반투명일 때 가장자리를 세우려고 둔 흰 선이라, 채움이 불투명해지면 흰 바탕에
+   * 흰 선이라 보이지도 않으면서 안쪽 폭만 1px 줄인다. 공용 바에도 없다.
+   */
   search: {
     height: layout.searchHeight,
     flexDirection: 'row',
@@ -1228,9 +1241,7 @@ const s = StyleSheet.create({
     gap: spacing.x3,
     paddingHorizontal: spacing.x4,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.82)',
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: colors.white,
     ...glassShadow,
   },
   searchText: { ...type.body, flex: 1, color: colors.gray600 },
