@@ -45,6 +45,19 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
 const MY_LOCATION_WAIT_MS = 1500;
 
 /**
+ * 지도를 열 자리를 정할 때 받아들이는 캐시 좌표의 최대 나이(ms).
+ *
+ * 기본값은 1분인데(`utils/location`), **그 안에 든 캐시가 없으면 새로 측위해야 하고 그것이 최대
+ * 16초다.** 위 기다림은 1.5초뿐이라 그 경우 늘 기본 중심으로 떨어졌다 — 앱을 처음 열면 성수에서
+ * 시작하는 것으로 보인 원인이다(2026-08-07 실기기).
+ *
+ * 10분 지난 좌표라도 대개 같은 동네다. **지도를 어디서 열지**를 정하는 데는 그것이 서울숲보다
+ * 비교할 수 없이 낫다. 거리를 재는 자리에는 쓰지 않는다 — 이 화면은 목록 정렬과 내 위치 마커에만
+ * 쓰고, 50m 판정을 하는 화면들은 기본값을 그대로 둔다.
+ */
+const INITIAL_CENTER_MAX_AGE_MS = 10 * 60 * 1000;
+
+/**
  * 측정이 오기 전에 쓰는 어림값.
  *
  * 첫 프레임에만 쓰이고 `onLayout` 직후 실제 값으로 바뀐다. 0으로 두면 시트가 화면 전체를
@@ -176,6 +189,16 @@ export default function Home() {
   const [start, setStart] = useState<Coordinate | null>(null);
 
   /**
+   * 좌표를 못 기다려 기본 중심으로 지도를 열었는지.
+   *
+   * 그랬다면 좌표가 늦게 도착할 때 그 자리로 옮겨야 한다(아래 효과). 내 위치에서 시작했으면
+   * 옮길 이유가 없다.
+   */
+  const startedAtDefault = useRef(false);
+  /** 늦게 온 좌표를 이미 처리했는지. 한 번만 옮긴다. */
+  const centeredOnMyLocation = useRef(false);
+
+  /**
    * 옮겨 갈 좌표를 한 렌더 동안 들고 있는다.
    *
    * 지도 중심 보정은 **바텀시트가 가리는 높이**를 기준으로 계산한다. 카드를 누르면 시트
@@ -187,8 +210,16 @@ export default function Home() {
    */
   const [pendingPan, setPendingPan] = useState<{ coordinate: Coordinate; level: number } | null>(null);
   const mapRef = useRef<KakaoMapHandle>(null);
-  // 지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
-  const myLocation = useCurrentLocation({ auto: true });
+  /*
+    지도를 내 위치에서 시작하려면 첫 렌더 전에 좌표가 있어야 한다. 권한은 묻지 않는다.
+
+    **미리 읽기는 오래된 캐시 좌표까지 받는다**(`INITIAL_CENTER_MAX_AGE_MS`). 기본값(1분)으로는
+    앱을 오래 닫아 뒀다 열 때마다 캐시가 거부되고, 그러면 새 측위에 최대 16초가 걸려 아래
+    기다림이 먼저 끝나 버린다 — 그것이 "고정된 장소에서 시작한다"의 원인이었다. 이 화면은 그
+    좌표로 거리 판정을 하지 않으므로(목록 정렬과 내 위치 마커) 몇 분 지난 값이어도 괜찮고,
+    버튼을 누르면 그때 엄격하게 다시 읽는다(`request`).
+  */
+  const myLocation = useCurrentLocation({ auto: true, autoMaxAgeMs: INITIAL_CENTER_MAX_AGE_MS });
   const navBarHeight = useAppTabBarHeight();
 
   /*
@@ -540,9 +571,50 @@ export default function Home() {
       return;
     }
 
-    const timer = setTimeout(() => setStart(DEFAULT_CENTER), MY_LOCATION_WAIT_MS);
+    const timer = setTimeout(() => {
+      startedAtDefault.current = true;
+      setStart(DEFAULT_CENTER);
+    }, MY_LOCATION_WAIT_MS);
     return () => clearTimeout(timer);
   }, [myLocation.coordinate, start]);
+
+  /*
+    **기본 중심으로 시작했으면, 좌표가 늦게 와도 그 자리로 옮긴다.**
+
+    위 기다림은 1.5초뿐이고 지도는 **만들 때의 중심을 한 번만 심는다**(`KakaoMap.initialCenter`).
+    그래서 그 뒤에 도착한 좌표를 아무도 쓰지 않았다 — 캐시된 좌표가 없어 새로 측위해야 하는
+    경우 최대 16초가 걸리는데(`utils/location`의 두 단계 타임아웃), 그러면 그 세션 내내 서울숲에
+    머물렀다. 내 위치 버튼을 눌러야 겨우 옮겨졌다(2026-08-07 실기기).
+
+    캐시 나이를 늘려(`INITIAL_CENTER_MAX_AGE_MS`) 이 경우 자체를 드물게 만들었지만, **캐시가
+    아예 없는 첫 실행**은 여전히 여기로 온다.
+
+    **한 번만 옮기고, 사용자가 이미 무언가를 하고 있으면 두지 않는다.** 위에 겹친 화면이 있거나
+    장소를 골라 둔 상태면 그 자리를 빼앗는 셈이다. 지도를 손으로 옮겼는지는 보지 않는다 —
+    `fitPlacesOnReady`가 스스로 중심을 옮기므로 중심만 봐서는 손이 닿았는지 가릴 수 없고, 이
+    경로는 앱을 열고 몇 초 안이라 실제로 겹칠 일이 드물다.
+  */
+  useEffect(() => {
+    if (!mapReady || !startedAtDefault.current || centeredOnMyLocation.current) return;
+    if (myLocation.coordinate === null) return;
+
+    // 한 번 판단하면 끝낸다. 옮기지 않기로 했더라도 다시 묻지 않는다.
+    centeredOnMyLocation.current = true;
+
+    if (!onTop || pinOverlay !== null || selectedPlaceId !== null) {
+      log('늦게 온 내 위치 — 옮기지 않음', {
+        이유: !onTop || pinOverlay !== null ? '위에 다른 화면이 있다' : '장소를 골라 둔 상태',
+      });
+      return;
+    }
+
+    log('늦게 온 내 위치로 지도를 옮김', {
+      좌표: `${myLocation.coordinate.latitude.toFixed(6)}, ${myLocation.coordinate.longitude.toFixed(6)}`,
+      사정: '기본 중심으로 열렸다가 측위가 끝났다',
+    });
+    // 내 위치 버튼과 같은 경로다. 시트가 가리는 높이는 그쪽이 알아서 보정한다.
+    mapRef.current?.panTo(myLocation.coordinate);
+  }, [mapReady, myLocation.coordinate, onTop, pinOverlay, selectedPlaceId]);
 
   /*
     검색 화면에서 고른 장소로 이동한다.
