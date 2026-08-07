@@ -315,8 +315,7 @@ class PlacePinServiceTest {
         ArgumentCaptor<Instant> fromCaptor = ArgumentCaptor.forClass(Instant.class);
         ArgumentCaptor<Instant> nowCaptor = ArgumentCaptor.forClass(Instant.class);
         verify(pinRepository).findValidPins(anyCollection(), fromCaptor.capture(), nowCaptor.capture());
-        // [DEMO] 시연용 임시 변경(원복 예정). 원래 값: Duration.ofHours(1)
-        assertThat(Duration.between(fromCaptor.getValue(), nowCaptor.getValue())).isEqualTo(Duration.ofDays(8));
+        assertThat(Duration.between(fromCaptor.getValue(), nowCaptor.getValue())).isEqualTo(Duration.ofHours(1));
     }
 
     // ===== 카카오 실시간 조회 =====
