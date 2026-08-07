@@ -51,7 +51,7 @@ const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + PIN_SLOT_PADDING * 2;
  * 바텀바 가운데 제보 버튼은 바 위로 **떠올라 있다**(`AppTabBar`의 marginTop -29에 테두리 3).
  * 그만큼을 비워 두지 않으면 카드가 버튼 밑에 깔린 것처럼 붙어 보인다.
  */
-const CAPTURE_BUTTON_CLEARANCE = 34;
+const CAPTURE_BUTTON_CLEARANCE = 24;
 
 export const recommendStyles = StyleSheet.create({
   /* 화면 골격 */

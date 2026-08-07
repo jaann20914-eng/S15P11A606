@@ -261,6 +261,16 @@ export function RecommendPlaceCard({
         <ScrollView
           ref={scrollRef}
           style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}
+          /* 진단(임시): 칸에 지시한 높이와 실제로 잡힌 높이가 같은지 본다. */
+          onLayout={(event) => {
+            if (!__DEV__) return;
+            console.log('[recommend] 핀 칸', {
+              장소: place.name,
+              카드실측: Math.round(pinCardHeight),
+              지시한높이: Math.round(pinCardHeight + PIN_SLOT_PADDING * 2),
+              실제칸높이: Math.round(event.nativeEvent.layout.height),
+            });
+          }}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.pagePinsContent}
           nestedScrollEnabled
