@@ -43,6 +43,8 @@ export type ApiModule =
   | 'recommend/places'
   | 'user/credits'
   | 'user/me'
+  | 'user/categories'
+  | 'user/profile-update'
   | 'user/today-pins'
   | 'user/nickname-availability';
 

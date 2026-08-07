@@ -4,9 +4,10 @@ import type { ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView } from 'expo-video';
 import type { VideoSource } from 'expo-video';
-import { MediaLoadingSweep } from '@/components/common';
+import { LegacyPreviewCover, MediaLoadingSweep } from '@/components/common';
 import { colors } from '@/constants/theme';
 import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { warmedVideoSource } from '@/utils/videoWarmup';
 import { pinDetailStyles as s } from '../styles';
 
 /**
@@ -88,7 +89,7 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
   // 열람 전에는 미리보기만 내려온다. 둘 다 비어 있으면 시안 영상으로 대체한다.
   const mediaUrl = unlocked ? videoUrl : previewUrl;
   const usesPlaceholder = !mediaUrl;
-  const source: VideoSource = usesPlaceholder ? PLACEHOLDER_MEDIA : { uri: mediaUrl };
+  const source: VideoSource = usesPlaceholder ? warmedVideoSource(PLACEHOLDER_MEDIA) : { uri: mediaUrl };
 
   const [muted, setMuted] = useState(true);
 
@@ -158,6 +159,15 @@ export function PinDetailMedia({ unlocked, videoUrl, previewUrl }: PinDetailMedi
           {video}
         </View>
       )}
+
+      {/*
+        위 흐림이 듣지 않는 기기(안드로이드 11 이하)에서만 대신 덮는다.
+
+        그 버전에는 `filter`가 조용히 무시되어 **결제 전 영상이 선명하게 보였다.** 왜 흐림이
+        아니라 덮개인지는 `LegacyPreviewCover`에 적어 두었다. 되는 기기에서는 아무것도 그리지
+        않으므로 지금 화면은 그대로다.
+      */}
+      {!unlocked && <LegacyPreviewCover />}
 
       {/*
         영상을 받는 동안 그 자리를 채운다.

@@ -54,7 +54,7 @@ export default function Onboarding() {
     있어, 키보드가 뜨면 **그 단계의 끝으로 스크롤**해 입력칸을 화면에 들여놓는다(아래 효과).
   */
   const screenRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(screenRef);
+  const keyboardOverlap = useKeyboardOverlap(screenRef, 'onboarding-age');
   const listRef = useRef<ScrollView>(null);
 
   /*

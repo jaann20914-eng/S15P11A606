@@ -4,10 +4,14 @@ import type { CreditTransaction, CreditTransactionsQuery, CreditTransactionsResp
 import type {
   ActivityDay,
   ActivityMonth,
+  CategoryPreferenceResponse,
   MyProfileResponse,
   NicknameAvailabilityResponse,
   NicknameUpdateResponse,
+  ProfileUpdateResponse,
 } from '@/types/user';
+import { MAX_PREFERENCES } from '@/constants/categories';
+import type { PreferenceCategoryCode } from '@/constants/categories';
 import { isValidNickname, normalizeNickname } from '@/utils/nickname';
 import { MOCK_LATENCY_MS, delay, mockPinId, registerMockPinScenario } from './pin';
 
@@ -407,4 +411,36 @@ export async function updateMockNickname(nickname: string): Promise<NicknameUpda
   takenNicknames.add(currentNickname);
 
   return { nickname: currentNickname };
+}
+
+/** 목업에서 고른 관심 카테고리. 온보딩 기본값과 같은 자리에서 시작한다. */
+let preferredCategories: PreferenceCategoryCode[] = ['CAFE', 'RESTAURANT', 'PARK'];
+
+/** 관심 카테고리 조회 목업. */
+export async function fetchMockMyCategories(): Promise<CategoryPreferenceResponse> {
+  await delay(MOCK_LATENCY_MS);
+
+  return { preferredCategories: [...preferredCategories] };
+}
+
+/**
+ * 닉네임 · 관심 카테고리 동시 수정 목업.
+ *
+ * 서버와 같이 하나라도 어긋나면 아무것도 바꾸지 않는다 — 닉네임 검증을 먼저 지나가야
+ * 카테고리가 저장된다.
+ */
+export async function updateMockProfile(
+  nickname: string,
+  categories: PreferenceCategoryCode[],
+): Promise<ProfileUpdateResponse> {
+  if (categories.length === 0 || categories.length > MAX_PREFERENCES) {
+    await delay(MOCK_LATENCY_MS);
+    throw new ApiError(400, 'INVALID_CATEGORY_PREFERENCE', '관심 카테고리는 1~3개여야 합니다.');
+  }
+
+  const saved = await updateMockNickname(nickname);
+
+  preferredCategories = [...categories];
+
+  return { nickname: saved.nickname, preferredCategories: [...preferredCategories] };
 }

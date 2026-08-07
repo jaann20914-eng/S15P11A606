@@ -7,6 +7,9 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 네 화면(요약 · 작성한 핀 · 크레딧 내역 · 닉네임 수정)이 헤더와 목록 카드를 공유한다.
  * 같은 값을 화면마다 복사하지 않도록 여기 한 곳에 둔다.
  */
+/** 나의 정보 수정 화면에서 내용이 버튼 뒤로 사라지는 구간의 높이. 스크롤 여백도 이 값을 쓴다. */
+const EDIT_FADE_HEIGHT = 24;
+
 export const mypageStyles = StyleSheet.create({
   /* 화면 골격 */
   safe: { flex: 1, backgroundColor: colors.white },
@@ -140,8 +143,13 @@ export const mypageStyles = StyleSheet.create({
    * 퍼센트 폭은 Yoga에서 높이가 0으로 접혀 앱에서 칸이 보이지 않는다. 주 단위 행 안에서
    * `flex`로 폭을 나눠 받고 `aspectRatio`로 정사각형을 만들면 웹과 앱이 같게 계산된다.
    */
-  cell: { flex: 1, aspectRatio: 1 },
-  cellBlank: { backgroundColor: 'transparent' },
+  /*
+    칸 사이는 흰 테두리로 가른다. 붙여 두면 같은 색 칸들이 한 덩어리로 뭉쳐 며칠인지
+    세어지지 않았다. 카드 바탕과 같은 흰색이라 선이 아니라 격자의 틈으로 읽힌다.
+  */
+  cell: { flex: 1, aspectRatio: 1, borderWidth: 1, borderColor: colors.white },
+  /** 빈 자리는 테두리도 없다 — 달이 시작하기 전 칸에 격자가 이어지면 날짜가 있는 것처럼 보인다. */
+  cellBlank: { backgroundColor: 'transparent', borderWidth: 0 },
   cellEmpty: { backgroundColor: '#F3F3F3' },
   cellLow: { backgroundColor: '#EFF8B5' },
   cellMid: { backgroundColor: '#D6ED60' },
@@ -335,15 +343,59 @@ export const mypageStyles = StyleSheet.create({
   amount: { ...type.label, fontWeight: '600', color: colors.dark },
   amountEarn: { color: '#8FA900' },
 
-  /* 닉네임 수정 */
+  /* 나의 정보 수정(닉네임 · 관심 장소) */
   nicknameContent: { flex: 1, paddingHorizontal: layout.gutter, paddingTop: spacing.x10 },
   nicknameTitle: { ...type.h2, color: colors.dark },
   nicknameDescription: { ...type.body, color: colors.gray600, marginTop: spacing.x1 },
+  /** 묶음 제목. 화면 제목(`nicknameTitle`)보다 작게 두어 그 아래 단계로 읽히게 한다. */
+  editSectionTitle: { ...type.h3, color: colors.dark },
+  editSectionDescription: { ...type.caption, color: colors.gray600, marginTop: spacing.x1 },
+  /** 닉네임 묶음과 관심 장소 묶음 사이. 두 묶음이 서로 다른 일이라는 것이 간격으로 읽힌다. */
+  sectionGap: { marginTop: spacing.x12 },
+  /** 고른 순서가 곧 순위라 그 순서를 문장으로 되짚어 준다(온보딩과 같은 안내). */
+  rankHint: { ...type.caption, color: '#8FA900', fontWeight: '600', marginTop: spacing.x2 },
+  preferenceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.x3,
+    marginTop: spacing.x3,
+  },
+  preferenceCell: { width: '31.5%' },
+  /**
+   * 스크롤 내용의 아래 여백.
+   *
+   * 버튼은 스크롤 **밖에** 있어 내용을 가리지 않지만, 사라짐 구간(`editFade`)이 스크롤의
+   * 아래 끝을 덮는다. 그 높이보다 넉넉히 둬야 끝까지 내렸을 때 마지막 카드 줄이 사라짐
+   * 아래로 들어가지 않는다 — 좁게 뒀더니 카드가 흰 띠에 잠겼다(2026-08-06).
+   */
+  editScroll: { paddingBottom: EDIT_FADE_HEIGHT + spacing.x4 },
+  /**
+   * 내용이 버튼 밑으로 들어가며 사라지는 구간.
+   *
+   * 짧게 둔다. 길면 아직 읽어야 할 내용까지 흰색에 잠긴다 — 이 그라데이션이 하는 일은
+   * 스크롤이 버튼 뒤로 넘어가는 경계를 부드럽게 하는 것뿐이다.
+   */
+  editFade: { position: 'absolute', left: 0, right: 0, height: EDIT_FADE_HEIGHT },
+  /** 저장이 막힌 이유. 잠긴 버튼만 두면 눌리지 않는 까닭을 알 수 없다. */
+  saveBlockedHint: {
+    ...type.caption,
+    color: colors.gray400,
+    textAlign: 'center',
+    marginBottom: spacing.x2,
+  },
+  /**
+   * 읽기 상태의 "수정하기" 버튼.
+   *
+   * 저장 버튼보다 연한 연두를 쓴다. 이 버튼은 값을 바꾸는 것이 아니라 고칠 수 있게 여는
+   * 동작이라, 같은 색이면 저장과 같은 무게로 읽혀 잘못 누르게 된다.
+   */
+  editEnterButton: { backgroundColor: colors.limeSoft },
   inputShell: {
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.x12,
+    marginTop: spacing.x3,
     paddingLeft: spacing.x4,
     paddingRight: spacing.x1,
     borderWidth: 1,
@@ -394,7 +446,13 @@ export const mypageStyles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.lime,
   },
-  saveDisabled: { backgroundColor: '#E3F58A' },
+  /**
+   * 누를 수 없는 저장 버튼.
+   *
+   * 회색으로 확실히 죽인다. 연한 라임(`#E3F58A`)을 쓰던 동안에는 활성 버튼과 색이 비슷해
+   * 눌리는 것으로 읽혔고, 중복 닉네임으로 막혀 있는데도 "안 막힌다"로 보였다(2026-08-06).
+   */
+  saveDisabled: { backgroundColor: colors.gray100 },
   saveText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: colors.dark },
   saveTextDisabled: { color: colors.gray400 },
 });

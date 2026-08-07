@@ -1,3 +1,5 @@
+import type { PreferenceCategoryCode } from '@/constants/categories';
+
 /**
  * 사용자 도메인 서버 계약.
  *
@@ -73,4 +75,25 @@ export interface NicknameAvailabilityResponse {
  */
 export interface NicknameUpdateResponse {
   nickname: string;
+}
+
+/**
+ * `GET /api/v1/users/me/categories` 응답의 `data`.
+ *
+ * 코드 목록만 온다. 표시 문구는 프론트가 정한다(`constants/categories`) — 서버 이름과
+ * 화면 문구가 달라서다(예: `RESTAURANT`는 서버에서 "음식점", 화면에서는 "맛집").
+ */
+export interface CategoryPreferenceResponse {
+  preferredCategories: PreferenceCategoryCode[];
+}
+
+/**
+ * `PATCH /api/v1/users/me` 응답의 `data`.
+ *
+ * 저장이 끝난 최종 값이다. 닉네임은 정규화를 거쳐 보낸 값과 다를 수 있으므로 화면은
+ * 이 값으로 갱신한다.
+ */
+export interface ProfileUpdateResponse {
+  nickname: string;
+  preferredCategories: PreferenceCategoryCode[];
 }

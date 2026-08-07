@@ -181,7 +181,18 @@ export function useOAuthLogin(): OAuthLoginState {
         setPendingProvider(null);
         setNotice(null);
         logOAuth('완료 — 화면 이동', { authStatus });
-        // replace로 이동해 뒤로 가기가 로그인 화면으로 돌아오지 않게 한다.
+
+        /*
+          **replace 전에 루트 스택을 걷는다.** OAuth 콜백이 딥링크로 루트에 얹힌 채 여기 오면
+          replace는 맨 위 한 장(콜백)만 바꿔서, 루트가 [로그인, 홈]의 2층으로 남는다. 그 상태로
+          탭을 누르면 탭 레이아웃의 "얹힌 겹 걷기"가 발동해 **로그인 화면으로 되감겼고**(2026-08-07
+          실기기), 하드웨어 뒤로 가기도 로그인으로 떨어졌다. 걷고 나서 바꾸면 홈이 유일한 층이
+          되어 뒤로 갈 곳 자체가 없다.
+
+          걷을 것이 없으면(dismissAll이 설 자리가 없으면) 그냥 지나간다 — 목업 로그인처럼 콜백
+          없이 이 자리에 오는 흐름은 원래 한 층이다.
+        */
+        if (router.canDismiss()) router.dismissAll();
         router.replace(authStatus === 'AUTHENTICATED' ? '/(tabs)/home' : '/(onboarding)/age');
       };
 
@@ -453,10 +464,7 @@ async function openBrowserAndAwaitRedirect(
  * `state`는 이 함수 안에서만 살아 있는 값이다. 어긋나면 **백엔드를 부르지 않고**
  * 여기서 끊는다. 우리가 시작하지 않은 인가 코드를 서버에 넘기는 순간 그게 곧 CSRF이기 때문이다.
  */
-async function authorize(
-  provider: OAuthProvider,
-  onStillWaiting: () => void,
-): Promise<Authorization | null> {
+async function authorize(provider: OAuthProvider, onStillWaiting: () => void): Promise<Authorization | null> {
   const state = createOAuthState();
 
   // 목업 모드에서는 콘솔 키도 App Link도 없으므로 브라우저 단계를 건너뛴다.

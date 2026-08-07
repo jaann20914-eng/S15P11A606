@@ -5,6 +5,7 @@ import { VideoView } from 'expo-video';
 import { colors, radius, spacing, type } from '@/constants/theme';
 import { useSheetTransition } from '@/features/pin-detail/hooks/useSheetTransition';
 import { useAutoplayVideo } from '@/hooks/useAutoplayVideo';
+import { warmedVideoSource } from '@/utils/videoWarmup';
 import type { ChatWarning, WarningReasonCode } from '@/types/chat';
 
 /** 경고 알람 영상. 원본(1.9MB · 1080p)을 표시 크기에 맞춰 줄여 둔 것(15KB · 480p). */
@@ -110,7 +111,7 @@ export function ChatWarningSheet({ warning, onClose }: ChatWarningSheetProps) {
  * 부모에 두면 방 화면이 사는 내내 쓰지 않는 플레이어가 남는다.
  */
 function AlarmVideo() {
-  const player = useAutoplayVideo(ALARM_VIDEO, { loop: true, muted: true });
+  const player = useAutoplayVideo(warmedVideoSource(ALARM_VIDEO), { loop: true, muted: true });
 
   return (
     <VideoView

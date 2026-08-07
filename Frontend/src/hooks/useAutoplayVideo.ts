@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import type { VideoPlayer, VideoSource } from 'expo-video';
@@ -121,7 +122,22 @@ export function useAutoplayVideo(source: VideoSource, { loop, muted }: AutoplayV
     useCallback(() => {
       player.play();
 
-      return () => pauseQuietly(player);
+      /*
+        앱이 잠시 앞에서 물러났다 돌아오면 다시 재생한다.
+
+        네이티브가 백그라운드에서 재생을 멈추는데, 그 사이 화면 초점은 바뀌지 않아 위의
+        `play()`가 다시 불리지 않는다. 그래서 **화면에 그대로 있는데 영상만 멈춰 있는** 상태가
+        남았다 — 작성 화면에서 "현재 위치"를 눌러 시스템 대화상자가 떴다 사라진 뒤가 그랬다
+        (2026-08-06). 돌아온 순간 이어서 튼다. 이미 재생 중이면 아무 일도 하지 않는다.
+      */
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') player.play();
+      });
+
+      return () => {
+        subscription.remove();
+        pauseQuietly(player);
+      };
     }, [player]),
   );
 
