@@ -388,11 +388,11 @@ export default function Home() {
   );
 
   /**
-   * 상세 화면으로 넘어간다. **고른 카드의 꺽새만** 이 역할을 한다.
+   * 상세 화면으로 넘어간다. **같은 카드를 두 번째로 누를 때**와 **꺽새를 누를 때** 온다.
    *
-   * 카드를 누르는 것은 "저기가 어디인지 보고 싶다"에 가까워 지도 이동으로 답한다. 화면을
-   * 전환하려면 한 번 고른 뒤 꺽새를 눌러야 하므로, 지도를 보려던 탭이 화면 전환으로
-   * 이어지는 일이 없다.
+   * 첫 탭은 "저기가 어디인지 보고 싶다"로 읽어 지도 이동으로 답하고, 같은 카드를 한 번 더
+   * 누르면 그 장소를 보러 가겠다는 뜻으로 읽는다(`pressCard`). 꺽새는 그 두 단계를 건너뛰는
+   * 지름길이라 한 번에 넘어간다.
    *
    * **넘어가면서 그 장소를 핀 축척까지 당긴다.** 상세는 자기 지도가 없어 이 지도를 그대로
    * 비추므로, 화면이 바뀌는 동안 지도가 손으로 벌린 것처럼 이어서 당겨진다(지도 쪽에서 한
@@ -470,6 +470,47 @@ export default function Home() {
       });
     },
     [level, moveTo, inView.places, selectPlace],
+  );
+
+  /**
+   * 카드를 연달아 누른 횟수. **한 카드만 센다.**
+   *
+   * 다른 카드를 누르면 그 카드부터 다시 세고 앞 카드의 횟수는 버린다. 화면을 떠났다 돌아오면
+   * 통째로 비운다(아래 `useFocusEffect`). 카드마다 쌓이는 값이 아니라 **지금 손이 머무는 카드**
+   * 하나에 대한 값이다.
+   *
+   * 상태가 아니라 ref다 — 이 값으로 그리는 것이 없어 바뀔 때마다 다시 그릴 이유가 없다.
+   */
+  const cardTaps = useRef<{ placeId: string; count: number }>({ placeId: '', count: 0 });
+
+  /**
+   * 카드를 눌렀을 때. **첫 번째는 지도 이동, 두 번째는 상세다.**
+   *
+   * 예전에는 카드 안의 꺽새만 상세로 가는 길이라, 그 작은 표적을 찾아내야만 장소를 볼 수 있었다
+   * (2026-08-07 팀 의견). 카드 전체를 누를 수 있게 하되 **첫 탭을 곧바로 상세로 보내지는
+   * 않는다** — 카드를 누르는 손짓의 대부분은 "저기가 어디냐"이고, 그때마다 화면이 바뀌면 지도를
+   * 보려던 탭이 전환이 된다. 한 번 더 누르는 것이 그 뜻을 확인해 준다.
+   *
+   * **시간 제한을 두지 않는다.** 더블탭 제스처가 아니라 누른 횟수다 — 천천히 두 번 눌러도
+   * 넘어가고, 그 사이에 지도를 둘러봐도 횟수가 남는다. 초기화되는 조건은 두 가지뿐이다:
+   * 다른 카드를 누르거나, 홈을 떠났다 돌아오거나.
+   */
+  const pressCard = useCallback(
+    (placeId: string) => {
+      const previous = cardTaps.current;
+      const count = previous.placeId === placeId ? previous.count + 1 : 1;
+
+      if (count >= 2) {
+        // 상세로 가므로 비운다. 돌아왔을 때 한 번 더 누르면 다시 첫 탭이다.
+        cardTaps.current = { placeId: '', count: 0 };
+        openPlace(placeId);
+        return;
+      }
+
+      cardTaps.current = { placeId, count };
+      focusPlace(placeId);
+    },
+    [focusPlace, openPlace],
   );
 
   /**
@@ -819,6 +860,12 @@ export default function Home() {
       */
       openedByZoom.current = false;
       /*
+        **카드 탭 횟수를 비운다.** 탭바로 다른 화면을 거쳐 왔든 상세에서 뒤로 왔든, 돌아온
+        홈에서 카드를 처음 누르는 것은 늘 "저기가 어디냐"여야 한다. 떠나기 전의 한 번이 남아
+        있으면 돌아와서 무심코 누른 카드가 곧바로 상세로 넘어간다(`cardTaps`).
+      */
+      cardTaps.current = { placeId: '', count: 0 };
+      /*
         **탭바 홈 버튼으로 돌아왔으면 축척을 건드리지 않는다**(`keepMapLevelOnce`). 상세가
         닫히며 남은 축척 복원 표시가 이 복귀에서 소비되면 지도가 갑자기 넓어진다 — 버튼으로
         돌아온 홈은 보던 축척 그대로가 맞다. 뒤로 가기로 닫는 길은 이 요청이 없어 기존대로다.
@@ -1045,8 +1092,9 @@ export default function Home() {
                 key={place.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${place.name} 지도에서 보기`}
+                accessibilityHint="한 번 더 누르면 장소 상세로 이동합니다"
                 accessibilityState={{ selected: place.id === selectedPlaceId }}
-                onPress={() => focusPlace(place.id)}
+                onPress={() => pressCard(place.id)}
                 style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
               >
                 <View style={s.cardTop}>
@@ -1059,24 +1107,27 @@ export default function Home() {
                     </Text>
                   </View>
                   {/*
-                    상세로 가는 **유일한** 자리다. 카드의 나머지를 누르면 지도만 옮긴다.
+                    상세로 가는 **지름길**이다. 카드 전체도 두 번 누르면 같은 곳으로 가지만,
+                    이쪽은 한 번이면 된다.
 
                     고른 카드에만 나타난다. 아직 고르지 않은 카드에는 아무 표시도 두지 않는다 —
                     예전에 있던 위치 아이콘과 `지도에서` 글자는 누를 수 있는 것처럼 보이는데
                     실제로는 카드와 같은 동작이라 오해를 샀다.
 
-                    글자 없이 꺽새만 두므로 눌리는 영역이 좁다. hitSlop으로 사방을 넓혀 실제
-                    표적은 아이콘보다 훨씬 크게 잡는다.
+                    **동그란 판에 얹어 키웠다**(2026-08-07 의견). 맨 꺽새만 두었더니 글자 옆의
+                    장식으로 읽혀 누를 수 있다는 것이 드러나지 않았다. 면이 있으면 버튼으로
+                    보이고, 표적도 32px에서 40px로 넓어진다. hitSlop은 그대로 둬 실제 표적은
+                    그보다 더 크다.
                   */}
                   {place.id === selectedPlaceId && (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`${place.name} 상세 보기`}
-                      hitSlop={16}
+                      hitSlop={12}
                       onPress={() => openPlace(place.id)}
-                      style={s.detailChevron}
+                      style={({ pressed }) => [s.detailChevron, pressed && s.detailChevronPressed]}
                     >
-                      <Ionicons name="chevron-forward" size={22} color={colors.dark} />
+                      <Ionicons name="chevron-forward" size={24} color={colors.dark} />
                     </Pressable>
                   )}
                 </View>
@@ -1305,13 +1356,24 @@ const s = StyleSheet.create({
    *
    * 글자가 없어 눌리는 넓이는 이 칸이 확보하고, 모자란 만큼은 hitSlop으로 넓힌다.
    */
+  /**
+   * 상세로 가는 지름길 버튼.
+   *
+   * 정사각형이어야 `borderRadius`가 정확한 원이 된다 — 예전에는 높이를 제목 줄 높이에 맞춰
+   * 두어 폭과 달랐다. 옅은 라임 면은 고른 카드의 라임 테두리와 같은 계열이라 이 카드에 속한
+   * 버튼으로 읽힌다.
+   */
   detailChevron: {
-    width: 32,
-    height: type.title.lineHeight,
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.x2,
+    backgroundColor: colors.limeSoft,
   },
+  /** 눌린 동안. 같은 계열에서 한 단계만 진해져 눌렸다는 것이 보인다. */
+  detailChevronPressed: { backgroundColor: colors.limeControl },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },
