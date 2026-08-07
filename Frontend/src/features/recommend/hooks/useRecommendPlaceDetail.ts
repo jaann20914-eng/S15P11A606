@@ -41,6 +41,13 @@ const MIN_LOADING_MS = 400;
 export function useRecommendPlaceDetail(
   placeId: number | null,
   placeCoordinate?: Coordinate | null,
+  /**
+   * 값이 바뀌면 다시 받는다.
+   *
+   * 핀 상세에서 **내 핀을 고치거나 지우고 돌아왔을 때** 옛 내용이 그대로 남아 있으면 안 된다.
+   * 화면이 초점을 되찾을 때 이 값을 올려 새로 받게 한다. 값이 그대로면 아무 일도 없다.
+   */
+  reloadToken = 0,
 ): RecommendPlaceDetailState {
   const [detail, setDetail] = useState<PlaceDetail | null>(null);
   const [mapData, setMapData] = useState<PlaceMapData | null>(null);
@@ -57,10 +64,26 @@ export function useRecommendPlaceDetail(
   const coordinateRef = useRef(placeCoordinate);
   coordinateRef.current = placeCoordinate;
 
+  /*
+    다시 받을 차례인지. `reloadToken`이 바뀐 뒤 첫 실행에서만 참이 된다.
+
+    조회를 한 번만 하도록 막는 `requested`와 따로 둔다 — 그 잠금을 여기서 풀어야 아래
+    조회가 다시 돈다.
+  */
+  const lastTokenRef = useRef(reloadToken);
+
+  if (lastTokenRef.current !== reloadToken) {
+    lastTokenRef.current = reloadToken;
+    requested.current = false;
+  }
+
   useEffect(() => {
     if (placeId === null) {
-      setLoading(false);
-      setError('장소를 찾을 수 없어요.');
+      /*
+        아직 이 카드 차례가 아니다(캐러셀에서 보이지 않는 자리). 조회하지 않고 조용히 둔다 —
+        예전에는 이 자리가 "장소를 찾을 수 없어요"였는데, 그때는 주소로 바로 들어온 경우만
+        placeId가 비었기 때문이다. 지금은 아직 열리지 않은 카드도 이리로 온다.
+      */
       return;
     }
     if (requested.current) return;
@@ -97,7 +120,7 @@ export function useRecommendPlaceDetail(
             : '장소 정보를 불러오지 못했어요',
         );
       });
-  }, [placeId]);
+  }, [placeId, reloadToken]);
 
   return { detail, mapData, loading, error };
 }

@@ -1,15 +1,39 @@
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 import { ScreenHeader } from '@/components/common';
+import { colors } from '@/constants/theme';
+import type { CrowdFilter } from '@/constants/crowdLevels';
+import { RecommendEmpty } from '@/features/recommend/components/RecommendEmpty';
 import { RecommendIntro } from '@/features/recommend/components/RecommendIntro';
-import { RecommendList } from '@/features/recommend/components/RecommendList';
+import { RecommendPager } from '@/features/recommend/components/RecommendPager';
 import { useRecommendations } from '@/features/recommend/hooks/useRecommendations';
 import { recommendStyles as s } from '@/features/recommend/styles';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
 
 /**
+ * 계열별 배경 그라데이션.
+ *
+ * 위에서 아래로 **계열 색 → 하늘 → 흰색**이다(시안). 아래를 흰색으로 빼야 카드와 바텀바가
+ * 놓이는 자리가 조용해지고, 색은 머리말이 있는 위쪽에서만 말을 한다.
+ */
+const backgroundByMode: Record<CrowdFilter, readonly [string, string, string]> = {
+  relaxed: ['#F2F9DC', '#E4F1F7', '#FFFFFF'],
+  wagle: ['#FFF0DE', '#FBE7EC', '#FFFFFF'],
+};
+
+/** 색이 흰색에 닿는 지점. 카드가 시작하는 자리쯤에서 이미 옅어야 카드 경계가 뚜렷하다. */
+const BACKGROUND_STOPS = [0, 0.42, 0.82] as const;
+
+/**
  * 추천 장소.
+ *
+ * 장소 하나가 카드 한 장이고, 그 안에 지도와 핀 목록이 함께 들어 있다. 예전에는 목록에서
+ * 장소를 골라 상세로 들어가야 핀을 볼 수 있었는데, 추천은 "지금 어디로 갈까"를 훑는 자리라
+ * 한 번 더 들어가는 단계가 흐름을 끊었다. 장소는 옆으로, 핀은 아래로 넘긴다.
  *
  * 이 화면은 `(tabs)` 안에 있어 바텀바는 탭 네비게이터가 그린다. 화면에서 따로 그리면 겹친다.
  *
@@ -17,31 +41,135 @@ import { useResponsivePadding } from '@/hooks/useResponsivePadding';
  */
 export default function RecommendScreen() {
   const padding = useResponsivePadding();
-  const { mode, places, generatedAt, isFallback, loading, error, setMode, reload } =
-    useRecommendations();
+  const { mode, places, generatedAt, isFallback, loading, error, setMode, reload } = useRecommendations();
+
+  /** 지금 보고 있는 장소의 자리. 캐러셀이 아니라 화면이 들고 있어야 아래에서 되감을 수 있다. */
+  const [index, setIndex] = useState(0);
+
+  /*
+    계열을 바꾸면 첫 장소부터 본다. 여유의 다섯 번째를 보다가 와글로 넘기면 목록이 통째로
+    바뀌는데, 자리만 그대로면 뜬금없는 장소가 열린다.
+  */
+  useEffect(() => {
+    setIndex(0);
+  }, [mode]);
+
+  const focused = useIsFocused();
+
+  /*
+    **추천이 지금 고른 탭인지.** 화면의 초점(`useIsFocused`)과 다르다.
+
+    초점은 조상까지 함께 보므로, 핀 상세처럼 탭 **위에 얹히는** 화면이 열리면 탭은 그대로
+    추천인데도 이 화면은 초점을 잃는다. 그 둘을 구분하지 못해 핀을 하나 열어 보고 돌아왔을
+    뿐인데 보던 계열과 장소를 잃었다(2026-08-07 실기기).
+
+    라우터 쪽 상태(`router.canDismiss()`)로 가르려 했지만 그 값은 초점이 바뀌는 순간
+    아직 갱신 전일 수 있어 같은 증상이 남았다. 그래서 **탭 네비게이터에게 직접 묻는다** —
+    지금 선택된 탭 이름이 추천인지. 위에 무엇이 얹히든 이 값은 흔들리지 않는다.
+  */
+  const navigation = useNavigation();
+  const [onRecommendTab, setOnRecommendTab] = useState(true);
+
+  useEffect(() => {
+    const tabs = navigation.getParent();
+
+    if (tabs === undefined) return;
+
+    const read = () => {
+      const state = tabs.getState();
+
+      setOnRecommendTab(state.routes[state.index]?.name === 'recommend');
+    };
+
+    read();
+    return tabs.addListener('state', read);
+  }, [navigation]);
+
+  /*
+    다른 탭으로 갔으면 처음 상태로 되돌린다 — 여유 계열의 첫 장소다(제품 결정).
+
+    이 화면은 탭 안이라 다른 탭으로 가도 살아 있어서, 되돌리지 않으면 와글의 다섯 번째
+    장소를 보던 자리가 그대로 남는다. 추천은 "지금 어디로 갈까"를 처음부터 훑는 자리라
+    입구가 늘 같아야 한다. 빈 화면의 "핀 올리기"로 작성 탭에 다녀오는 경우도 여기에 걸린다.
+  */
+  useEffect(() => {
+    if (onRecommendTab) return;
+
+    setIndex(0);
+    setMode('relaxed');
+  }, [onRecommendTab, setMode]);
+
+  /*
+    초점을 되찾을 때마다 올린다. 열려 있는 카드들이 이 값을 보고 장소 내용을 다시 받는다.
+
+    핀 상세에서 **내 핀을 고치거나 지우고 돌아온 경우**가 이유다. 목록 자체는
+    `useRecommendations`가 다시 받지만, 카드 안의 핀 내용은 장소 상세에서 따로 오므로
+    그쪽도 함께 새로 받아야 지운 핀이 사라지고 고친 내용이 반영된다.
+
+    첫 초점은 건너뛴다. 그때는 카드가 방금 받아 온 참이라 같은 것을 두 번 묻게 된다.
+  */
+  const [reloadToken, setReloadToken] = useState(0);
+  const focusedOnce = useRef(false);
+
+  useEffect(() => {
+    if (!focused) return;
+
+    if (!focusedOnce.current) {
+      focusedOnce.current = true;
+      return;
+    }
+
+    setReloadToken((token) => token + 1);
+  }, [focused]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       {/* 탭 화면이라 뒤로 가기가 없다. 그 자리는 공용 헤더가 비워 둬서 제목이 가운데에 온다. */}
       <ScreenHeader title="추천 장소" />
 
-      <View style={s.content}>
-        <RecommendIntro
-          mode={mode}
-          generatedAt={generatedAt}
-          isFallback={isFallback}
-          padding={padding}
-          onModeChange={setMode}
-        />
+      {/*
+        머리말부터 카드까지 한 덩어리로 색을 깐다. 계열을 바꾸면 화면 전체의 공기가 바뀌어,
+        지금 무엇을 보고 있는지가 토글을 보지 않아도 읽힌다.
+      */}
+      <LinearGradient colors={backgroundByMode[mode]} locations={BACKGROUND_STOPS} style={s.screenGradient}>
+        <RecommendIntro mode={mode} isFallback={isFallback} padding={padding} onModeChange={setMode} />
 
-        <RecommendList
-          places={places}
-          mode={mode}
-          loading={loading}
-          error={error}
-          onRetry={reload}
-        />
-      </View>
+        {loading ? (
+          <View style={s.state}>
+            <ActivityIndicator color={colors.gray400} />
+          </View>
+        ) : error !== null ? (
+          <View style={s.state}>
+            <Text style={s.stateText}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={reload} style={s.emptySecondary}>
+              <Text style={s.emptySecondaryText}>다시 시도</Text>
+            </Pressable>
+          </View>
+        ) : places.length === 0 ? (
+          /*
+            비어 있는 것이 흔한 상태다 — 추천은 핀이 달린 장소만 대상으로 하므로 주변에 아직
+            올라온 것이 없으면 빈 목록이 온다. 그래서 실패와 구분해 따로 그린다.
+
+            **장소 카드와 같은 흰 카드 안에 둔다.** 이 자리는 장소가 있었으면 카드가 놓일
+            자리라, 비었다고 바탕에 그대로 얹으면 화면 구조가 상태에 따라 달라 보인다.
+          */
+          <View style={[s.emptySlot, { paddingHorizontal: padding }]}>
+            <View style={s.pageCard}>
+              <RecommendEmpty mode={mode} onRetry={reload} />
+            </View>
+          </View>
+        ) : (
+          <RecommendPager
+            places={places}
+            mode={mode}
+            index={index}
+            onIndexChange={setIndex}
+            generatedAt={generatedAt}
+            reloadToken={reloadToken}
+            padding={padding}
+          />
+        )}
+      </LinearGradient>
     </SafeAreaView>
   );
 }

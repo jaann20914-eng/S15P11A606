@@ -7,7 +7,7 @@ import { recommendStyles as s } from '@/features/recommend/styles';
 /**
  * 핀이 아직 없는 장소 한 장.
  *
- * **추천 화면의 장소 카드와 같은 모양이다**(`features/recommend/components/RecommendCard`의
+ * **추천 화면의 장소 카드와 같은 모양이다**(`features/recommend/components/RecommendPlacePins`의
  * 핀 없는 경우). 두 화면이 같은 말을 하고 있어서다 — "이 장소는 찾았지만 아직 올라온 것이
  * 없다, 그러니 당신이 먼저 남겨 달라". 사용자가 같은 카드로 알아보는 편이 낫다.
  *

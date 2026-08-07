@@ -154,6 +154,15 @@ export function useRecommendations(): RecommendationsState {
     setMode: useCallback((next: CrowdFilter) => setModeState(next), []),
     reload: useCallback(() => {
       requested.current = false;
+
+      /*
+        **눌러서 다시 찾을 때는 로딩을 보여준다.**
+
+        평소의 재조회(탭 복귀)는 이미 목록이 있어 소리 없이 바꾸지만, 이 버튼은 사용자가
+        직접 누른 것이라 무언가 일어났다는 표시가 있어야 한다. 게다가 빈 목록에서 누르는
+        버튼이라 결과도 대개 그대로여서, 표시가 없으면 눌러도 아무 일이 없는 것으로 읽힌다.
+      */
+      hasDataRef.current = false;
       setReloadCount((count) => count + 1);
     }, []),
   };

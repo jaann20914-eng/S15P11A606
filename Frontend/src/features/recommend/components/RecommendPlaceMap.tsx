@@ -162,13 +162,18 @@ export function RecommendPlaceMap({
   /**
    * 확대 레벨. 핀이 여럿이면 다 들어오도록 계산하고, 하나면 그 자리를 크게 보여준다.
    *
-   * 지도 칸은 화면 폭을 그대로 쓰고 높이는 스타일에 정해져 있다(`s.map`). 재서 쓰지 않는
-   * 이유는, 이 화면이 탭 안에 있어 숨겨진 채 마운트되면 첫 측정이 0으로 오기 때문이다.
+   * **잰 높이를 쓰되 재기 전에는 어림값으로 버틴다.** 지도 칸은 남는 높이를 전부 가져가므로
+   * (`s.map`) 화면마다 다르고, 스타일 상수만 믿으면 큰 화면에서 핀이 위아래로 넘친다. 그런데
+   * 이 화면은 탭 안에 있어 숨겨진 채 마운트되면 첫 측정이 0으로 오므로, 0인 동안은
+   * `RECOMMEND_MAP_HEIGHT`로 계산하고 값이 들어오면 그 값으로 다시 정한다.
    */
-  const level = useMemo(
-    () => (markers.length > 1 ? levelFor(markers, windowWidth, RECOMMEND_MAP_HEIGHT) : SINGLE_PIN_LEVEL),
-    [markers, windowWidth],
-  );
+  const level = useMemo(() => {
+    if (markers.length <= 1) return SINGLE_PIN_LEVEL;
+
+    const height = boxSize.height > 0 ? boxSize.height : RECOMMEND_MAP_HEIGHT;
+
+    return levelFor(markers, windowWidth, height);
+  }, [markers, windowWidth, boxSize.height]);
 
   /*
     지도 칸의 크기가 정해지거나 바뀌면 다시 맞춘다.
