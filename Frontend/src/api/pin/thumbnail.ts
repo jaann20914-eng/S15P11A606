@@ -1,7 +1,7 @@
 import { apiRequest } from '../client';
 import { usesMock } from '../config';
 import { fetchMockPinDetail } from '@/mocks/pin';
-import { revealsVideo } from '@/types/pin';
+import { isOwnerAccess, revealsVideo } from '@/types/pin';
 import { tracePin } from './log';
 import type { PinDetailResponse, PinId } from '@/types/pin';
 
@@ -54,16 +54,27 @@ const MISS_TTL_MS = 60_000;
 /** 동시에 보내는 상세 조회 수. 목록 하나가 열 장이어도 서버에 한꺼번에 몰리지 않는다. */
 const MAX_CONCURRENCY = 3;
 
-/** 카드 한 장에 그릴 썸네일. */
+/**
+ * 카드 한 장이 이 조회에서 얻는 것.
+ *
+ * 이름은 썸네일이지만 **접근 정보도 함께 온다.** 한 번의 상세 조회로 셋을 다 얻으므로 주소가
+ * 없다고 나머지를 버리지 않는다 — 썸네일이 없는 핀도 내 글일 수 있다.
+ */
 export interface PinThumbnail {
-  /** 발급받은 주소. */
-  url: string;
+  /** 발급받은 주소. 이 핀에 썸네일이 없으면 null. */
+  url: string | null;
   /**
    * 가리지 않고 보여줘도 되는지. 작성자 본인이거나 열람한 핀이면 참이다.
    *
    * 거짓이면 화면이 블러로 가린다 — 상세의 영상과 같은 기준이다(`revealsVideo`).
    */
   revealed: boolean;
+  /**
+   * 내가 쓴 핀인지(`isOwnerAccess`).
+   *
+   * 카드 응답으로는 알 수 없어 여기서 함께 받아 온다 — 이유는 `isOwnerAccess`에 적어 두었다.
+   */
+  mine: boolean;
 }
 
 interface CacheEntry {
@@ -92,15 +103,21 @@ function reuseWindowOf(url: string): number {
   return Math.max(0, Number(seconds[1]) * 1000 - EXPIRY_MARGIN_MS);
 }
 
-/** 핀 상세에서 썸네일에 필요한 것만 꺼낸다. */
-async function requestThumbnail(pinId: PinId): Promise<PinThumbnail | null> {
+/** 핀 상세에서 카드에 필요한 것만 꺼낸다. */
+async function requestThumbnail(pinId: PinId): Promise<PinThumbnail> {
   const detail = usesMock('pin/detail')
     ? await fetchMockPinDetail(pinId)
     : await apiRequest<PinDetailResponse>({ method: 'GET', url: `/api/v1/pins/${pinId}` });
 
-  if (detail.thumbnailUrl === null) return null;
-
-  return { url: detail.thumbnailUrl, revealed: revealsVideo(detail.videoAccess) };
+  /*
+    **주소가 없어도 null로 답하지 않는다.** 예전에는 그랬는데, 그러면 썸네일이 없는 핀의
+    접근 정보까지 함께 버려져 내 글 표시가 붙지 않는다. 없는 것은 주소뿐이다.
+  */
+  return {
+    url: detail.thumbnailUrl,
+    revealed: revealsVideo(detail.videoAccess),
+    mine: isOwnerAccess(detail.videoAccess),
+  };
 }
 
 /**
@@ -120,7 +137,11 @@ function resolveOne(pinId: PinId): Promise<PinThumbnail | null> {
     .then((thumbnail) => {
       cache.set(pinId, {
         thumbnail,
-        expiresAt: Date.now() + (thumbnail === null ? MISS_TTL_MS : reuseWindowOf(thumbnail.url)),
+        /*
+          주소가 있으면 서명 수명까지, 없으면 짧게 잡는다 — 아직 준비되지 않은 썸네일이
+          뒤에 올라올 수 있다. 접근 정보만 얻은 경우도 이 짧은 쪽이다.
+        */
+        expiresAt: Date.now() + (thumbnail.url === null ? MISS_TTL_MS : reuseWindowOf(thumbnail.url)),
       });
       return thumbnail;
     })
