@@ -107,13 +107,16 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
 
     /**
      * 지정한 장소들의 유효 핀을 한 번에 조회한다.
-     * 유효 = createdAt이 from 이후(최근 1시간 이내) AND (expiresAt이 없거나 아직 만료되지 않음).
+     * 유효 = 삭제되지 않음(deletedAt IS NULL) AND createdAt이 from 이후(최근 1시간 이내)
+     *        AND (expiresAt이 없거나 아직 만료되지 않음).
      * 작성자 뷰 각도(member.viewAngle) 사용을 위해 member를 fetch join 하여 N+1을 방지한다.
+     * (deletedAt 조건이 없으면 소프트 삭제 핀이 홈 목록·집계에만 남아 장소 상세와 개수/혼잡도가 어긋난다.)
      */
     @Query("""
             SELECT p FROM Pin p
             JOIN FETCH p.member
             WHERE p.place.id IN :placeIds
+              AND p.deletedAt IS NULL
               AND p.createdAt >= :from
               AND (p.expiresAt IS NULL OR p.expiresAt > :now)
             """)
