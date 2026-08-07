@@ -92,7 +92,7 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
    * 마지막으로 화면에 그려 둔 장소. **다시 물을 때 조용히 할지가 이 값으로 갈린다.**
    *
    * 같은 장소로 다시 포커스되면(위 화면에서 돌아옴) 보여주던 것을 그대로 두고 조용히 갱신하고,
-   * 다른 장소로 갈리면(옆 장소로 돌려 보기) 앞 장소의 값을 버리고 로딩부터 시작한다.
+   * 다른 장소로 갈리면 앞 장소의 값을 버리고 로딩부터 시작한다.
    */
   const shown = useRef<number | null>(null);
   /** 늦게 도착한 응답이 최신 결과를 덮지 않게 한다. */

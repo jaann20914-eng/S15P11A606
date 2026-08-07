@@ -13,7 +13,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabBar, CARD_SLOT_GAP, useAppTabBarHeight } from '@/components/common';
-import { CrowdChart, NextPlaceButton, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
+import { CrowdChart, PLACE_PIN_CARD_HEIGHT, PlaceSearchBar } from '@/components/place';
 import { NoPinPlaceCard } from '@/features/place-search/components';
 import { PinCardPager } from '@/features/place-detail/components/PinCardPager';
 import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails';
@@ -23,7 +23,6 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
-import { useNextPlace } from '@/hooks/useNextPlace';
 import { classifyCrowdFilter } from '@/constants/crowdLevels';
 import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
 import { distanceBetween } from '@/utils/location';
@@ -308,16 +307,6 @@ export default function Place() {
   /** 최대화 단계에서는 시트가 검색바 아래까지 올라와 내 위치 버튼과 겹치므로 감춘다. */
   const locationButton = useFadeToggle(!expanded);
 
-  /**
-   * 옆 장소로 돌려 보기. **이 화면의 장소만 갈린다** — 훅이 `navigate`로 파라미터만 바꾸므로
-   * 시트는 제자리에 있고 지도만 옆으로 미끄러진다.
-   *
-   * 버튼이 있을 조건(20m)과 누를 수 있을 조건(두 곳 이상)은 훅이 저장소를 보고 정한다. 내 위치
-   * 버튼과 같은 이유로 최대화 단계에서는 함께 감춘다.
-   */
-  const nextPlace = useNextPlace();
-  const nextPlaceButton = useFadeToggle(nextPlace.visible && !expanded);
-
   /*
     핀을 지도에 올리고, 보고 있는 게시물에 맞춰 지도를 옮긴다.
 
@@ -332,7 +321,7 @@ export default function Place() {
   /*
     **다른 장소로 갈리면 첫 카드에서 시작한다.**
 
-    옆 장소로 돌려 보면 이 화면은 그대로 있고 장소만 갈린다(`useNextPlace`의 `navigate`).
+이 화면은 `navigate`로 열리므로 스택에 이미 있으면 **화면은 그대로 두고 장소만 갈린다.**
     번호를 그대로 두면 카드가 넷인 장소에서 셋째를 보다 넘어간 장소가 한 장뿐일 때 빈 자리를
     보게 되고, 지도도 없는 핀으로 옮기려 든다.
   */
@@ -672,23 +661,6 @@ export default function Place() {
               />
             )}
           </AnimatedPressable>
-        )}
-
-        {/*
-          **옆 장소로 돌려 보는 버튼.** 이 화면이 저절로 열린 그 장소가 사용자가 노린 곳이 아닐 수
-          있어서 다음으로 가까운 장소로 넘겨 준다(끝에서는 처음으로 돌아온다).
-
-          **화면을 갈아 끼운다**(`replace`). 그러지 않으면 돌려 볼 때마다 상세가 한 겹씩 쌓여
-          화면들이 하나뿐인 지도를 두고 다투고, 뒤로 가기가 지나온 장소를 되짚는다.
-
-          목록은 20m에서만 채워지므로 축척이 넓어지면 버튼도 사라진다.
-        */}
-        {nextPlaceButton.mounted && (
-          <NextPlaceButton
-            onPress={nextPlace.goNext}
-            enabled={nextPlace.enabled}
-            style={nextPlaceButton.style}
-          />
         )}
       </View>
 

@@ -100,8 +100,8 @@ export interface MapState {
   /**
    * 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다.
    *
-   * 홈이 지도가 멈출 때마다 올린다. **지도를 갖지 않은 화면도 이 값을 봐야 한다** — 20m에서만
-   * 있는 컨트롤(옆 장소 버튼)이 장소 상세 위에 뜨는데, 그 화면은 축척을 알 길이 없다.
+   * 홈이 지도가 멈출 때마다 올린다. 지금은 홈만 읽지만 저장소에 두는 이유는 그대로다 — 지도를
+   * 갖지 않은 화면(장소 상세·미등록 장소)이 축척을 알아야 할 때 이것 말고는 길이 없다.
    *
    * 초기값은 `components/home/kakaoMapHtml`의 `DEFAULT_MAP_LEVEL`과 같은 값이다. 저장소가
    * 컴포넌트를 import하면 순환이 되므로 여기에 다시 적는다(`MapGestureControl`과 같은 사정이다).
@@ -109,19 +109,6 @@ export interface MapState {
   mapLevel: number;
   /** 상세 화면이 넘긴 핀 마커. null이면 홈이 장소 마커를 찍는다. */
   pinOverlay: PinMarkerOverlay | null;
-  /**
-   * **20m까지 당긴 그 순간 화면에 있던, 핀이 올라온 장소들.** 사용자에게 가까운 순이다.
-   *
-   * 그 축척에서는 장소 하나를 들여다보는 것이 자연스러워, 당기는 순간 가장 가까운 장소의 상세가
-   * 열린다. 그런데 화면에 여러 곳이 담겨 있으면 **사용자가 노린 곳이 아닐 수 있다** — "여기가
-   * 아니라 옆 장소를 보고 싶다"를 위해 다음 장소로 돌려 보는 버튼이 이 목록을 쓴다.
-   *
-   * **당기는 순간에 정하고 그대로 둔다.** 돌려 볼 때마다 지도가 그 장소로 옮겨지므로, 화면에
-   * 담긴 곳을 매번 다시 구하면 방금 지나온 장소가 목록에서 빠져 한 바퀴를 돌 수 없다.
-   *
-   * 축척이 30m 이상으로 넓어지면 비운다. 비어 있거나 한 곳뿐이면 돌려 볼 것이 없어 버튼도 없다.
-   */
-  nearbyPlaces: MapMarker[];
   /**
    * 지도에서 방금 눌린 핀. **한 번 쓰고 비우는 요청이다**(상태 거울이 아니다).
    *
@@ -191,16 +178,11 @@ export interface MapState {
   /** 탭바 홈 버튼이 "이번 복귀는 축척 그대로"를 올린다. 홈이 복귀하며 소비한다. */
   requestKeepMapLevel: () => void;
   consumeKeepMapLevel: () => boolean;
-  /** 20m에서 돌려 볼 장소를 정한다. 그 축척을 벗어나면 빈 배열로 비운다(홈이 맡는다). */
-  setNearbyPlaces: (places: MapMarker[]) => void;
   /** 홈이 시트 영역을 재서 올린다. 상세 시트가 같은 기준으로 높이를 잡는다. */
   setHomeSheetSpace: (space: number) => void;
   /** 지도를 가진 화면이 자기 손잡이를 등록한다. 화면을 떠날 때 `null`로 되돌린다. */
   setGestureControl: (control: MapGestureControl | null) => void;
 }
-
-/** 돌려 볼 장소가 없을 때 쓰는 빈 목록. 참조가 고정이라 헛된 리렌더가 없다. */
-const NO_NEARBY_PLACES: MapMarker[] = [];
 
 export const useMapStore = createStore<MapState>((set, get) => ({
   center: DEFAULT_CENTER,
@@ -209,7 +191,6 @@ export const useMapStore = createStore<MapState>((set, get) => ({
   pinOverlay: null,
   pressedPinId: null,
   keepMapLevelOnce: false,
-  nearbyPlaces: NO_NEARBY_PLACES,
   homeSheetSpace: 0,
   gestureControl: null,
   focus: null,
@@ -234,8 +215,6 @@ export const useMapStore = createStore<MapState>((set, get) => ({
     if (keep) set({ keepMapLevelOnce: false });
     return keep;
   },
-  // 빈 목록은 같은 배열을 돌려준다. 비울 때마다 새 배열이면 그때마다 구독자가 다시 그려진다.
-  setNearbyPlaces: (places) => set({ nearbyPlaces: places.length === 0 ? NO_NEARBY_PLACES : places }),
   setHomeSheetSpace: (homeSheetSpace) => set({ homeSheetSpace }),
   setGestureControl: (gestureControl) => set({ gestureControl }),
 }));

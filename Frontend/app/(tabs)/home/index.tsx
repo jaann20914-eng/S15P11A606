@@ -22,14 +22,13 @@ import {
   useAppTabBarHeight,
   ViewAvatar,
 } from '@/components/common';
-import { NextPlaceButton, PLACE_PIN_CARD_HEIGHT } from '@/components/place';
+import { PLACE_PIN_CARD_HEIGHT } from '@/components/place';
 import { DEFAULT_CENTER, useMapStore } from '@/store/useMapStore';
 import type { Coordinate, MapBounds } from '@/store/useMapStore';
 import { useScreenLayout } from '@/hooks/useResponsivePadding';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
-import { useNextPlace } from '@/hooks/useNextPlace';
 import { createDevLogger } from '@/utils/devLog';
 import { distanceBetween } from '@/utils/location';
 import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
@@ -156,9 +155,6 @@ export default function Home() {
    */
   const pressPin = useMapStore((state) => state.pressPin);
   const setGestureControl = useMapStore((state) => state.setGestureControl);
-  /** 20m에서 돌려 볼 장소들. 이 화면이 채우고 옆 장소 버튼이 읽는다. */
-  const nearbyPlaces = useMapStore((state) => state.nearbyPlaces);
-  const setNearbyPlaces = useMapStore((state) => state.setNearbyPlaces);
   const [mapReady, setMapReady] = useState(false);
 
   /** 잠깐 띄우는 한 마디. 없으면 null. */
@@ -326,8 +322,8 @@ export default function Home() {
   /**
    * 지금 지도 축척(카카오 레벨). 작을수록 당겨진 상태다.
    *
-   * **저장소에 둔다.** 20m에서만 있는 컨트롤(옆 장소 버튼)이 위에 겹치는 장소 상세에도 떠야
-   * 하는데, 그 화면은 자기 지도가 없어 축척을 알 길이 없다.
+   * **저장소에 둔다.** 위에 겹치는 화면들(장소 상세·미등록 장소)은 자기 지도가 없어 축척을
+   * 알 길이 없고, 축척으로 갈리는 동작이 생기면 이 값 말고는 볼 것이 없다.
    */
   const mapLevel = useMapStore((state) => state.mapLevel);
   const setMapLevel = useMapStore((state) => state.setMapLevel);
@@ -436,8 +432,8 @@ export default function Home() {
 
       /*
         **고른 것으로 표시해 둔다.** 카드 꺽새로 들어오는 길은 이미 골라져 있지만, 20m까지 당겨
-        저절로 열리는 길과 옆 장소로 돌려 보는 길은 여기서만 정해진다 — 그 값이 "지금 어디"의
-        기준이라(`useNextPlace`) 비어 있으면 돌려 보기가 늘 첫 장소에서 다시 시작한다.
+        저절로 열리는 길은 여기서만 정해진다 — 그 값이 비어 있으면 홈으로 돌아왔을 때 방금 본
+        장소의 카드가 골라져 있지 않다.
       */
       selectPlace(placeId);
       router.push(`/place/${placeId}`);
@@ -646,8 +642,7 @@ export default function Home() {
     **사용자가 직접 20m까지 당기면 그 자리의 장소를 열어 준다.**
 
     그 축척은 카카오가 주는 가장 가까운 눈금이라, 거기까지 당긴 것은 "이 장소를 들여다보겠다"는
-    뜻으로 읽는다. 그래서 가장 가까운 장소의 상세를 띄우고, 화면에 담긴 나머지 장소는 돌려 볼
-    목록으로 저장소에 올려 둔다(`nearbyPlaces` → 옆 장소 버튼).
+    뜻으로 읽는다. 그래서 **가장 가까운 장소의 상세를 띄운다.**
 
     **당긴 그 순간에만 한다.** 20m에 머무는 동안 지도를 밀 때마다 다시 열면 손이 지도를 놓지
     못한다. 직전 축척을 들고 있다가 20m로 **넘어오는 순간**만 잡는다.
@@ -686,11 +681,9 @@ export default function Home() {
       프레임마다 스크립트를 주입하므로, 상세를 열어 둔 채 지도를 다루면 눈에 띄게 버벅였다
       (2026-08-05 실기기). 접어 두면 그 뒤의 지도 조작은 다시 홈의 빠른 길로 돌아간다.
 
-      우리가 연 것만 접는다. 그리고 목록도 함께 버려 버튼이 사라진다.
+      우리가 연 것만 접는다.
     */
     if (mapLevel > REVIEW_PIN_MAX_LEVEL) {
-      if (nearbyPlaces.length > 0) setNearbyPlaces([]);
-
       if (openedByZoom.current) {
         openedByZoom.current = false;
         /*
@@ -711,13 +704,13 @@ export default function Home() {
     if (!onTop || from <= REVIEW_PIN_MAX_LEVEL) return;
 
     /*
-      화면에 담긴, 핀이 올라온 장소들. **사용자에게 가까운 순**이다.
+      화면에 담긴, 핀이 올라온 장소들 중 **가장 가까운 한 곳**을 고른다.
 
       보이는 마커와 같은 목록을 쓴다(`visiblePlaces` — 혼잡도 토글이 걸러 낸 것). 지도에 없는
-      장소로 넘어가면 버튼이 어디로 데려간 것인지 알 수 없다.
+      장소가 열리면 무엇이 열린 것인지 알 수 없다.
 
       기준점은 내 위치이고, 없으면 지도 중심이다 — 권한을 주지 않은 사용자에게도 "가까운 순"이
-      성립해야 한다. 화면 밖은 뺀다: 당긴 화면에 담긴 것만 돌려 본다.
+      성립해야 한다. 화면 밖은 뺀다: 당긴 화면에 담긴 것만 본다.
     */
     // 지도 중심은 여기서만 필요하다. 구독하면 지도가 멈출 때마다 이 화면이 다시 그려진다.
     const origin = myLocation.coordinate ?? useMapStore.getState().center;
@@ -730,10 +723,10 @@ export default function Home() {
       .sort((left, right) => left.distance - right.distance)
       .map((item) => item.marker);
 
-    setNearbyPlaces(found);
     log('20m 도달', {
       직전축척: from,
-      돌려볼장소: found.map((place) => place.name),
+      열장소: found[0]?.name ?? '없음',
+      화면안장소: found.length,
       기준점: myLocation.coordinate ? '내 위치' : '지도 중심',
     });
 
@@ -749,16 +742,7 @@ export default function Home() {
     // 우리가 여는 것이므로 표시해 둔다. 축척이 그 자리를 벗어나면 우리가 접는다.
     openedByZoom.current = true;
     openPlace(found[0].id);
-  }, [
-    bounds,
-    mapLevel,
-    myLocation.coordinate,
-    nearbyPlaces.length,
-    onTop,
-    openPlace,
-    setNearbyPlaces,
-    visiblePlaces,
-  ]);
+  }, [bounds, mapLevel, myLocation.coordinate, onTop, openPlace, visiblePlaces]);
 
   /* 한 마디는 잠깐 있다 사라진다. 새 안내가 들어오면 그때부터 다시 센다. */
   useEffect(() => {
@@ -799,9 +783,9 @@ export default function Home() {
       **겹이 비는 순간이 곧 상세가 닫힌 것은 아니다.**
 
       화면이 갈릴 때도 잠깐 빈다. 그때 넓히면 20m를 벗어나 방금 연 상세가 접히고, 다시 20m로
-      돌아와 첫 장소가 열린다 — 옆 장소 버튼 한 번에 홈을 거쳐 한 바퀴 도는 것으로 보였다
-      (2026-08-05 실기기). 돌려 보기는 이제 화면을 갈아 끼우지 않지만, 판단의 근거를 "겹이
-      비었다"에서 **"홈이 실제로 맨 위로 돌아왔다"**로 옮겨 둔다.
+      돌아와 첫 장소가 열린다 — 한 번의 조작이 홈을 거쳐 한 바퀴 도는 것으로 보였다(2026-08-05
+      실기기, 지금은 없어진 옆 장소 버튼에서). 판단의 근거를 "겹이 비었다"에서 **"홈이 실제로
+      맨 위로 돌아왔다"**로 옮겨 두었으므로 같은 일이 다시 나지 않는다.
 
       표시는 그때까지 남겨 둔다 — 늦게 돌아와도 넓히는 일을 놓치지 않는다.
     */
@@ -856,15 +840,6 @@ export default function Home() {
    *   상세 화면에서 버튼이 사라지지 않은 이유가 이것이었다. 시트를 감추는 것과 같은 조건이다.
    */
   const locationButton = useFadeToggle(onTop && level !== 2);
-
-  /**
-   * 옆 장소로 돌려 보기. **20m까지 당겨 화면에 두 곳 이상이 담겼을 때만** 버튼이 있다.
-   *
-   * 이 화면에서는 상세를 처음 여는 것이라 화면을 쌓는다(장소 상세에서 누를 때는 갈아 끼운다).
-   * 내 위치 버튼과 같은 조건으로 함께 감춘다 — 최대화 단계에서는 시트가 그 자리를 덮는다.
-   */
-  const nextPlace = useNextPlace();
-  const nextPlaceButton = useFadeToggle(nextPlace.visible && onTop && level !== 2);
 
   /** 잠깐 뜨는 한 마디의 나타남·사라짐. 조건을 그대로 걸면 1초짜리 안내가 깜빡임으로 읽힌다. */
   const hintToggle = useFadeToggle(hint !== null);
@@ -969,22 +944,6 @@ export default function Home() {
           <Text accessibilityRole="alert" style={s.locationMessage}>
             {myLocation.message}
           </Text>
-        )}
-
-        {/*
-          **옆 장소로 돌려 보는 버튼.** 20m까지 당겨 화면에 여러 장소가 담겼을 때만 나타난다.
-
-          여기서는 상세를 처음 여는 것이라 화면을 쌓는다(`replace` 없이). 상세에서 누를 때는
-          갈아 끼운다 — 그쪽 화면이 그렇게 부른다.
-
-          내 위치 버튼과 같은 조건으로 함께 감춘다. 최대화 단계에서는 시트가 그 자리를 덮는다.
-        */}
-        {nextPlaceButton.mounted && (
-          <NextPlaceButton
-            onPress={nextPlace.goNext}
-            enabled={nextPlace.enabled}
-            style={nextPlaceButton.style}
-          />
         )}
       </View>
 
