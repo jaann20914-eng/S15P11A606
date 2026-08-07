@@ -138,15 +138,18 @@ export function RecommendPlaceCard({
     if (cardY === undefined) return;
 
     /*
-      **스냅 격자에 정확히 맞춰 세운다.**
+      **`cardY`를 그대로 쓴다. 여백을 빼지 않는다.**
 
-      카드의 위치(`cardY`)는 위 여백을 포함한 값이라, 그 여백만큼 빼야 카드가 칸 맨 위에
-      선다. 판정 기준선(`SCROLL_ANCHOR`)으로 빼면 그보다 몇 px 모자란 자리에 서는데, 그
-      자리는 스냅이 멈추는 자리가 아니라서 카드가 애매하게 걸쳐 아래가 잘려 보였다
-      (2026-08-07 실기기). 손으로 넘길 때와 마커로 갈 때가 같은 자리에 서야 한다.
+      이 값은 카드가 **목록 안에서** 놓인 자리다(`onLayout`은 부모 기준으로 준다). 스크롤
+      내용에는 그 목록 위로 여백이 한 겹 더 있어서, 내용 기준 위치는 `여백 + cardY`다.
+      그래서 `cardY`만큼 밀면 카드 위에 그 여백이 그대로 남아 — 손으로 넘겼을 때와 똑같은
+      자리가 된다.
+
+      여백을 빼면 그만큼 더 올라가 앞 카드의 꼬리가 딸려 보이고, 스냅이 멈추는 자리도 아니라
+      카드가 애매하게 걸쳤다(2026-08-07 실기기).
     */
     trackingPausedUntilRef.current = Date.now() + 700;
-    scrollRef.current?.scrollTo({ y: Math.max(0, cardY - PIN_SLOT_PADDING), animated: true });
+    scrollRef.current?.scrollTo({ y: Math.max(0, cardY), animated: true });
   }, []);
 
   /**
