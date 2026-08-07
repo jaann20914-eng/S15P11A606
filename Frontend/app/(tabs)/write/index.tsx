@@ -105,9 +105,6 @@ export default function PinCreateScreen() {
 
   const form = usePinCreateForm(editable.initial ?? undefined);
 
-  /** 원래 등록돼 있던 장소. 수정에서 다른 장소를 찾을 기준이 된다. */
-  const originPlace = initialDraft.place?.source === 'internal' ? initialDraft.place : null;
-
   /** 수정인데 아직 기존 값이 없는 상태. 불러오는 중이거나 실패했다. */
   const notReadyToEdit = mode.type === 'edit' && editable.initial === null;
 
@@ -506,10 +503,10 @@ export default function PinCreateScreen() {
                 />
               </View>
 
-              {/* 등록은 카카오 검색, 수정은 우리 DB의 주변 장소에서 고른다. 받는 식별자가 다르다. */}
+              {/* 등록은 카카오 검색으로 고르고, 수정은 등록할 때의 장소를 보여주기만 한다. */}
               <View onLayout={rememberTop('place')}>
                 {mode.type === 'edit' ? (
-                  <PlaceEditField place={form.draft.place} onSelect={form.setPlace} origin={originPlace} />
+                  <PlaceEditField place={form.draft.place} />
                 ) : (
                   // 이 자리는 이제 입력칸이 아니라 눌러서 고르는 줄이라 키보드 대응이 필요 없다.
                   <PlaceField place={form.draft.place} onSelect={form.setPlace} />

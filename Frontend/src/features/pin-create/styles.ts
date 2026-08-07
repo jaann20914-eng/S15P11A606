@@ -271,7 +271,7 @@ export const pinCreateStyles = StyleSheet.create({
   placeRowCopy: { flex: 1, paddingRight: spacing.x3 },
   placeName: { ...type.label, color: colors.dark },
   placeAddress: { ...type.caption, color: colors.gray400, marginTop: 2 },
-  /** 수정 화면의 장소 후보 거리. 검색 결과의 거리 표시와 같은 자리다. */
+  /** 주변 장소 목록에서 줄 오른쪽에 붙는 거리. 가까운 순으로 오므로 순서를 읽는 단서가 된다. */
   placeDistance: { ...type.caption, color: colors.gray400 },
   /** 수정 진입 시 기존 값을 불러오는 동안·실패했을 때. */
   formState: {
