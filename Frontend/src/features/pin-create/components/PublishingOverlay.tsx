@@ -79,7 +79,14 @@ export function PublishingOverlay({ phase, progress, onCancel, bottomInset = 0 }
 
       <AiLoadingCircle>
         {message.lead !== undefined && <Text style={s.publishingLead}>{message.lead}</Text>}
-        <Text style={s.publishingText}>{message.main}</Text>
+        {/*
+          **한 줄로 둔다.** 링 안쪽은 폭이 좁아(지름에서 테두리와 여백을 뺀 만큼) "업로드를
+          준비하고 있어요"가 접히면서 마지막 한 글자만 다음 줄로 떨어졌다. 글자 크기를 줄여
+          한 줄에 맞춘다 — 기기 폭이나 글꼴 설정이 달라도 접히지 않는다.
+        */}
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={s.publishingText}>
+          {message.main}
+        </Text>
         {uploading && <Text style={s.publishingProgress}>{Math.round(progress * 100)}%</Text>}
         {message.note !== undefined && <Text style={s.publishingNote}>{message.note}</Text>}
       </AiLoadingCircle>
