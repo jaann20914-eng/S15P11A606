@@ -8,6 +8,14 @@ import { distanceBetween } from '@/utils/location';
 export interface PlaceCandidate extends InternalDraftPlace {
   /** 기준 좌표에서 떨어진 거리(m). 가까운 순으로 보여준다. */
   distanceMeters: number;
+  /**
+   * 지번 주소. **목록에서 보여주기만 하고 폼에는 넣지 않는다.**
+   *
+   * 이름만으로는 같은 상호가 여럿일 때 어느 것인지 가릴 수 없다 — 등록 화면의 목록이
+   * 이름 아래 주소를 함께 두는 이유이고, 이 목록도 같은 줄 모양이어야 한다.
+   * `InternalDraftPlace`에는 주소 자리가 없다(상세 응답이 주지 않아 저장하지 않는다).
+   */
+  address: string;
 }
 
 export interface PlaceCandidates {
@@ -46,13 +54,7 @@ export function usePlaceCandidates(center: Coordinate | null): PlaceCandidates {
     requested.current = true;
     setLoading(true);
 
-    /*
-      [임시 해제] 후보 범위를 50m(MAX_PLACE_DISTANCE_METERS)로 좁히던 제한.
-      서버 검증이 임시로 넓게 풀려 있는 동안 멀리 있는 장소도 고를 수 있게 1km로
-      넓혀 둔다. 되돌릴 때는 아래 상수를 MAX_PLACE_DISTANCE_METERS로 바꾸고,
-      아래쪽의 거리 필터 주석을 푼다.
-    */
-    const candidateRadiusMeters = 1000; // 원래 값: MAX_PLACE_DISTANCE_METERS
+    const candidateRadiusMeters = MAX_PLACE_DISTANCE_METERS;
 
     // 위경도 폭은 위도에 따라 달라진다. 경도 쪽이 더 넓게 벌어져야 같은 거리가 된다.
     const latitudeSpan = candidateRadiusMeters / METERS_PER_LATITUDE_DEGREE;
@@ -70,12 +72,13 @@ export function usePlaceCandidates(center: Coordinate | null): PlaceCandidates {
             source: 'internal' as const,
             placeId: place.placeId,
             name: place.name,
+            address: place.address,
             latitude: place.latitude,
             longitude: place.longitude,
             distanceMeters: Math.round(distanceBetween(center, place)),
           }))
-          // [임시 해제] 경계 상자는 네모라 모서리 쪽이 범위를 넘는다. 실제 거리로 한 번 더 거른다.
-          // .filter((place) => place.distanceMeters <= MAX_PLACE_DISTANCE_METERS)
+          // 경계 상자는 네모라 모서리 쪽이 범위를 넘는다. 실제 거리로 한 번 더 거른다.
+          .filter((place) => place.distanceMeters <= MAX_PLACE_DISTANCE_METERS)
           .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
         setPlaces(found);

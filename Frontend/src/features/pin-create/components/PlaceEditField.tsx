@@ -58,21 +58,32 @@ export function PlaceEditField({ place, onSelect, origin }: PlaceEditFieldProps)
               주변 {MAX_PLACE_DISTANCE_METERS}m에 옮길 만한 다른 장소가 없어요.
             </Text>
           ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            /*
+              등록 화면의 목록과 **같은 줄, 같은 높이**다(`PlaceField`).
+
+              두 화면이 같은 일(주변 장소 고르기)을 하는데 목록 모양이 다르면 같은 앱으로
+              읽히지 않는다. 이름 아래 주소를 두는 것도 그쪽과 같은 이유다 — 같은 상호가
+              여럿일 때 이름만으로는 어느 것인지 가릴 수 없다.
+
+              높이는 `placeListScroll`이 묶는다. 받은 만큼 펼치면 후보가 많은 자리에서 아래
+              입력칸을 전부 밀어낸다. 잘린 마지막 줄이 더 있다는 것을 알려 준다.
+            */
+            <ScrollView style={s.placeListScroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
               {others.map((candidate) => (
                 <Pressable
                   key={candidate.placeId}
                   accessibilityRole="button"
                   onPress={() => {
-                    // 거리는 목록에서만 쓰는 값이라 폼에는 넣지 않는다.
-                    const { distanceMeters: _distance, ...selected } = candidate;
+                    // 거리와 주소는 목록에서만 쓰는 값이라 폼에는 넣지 않는다.
+                    const { distanceMeters: _distance, address: _address, ...selected } = candidate;
                     onSelect(selected);
                     setChoosing(false);
                   }}
                   style={s.placeRow}
                 >
-                  <View>
+                  <View style={s.placeRowCopy}>
                     <Text style={s.placeName}>{candidate.name}</Text>
+                    <Text style={s.placeAddress}>{candidate.address}</Text>
                   </View>
                   <Text style={s.placeDistance}>{candidate.distanceMeters}m</Text>
                 </Pressable>
