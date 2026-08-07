@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useIsFocused } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 import { ScreenHeader } from '@/components/common';
 import { colors } from '@/constants/theme';
@@ -58,26 +57,47 @@ export default function RecommendScreen() {
   const focused = useIsFocused();
 
   /*
-    **다른 탭으로 갔을 때만** 처음 상태로 되돌린다 — 여유 계열의 첫 장소다(제품 결정).
+    **추천이 지금 고른 탭인지.** 화면의 초점(`useIsFocused`)과 다르다.
+
+    초점은 조상까지 함께 보므로, 핀 상세처럼 탭 **위에 얹히는** 화면이 열리면 탭은 그대로
+    추천인데도 이 화면은 초점을 잃는다. 그 둘을 구분하지 못해 핀을 하나 열어 보고 돌아왔을
+    뿐인데 보던 계열과 장소를 잃었다(2026-08-07 실기기).
+
+    라우터 쪽 상태(`router.canDismiss()`)로 가르려 했지만 그 값은 초점이 바뀌는 순간
+    아직 갱신 전일 수 있어 같은 증상이 남았다. 그래서 **탭 네비게이터에게 직접 묻는다** —
+    지금 선택된 탭 이름이 추천인지. 위에 무엇이 얹히든 이 값은 흔들리지 않는다.
+  */
+  const navigation = useNavigation();
+  const [onRecommendTab, setOnRecommendTab] = useState(true);
+
+  useEffect(() => {
+    const tabs = navigation.getParent();
+
+    if (tabs === undefined) return;
+
+    const read = () => {
+      const state = tabs.getState();
+
+      setOnRecommendTab(state.routes[state.index]?.name === 'recommend');
+    };
+
+    read();
+    return tabs.addListener('state', read);
+  }, [navigation]);
+
+  /*
+    다른 탭으로 갔으면 처음 상태로 되돌린다 — 여유 계열의 첫 장소다(제품 결정).
 
     이 화면은 탭 안이라 다른 탭으로 가도 살아 있어서, 되돌리지 않으면 와글의 다섯 번째
     장소를 보던 자리가 그대로 남는다. 추천은 "지금 어디로 갈까"를 처음부터 훑는 자리라
     입구가 늘 같아야 한다. 빈 화면의 "핀 올리기"로 작성 탭에 다녀오는 경우도 여기에 걸린다.
-
-    **핀 상세를 열어 초점을 잃은 것과 구분해야 한다.** 초점은 조상까지 함께 보므로, 핀
-    상세처럼 탭 **위에 얹히는** 화면이 열려도 이 화면은 초점을 잃는다. 그때까지 되돌리면
-    핀을 하나 열어 보고 뒤로 왔을 뿐인데 보던 자리를 잃는다(2026-08-07 실기기).
-
-    둘을 가르는 것은 루트에 얹힌 화면이 있는지다(`canDismiss`). 얹혀 있으면 위에 무언가
-    열린 것이고, 없으면 탭을 옮긴 것이다.
   */
   useEffect(() => {
-    if (focused) return;
-    if (router.canDismiss()) return;
+    if (onRecommendTab) return;
 
     setIndex(0);
     setMode('relaxed');
-  }, [focused, setMode]);
+  }, [onRecommendTab, setMode]);
 
   /*
     초점을 되찾을 때마다 올린다. 열려 있는 카드들이 이 값을 보고 장소 내용을 다시 받는다.
