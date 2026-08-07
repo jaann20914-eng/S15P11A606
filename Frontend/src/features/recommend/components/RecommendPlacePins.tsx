@@ -76,6 +76,8 @@ export function RecommendPlacePins({
         >
           <PlacePinCard
             pin={pin}
+            /* 흰 카드 안에 담기는 자리라 그림자를 끈다. 두 겹으로 겹치면 지저분해 보인다. */
+            flat
             selected={pin.pinId === selectedPinId}
             selectedColor={selectedColor}
             onPress={() => router.push(`/pin/${pin.pinId}`)}

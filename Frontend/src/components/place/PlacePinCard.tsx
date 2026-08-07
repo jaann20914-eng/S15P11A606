@@ -34,6 +34,14 @@ export interface PlacePinCardProps {
    * 다른 색으로 같은 핀을 가리키면 짝이 아닌 것처럼 보인다.
    */
   selectedColor?: string;
+  /**
+   * 그림자를 뺄지. 기본은 그린다.
+   *
+   * 카드가 **반투명 시트 위**에 놓일 때는 그림자가 있어야 바닥과 갈라진다(홈). 그런데 추천은
+   * 흰 카드 안에 카드를 담는 구조라, 안쪽 카드까지 떠 있으면 그림자가 두 겹으로 겹쳐 지저분해
+   * 보인다. 그 화면만 끈다.
+   */
+  flat?: boolean;
 }
 
 /** 카드의 각도 링 지름. */
@@ -126,7 +134,13 @@ const PREVIEW_BLUR_OVERSCAN = 1.25;
 export const PLACE_PIN_CARD_HEIGHT =
   CARD_PADDING * 2 + CARD_BORDER * 2 + ANGLE_RING_SIZE + spacing.x3 + THUMBNAIL_HEIGHT;
 
-export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: PlacePinCardProps) {
+export function PlacePinCard({
+  pin,
+  onPress,
+  selected = false,
+  selectedColor,
+  flat = false,
+}: PlacePinCardProps) {
   /*
     메모는 없을 수 있다(등록 때 선택 입력). 예전에는 바로 `pin.memo.length`를 읽어서, 메모
     없이 등록된 핀이 목록에 하나만 있어도 카드가 아니라 화면 전체가 죽었다.
@@ -153,6 +167,7 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
       onPress={onPress}
       style={[
         s.card,
+        flat && s.cardFlat,
         selected && s.cardSelected,
         selected && selectedColor !== undefined && { borderColor: selectedColor },
       ]}
@@ -311,6 +326,8 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   /** 지도 중앙에 정렬된 핀. 홈의 선택된 장소 카드와 같은 양식이다. */
+  /** 그림자를 뺀 카드. 그림자 값을 지우는 것이라 elevation까지 함께 0으로 둔다(안드로이드). */
+  cardFlat: { shadowOpacity: 0, shadowRadius: 0, elevation: 0 },
   cardSelected: { borderColor: colors.lime },
   author: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorCopy: { flex: 1 },

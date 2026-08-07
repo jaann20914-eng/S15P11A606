@@ -43,6 +43,9 @@ const CARD_INNER_PADDING = spacing.x4;
 
 export const PIN_SLOT_PADDING = CARD_INNER_PADDING;
 
+/** 핀 카드 사이 간격. 스크롤이 한 장씩 멈추는 간격(카드 + 이 값)과 같은 값을 봐야 한다. */
+export const PIN_GAP = spacing.x3;
+
 const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + PIN_SLOT_PADDING * 2;
 
 /**
@@ -67,7 +70,7 @@ export const recommendStyles = StyleSheet.create({
   content: { flex: 1, paddingBottom: spacing.x3 },
 
   /* 머리말 — 안내 문구와 계열 토글 */
-  intro: { paddingTop: spacing.x4, paddingBottom: spacing.x5 },
+  intro: { paddingTop: spacing.x6, paddingBottom: spacing.x5 },
   /** 제목과 토글을 한 줄에 둔다. 토글은 오른쪽 끝에 붙는다(시안). */
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...type.h2, color: colors.dark },
@@ -268,5 +271,5 @@ export const recommendStyles = StyleSheet.create({
   chartSlot: { marginTop: spacing.x5 },
 
   /* 핀 목록 */
-  pinList: { gap: spacing.x3 },
+  pinList: { gap: PIN_GAP },
 });

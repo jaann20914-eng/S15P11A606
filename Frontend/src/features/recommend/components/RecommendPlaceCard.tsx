@@ -8,7 +8,7 @@ import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails
 import type { RecommendedPlace } from '@/types/recommend';
 import { formatRelativeTime } from '@/utils/datetime';
 import { useRecommendPlaceDetail } from '../hooks/useRecommendPlaceDetail';
-import { PIN_SLOT_PADDING, recommendStyles as s } from '../styles';
+import { PIN_GAP, PIN_SLOT_PADDING, recommendStyles as s } from '../styles';
 import { RecommendPlaceMap } from './RecommendPlaceMap';
 import { RecommendPlacePins } from './RecommendPlacePins';
 
@@ -272,6 +272,14 @@ export function RecommendPlaceCard({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={s.pagePinsContent}
             nestedScrollEnabled
+            /*
+              한 장씩 딱딱 멈춘다. 칸에 한 장만 보이는데 자유롭게 흐르면 카드가 어중간하게
+              걸린 채 서서, 지도 마커와 짝이 맞는지 눈으로 가릴 수 없다. 멈추는 간격은
+              카드 한 장 + 카드 사이 간격이다.
+            */
+            snapToInterval={pinCardHeight > 0 ? pinCardHeight + PIN_GAP : undefined}
+            snapToAlignment="start"
+            decelerationRate="fast"
             onScroll={trackScroll}
             onScrollEndDrag={settleScroll}
             onMomentumScrollEnd={settleScroll}
