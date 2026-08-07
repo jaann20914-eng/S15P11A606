@@ -34,9 +34,7 @@ import java.util.Map;
 public class PlaceDetailService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    // [DEMO] 시연용 임시 변경(원복 예정). 원래 값: Duration.ofHours(1)
-    // 직접 촬영한 핀이 일주일간 장소 홈에 유지되도록 created_at 최근성 창을 넓힌다(핀은 7일에 만료).
-    private static final Duration ACTIVE_WINDOW = Duration.ofDays(8);
+    private static final Duration ACTIVE_WINDOW = Duration.ofHours(1);
     private static final Duration STAT_HALF_WINDOW = Duration.ofMinutes(30);
 
     private static final int KAKAO_RADIUS = 10;
