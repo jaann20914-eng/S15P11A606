@@ -1,86 +1,34 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
-import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
-import type { InternalDraftPlace, PinDraftPlace } from '@/types/pinCreate';
-import { usePlaceCandidates } from '../hooks/usePlaceCandidates';
+import { Text, View } from 'react-native';
+import type { PinDraftPlace } from '@/types/pinCreate';
 import { pinCreateStyles as s } from '../styles';
 
 export interface PlaceEditFieldProps {
   place: PinDraftPlace | null;
-  onSelect: (place: PinDraftPlace) => void;
-  /** 후보를 찾을 기준. 원래 등록된 장소의 좌표다. */
-  origin: InternalDraftPlace | null;
 }
 
 /**
- * 수정 화면의 장소 입력.
+ * 수정 화면의 장소. **보여주기만 하고 고칠 수 없다.**
  *
- * 등록과 다르게 **검색하지 않는다.** 수정 API는 우리 DB의 내부 식별자만 받는데 카카오 검색은
- * 그 값을 주지 않기 때문이다. 대신 원래 장소 주변 50m 안의 우리 장소를 목록으로 보여준다.
+ * 예전에는 원래 장소 주변의 우리 장소를 목록으로 띄워 옮길 수 있게 했다. 그런데 등록 화면이
+ * 쓰는 주변 조회(`GET /places/nearby`)는 카카오 식별자만 주고, 수정 API는 우리 DB의
+ * `placeId`만 받는다 — 두 목록이 서로 다른 곳을 보여줄 수밖에 없었고, 같은 자리에서 같은 일을
+ * 하는데 화면마다 다른 후보가 뜨는 것이 더 혼란스러웠다(2026-08-07 결정).
  *
- * 그 범위인 이유는 서버 규칙이다 — 최종 장소와 촬영 좌표가 50m 이내여야 한다. 촬영 좌표는
- * 그대로 두므로, 원래 장소에서 50m 안이면 안전하게 고를 수 있다.
+ * 그래서 옮기는 기능을 걷어냈다. 장소를 잘못 골랐다면 지우고 다시 올리는 편이 분명하다.
+ * 나중에 수정 API가 등록과 같은 카카오 식별자를 받게 되면, 그때 등록 화면의 `PlaceField`를
+ * 그대로 가져다 쓰면 된다 — 이 화면만의 목록을 다시 만들 이유는 없다.
+ *
+ * 누를 수 없으므로 화살표를 두지 않는다. 화살표는 "여기서 더 갈 데가 있다"는 뜻이라, 눌러도
+ * 아무 일이 없으면 고장으로 읽힌다.
  */
-export function PlaceEditField({ place, onSelect, origin }: PlaceEditFieldProps) {
-  const [choosing, setChoosing] = useState(false);
-  const candidates = usePlaceCandidates(choosing ? origin : null);
-
-  const others = candidates.places.filter(
-    (candidate) => place?.source !== 'internal' || candidate.placeId !== place.placeId,
-  );
-
+export function PlaceEditField({ place }: PlaceEditFieldProps) {
   return (
     <>
       <Text style={s.label}>내 위치</Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={choosing ? '장소 변경 취소' : '장소 변경'}
-        onPress={() => setChoosing((current) => !current)}
-        style={s.placeSelected}
-      >
+      <View style={s.placeSelected}>
         <Text style={s.placeSelectedText}>{place?.name ?? '장소 없음'}</Text>
-        <Ionicons name={choosing ? 'chevron-up' : 'chevron-forward'} size={18} color={colors.gray400} />
-      </Pressable>
-
-      {choosing && (
-        <View style={s.placeList}>
-          {candidates.loading ? (
-            <View style={s.placeStatus}>
-              <ActivityIndicator color={colors.gray400} />
-            </View>
-          ) : candidates.error ? (
-            <Text style={s.placeEmpty}>{candidates.error}</Text>
-          ) : others.length === 0 ? (
-            <Text style={s.placeEmpty}>
-              주변 {MAX_PLACE_DISTANCE_METERS}m에 옮길 만한 다른 장소가 없어요.
-            </Text>
-          ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-              {others.map((candidate) => (
-                <Pressable
-                  key={candidate.placeId}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    // 거리는 목록에서만 쓰는 값이라 폼에는 넣지 않는다.
-                    const { distanceMeters: _distance, ...selected } = candidate;
-                    onSelect(selected);
-                    setChoosing(false);
-                  }}
-                  style={s.placeRow}
-                >
-                  <View>
-                    <Text style={s.placeName}>{candidate.name}</Text>
-                  </View>
-                  <Text style={s.placeDistance}>{candidate.distanceMeters}m</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-      )}
+      </View>
     </>
   );
 }
