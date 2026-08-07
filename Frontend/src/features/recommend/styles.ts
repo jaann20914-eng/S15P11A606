@@ -33,34 +33,63 @@ export const recommendStyles = StyleSheet.create({
   content: { flex: 1, paddingBottom: spacing.x3 },
 
   /* 머리말 — 안내 문구와 계열 토글 */
-  intro: {
-    paddingTop: spacing.x12,
-    paddingBottom: spacing.x4,
-    backgroundColor: colors.white,
-  },
-  kicker: { ...type.small, color: colors.gray600 },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: spacing.x1 },
+  intro: { paddingTop: spacing.x6, paddingBottom: spacing.x4 },
+  /** 제목과 토글을 한 줄에 둔다. 토글은 오른쪽 끝에 붙는다(시안). */
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...type.h2, color: colors.dark },
+  /** 제목 아래 한 줄. 지금 어느 계열을 보고 있는지 말로도 알린다. */
+  subtitle: { ...type.small, color: colors.gray400, marginTop: spacing.x2 },
   updateMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.x1, marginLeft: spacing.x2 },
   updateDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4A90E2' },
   updateText: { ...type.caption, color: colors.gray400 },
   filterToggle: { marginTop: spacing.x2 },
 
-  /* 목록 */
-  listGradient: {
+  /* 화면 바탕 — 머리말부터 카드까지 한 덩어리로 색을 깐다 */
+  screenGradient: { flex: 1 },
+
+  /* ---------------------------------------------------------------- *
+   * 캐러셀 — 장소 한 곳이 카드 한 장
+   * ---------------------------------------------------------------- */
+
+  pagerArea: { flex: 1 },
+  /**
+   * 카드가 놓이는 칸. **너비는 화면이 정한다**(넘긴 만큼이 곧 한 장이라 화면 폭이어야 한다).
+   * 여백은 칸이 아니라 여기 안쪽에서 준다.
+   */
+  pagerSlot: { paddingHorizontal: spacing.x3, paddingBottom: spacing.x3 },
+  pageCard: {
     flex: 1,
-    marginHorizontal: spacing.x3,
     borderRadius: radius.hero,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.72)',
+    backgroundColor: colors.white,
+    ...shadow,
   },
-  list: {
-    gap: spacing.x4,
-    paddingHorizontal: spacing.x2,
-    paddingTop: spacing.x4,
-    paddingBottom: spacing.x5,
+  /** 장소 이름 줄. 지도 위에 두어 어디 이야기인지가 먼저 읽힌다. */
+  pageHead: { paddingHorizontal: spacing.x4, paddingTop: spacing.x4, paddingBottom: spacing.x3 },
+  pageHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pageName: { ...type.title, color: colors.dark, flexShrink: 1 },
+  pageAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
+  /** 핀 목록. 카드 안에서 따로 스크롤한다 — 지도는 위에 고정으로 남는다. */
+  pagePins: { flex: 1 },
+  pagePinsContent: { padding: spacing.x3 },
+  pageState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  /**
+   * 자리 표시 점. 지금 자리는 길쭉한 막대로 늘여 한눈에 보이게 한다.
+   *
+   * 장소가 하나뿐이면 점도 하나다 — 넘길 곳이 없다는 뜻이라 숨기지 않고 그대로 둔다.
+   */
+  dots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.x1,
+    paddingVertical: spacing.x3,
   },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray200 },
+  dotOn: { width: 24, backgroundColor: colors.limeControl },
+  dotOnWagle: { width: 24, backgroundColor: colors.crowdedActive },
+
   state: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
   stateText: { ...type.small, color: colors.gray600 },
 
