@@ -18,6 +18,8 @@ export interface RecommendPagerProps {
   generatedAt: string | null;
   /** 값이 바뀌면 열려 있는 카드들이 내용을 다시 받는다. */
   reloadToken: number;
+  /** 화면 좌우 여백. 머리말과 같은 값을 써야 제목과 카드의 왼쪽이 한 줄로 선다. */
+  padding: number;
 }
 
 /**
@@ -40,6 +42,7 @@ export function RecommendPager({
   onIndexChange,
   generatedAt,
   reloadToken,
+  padding,
 }: RecommendPagerProps) {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<RecommendedPlace>>(null);
@@ -102,7 +105,7 @@ export function RecommendPager({
           index: itemIndex,
         })}
         renderItem={({ item, index: itemIndex }) => (
-          <View style={[s.pagerSlot, { width }]}>
+          <View style={[s.pagerSlot, { width, paddingHorizontal: padding }]}>
             <RecommendPlaceCard
               place={item}
               mode={mode}

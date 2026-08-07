@@ -33,7 +33,25 @@ export const RECOMMEND_MAP_HEIGHT = 240;
  * 반쯤 걸치면 카드가 잘린 것처럼 읽힌다. 한 장을 온전히 두고 나머지 높이는 지도가 가져간다 —
  * 지도가 클수록 이 장소가 어디쯤인지가 잘 보이고, 다음 핀은 스크롤로 이어 본다.
  */
-const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + spacing.x1 * 2;
+/**
+ * 카드 **안쪽** 좌우 여백. 장소 이름 줄과 핀 목록이 같은 값을 써야 글머리가 한 줄로 선다.
+ *
+ * 화면 좌우 여백(`useResponsivePadding`)보다 한 단 좁다 — 카드가 이미 화면에서 그만큼
+ * 물러나 있어, 안쪽까지 같은 폭으로 주면 내용이 가운데로 몰린다.
+ */
+const CARD_INNER_PADDING = spacing.x4;
+
+export const PIN_SLOT_PADDING = spacing.x2;
+
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + PIN_SLOT_PADDING * 2;
+
+/**
+ * 카드 아래에 비워 두는 높이.
+ *
+ * 바텀바 가운데 제보 버튼은 바 위로 **떠올라 있다**(`AppTabBar`의 marginTop -29에 테두리 3).
+ * 그만큼을 비워 두지 않으면 카드가 버튼 밑에 깔린 것처럼 붙어 보인다.
+ */
+const CAPTURE_BUTTON_CLEARANCE = 44;
 
 export const recommendStyles = StyleSheet.create({
   /* 화면 골격 */
@@ -72,7 +90,7 @@ export const recommendStyles = StyleSheet.create({
    * 카드가 놓이는 칸. **너비는 화면이 정한다**(넘긴 만큼이 곧 한 장이라 화면 폭이어야 한다).
    * 여백은 칸이 아니라 여기 안쪽에서 준다.
    */
-  pagerSlot: { paddingHorizontal: spacing.x3, paddingBottom: spacing.x2 },
+  pagerSlot: { paddingBottom: CAPTURE_BUTTON_CLEARANCE },
   pageCard: {
     flex: 1,
     borderRadius: radius.hero,
@@ -81,7 +99,7 @@ export const recommendStyles = StyleSheet.create({
     ...shadow,
   },
   /** 장소 이름 줄. 지도 위에 두어 어디 이야기인지가 먼저 읽힌다. */
-  pageHead: { paddingHorizontal: spacing.x4, paddingTop: spacing.x3, paddingBottom: spacing.x2 },
+  pageHead: { paddingHorizontal: CARD_INNER_PADDING, paddingTop: spacing.x4, paddingBottom: spacing.x3 },
   pageHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pageName: { ...type.title, color: colors.dark, flexShrink: 1 },
   pageAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
@@ -93,7 +111,7 @@ export const recommendStyles = StyleSheet.create({
    */
   pagePins: { height: PIN_SLOT_HEIGHT },
   /** 위아래 여백은 짧게 둔다. 핀 카드 한 장이 통째로 들어갈 높이를 여기서 벌어 준다. */
-  pagePinsContent: { paddingHorizontal: spacing.x3, paddingVertical: spacing.x1 },
+  pagePinsContent: { paddingHorizontal: CARD_INNER_PADDING, paddingVertical: PIN_SLOT_PADDING },
   pageState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   /**
@@ -130,7 +148,7 @@ export const recommendStyles = StyleSheet.create({
   dotOnWagle: { width: 24, backgroundColor: colors.crowdedActive },
 
   /** 빈 상태 카드가 놓이는 자리. 장소 카드와 같은 여백을 써서 구조가 달라 보이지 않는다. */
-  emptySlot: { flex: 1, paddingHorizontal: spacing.x3, paddingBottom: spacing.x2 },
+  emptySlot: { flex: 1, paddingBottom: CAPTURE_BUTTON_CLEARANCE },
 
   state: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
   stateText: { ...type.small, color: colors.gray600 },

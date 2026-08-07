@@ -122,7 +122,7 @@ export default function RecommendScreen() {
             **장소 카드와 같은 흰 카드 안에 둔다.** 이 자리는 장소가 있었으면 카드가 놓일
             자리라, 비었다고 바탕에 그대로 얹으면 화면 구조가 상태에 따라 달라 보인다.
           */
-          <View style={s.emptySlot}>
+          <View style={[s.emptySlot, { paddingHorizontal: padding }]}>
             <View style={s.pageCard}>
               <RecommendEmpty mode={mode} onRetry={reload} />
             </View>
@@ -135,6 +135,7 @@ export default function RecommendScreen() {
             onIndexChange={setIndex}
             generatedAt={generatedAt}
             reloadToken={reloadToken}
+            padding={padding}
           />
         )}
       </LinearGradient>

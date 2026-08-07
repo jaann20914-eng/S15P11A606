@@ -21,6 +21,14 @@ export interface RecommendPlacePinsProps {
    * 화면은 이 값에 목록 자체의 위치를 더해 스크롤 지점을 만든다.
    */
   onCardPosition?: (pinId: string, y: number) => void;
+  /**
+   * 첫 카드의 실제 높이를 알린다.
+   *
+   * 추천 카드는 이 값으로 핀 칸의 높이를 정해 **한 장만** 보이게 한다. 계산값
+   * (`PLACE_PIN_CARD_HEIGHT`)은 어림이라 실제와 몇 px 어긋나는데, 그만큼 다음 카드의
+   * 윗머리가 삐져나와 잘린 카드처럼 보였다. 재서 맞추면 어긋날 일이 없다.
+   */
+  onFirstCardHeight?: (height: number) => void;
 }
 
 /**
@@ -35,6 +43,7 @@ export function RecommendPlacePins({
   filter,
   selectedPinId = null,
   onCardPosition,
+  onFirstCardHeight,
 }: RecommendPlacePinsProps) {
   // 와글은 지도 핀과 같은 붉은 계열로 두른다. 여유는 기본(라임)이라 넘기지 않는다.
   const selectedColor = filter === 'wagle' ? colors.crowdedActive : undefined;
@@ -55,8 +64,16 @@ export function RecommendPlacePins({
 
   return (
     <View style={s.pinList}>
-      {pins.map((pin) => (
-        <View key={pin.pinId} onLayout={(event) => onCardPosition?.(pin.pinId, event.nativeEvent.layout.y)}>
+      {pins.map((pin, index) => (
+        <View
+          key={pin.pinId}
+          onLayout={(event) => {
+            const { y, height } = event.nativeEvent.layout;
+
+            onCardPosition?.(pin.pinId, y);
+            if (index === 0) onFirstCardHeight?.(height);
+          }}
+        >
           <PlacePinCard
             pin={pin}
             selected={pin.pinId === selectedPinId}

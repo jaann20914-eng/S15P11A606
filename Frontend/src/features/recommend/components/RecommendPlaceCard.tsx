@@ -8,7 +8,7 @@ import { usePinThumbnails } from '@/features/place-detail/hooks/usePinThumbnails
 import type { RecommendedPlace } from '@/types/recommend';
 import { formatRelativeTime } from '@/utils/datetime';
 import { useRecommendPlaceDetail } from '../hooks/useRecommendPlaceDetail';
-import { recommendStyles as s } from '../styles';
+import { PIN_SLOT_PADDING, recommendStyles as s } from '../styles';
 import { RecommendPlaceMap } from './RecommendPlaceMap';
 import { RecommendPlacePins } from './RecommendPlacePins';
 
@@ -204,6 +204,14 @@ export function RecommendPlaceCard({
     [applyScrollSelection],
   );
 
+  /*
+    핀 칸의 높이. **첫 카드를 재서 정한다** — 딱 한 장만 보이게 하기 위해서다.
+
+    계산값(`PLACE_PIN_CARD_HEIGHT`)은 어림이라 실제와 몇 px 어긋나는데, 그만큼 다음 카드의
+    윗머리가 삐져나와 잘린 카드처럼 보였다. 재기 전 한 프레임은 그 어림값으로 버틴다.
+  */
+  const [pinCardHeight, setPinCardHeight] = useState(0);
+
   const updated = generatedAt === null ? '' : formatRelativeTime(generatedAt);
 
   return (
@@ -252,7 +260,7 @@ export function RecommendPlaceCard({
       ) : (
         <ScrollView
           ref={scrollRef}
-          style={s.pagePins}
+          style={[s.pagePins, pinCardHeight > 0 && { height: pinCardHeight + PIN_SLOT_PADDING * 2 }]}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.pagePinsContent}
           nestedScrollEnabled
@@ -267,6 +275,7 @@ export function RecommendPlaceCard({
             filter={mode}
             selectedPinId={selectedPinId}
             onCardPosition={rememberCardPosition}
+            onFirstCardHeight={setPinCardHeight}
           />
         </ScrollView>
       )}
