@@ -116,7 +116,7 @@ function ProfileEditor({ current, onSaved }: { current: string; onSaved: () => v
     주석 참고). 이 영역의 아래 끝과 키보드가 겹치는 만큼을 재서 아래 여백에 더한다.
   */
   const contentRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(contentRef);
+  const keyboardOverlap = useKeyboardOverlap(contentRef, 'edit-nickname');
 
   // 저장 실패는 그 자리에서 알린다. 화면은 그대로 두어 고쳐서 다시 누를 수 있게 한다.
   useEffect(() => {

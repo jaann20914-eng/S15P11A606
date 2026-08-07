@@ -104,7 +104,7 @@ export default function Room() {
     않았다. 등록 화면과 같은 방식으로 겹치는 높이를 직접 재서 아래 여백으로 만든다.
   */
   const screenRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(screenRef);
+  const keyboardOverlap = useKeyboardOverlap(screenRef, 'chat-room');
 
   /*
     메시지 목록의 스크롤 위치.

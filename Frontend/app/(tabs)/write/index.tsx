@@ -127,7 +127,7 @@ export default function PinCreateScreen() {
     탭바 높이를 손으로 빼는 계산은 키보드가 커질 때 어긋난다(`useKeyboardOverlap` 주석).
   */
   const formRef = useRef<View>(null);
-  const keyboardOverlap = useKeyboardOverlap(formRef);
+  const keyboardOverlap = useKeyboardOverlap(formRef, 'write');
 
   /*
     수정 라우트는 탭 밖이라 하단 바를 네비게이터가 그려 주지 않는다. 작성과 같은 모양이 되도록

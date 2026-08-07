@@ -37,7 +37,26 @@ import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-cont
  */
 const RESIZE_SETTLE_MS = 250;
 
-export function useKeyboardOverlap(ref: RefObject<View | null>): number {
+/**
+ * 계산에 들어간 값을 전부 남긴다. 기기마다 다른 것이 무엇인지 가리기 위한 임시 진단이다.
+ *
+ * 이 훅의 식은 실측치만 쓰지만, "`measureInWindow`의 원점이 상태바 아래"라는 **가정** 위에
+ * 서 있다. 그 가정이 깨지는 기기가 있는지는 밖에서 볼 수 없어, 문제 기기에서 실제 숫자를
+ * 받아 맞춰 보는 수밖에 없다(2026-08-07 — 안드로이드 16에서 채팅 입력칸이 조금 가림).
+ *
+ * `label`은 어느 화면인지 구분하는 이름이다. 원인이 잡히면 이 로그와 label 인자를 지운다.
+ */
+function logOverlap(label: string, values: Record<string, number>): void {
+  if (!__DEV__) return;
+
+  const line = Object.entries(values)
+    .map(([key, value]) => `${key}=${Math.round(value)}`)
+    .join(' ');
+
+  console.log(`[keyboard:${label}] ${line}`);
+}
+
+export function useKeyboardOverlap(ref: RefObject<View | null>, label = 'unknown'): number {
   const [overlap, setOverlap] = useState(0);
 
   /*
@@ -50,6 +69,14 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
   const insets = useSafeAreaInsets();
   const androidKeyboardBase = useRef(0);
   androidKeyboardBase.current = frame.height - insets.bottom - insets.top;
+
+  /* 진단 기록에 그대로 싣기 위해 재료 값도 최신으로 들고 있는다(임시). */
+  const frameHeight = useRef(0);
+  const insetTop = useRef(0);
+  const insetBottom = useRef(0);
+  frameHeight.current = frame.height;
+  insetTop.current = insets.top;
+  insetBottom.current = insets.bottom;
 
   useEffect(() => {
     /** 예약해 둔 다시 재기. 정리할 때 취소한다. */
@@ -75,8 +102,27 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
 
       node.measureInWindow((_x, y, _width, height) => {
         const gapBelow = keyboardBase - (y + height);
+        const next = Math.max(0, keyboardHeight - gapBelow);
 
-        setOverlap(Math.max(0, keyboardHeight - gapBelow));
+        /*
+          진단용 기록(임시). 가려짐이 남는 기기에서 어느 항이 어긋나는지 보려면
+          `nodeBottom`(= y+height)과 `keyboardBase`를 비교한다. 이 둘이 같으면 겹침이 곧
+          키보드 높이가 되고, 그것이 의도한 결과다.
+        */
+        logOverlap(label, {
+          screenH: frameHeight.current,
+          insetTop: insetTop.current,
+          insetBottom: insetBottom.current,
+          keyboardH: keyboardHeight,
+          keyboardBase,
+          nodeY: y,
+          nodeH: height,
+          nodeBottom: y + height,
+          gapBelow,
+          overlap: next,
+        });
+
+        setOverlap(next);
       });
     };
 
@@ -118,7 +164,7 @@ export function useKeyboardOverlap(ref: RefObject<View | null>): number {
       if (frame !== null) cancelAnimationFrame(frame);
       if (timer !== null) clearTimeout(timer);
     };
-  }, [ref]);
+  }, [ref, label]);
 
   return overlap;
 }
