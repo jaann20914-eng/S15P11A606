@@ -4,7 +4,7 @@ import { ApiError } from '@/api/client';
 import { getPlaces } from '@/api/place/list';
 import { isPlottableCoordinate, rememberPlaceMapData } from '@/api/place/coordinates';
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
-import type { CrowdLevelValue } from '@/constants/crowdLevels';
+import type { CrowdFilter, CrowdLevelValue } from '@/constants/crowdLevels';
 import type { MapBounds } from '@/store/useMapStore';
 import type { PlaceListItem } from '@/types/place';
 
@@ -126,7 +126,7 @@ function toPlaceInView(item: PlaceListItem): PlaceInView {
  * 실패해도 이전 결과를 지우지 않는다. 지도를 조금 옮긴 것 때문에 이미 보고 있던 핀이 사라지면
  * 사용자에게는 장소가 없어진 것으로 보인다.
  */
-export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
+export function usePlacesInView(bounds: MapBounds | null, filter: CrowdFilter): PlacesInViewState {
   const [places, setPlaces] = useState<PlaceInView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,24 +144,33 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
    * `silent`면 로딩 표시를 켜지 않는다 — 이미 보여주는 목록을 조용히 갱신하는 길이라,
    * 화면을 오갈 때마다 카드 자리가 스피너로 바뀌면 그쪽이 더 고장으로 보인다.
    */
-  const load = useCallback((query: MapBounds, silent: boolean) => {
+  const load = useCallback((query: MapBounds, crowdFilter: CrowdFilter, silent: boolean) => {
     const current = sequence.current + 1;
     sequence.current = current;
     if (!silent) setLoading(true);
 
     /*
-      혼잡도 필터를 서버에 넘기지 않는다.
+      **혼잡도 필터를 서버에 함께 보낸다.**
 
-      서버 필터는 **평균 혼잡도가 없는 장소를 응답에서 빼 버린다**(`matchesFilter`가 `null`을
-      탈락시킨다). 그러면 활성 핀이 없는 장소의 좌표를 영영 받지 못해, 상세 화면이 그 장소를
-      지도에 찍을 수 없다. 걸러 내는 일은 화면이 하고(`matchesCrowdFilter`) 받아 두는 것은 전부
-      받아 둔다 — 어차피 최대 10건이다.
+      서버는 이 경계 안의 장소를 **활성 핀 많은 순으로 최대 10건**만 준다
+      (`PlacePinService.MAX_RESULT`). 예전에는 필터 없이 물어 열 자리를 여유·와글 구분 없이
+      채웠는데, 화면은 그중 토글에 맞는 것만 그리므로 **나머지 자리가 통째로 버려졌다.**
+      넓게 볼수록 후보가 많아 그 낭비가 커져 — 지도를 넓혔더니 마커가 오히려 줄었다
+      (2026-08-07 실기기). 필터를 함께 보내면 열 자리가 전부 화면에 그려질 것으로 채워진다.
+
+      **화면 쪽 거르기는 그대로 둔다**(`matchesCrowdFilter`). 토글을 누른 순간 이미 받아 둔
+      목록으로 즉시 반응해야 하고, 새 응답이 오기 전까지 그 값이 화면을 지킨다.
+
+      대신 필터를 걸면 **평균 혼잡도가 없는 장소가 응답에서 빠진다**. 그 장소는 어차피 마커도
+      카드도 없어 화면에는 영향이 없고, 좌표가 필요한 화면은 스스로 다시 묻는다
+      (`api/place/coordinates.ts`가 필터 없이 조회한다).
     */
     getPlaces({
       southWestLatitude: query.southWest.latitude,
       southWestLongitude: query.southWest.longitude,
       northEastLatitude: query.northEast.latitude,
       northEastLongitude: query.northEast.longitude,
+      filter: crowdFilter,
     })
       .then((response) => {
         if (sequence.current !== current) return;
@@ -195,13 +204,22 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
     if (bounds === null) return;
 
     const query = looked.current ? bounds : widen(bounds, FIRST_LOOKUP_SPAN_DEGREES);
-    const key = boundsKey(query);
+    /*
+      **열쇠에 필터를 함께 넣는다.** 이제 응답이 필터에 따라 달라지므로, 같은 범위라도 토글이
+      바뀌면 다시 물어야 한다. 넣지 않으면 토글을 바꿔도 앞 필터로 받은 열 건에 갇힌다.
+    */
+    const key = `${filter}|${boundsKey(query)}`;
     if (requestedKey.current === key) return;
 
+    const firstLook = !looked.current;
     requestedKey.current = key;
     looked.current = true;
-    load(query, false);
-  }, [bounds, load]);
+    /*
+      토글만 바뀐 경우는 조용히 받는다 — 이미 보여주는 목록을 화면 쪽 거르기가 즉시 맞춰 두었고,
+      그 위에 스피너를 얹으면 즉시 반응한 것이 오히려 멈춘 것처럼 보인다.
+    */
+    load(query, filter, !firstLook);
+  }, [bounds, filter, load]);
 
   /*
     **홈이 다시 맨 위로 돌아오면 같은 범위라도 다시 묻는다.**
@@ -214,6 +232,9 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
   */
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
+  /* 포커스 복귀는 그 시점의 토글로 묻는다. 의존성에 넣으면 토글마다 효과가 다시 등록된다. */
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
   const focusedOnce = useRef(false);
   useFocusEffect(
     useCallback(() => {
@@ -224,7 +245,7 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
 
       const current = boundsRef.current;
       if (current === null) return;
-      load(current, true);
+      load(current, filterRef.current, true);
     }, [load]),
   );
 
