@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ApiError } from '@/api/client';
 import { getPlaces } from '@/api/place/list';
-import { getPlaceDetail } from '@/api/place/detail';
 import { isPlottableCoordinate, rememberPlaceMapData } from '@/api/place/coordinates';
 import { getCrowdLevelByValue } from '@/constants/crowdLevels';
 import type { CrowdLevelValue } from '@/constants/crowdLevels';
@@ -103,70 +102,6 @@ function boundsKey({ southWest, northEast }: MapBounds): string {
     .join(',');
 }
 
-/* ------------------------------------------------------------------ *
- * [임시·시연용] 홈 카드의 핀 개수를 장소 상세와 맞춘다
- *
- * ▶ 켜고 끄기: 아래 두 줄 중 **하나만 살려 둔다.**
- *
- * 왜 필요한가
- *   목록(`GET /places`)과 상세(`GET /places/{id}`)가 핀을 세는 조건이 서버에서 한 줄 다르다.
- *   목록 쿼리(`PinRepository.findValidPins`)에만 `deletedAt IS NULL`이 빠져 있어 **지운 핀이
- *   홈에서만 계속 세어진다** — 홈은 5개, 들어가면 3개가 된다(2026-08-07 실기기).
- *
- *   고칠 곳은 백엔드 한 줄인데 담당자가 바빠 당장 어렵다. 시연에서 두 숫자가 다르면 설명이
- *   꼬이므로, **그동안만** 프론트가 상세를 한 번 더 물어 맞춘다.
- *
- * 왜 이 방향인가 (반대는 불가능하다)
- *   상세를 홈에 맞추는 길(3 → 5)은 없다. 서버가 지운 핀을 **아예 보내지 않아** 화면에 세울
- *   카드가 없고, 목록의 `activePins`에는 `pinId·좌표·각도`뿐이라 카드를 만들 수도 없다.
- *   만료로 거르는 길도 없다 — 그 배열에 시각 필드가 없고, 애초에 두 API의 만료 창은
- *   `ACTIVE_WINDOW = 1시간`으로 이미 같다. 차이는 오직 삭제 여부다.
- *
- * 비용
- *   핀이 있는 장소마다 상세 조회가 한 번 더 나가고, 홈 목록이 그만큼 늦게 뜬다. 핀이 없는
- *   장소는 묻지 않는다. 한 곳이 실패하면 그 장소만 목록 값을 그대로 쓴다.
- *
- * 지울 때
- *   백엔드가 고쳐지면 **이 블록과 아래 `load` 안의 `[임시]` 한 줄만** 지우면 된다.
- * ------------------------------------------------------------------ */
-
-/** [임시·시연용] 아래 두 줄 중 하나만 살려 둔다. */
-const MATCH_DETAIL_PIN_COUNT = true; // ← 시연용: 홈 개수 = 상세 개수 (상세를 한 번 더 물어본다)
-// const MATCH_DETAIL_PIN_COUNT = false; // ← 원래대로: 서버 목록 값을 그대로 쓴다
-
-/**
- * [임시·시연용] 핀이 있는 장소만 상세를 물어 **진짜 개수와 각도**로 바꿔 준다.
- *
- * 개수만이 아니라 각도 링도 함께 고친다 — 개수만 맞추면 카드에 링이 다섯 개인데 숫자는 3이 된다.
- *
- * 실패는 삼킨다. 시연 중에 한 곳이 안 됐다고 목록 전체가 비면 그쪽이 더 곤란하다.
- */
-async function matchDetailPinCounts(places: PlaceInView[]): Promise<PlaceInView[]> {
-  const targets = places.filter((place) => place.pins > 0);
-  if (targets.length === 0) return places;
-
-  const fixed = new Map<number, Pick<PlaceInView, 'pins' | 'angles'>>();
-
-  await Promise.all(
-    targets.map(async (place) => {
-      try {
-        const detail = await getPlaceDetail(place.placeId);
-        fixed.set(place.placeId, {
-          pins: detail.pins.length,
-          angles: detail.pins.map((pin) => pin.viewAngle),
-        });
-      } catch {
-        /* 못 물어본 장소는 목록 값을 그대로 둔다. */
-      }
-    }),
-  );
-
-  return places.map((place) => {
-    const correction = fixed.get(place.placeId);
-    return correction === undefined ? place : { ...place, ...correction };
-  });
-}
-
 function toPlaceInView(item: PlaceListItem): PlaceInView {
   return {
     id: String(item.placeId),
@@ -228,21 +163,14 @@ export function usePlacesInView(bounds: MapBounds | null): PlacesInViewState {
       northEastLatitude: query.northEast.latitude,
       northEastLongitude: query.northEast.longitude,
     })
-      .then(async (response) => {
+      .then((response) => {
         if (sequence.current !== current) return;
 
         // 좌표를 쓸 수 없는 장소는 지도에 찍을 수 없다. 목록에도 넣지 않아 카드와 마커를 맞춘다.
         const usable = response.places.filter(isPlottableCoordinate);
         rememberPlaceMapData(usable);
 
-        const inView = usable.map(toPlaceInView);
-        // [임시·시연용] 이 한 줄과 위 블록만 지우면 원래대로 돌아온다.
-        const shown = MATCH_DETAIL_PIN_COUNT ? await matchDetailPinCounts(inView) : inView;
-
-        // 기다리는 동안 다른 범위를 물었을 수 있다. 그 결과를 덮지 않는다.
-        if (sequence.current !== current) return;
-
-        setPlaces(shown);
+        setPlaces(usable.map(toPlaceInView));
         setError(null);
         setLoading(false);
       })
