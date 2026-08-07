@@ -45,6 +45,14 @@ function toTagName(value: string): string {
   return value.trim().replace(/^#+/, '');
 }
 
+/**
+ * 태그 줄 뒤에 붙는 안내말. `#데이트 태그로 검색`이 된다.
+ *
+ * 입력한 값을 확정하는 줄과 추천 줄이 **같은 문구를 쓴다.** 한 곳에 두어 한쪽만 바뀌는 일을
+ * 막는다 — 나란히 서는 줄이라 문구가 갈리면 다른 기능으로 읽힌다.
+ */
+const TAG_ROW_SUFFIX = ' 태그로 검색';
+
 export default function Search() {
   /*
     검색바는 "가려는 곳"을 찾는다. 서버 기본 반경 50m는 핀 등록용이라 여기서는 거의
@@ -222,12 +230,19 @@ export default function Search() {
                   onPress={() => openTag(tagName)}
                   trailing={<Ionicons name="chevron-forward" size={18} color={colors.gray400} />}
                 >
-                  <Text style={s.tagRunText}>
-                    <Text style={s.tagRunName}>#{tagName}</Text> 태그로 검색
-                  </Text>
+                  <HighlightedText text={`#${tagName}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
               )}
 
+              {/*
+                서버가 준 후보를 **전부** 줄로 세운다. 자동완성이라 부분일치가 섞여 온다 —
+                `카페`를 입력하면 `카페`·`카페라떼`·`예쁜카페`가 함께 온다(백엔드 설계, 2026-08-07
+                협의). 어느 줄을 눌러도 그 태그의 결과로 간다.
+
+                **글자는 위 줄과 같은 컴포넌트로 그린다.** 두 줄이 나란히 서는데 모양이 갈리면
+                하는 일이 다른 줄로 읽힌다 — 예전에는 위만 `#데이트 태그로 검색`이고 추천은
+                `#데이트`뿐이어서, 추천 줄이 눌리는 줄로 보이지 않았다.
+              */}
               {tags.results.map((tag) => (
                 <SearchRow
                   key={tag.name}
@@ -241,7 +256,7 @@ export default function Search() {
                     />
                   }
                 >
-                  <HighlightedText text={`#${tag.name}`} query={tagName} />
+                  <HighlightedText text={`#${tag.name}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
               ))}
             </View>
@@ -386,8 +401,6 @@ const s = StyleSheet.create({
   section: { marginTop: spacing.x2 },
   sectionTitle: { ...type.small, color: colors.gray600, marginTop: spacing.x2, marginBottom: spacing.x2 },
   titleRule: { height: 1, backgroundColor: colors.gray200 },
-  tagRunText: { ...type.label, color: colors.gray600 },
-  tagRunName: { color: colors.dark, fontWeight: '600' },
   status: { ...type.small, color: colors.gray600, paddingVertical: spacing.x4 },
   statusBlock: { alignItems: 'flex-start', gap: spacing.x2, paddingVertical: spacing.x4 },
   retryButton: {

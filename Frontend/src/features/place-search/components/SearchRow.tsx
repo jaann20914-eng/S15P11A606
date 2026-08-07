@@ -63,16 +63,38 @@ export function FillButton({ onPress, label }: { onPress: () => void; label: str
   );
 }
 
+export interface HighlightedTextProps {
+  text: string;
+  query: string;
+  /**
+   * 뒤에 흐리게 붙일 안내말. 없으면 붙이지 않는다.
+   *
+   * 태그 줄이 `#데이트 태그로 검색`처럼 읽히게 하는 데 쓴다. 한 `Text` 안에 이어 붙이므로
+   * 태그가 길어 줄바꿈될 때 안내말이 따로 떨어지지 않는다.
+   */
+  suffix?: string;
+}
+
 /** 검색어와 겹치는 부분을 파랗게 남긴다. 어디가 맞아 떨어졌는지 바로 보인다. */
-export function HighlightedText({ text, query }: { text: string; query: string }) {
+export function HighlightedText({ text, query, suffix }: HighlightedTextProps) {
   const start = query.length > 0 ? text.indexOf(query) : -1;
-  if (start < 0) return <Text style={s.body}>{text}</Text>;
+  const tail = suffix === undefined ? null : <Text style={s.suffix}>{suffix}</Text>;
+
+  if (start < 0) {
+    return (
+      <Text style={s.body}>
+        {text}
+        {tail}
+      </Text>
+    );
+  }
 
   return (
     <Text style={s.body}>
       {text.slice(0, start)}
       <Text style={s.match}>{text.slice(start, start + query.length)}</Text>
       {text.slice(start + query.length)}
+      {tail}
     </Text>
   );
 }
@@ -98,4 +120,6 @@ const s = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   body: { ...type.label, color: colors.dark },
   match: { color: '#2F80ED', fontWeight: '600' },
+  /** 안내말(`태그로 검색`). 태그 이름보다 흐려서 무엇이 태그인지 갈린다. */
+  suffix: { color: colors.gray600, fontWeight: '400' },
 });
