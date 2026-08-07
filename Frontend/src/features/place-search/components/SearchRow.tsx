@@ -17,7 +17,13 @@ export interface SearchRowProps {
   accessibilityLabel: string;
   /** 가운데에 들어갈 것. 글자를 강조해야 해서 문자열 대신 노드로 받는다. */
   children: React.ReactNode;
-  /** 오른쪽 끝. 날짜나 입력창 채우기 버튼이 온다. */
+  /**
+   * 오른쪽 끝. **최근 검색의 날짜만 쓴다.**
+   *
+   * 검색 결과·추천 줄에는 두지 않는다. 꺽새와 화살표를 달아 뒀더니 줄마다 하는 일이 다른
+   * 것으로 읽혔다(2026-08-07) — 실제로는 어느 줄이든 눌러서 그 검색으로 가는 것이 전부다.
+   * 결과 목록은 글자만 둔다.
+   */
   trailing?: React.ReactNode;
   /** 확정 요청이 도는 줄. 오른쪽 영역을 표시로 바꾼다. */
   pending?: boolean;
@@ -46,19 +52,6 @@ export function SearchRow({
 
       {/* 기다리는 줄에는 표시를 준다. 없으면 눌렸는지 알 수 없다. */}
       {pending ? <ActivityIndicator size="small" color={colors.limeText} /> : trailing}
-    </Pressable>
-  );
-}
-
-/**
- * 입력창에 검색어를 채워 넣는 버튼. 시안 `검색(자동완성)`의 오른쪽 화살표다.
- *
- * 줄 전체를 누르면 곧바로 검색되므로, 고르지 않고 **다듬어서 다시 검색**하고 싶을 때 쓴다.
- */
-export function FillButton({ onPress, label }: { onPress: () => void; label: string }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={12} onPress={onPress}>
-      <Ionicons name="arrow-up-outline" size={18} color={colors.gray400} />
     </Pressable>
   );
 }

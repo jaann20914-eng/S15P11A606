@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
-import { FillButton, HighlightedText, SearchRow } from '@/features/place-search/components';
+import { HighlightedText, SearchRow } from '@/features/place-search/components';
 import { usePlaceConfirm } from '@/features/place-search/hooks/usePlaceConfirm';
 import { useRecentSearches } from '@/features/place-search/hooks/useRecentSearches';
 import { useTagSuggestions } from '@/features/place-search/hooks/useTagSuggestions';
@@ -254,7 +254,6 @@ export default function Search() {
                   icon="keyword"
                   accessibilityLabel={`${tagName} 태그로 검색`}
                   onPress={() => openTag(tagName)}
-                  trailing={<Ionicons name="chevron-forward" size={18} color={colors.gray400} />}
                 >
                   <HighlightedText text={`#${tagName}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
@@ -275,12 +274,6 @@ export default function Search() {
                   icon="keyword"
                   accessibilityLabel={`${tag.name} 태그로 검색`}
                   onPress={() => openTag(tag.name)}
-                  trailing={
-                    <FillButton
-                      label={`${tag.name} 검색창에 넣기`}
-                      onPress={() => places.setKeyword(tag.name)}
-                    />
-                  }
                 >
                   <HighlightedText text={`#${tag.name}`} query={tagName} suffix={TAG_ROW_SUFFIX} />
                 </SearchRow>
