@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { PLACE_PIN_CARD_HEIGHT } from '@/components/place';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
 /**
@@ -17,14 +18,22 @@ const shadow = {
 };
 
 /**
- * 카드 안 지도 칸 높이. 확대 레벨 계산이 같은 값을 써야 해 상수로 둔다.
+ * 지도 칸 높이의 **어림값**. 확대 레벨을 처음 정할 때만 쓴다.
  *
- * **핀 카드 한 장이 잘리지 않고 들어가는 것이 이 값의 상한을 정한다.** 핀 카드는 높이가
- * 고정이고(약 219 — `PLACE_PIN_CARD_HEIGHT`), 카드 한 장이 반쯤 잘려 보이면 목록이 아니라
- * 고장으로 읽힌다. 머리말 · 자리 점 · 장소 이름 줄이 쓰는 높이를 빼고 남는 만큼에서
- * 그 한 장을 먼저 확보한 뒤 지도가 나머지를 가져간다.
+ * 실제 높이는 화면마다 다르다 — 핀 한 장 자리를 먼저 떼고 남는 만큼을 지도가 가져가기
+ * 때문이다(아래 `map`). 지도는 칸을 재고 나면 그 값으로 다시 맞추므로, 이 상수는 재기
+ * 전 한 프레임을 위한 값이다.
  */
-export const RECOMMEND_MAP_HEIGHT = 176;
+export const RECOMMEND_MAP_HEIGHT = 240;
+
+/**
+ * 핀 목록 칸의 높이.
+ *
+ * **딱 한 장만 보인다.** 핀 카드는 높이가 고정이고(`PLACE_PIN_CARD_HEIGHT`), 두 장째가
+ * 반쯤 걸치면 카드가 잘린 것처럼 읽힌다. 한 장을 온전히 두고 나머지 높이는 지도가 가져간다 —
+ * 지도가 클수록 이 장소가 어디쯤인지가 잘 보이고, 다음 핀은 스크롤로 이어 본다.
+ */
+const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + spacing.x1 * 2;
 
 export const recommendStyles = StyleSheet.create({
   /* 화면 골격 */
@@ -76,8 +85,13 @@ export const recommendStyles = StyleSheet.create({
   pageHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pageName: { ...type.title, color: colors.dark, flexShrink: 1 },
   pageAddress: { ...type.caption, color: colors.gray400, marginTop: spacing.x1 },
-  /** 핀 목록. 카드 안에서 따로 스크롤한다 — 지도는 위에 고정으로 남는다. */
-  pagePins: { flex: 1 },
+  /**
+   * 핀 목록. 카드 안에서 따로 스크롤한다 — 지도는 위에 고정으로 남는다.
+   *
+   * 높이를 못 박아 **한 장만 보이게** 한다. 늘어나게 두면(flex) 화면이 클수록 두 장째가
+   * 반쯤 걸쳐 잘린 카드처럼 보였다. 남는 높이는 지도가 가져간다.
+   */
+  pagePins: { height: PIN_SLOT_HEIGHT },
   /** 위아래 여백은 짧게 둔다. 핀 카드 한 장이 통째로 들어갈 높이를 여기서 벌어 준다. */
   pagePinsContent: { paddingHorizontal: spacing.x3, paddingVertical: spacing.x1 },
   pageState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -97,9 +111,26 @@ export const recommendStyles = StyleSheet.create({
     gap: spacing.x1,
     paddingBottom: spacing.x2,
   },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray200 },
+  /**
+   * 지나온·남은 자리. 흰색에 옅은 그림자를 둔다 — 회색 점은 색 바탕에 묻혀 몇 개인지
+   * 세어지지 않았다. 떠 있는 점으로 보이면 배경과 분리돼 개수가 바로 읽힌다.
+   */
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.white,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.16,
+    shadowRadius: 2,
+    elevation: 2,
+  },
   dotOn: { width: 24, backgroundColor: colors.limeControl },
   dotOnWagle: { width: 24, backgroundColor: colors.crowdedActive },
+
+  /** 빈 상태 카드가 놓이는 자리. 장소 카드와 같은 여백을 써서 구조가 달라 보이지 않는다. */
+  emptySlot: { flex: 1, paddingHorizontal: spacing.x3, paddingBottom: spacing.x2 },
 
   state: { minHeight: 200, alignItems: 'center', justifyContent: 'center' },
   stateText: { ...type.small, color: colors.gray600 },
@@ -192,8 +223,11 @@ export const recommendStyles = StyleSheet.create({
   detailScroll: { flex: 1 },
   /** 카드 영역. 지도만 여백 없이 폭을 다 쓰므로 여백은 이 안쪽에서 준다. */
   detailBody: { gap: spacing.x3, paddingHorizontal: spacing.x4, paddingTop: spacing.x4 },
-  /** 지도는 좌우로 붙는다. 위치를 보여주는 자리라 이 높이면 충분하다. */
-  map: { height: RECOMMEND_MAP_HEIGHT, borderRadius: 0 },
+  /**
+   * 지도는 좌우로 붙고 **남는 높이를 전부 가져간다**. 핀 한 장 자리를 뗀 나머지다.
+   * 화면이 클수록 지도가 커져 이 장소가 어디쯤인지 더 잘 보인다.
+   */
+  map: { flex: 1, borderRadius: 0 },
   /** 지도 칸을 가득 채운다. 칸 크기는 바깥 `map`이 정하고, 지도는 그걸 따라간다. */
   mapFill: { flex: 1, height: undefined, borderRadius: 0 },
   mapFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gray200 },

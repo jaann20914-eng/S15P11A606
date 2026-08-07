@@ -14,11 +14,19 @@ import { useRecommendations } from '@/features/recommend/hooks/useRecommendation
 import { recommendStyles as s } from '@/features/recommend/styles';
 import { useResponsivePadding } from '@/hooks/useResponsivePadding';
 
-/** 계열별 배경 그라데이션. 여유는 초록·하늘, 와글은 주황·분홍 계열이다. */
+/**
+ * 계열별 배경 그라데이션.
+ *
+ * 위에서 아래로 **계열 색 → 하늘 → 흰색**이다(시안). 아래를 흰색으로 빼야 카드와 바텀바가
+ * 놓이는 자리가 조용해지고, 색은 머리말이 있는 위쪽에서만 말을 한다.
+ */
 const backgroundByMode: Record<CrowdFilter, readonly [string, string, string]> = {
-  relaxed: ['#FFFDF3', '#F3FCEB', '#E8F7FC'],
-  wagle: ['#FFFDF3', '#FFF3E9', '#FFECEF'],
+  relaxed: ['#F2F9DC', '#E4F1F7', '#FFFFFF'],
+  wagle: ['#FFF0DE', '#FBE7EC', '#FFFFFF'],
 };
+
+/** 색이 흰색에 닿는 지점. 카드가 시작하는 자리쯤에서 이미 옅어야 카드 경계가 뚜렷하다. */
+const BACKGROUND_STOPS = [0, 0.42, 0.82] as const;
 
 /**
  * 추천 장소.
@@ -92,7 +100,7 @@ export default function RecommendScreen() {
         머리말부터 카드까지 한 덩어리로 색을 깐다. 계열을 바꾸면 화면 전체의 공기가 바뀌어,
         지금 무엇을 보고 있는지가 토글을 보지 않아도 읽힌다.
       */}
-      <LinearGradient colors={backgroundByMode[mode]} locations={[0, 0.48, 1]} style={s.screenGradient}>
+      <LinearGradient colors={backgroundByMode[mode]} locations={BACKGROUND_STOPS} style={s.screenGradient}>
         <RecommendIntro mode={mode} isFallback={isFallback} padding={padding} onModeChange={setMode} />
 
         {loading ? (
@@ -110,8 +118,15 @@ export default function RecommendScreen() {
           /*
             비어 있는 것이 흔한 상태다 — 추천은 핀이 달린 장소만 대상으로 하므로 주변에 아직
             올라온 것이 없으면 빈 목록이 온다. 그래서 실패와 구분해 따로 그린다.
+
+            **장소 카드와 같은 흰 카드 안에 둔다.** 이 자리는 장소가 있었으면 카드가 놓일
+            자리라, 비었다고 바탕에 그대로 얹으면 화면 구조가 상태에 따라 달라 보인다.
           */
-          <RecommendEmpty mode={mode} onRetry={reload} />
+          <View style={s.emptySlot}>
+            <View style={s.pageCard}>
+              <RecommendEmpty mode={mode} onRetry={reload} />
+            </View>
+          </View>
         ) : (
           <RecommendPager
             places={places}
