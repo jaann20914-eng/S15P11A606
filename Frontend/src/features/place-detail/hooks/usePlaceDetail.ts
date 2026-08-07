@@ -163,12 +163,21 @@ export function usePlaceDetail(placeId: number | null): PlaceDetailState {
             조용한 갱신이 아니면 홈이 받아 둔 값을 그대로 쓴다. 그래서 어느 쪽인지 단정하지 않고
             두 값만 남긴다.
           */
-          const listedPins = mapData?.activePins.length ?? null;
-          if (listedPins !== null && listedPins !== received.pins.length) {
+          const listed = mapData?.activePins ?? null;
+          if (listed !== null && listed.length !== received.pins.length) {
+            /*
+              **어긋난 핀의 id까지 남긴다.** 개수만으로는 백엔드에서 확인할 것이 없다. id가 있으면
+              `SELECT id, deleted_at, video_status FROM pins WHERE id IN (...)` 한 번으로 그 핀들이
+              왜 한쪽에만 있는지 바로 드러난다(2026-08-07: 목록에만 있던 핀은 전부 지운 핀이었다).
+            */
+            const inDetail = new Set(received.pins.map((pin) => pin.pinId));
+            const listOnly = listed.filter((pin) => !inDetail.has(pin.pinId)).map((pin) => pin.pinId);
+
             log('핀 개수 불일치', {
               placeId,
-              목록: listedPins,
+              목록: listed.length,
               상세: received.pins.length,
+              목록에만있는핀: listOnly,
               갱신: silent ? '목록을 다시 물었음' : '홈이 받아 둔 값',
               사정: '서버 두 응답이 다르거나, 목록 값이 오래된 것이다',
             });

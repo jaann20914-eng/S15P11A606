@@ -181,11 +181,7 @@ export function PlacePinCard({ pin, onPress, selected = false, selectedColor }: 
             <Text numberOfLines={1} style={s.authorName}>
               {pin.nickname}
             </Text>
-            {pin.mine && (
-              <View style={s.mineBadge}>
-                <Text style={s.mineBadgeText}>내 글</Text>
-              </View>
-            )}
+            {pin.mine && <Text style={s.mineMark}>(나)</Text>}
           </View>
           <Text style={s.time}>{formatRelativeTime(pin.createdAt)}</Text>
         </View>
@@ -346,22 +342,15 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.x2 },
   authorName: { ...type.label, flexShrink: 1, fontWeight: '600', color: colors.dark },
   /**
-   * 내 글 표시.
+   * 내 글 표시. 닉네임 옆에 `(나)`만 둔다.
    *
-   * **모서리를 둥글게 하되 알약은 아니다** — `radius.pill`을 주면 완전한 타원이 되어 아래 태그
-   * 칩과 같은 모양이 되고, 그러면 태그 하나가 이름 옆에 붙은 것으로 읽힌다. 8px은 직사각형의
-   * 각을 덜어 낸 정도라 칩과 구분된다.
+   * 한때 연두색 상자에 `내 글`을 담았는데 **눈에 너무 세게 걸렸다**(2026-08-07 팀 논의). 이건
+   * 시연에서 설명을 줄이려는 보조 표시라, 이름을 읽는 흐름을 끊지 않고 곁들여 읽히면 된다.
    *
-   * 채움은 브랜드 연두를 그대로 쓴다. 태그 칩(`limeSoft`)보다 진해 같은 카드 안에서 둘이
-   * 섞이지 않고, 이 카드에서 눈이 가장 먼저 닿아야 하는 자리라 그만한 세기가 맞다.
+   * 그래서 상자를 걷고 괄호만 남긴다. 괄호는 그 자체로 "덧붙인 말"이라는 뜻이 있어 상자 없이도
+   * 닉네임과 구분된다. 색은 이름(`dark`)보다 확실히 물러난 연회색이다.
    */
-  mineBadge: {
-    paddingHorizontal: spacing.x2,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    backgroundColor: colors.lime,
-  },
-  mineBadgeText: { ...type.caption, fontWeight: '700', color: colors.dark },
+  mineMark: { ...type.caption, color: colors.gray400 },
   time: { ...type.caption, color: colors.gray400 },
   // 높이를 고정해 카드마다 키가 같아진다. 근거는 `THUMBNAIL_HEIGHT` 주석에 있다.
   body: {
