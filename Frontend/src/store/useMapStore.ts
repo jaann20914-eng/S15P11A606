@@ -49,6 +49,13 @@ export interface MapMarker {
   tone?: CrowdFilter;
   /** 처음부터 작은 마커로 그릴지. 이유는 `MapPlaceMarker.small`에 적어 두었다. */
   small?: boolean;
+  /**
+   * 핀이 없는 장소를 가리키는 회색 물방울로 그릴지.
+   *
+   * 검색으로 들어간 미등록 장소 화면이 이 마커 하나만 올린다(`app/place/no-pins.tsx`).
+   * 이유는 `MapPlaceMarker.unpinned`에 적어 두었다.
+   */
+  unpinned?: boolean;
 }
 
 /**

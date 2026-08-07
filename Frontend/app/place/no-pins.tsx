@@ -13,6 +13,7 @@ import { useMapStore } from '@/store/useMapStore';
 import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
 import { distanceBetween } from '@/utils/location';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
+import type { PinMarkerOverlay } from '@/store/useMapStore';
 
 /**
  * 핀이 아직 없는 장소.
@@ -26,9 +27,15 @@ import { colors, layout, radius, spacing, type } from '@/constants/theme';
  * 지도를 그대로 비춘다(`app/_layout.tsx`의 `transparentModal`). 그 지도를 찾은 자리로 20m까지
  * 당겨 놓는 일은 `useSearchedPlaceFocus`가 맡는다.
  *
- * **마커는 하나도 없어야 한다.** 홈 지도에는 주변 장소 마커가 찍혀 있으므로, 빈 핀 겹을
- * 올려 그것을 가린다 — 홈은 겹이 있으면 장소 마커 대신 겹의 마커만 그리고, 그 목록이 비어
- * 있으면 아무것도 그리지 않는다(`pinOverlay`). 이 장소에는 보여줄 핀이 없으니 그것이 맞다.
+ * **마커는 찾은 장소 하나뿐이다.** 홈 지도에는 주변 장소 마커가 찍혀 있으므로, 핀 겹을 올려
+ * 그것을 가린다 — 홈은 겹이 있으면 장소 마커 대신 겹의 마커만 그린다(`pinOverlay`). 옆 가게의
+ * 장소핀이 남으면 검색한 장소의 것으로 읽히기 때문이다.
+ *
+ * 그 겹에 **회색 물방울 하나**를 넣어 찾은 자리를 짚는다(`MapMarker.unpinned`). 예전에는 빈
+ * 겹이라 마커가 하나도 없었고, "화면 가운데가 그 장소"라는 뜻이었지만 **가운데에 표시가 없으면
+ * 어느 건물인지 짚을 수 없었다** — 카카오맵이 그려 준 상호명이 여러 개 몰린 자리에서는 찾던
+ * 곳이 어느 것인지 알 수 없었다. 색이 회색인 것은 핀이 올라온 장소의 마커(라임·코럴)와
+ * 구분하기 위해서다 — 핀이 없으면 혼잡도도 없어 칠할 값이 없다.
  */
 
 /**
@@ -47,6 +54,24 @@ const ESTIMATED_HEADER_HEIGHT = 88;
  * 근거(카드 한 칸 + 카드 사이 간격)를 하한으로 지킨다.
  */
 const PIN_SLOT_HEIGHT = PLACE_PIN_CARD_HEIGHT + CARD_SLOT_GAP;
+
+/**
+ * 이 화면이 올리는 마커의 id.
+ *
+ * 핀 겹의 마커는 원래 `pinId`(UUID)인데 이 장소에는 핀이 없어 쓸 id가 없다. 고정 문자열로 두고
+ * **겹을 걷을 때 우리가 올린 것인지 가리는 데도 쓴다** — 아래 효과의 정리 함수 참고.
+ */
+const SEARCHED_PLACE_MARKER_ID = 'searched-place';
+
+/**
+ * 지금 올라와 있는 핀 겹이 **이 화면이 올린 것**인지.
+ *
+ * 겹을 걷을 때만 쓴다. 좌표가 아직 없어 비어 있는 겹과, 우리 마커 하나뿐인 겹이 우리 것이다.
+ * 다른 화면(장소 상세)의 겹은 핀 마커를 담고 있어 id가 `pinId`(UUID)라 여기 걸리지 않는다.
+ */
+function isOurOverlay({ markers }: PinMarkerOverlay): boolean {
+  return markers.length === 0 || (markers.length === 1 && markers[0].id === SEARCHED_PLACE_MARKER_ID);
+}
 
 export default function PlaceWithoutPins() {
   const { name, address, kakaoPlaceId, latitude, longitude } = useLocalSearchParams<{
@@ -133,16 +158,21 @@ export default function PlaceWithoutPins() {
   );
 
   /*
-    빈 겹을 올려 홈 지도의 장소 마커를 가린다. 화면을 떠날 때 되돌린다 — 비우지 않으면 홈으로
+    핀 겹을 올려 홈 지도의 장소 마커를 가린다. 화면을 떠날 때 되돌린다 — 비우지 않으면 홈으로
     돌아가도 마커가 하나도 없는 지도가 남는다.
 
     **맨 위일 때만 올린다.** 위에 장소 상세가 겹치면 그 화면이 자기 핀 겹을 올리는데,
     여기서 덮어쓰면 그쪽 마커가 사라진다. 돌아오면 `onTop`이 참으로 바뀌며 이 효과가 다시 돌아
-    빈 겹을 되돌려 놓는다 — 그러지 않으면 상세에서 돌아온 뒤 이 화면에 장소 마커가 남는다.
+    우리 겹을 되돌려 놓는다 — 그러지 않으면 상세에서 돌아온 뒤 이 화면에 장소 마커가 남는다.
 
-    **우리가 올린 빈 겹만 걷는다.** 이 화면은 장소 상세 위에 겹쳐 열릴 수 있고, 뒤로 나가는
+    **우리가 올린 겹만 걷는다.** 이 화면은 장소 상세 위에 겹쳐 열릴 수 있고, 뒤로 나가는
     애니메이션이 끝난 뒤에야 떼어진다. 그 사이 아래 화면은 이미 focus를 되찾아 자기 핀
     마커를 올려 두었을 수 있는데, 무조건 비우면 방금 되돌아온 그 마커를 지워 버린다.
+
+    **좌표는 늦게 올 수 있다.** 최근 검색으로 들어오면 파라미터에 좌표가 없어
+    `useSearchedPlaceFocus`가 이름으로 다시 찾는다. 그래서 겹을 올리는 일과 마커를 채우는 일을
+    **효과 두 개로 나눈다** — 한 효과에 두면 좌표가 도착할 때 정리 함수가 먼저 돌아 겹이 잠깐
+    비고, 그 한 프레임에 홈이 주변 장소 마커를 되살려 옆 가게 핀이 번쩍인다.
   */
   useEffect(() => {
     if (!onTop) return;
@@ -151,9 +181,43 @@ export default function PlaceWithoutPins() {
 
     return () => {
       const overlay = useMapStore.getState().pinOverlay;
-      if (overlay !== null && overlay.markers.length === 0) clearPinOverlay();
+      if (overlay !== null && isOurOverlay(overlay)) clearPinOverlay();
     };
   }, [clearPinOverlay, onTop, showPinOverlay]);
+
+  /*
+    찾은 자리에 회색 물방울을 하나 찍는다. 좌표를 알게 된 뒤에 돈다.
+
+    **고른 핀으로 두지 않는다**(`selectedPinId`는 null). 그 칸은 "지금 보고 있는 게시물"을
+    가리키는 자리인데 이 장소에는 핀이 없다. 물방울 모양과 회색은 마커가 스스로 정한다
+    (`MapMarker.unpinned`).
+  */
+  useEffect(() => {
+    if (!onTop || placeCoordinate === null) return;
+
+    showPinOverlay({
+      markers: [
+        {
+          id: SEARCHED_PLACE_MARKER_ID,
+          name: name ?? '',
+          latitude: placeCoordinate.latitude,
+          longitude: placeCoordinate.longitude,
+          unpinned: true,
+        },
+      ],
+      selectedPinId: null,
+    });
+  }, [name, onTop, placeCoordinate, showPinOverlay]);
+
+  /*
+    마커를 눌렀을 때. **접힌 시트를 "보통"으로 올린다** — 홈·장소 상세와 같은 규칙이다.
+    접힌 채면 눌러도 화면에 아무 변화가 없어 고장으로 읽힌다.
+
+    이 화면에는 고를 핀이 없으므로 그 밖에 할 일은 없다. 그래도 **요청은 반드시 비운다** —
+    한 번 쓰고 버리는 칸이라 남겨 두면 다음 화면이 남의 요청을 처리한다(`pressedPinId`).
+  */
+  const pressedPinId = useMapStore((state) => state.pressedPinId);
+  const clearPressedPin = useMapStore((state) => state.clearPressedPin);
 
   /*
     시트는 홈·장소 상세와 **같은 3단계 시트다**(`useBottomSheet`).
@@ -184,6 +248,17 @@ export default function PlaceWithoutPins() {
     middleExtra: Math.max(cardHeight, PIN_SLOT_HEIGHT) + spacing.x4,
     expandedTop: insets.top + spacing.x3 + layout.searchHeight + spacing.x4,
   });
+
+  /* 위 `pressedPinId` 설명 참고. 시트를 만든 뒤라야 단계를 올릴 수 있어 여기에 둔다. */
+  useEffect(() => {
+    if (!onTop || pressedPinId === null) return;
+
+    // 펼쳐진 상태(확장)는 건드리지 않는다 — 훑던 자리를 잃는다(홈·상세와 같다).
+    if (pressedPinId === SEARCHED_PLACE_MARKER_ID && sheet.level === 0) sheet.moveTo(1);
+    // 우리 마커가 아니어도 비운다. 남겨 두면 다음 렌더마다 같은 요청을 다시 본다.
+    clearPressedPin();
+    // `sheet`는 렌더마다 새 객체다. 쓰는 두 값만 본다 — 통째로 걸면 렌더마다 효과가 돈다.
+  }, [clearPressedPin, onTop, pressedPinId, sheet.level, sheet.moveTo]);
 
   return (
     // 배경을 두지 않는다. 아래 깔린 홈 지도가 그대로 보여야 한다.
