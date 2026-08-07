@@ -34,8 +34,6 @@ export interface TagSuggestionsState {
    * 어느 쪽인지 가릴 수 없어 같은 곳을 세 번 들여다봤다(2026-08-07). 화면이 구분해 적는다.
    */
   error: string | null;
-  /** 물어봤고 후보가 0건이었는지. 실패나 미요청과 구분된다. */
-  empty: boolean;
 }
 
 /**
@@ -59,8 +57,6 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
   const [results, setResults] = useState<TagSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** 요청이 끝까지 가서 0건을 받았는지. 아직 묻지 않은 상태와 구분한다. */
-  const [searched, setSearched] = useState(false);
 
   /** 늦게 도착한 응답이 최신 결과를 덮지 않도록 마지막 요청만 반영한다. */
   const latestRequest = useRef(0);
@@ -92,7 +88,6 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     if (query.length < MIN_PLACE_QUERY_LENGTH || query.length > TAG_SUGGESTION_QUERY_MAX_LENGTH) {
       latestRequest.current += 1;
       setResults([]);
-      setSearched(false);
       setError(null);
       setLoading(false);
       return;
@@ -110,7 +105,6 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
       if (currentBounds === null) {
         log('건너뜀 — 지도 범위 없음', { query });
         setResults([]);
-        setSearched(false);
         // 화면에 적는다. 비워 두면 "후보가 없다"로 읽혀 원인을 찾을 수 없다.
         setError('지도가 준비된 뒤에 태그를 추천할 수 있어요.');
         setLoading(false);
@@ -139,12 +133,11 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
             // 0건의 흔한 이유를 적어 둔다. 색인 반영 전(배포 이전 핀)이거나 범위 밖이면 0건이다.
             비고:
               tags.length === 0
-                ? '0건 — 이 범위 안에 그 태그의 활성 핀이 없다. 핀은 공개 1시간 뒤 만료된다'
+                ? '0건 — 이 범위 안에 그 태그의 활성 핀이 없다(색인에 없거나 만료). 만료는 지금 1시간'
                 : undefined,
           });
 
           setResults(tags);
-          setSearched(true);
           setError(null);
           setLoading(false);
         })
@@ -161,7 +154,6 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
           });
 
           setResults([]);
-          setSearched(false);
           setError(
             cause instanceof ApiError
               ? (messageByCode[cause.code] ?? cause.message)
@@ -174,5 +166,5 @@ export function useTagSuggestions(keyword: string, bounds: MapBoundsQuery | null
     return () => clearTimeout(timer);
   }, [hasBounds, keyword]);
 
-  return { results, loading, error, empty: searched && results.length === 0 };
+  return { results, loading, error };
 }
