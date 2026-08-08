@@ -34,6 +34,11 @@ public class TagSearchService {
     private static final float PARTIAL_BOOST = 10.0f;
     private static final float JAMO_BOOST = 1.0f;
 
+    // 오탈자(자모) 티어는 자모 2-gram이 1개만 겹쳐도 매칭돼 오탐이 크다("부산" -> "조용한", "스타" -> "핫플레이스").
+    // 질의 자모 토큰의 70% 이상이 겹칠 때만 통과시켜, 오탈자(대부분 겹침)는 살리고 우연한 1개 겹침 노이즈는 제거한다.
+    // (50%는 3토큰 질의에서 1.5→내림 "1개"가 되어 무력하므로 70%로 둔다. 3토큰이면 2개, 4토큰이면 2개 이상 요구.)
+    private static final String JAMO_MIN_SHOULD_MATCH = "70%";
+
     private final TagQueryNormalizer normalizer;
     private final HangulDecomposer hangulDecomposer;
     private final ElasticsearchOperations operations;
@@ -85,9 +90,10 @@ public class TagSearchService {
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.match(m -> m.field("tag.ngram").query(keyword)))
                                 .boost(PARTIAL_BOOST)))
-                        // 오탈자: 자모 2-gram이 겹치면 매칭("카패" -> 카페). 최하위 우선순위.
+                        // 오탈자: 자모 2-gram이 과반 이상 겹치면 매칭("카패" -> 카페). 최하위 우선순위.
                         .should(s -> s.constantScore(cs -> cs
-                                .filter(f -> f.match(m -> m.field("tagJamo").query(jamoKeyword)))
+                                .filter(f -> f.match(m -> m.field("tagJamo").query(jamoKeyword)
+                                        .minimumShouldMatch(JAMO_MIN_SHOULD_MATCH)))
                                 .boost(JAMO_BOOST)))
                         .minimumShouldMatch("1")))
                 .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
