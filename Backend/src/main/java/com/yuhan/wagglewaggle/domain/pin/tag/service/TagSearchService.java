@@ -5,6 +5,7 @@ import com.yuhan.wagglewaggle.domain.pin.tag.dto.TagSearchResponse;
 import com.yuhan.wagglewaggle.domain.pin.tag.dto.TagSearchResult;
 import com.yuhan.wagglewaggle.global.exception.CustomException;
 import com.yuhan.wagglewaggle.global.exception.ErrorCode;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.search.FieldCollapse;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,10 @@ public class TagSearchService {
                 q, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
         try {
-            NativeQuery query = buildQuery(
-                    keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
+            // 자음만으로 이루어진 질의는 초성 검색으로, 그 외는 일반(정확/접두/부분/오탈자) 검색으로 분기한다.
+            NativeQuery query = hangulDecomposer.isChosungQuery(keyword)
+                    ? buildChosungQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude)
+                    : buildQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
             SearchHits<PinTagDocument> hits = operations.search(query, PinTagDocument.class);
 
             List<TagSearchResult> tags = hits.getSearchHits().stream()
@@ -70,16 +73,9 @@ public class TagSearchService {
         // 검색어를 색인 side와 동일한 규칙으로 자모 분해해 오탈자 티어에 사용한다.
         String jamoKeyword = hangulDecomposer.decomposeToJamo(keyword);
         return NativeQuery.builder()
-                .withQuery(q -> q.bool(b -> b
-                        // 지도 경계(bounds) + 활성 + 미만료만 후보로 통과
-                        .filter(f -> f.geoBoundingBox(g -> g
-                                .field("location")
-                                .boundingBox(bb -> bb.tlbr(t -> t
-                                        .topLeft(tl -> tl.latlon(ll -> ll.lat(northEastLatitude).lon(southWestLongitude)))
-                                        .bottomRight(br -> br.latlon(ll -> ll.lat(southWestLatitude).lon(northEastLongitude)))))))
-                        .filter(f -> f.term(t -> t.field("active").value(true)))
-                        .filter(f -> f.range(r -> r.untyped(u -> u.field("expiresAt").gt(JsonData.of(now)))))
-                        // 티어별 고정 점수: 완전일치(100) > 접두어(10) > 부분일치(1)
+                .withQuery(q -> q.bool(b -> applyCandidateFilters(b,
+                        southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude, now)
+                        // 티어별 고정 점수: 완전일치 > 접두어 > 부분일치 > 오탈자
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.term(t -> t.field("tag").value(keyword)))
                                 .boost(EXACT_BOOST)))
@@ -97,5 +93,45 @@ public class TagSearchService {
                 .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
                 .withPageable(PageRequest.of(0, MAX_RESULTS))
                 .build();
+    }
+
+    // 초성 전용 질의("ㅋㅍ") 전용 쿼리. 초성 문자열 필드에서 완전일치 > 접두어 > 부분일치로 매칭한다.
+    private NativeQuery buildChosungQuery(
+            String keyword,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
+        String now = Instant.now().toString();
+        return NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> applyCandidateFilters(b,
+                        southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude, now)
+                        .should(s -> s.constantScore(cs -> cs
+                                .filter(f -> f.term(t -> t.field("tagChosung").value(keyword)))
+                                .boost(EXACT_BOOST)))
+                        .should(s -> s.constantScore(cs -> cs
+                                .filter(f -> f.match(m -> m.field("tagChosung.prefix").query(keyword)))
+                                .boost(PREFIX_BOOST)))
+                        .should(s -> s.constantScore(cs -> cs
+                                .filter(f -> f.match(m -> m.field("tagChosung.ngram").query(keyword)))
+                                .boost(PARTIAL_BOOST)))
+                        .minimumShouldMatch("1")))
+                .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
+                .withPageable(PageRequest.of(0, MAX_RESULTS))
+                .build();
+    }
+
+    // 지도 경계(bounds) + 활성 + 미만료만 후보로 통과시킨다(일반/초성 모드 공통).
+    private BoolQuery.Builder applyCandidateFilters(
+            BoolQuery.Builder b,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude,
+            String now) {
+        return b
+                .filter(f -> f.geoBoundingBox(g -> g
+                        .field("location")
+                        .boundingBox(bb -> bb.tlbr(t -> t
+                                .topLeft(tl -> tl.latlon(ll -> ll.lat(northEastLatitude).lon(southWestLongitude)))
+                                .bottomRight(br -> br.latlon(ll -> ll.lat(southWestLatitude).lon(northEastLongitude)))))))
+                .filter(f -> f.term(t -> t.field("active").value(true)))
+                .filter(f -> f.range(r -> r.untyped(u -> u.field("expiresAt").gt(JsonData.of(now)))));
     }
 }
