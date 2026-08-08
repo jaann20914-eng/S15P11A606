@@ -269,8 +269,8 @@ export default function Home() {
   */
   const bounds = useMapStore((state) => state.bounds);
   /*
-    **혼잡도 토글을 함께 넘긴다.** 서버가 이 경계 안의 장소를 최대 10건만 주므로, 필터 없이
-    물으면 그 열 자리를 화면에 그리지도 않을 장소가 차지한다(`usePlacesInView`에 사정을 적었다).
+    **혼잡도 토글을 함께 넘긴다.** 서버가 이 경계 안의 장소를 최대 20건만 주므로, 필터 없이
+    물으면 그 자리를 화면에 그리지도 않을 장소가 차지한다(`usePlacesInView`에 사정을 적었다).
   */
   const inView = usePlacesInView(bounds, crowdFilter);
 
