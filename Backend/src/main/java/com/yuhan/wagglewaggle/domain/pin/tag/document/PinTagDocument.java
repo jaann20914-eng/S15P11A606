@@ -77,9 +77,12 @@ public class PinTagDocument {
     protected PinTagDocument() {
     }
 
-    public PinTagDocument(String id, String tag, String pinId, GeoPoint location, boolean active, Instant expiresAt) {
+    public PinTagDocument(String id, String tag, String tagJamo, String tagChosung,
+                          String pinId, GeoPoint location, boolean active, Instant expiresAt) {
         this.id = id;
         this.tag = tag;
+        this.tagJamo = tagJamo;
+        this.tagChosung = tagChosung;
         this.pinId = pinId;
         this.location = location;
         this.active = active;
