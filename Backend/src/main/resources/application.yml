@@ -137,3 +137,9 @@ ai:
       stale-threshold: ${AI_CHAT_REPUBLISH_STALE_THRESHOLD:PT10S}
       # 생성된 지 이 시간을 넘은 미완료 작업은 재발행을 포기하고 FAILED로 마감. 기본 3분.
       max-retry-age: ${AI_CHAT_REPUBLISH_MAX_RETRY_AGE:PT3M}
+
+# 태그 검색 인덱스 운영 옵션
+pin-tags:
+  # true로 기동하면 기존 pin-tags 문서의 자모/초성을 1회 백필한다(멱등).
+  # 마이그레이션 배포 시에만 true로 켜고, 백필 완료 후 false로 원복한다.
+  backfill-on-startup: ${PIN_TAGS_BACKFILL_ON_STARTUP:false}
