@@ -25,13 +25,16 @@ public class TagSearchService {
 
     private static final int MAX_RESULTS = 10;
 
-    // constant_score로 각 관점의 점수를 고정해 완전일치 > 접두어 > 부분일치 순서를 보장한다.
+    // constant_score로 각 관점의 점수를 고정해 완전일치 > 접두어 > 부분일치 > 오탈자 순서를 보장한다.
     // (일반 match는 TF/IDF로 점수가 흔들려 티어 역전이 가능하므로 constant_score를 쓴다.)
-    private static final float EXACT_BOOST = 100.0f;
-    private static final float PREFIX_BOOST = 10.0f;
-    private static final float PARTIAL_BOOST = 1.0f;
+    // 여러 티어가 동시에 맞아도 순서가 뒤집히지 않도록 boost를 자릿수로 벌린다.
+    private static final float EXACT_BOOST = 1000.0f;
+    private static final float PREFIX_BOOST = 100.0f;
+    private static final float PARTIAL_BOOST = 10.0f;
+    private static final float JAMO_BOOST = 1.0f;
 
     private final TagQueryNormalizer normalizer;
+    private final HangulDecomposer hangulDecomposer;
     private final ElasticsearchOperations operations;
 
     public TagSearchResponse search(
@@ -64,6 +67,8 @@ public class TagSearchService {
             double southWestLatitude, double southWestLongitude,
             double northEastLatitude, double northEastLongitude) {
         String now = Instant.now().toString();
+        // 검색어를 색인 side와 동일한 규칙으로 자모 분해해 오탈자 티어에 사용한다.
+        String jamoKeyword = hangulDecomposer.decomposeToJamo(keyword);
         return NativeQuery.builder()
                 .withQuery(q -> q.bool(b -> b
                         // 지도 경계(bounds) + 활성 + 미만료만 후보로 통과
@@ -84,6 +89,10 @@ public class TagSearchService {
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.match(m -> m.field("tag.ngram").query(keyword)))
                                 .boost(PARTIAL_BOOST)))
+                        // 오탈자: 자모 2-gram이 겹치면 매칭("카패" -> 카페). 최하위 우선순위.
+                        .should(s -> s.constantScore(cs -> cs
+                                .filter(f -> f.match(m -> m.field("tagJamo").query(jamoKeyword)))
+                                .boost(JAMO_BOOST)))
                         .minimumShouldMatch("1")))
                 .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
                 .withPageable(PageRequest.of(0, MAX_RESULTS))
