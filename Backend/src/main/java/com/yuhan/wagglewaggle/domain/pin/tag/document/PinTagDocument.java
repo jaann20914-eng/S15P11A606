@@ -39,6 +39,25 @@ public class PinTagDocument {
     )
     private String tag;
 
+    // tagJamo: 앱(HangulDecomposer)이 자모로 분해한 문자열("카페" -> "ㅋㅏㅍㅔ")을 2-gram 색인.
+    //          자모가 대부분 겹치므로 오탈자 매칭("카패" -> 카페)의 근거가 된다.
+    //          ES에는 자모 tokenizer가 없어 tag의 InnerField가 아닌 별도 필드로 둔다(값 자체가 분해된 문자열).
+    @Field(type = FieldType.Text, analyzer = "ngram_analyzer", searchAnalyzer = "ngram_analyzer")
+    private String tagJamo;
+
+    // tagChosung: 앱(HangulDecomposer)이 추출한 초성 문자열("최애카페" -> "ㅊㅇㅋㅍ")을 세 관점으로 색인.
+    //             초성 전용 질의("ㅋㅍ")를 정확/접두/부분으로 매칭한다. 역시 값이 초성 문자열이라 별도 필드.
+    @MultiField(
+            mainField = @Field(type = FieldType.Keyword, normalizer = "lowercase_normalizer"),
+            otherFields = {
+                    @InnerField(suffix = "prefix", type = FieldType.Text,
+                            analyzer = "edge_ngram_analyzer", searchAnalyzer = "lowercase_keyword_analyzer"),
+                    @InnerField(suffix = "ngram", type = FieldType.Text,
+                            analyzer = "ngram_analyzer", searchAnalyzer = "ngram_analyzer")
+            }
+    )
+    private String tagChosung;
+
     // 핀 PK가 UUID이므로 문자열 keyword로 색인한다.
     @Field(type = FieldType.Keyword)
     private String pinId;
