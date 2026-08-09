@@ -24,6 +24,18 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
     boolean existsByOriginalVideoKey(String originalVideoKey);
 
     /**
+     * 태그 검색 인덱스 재색인 대상 핀 id를 모두 조회한다(마이그레이션/시연용 일괄 재색인).
+     * 대상 = 영상 처리 완료(videoStatus = ACTIVE) AND 삭제되지 않음(deletedAt IS NULL).
+     * (indexPinTags의 색인 대상 조건과 동일. 만료 여부는 색인이 아닌 검색 시점에 필터링한다.)
+     */
+    @Query("""
+            SELECT p.id FROM Pin p
+            WHERE p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.deletedAt IS NULL
+            """)
+    List<UUID> findAllActivePinIds();
+
+    /**
      * 상세 조회 가능한 단일 핀을 조회한다(핀 상세용).
      * 조회 가능 = 요청 pinId 일치 AND videoStatus = ACTIVE AND 삭제되지 않음(deletedAt IS NULL)
      *            AND 아직 만료되지 않음(expiresAt이 현재 시각 이후).

@@ -58,4 +58,30 @@ public class PinTagIndexingService {
     public void removePinTags(UUID pinId) {
         pinTagSearchIndexPort.removeByPin(pinId);
     }
+
+    /**
+     * DB(ACTIVE·미삭제 핀) 기준으로 태그 검색 인덱스를 전체 재구성한다(마이그레이션/시연용 일괄 작업).
+     * 각 핀을 {@link #indexPinTags(UUID)}와 동일 경로로 재색인하므로:
+     * <ul>
+     *   <li>정상 색인 경로를 거치지 못한 핀(예: DB 직접 INSERT)도 이때 ES에 반영되고,</li>
+     *   <li>기존 문서는 delete-first로 다시 색인되어 자모/초성 필드까지 채워진다(멱등).</li>
+     * </ul>
+     * 개별 핀 색인 실패는 로깅 후 건너뛰어 전체 작업을 중단하지 않는다.
+     *
+     * @return 재색인에 성공한 핀 수
+     */
+    public int reindexAllActivePins() {
+        List<UUID> pinIds = pinRepository.findAllActivePinIds();
+        int success = 0;
+        for (UUID pinId : pinIds) {
+            try {
+                indexPinTags(pinId);
+                success++;
+            } catch (Exception e) {
+                log.error("태그 재색인 실패 (pinId={})", pinId, e);
+            }
+        }
+        log.info("DB 기준 태그 재색인 완료: 성공 {}/{}건", success, pinIds.size());
+        return success;
+    }
 }

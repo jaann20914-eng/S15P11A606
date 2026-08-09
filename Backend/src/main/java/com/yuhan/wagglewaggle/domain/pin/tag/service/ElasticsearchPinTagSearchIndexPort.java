@@ -30,6 +30,7 @@ import java.util.UUID;
 public class ElasticsearchPinTagSearchIndexPort implements PinTagSearchIndexPort {
 
     private final ElasticsearchOperations operations;
+    private final HangulDecomposer hangulDecomposer;
 
     @Override
     public void index(UUID pinId, List<String> tags, double latitude, double longitude, Instant expiresAt) {
@@ -39,9 +40,12 @@ public class ElasticsearchPinTagSearchIndexPort implements PinTagSearchIndexPort
                 return;
             }
             GeoPoint location = new GeoPoint(latitude, longitude);
+            // 검색 side와 동일한 HangulDecomposer로 자모·초성을 미리 분해해 각 필드에 채운다(매칭 대칭성 보장).
             List<PinTagDocument> documents = tags.stream()
                     .map(tag -> new PinTagDocument(
-                            documentId(pinId, tag), tag, pinId.toString(), location, true, expiresAt))
+                            documentId(pinId, tag), tag,
+                            hangulDecomposer.decomposeToJamo(tag), hangulDecomposer.extractChosung(tag),
+                            pinId.toString(), location, true, expiresAt))
                     .toList();
             operations.save(documents);
             log.info("핀 태그 색인 완료 (pinId={}, tagCount={})", pinId, documents.size());
