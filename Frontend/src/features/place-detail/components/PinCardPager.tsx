@@ -20,8 +20,16 @@ export interface PinCardPagerProps {
   paging?: boolean;
   /** 한 칸의 높이. 시트의 "보통" 단계 높이를 이 값으로 정한다. */
   onSlotHeightChange?: (height: number) => void;
-  /** 지금 지도 중앙에 정렬된 핀. 그 카드에 라임 테두리를 두른다. */
+  /** 지금 지도 중앙에 정렬된 핀. 그 카드에 테두리를 두른다. */
   selectedIndex?: number;
+  /**
+   * 그 테두리의 색. 생략하면 카드의 기본(라임)이다.
+   *
+   * **이 장소가 실제로 붐비는 정도가 정한다** — 지도 마커와 같은 근거라(`markerTone`), 같은
+   * 핀을 가리키는 둘의 색이 갈리면 짝으로 읽히지 않는다. 추천 화면이 같은 이유로 같은 값을
+   * 넘긴다(`RecommendPlacePins`).
+   */
+  selectedColor?: string;
   /** 보고 있는 카드가 바뀔 때. 화면이 그 핀으로 지도를 옮긴다. */
   onIndexChange?: (index: number) => void;
   /**
@@ -39,6 +47,7 @@ export function PinCardPager({
   paging,
   onSlotHeightChange,
   selectedIndex,
+  selectedColor,
   onIndexChange,
   scrollOffset,
 }: PinCardPagerProps) {
@@ -59,6 +68,7 @@ export function PinCardPager({
           key={pin.pinId}
           pin={pin}
           selected={index === selectedIndex}
+          selectedColor={selectedColor}
           onPress={() => onSelect(pin)}
         />
       ))}

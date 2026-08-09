@@ -31,7 +31,7 @@ import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { createDevLogger } from '@/utils/devLog';
 import { distanceBetween } from '@/utils/location';
-import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
+import { classifyCrowdFilter, getCrowdAccent, matchesCrowdFilter } from '@/constants/crowdLevels';
 import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -1099,7 +1099,15 @@ export default function Home() {
                 accessibilityHint="한 번 더 누르면 장소 상세로 이동합니다"
                 accessibilityState={{ selected: place.id === selectedPlaceId }}
                 onPress={() => pressCard(place.id)}
-                style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
+                /*
+                  고른 카드의 테두리. **색은 그 장소가 실제로 붐비는 정도가 정한다** — 지도
+                  마커와 같은 근거이고(`placeMarkers`의 `tone`), 같은 장소를 가리키는 둘의
+                  색이 갈리면 짝으로 읽히지 않는다. 와글 계열이면 마커와 같은 자몽색이 된다.
+                */
+                style={[
+                  s.placeCard,
+                  place.id === selectedPlaceId && { borderColor: getCrowdAccent(place.crowdLevel).strong },
+                ]}
               >
                 <View style={s.cardTop}>
                   <View style={s.placeCopy}>
@@ -1129,7 +1137,14 @@ export default function Home() {
                       accessibilityLabel={`${place.name} 상세 보기`}
                       hitSlop={12}
                       onPress={() => openPlace(place.id)}
-                      style={({ pressed }) => [s.detailChevron, pressed && s.detailChevronPressed]}
+                      /*
+                        면도 테두리와 같은 계열이어야 이 카드에 속한 버튼으로 읽힌다. 테두리가
+                        자몽색인 카드에 라임 버튼만 남으면 다른 곳에서 온 것처럼 보인다.
+                      */
+                      style={({ pressed }) => [
+                        s.detailChevron,
+                        { backgroundColor: getCrowdAccent(place.crowdLevel)[pressed ? 'pressed' : 'soft'] },
+                      ]}
                     >
                       <Ionicons name="chevron-forward" size={24} color={colors.dark} />
                     </Pressable>
@@ -1359,8 +1374,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...glassShadow,
   },
-  // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
-  placeCardSelected: { borderColor: colors.lime },
+  /*
+    지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
+    **테두리 색은 스타일에 두지 않는다** — 그 장소의 혼잡도 계열이 정하므로 카드마다 다르다
+    (`getCrowdAccent`). 여기서는 자리만 잡아 둔다(`placeCard`의 투명 테두리).
+  */
   // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
   /**
@@ -1375,8 +1393,10 @@ const s = StyleSheet.create({
    * 상세로 가는 지름길 버튼.
    *
    * 정사각형이어야 `borderRadius`가 정확한 원이 된다 — 예전에는 높이를 제목 줄 높이에 맞춰
-   * 두어 폭과 달랐다. 옅은 라임 면은 고른 카드의 라임 테두리와 같은 계열이라 이 카드에 속한
-   * 버튼으로 읽힌다.
+   * 두어 폭과 달랐다.
+   *
+   * **면 색은 스타일에 두지 않는다.** 고른 카드의 테두리와 같은 계열이어야 이 카드에 속한
+   * 버튼으로 읽히는데, 그 계열이 장소마다 다르기 때문이다(`getCrowdAccent`의 `soft`·`pressed`).
    */
   detailChevron: {
     width: 40,
@@ -1385,10 +1405,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.x2,
-    backgroundColor: colors.limeSoft,
   },
-  /** 눌린 동안. 같은 계열에서 한 단계만 진해져 눌렸다는 것이 보인다. */
-  detailChevronPressed: { backgroundColor: colors.limeControl },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },

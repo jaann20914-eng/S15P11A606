@@ -23,7 +23,7 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { useMapGestures } from '@/hooks/useMapGestures';
-import { classifyCrowdFilter } from '@/constants/crowdLevels';
+import { classifyCrowdFilter, getCrowdAccent } from '@/constants/crowdLevels';
 import { MAX_PLACE_DISTANCE_METERS } from '@/types/pinCreate';
 import { distanceBetween } from '@/utils/location';
 import { createDevLogger } from '@/utils/devLog';
@@ -895,6 +895,12 @@ export default function Place() {
                   paging={!expanded}
                   onSlotHeightChange={setPinSlotHeight}
                   selectedIndex={pinIndex}
+                  /*
+                    보고 있는 카드의 테두리. **마커 색과 같은 값을 본다**(`markerTone`과 같은
+                    근거) — 지도의 물방울과 그 카드가 같은 핀을 가리키므로 색이 갈리면 짝으로
+                    읽히지 않는다. 혼잡도를 모르면 카드의 기본(라임)이 그대로 쓰인다.
+                  */
+                  selectedColor={getCrowdAccent(crowdLevel).strong}
                   onIndexChange={setPinIndex}
                   scrollOffset={scrollOffset === null ? undefined : Math.max(0, scrollOffset - pinListTop)}
                   onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
