@@ -42,8 +42,10 @@ public class PlaceService {
             return new PlaceSearchResponse(List.of());
         }
 
+        // 카카오는 accuracy(정확도) 순으로 결과를 주지만, 앱에서는 가까운 장소가 먼저 보이도록 distance 오름차순으로 재정렬한다.
         List<PlaceSearchResult> results = documents.stream()
                 .map(document -> toSearchResult(document, latitude, longitude))
+                .sorted(Comparator.comparingInt(PlaceSearchResult::distanceMeters))
                 .toList();
 
         return new PlaceSearchResponse(results);
