@@ -116,9 +116,6 @@ public class TagSearchService {
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.match(m -> m.field("tagChosung.prefix").query(keyword)))
                                 .boost(PREFIX_BOOST)))
-                        .should(s -> s.constantScore(cs -> cs
-                                .filter(f -> f.match(m -> m.field("tagChosung.ngram").query(keyword)))
-                                .boost(PARTIAL_BOOST)))
                         .minimumShouldMatch("1")))
                 .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
                 .withPageable(PageRequest.of(0, MAX_RESULTS))
