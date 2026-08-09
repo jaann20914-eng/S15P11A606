@@ -25,9 +25,9 @@ export interface PinCardPagerProps {
   /**
    * 그 테두리의 색. 생략하면 카드의 기본(라임)이다.
    *
-   * **이 장소가 실제로 붐비는 정도가 정한다** — 지도 마커와 같은 근거라(`markerTone`), 같은
-   * 핀을 가리키는 둘의 색이 갈리면 짝으로 읽히지 않는다. 추천 화면이 같은 이유로 같은 값을
-   * 넘긴다(`RecommendPlacePins`).
+   * **상단 혼잡도 토글이 정한다.** 지금 어느 카드를 보고 있는지 짚어 주는 디자인 장치라 화면
+   * 안에서 한 계열로 읽혀야 한다(`getCrowdAccent`). 추천 화면도 자기 토글 값을 넘긴다
+   * (`RecommendPlacePins`).
    */
   selectedColor?: string;
   /** 보고 있는 카드가 바뀔 때. 화면이 그 핀으로 지도를 옮긴다. */

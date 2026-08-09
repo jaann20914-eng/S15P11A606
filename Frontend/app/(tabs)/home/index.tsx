@@ -895,6 +895,14 @@ export default function Home() {
   /** 잠깐 뜨는 한 마디의 나타남·사라짐. 조건을 그대로 걸면 1초짜리 안내가 깜빡임으로 읽힌다. */
   const hintToggle = useFadeToggle(hint !== null);
 
+  /**
+   * 고른 카드를 짚어 주는 색. **상단 토글이 정한다.**
+   *
+   * 카드마다 제 혼잡도로 칠하지 않는다 — 목록 안에서 테두리 색이 갈리면 고장난 것으로 보인다
+   * (`getCrowdAccent`에 사정을 적어 두었다). 지도 마커는 근거가 달라 그대로 둔다.
+   */
+  const accent = getCrowdAccent(crowdFilter);
+
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
     <View style={s.screen} onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
@@ -1099,15 +1107,8 @@ export default function Home() {
                 accessibilityHint="한 번 더 누르면 장소 상세로 이동합니다"
                 accessibilityState={{ selected: place.id === selectedPlaceId }}
                 onPress={() => pressCard(place.id)}
-                /*
-                  고른 카드의 테두리. **색은 그 장소가 실제로 붐비는 정도가 정한다** — 지도
-                  마커와 같은 근거이고(`placeMarkers`의 `tone`), 같은 장소를 가리키는 둘의
-                  색이 갈리면 짝으로 읽히지 않는다. 와글 계열이면 마커와 같은 자몽색이 된다.
-                */
-                style={[
-                  s.placeCard,
-                  place.id === selectedPlaceId && { borderColor: getCrowdAccent(place.crowdLevel).strong },
-                ]}
+                /* 고른 카드의 테두리. 색은 상단 토글이 정한다(`accent`). */
+                style={[s.placeCard, place.id === selectedPlaceId && { borderColor: accent.strong }]}
               >
                 <View style={s.cardTop}>
                   <View style={s.placeCopy}>
@@ -1143,7 +1144,7 @@ export default function Home() {
                       */
                       style={({ pressed }) => [
                         s.detailChevron,
-                        { backgroundColor: getCrowdAccent(place.crowdLevel)[pressed ? 'pressed' : 'soft'] },
+                        { backgroundColor: accent[pressed ? 'pressed' : 'soft'] },
                       ]}
                     >
                       <Ionicons name="chevron-forward" size={24} color={colors.dark} />
@@ -1376,8 +1377,8 @@ const s = StyleSheet.create({
   },
   /*
     지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
-    **테두리 색은 스타일에 두지 않는다** — 그 장소의 혼잡도 계열이 정하므로 카드마다 다르다
-    (`getCrowdAccent`). 여기서는 자리만 잡아 둔다(`placeCard`의 투명 테두리).
+    **테두리 색은 스타일에 두지 않는다** — 상단 토글에 따라 갈리기 때문이다(`getCrowdAccent`).
+    여기서는 자리만 잡아 둔다(`placeCard`의 투명 테두리).
   */
   // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
@@ -1396,7 +1397,8 @@ const s = StyleSheet.create({
    * 두어 폭과 달랐다.
    *
    * **면 색은 스타일에 두지 않는다.** 고른 카드의 테두리와 같은 계열이어야 이 카드에 속한
-   * 버튼으로 읽히는데, 그 계열이 장소마다 다르기 때문이다(`getCrowdAccent`의 `soft`·`pressed`).
+   * 버튼으로 읽히는데, 그 계열이 상단 토글에 따라 갈리기 때문이다(`getCrowdAccent`의
+   * `soft`·`pressed`).
    */
   detailChevron: {
     width: 40,

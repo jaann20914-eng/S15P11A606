@@ -101,6 +101,14 @@ export default function Place() {
   const { height } = useWindowDimensions();
   const { padding: gutter, insets } = useScreenLayout();
   const focusOn = useMapStore((state) => state.focusOn);
+  /*
+    고른 카드를 짚어 주는 색만 이 값으로 정한다(아래 `accent`).
+
+    **마커에는 쓰지 않는다.** 이 화면의 핀은 토글로 걸러진 것이 아니라, 와글 토글을 켜고
+    검색으로 들어간 여유한 장소의 핀이 전부 자몽색으로 그려진 적이 있다(2026-08-05 실기기).
+    마커 색은 그 장소가 실제로 붐비는 정도가 정한다(`markerTone`).
+  */
+  const crowdFilter = useMapStore((state) => state.crowdFilter);
   const showPinOverlay = useMapStore((state) => state.showPinOverlay);
   const clearPinOverlay = useMapStore((state) => state.clearPinOverlay);
   /*
@@ -896,11 +904,11 @@ export default function Place() {
                   onSlotHeightChange={setPinSlotHeight}
                   selectedIndex={pinIndex}
                   /*
-                    보고 있는 카드의 테두리. **마커 색과 같은 값을 본다**(`markerTone`과 같은
-                    근거) — 지도의 물방울과 그 카드가 같은 핀을 가리키므로 색이 갈리면 짝으로
-                    읽히지 않는다. 혼잡도를 모르면 카드의 기본(라임)이 그대로 쓰인다.
+                    보고 있는 카드의 테두리. **상단 토글이 정한다** — 지금 어느 카드를 보고
+                    있는지 짚어 주는 디자인 장치라 화면 안에서 한 계열로 읽혀야 한다
+                    (`getCrowdAccent`). 홈 카드와 같은 규칙이다.
                   */
-                  selectedColor={getCrowdAccent(crowdLevel).strong}
+                  selectedColor={getCrowdAccent(crowdFilter).strong}
                   onIndexChange={setPinIndex}
                   scrollOffset={scrollOffset === null ? undefined : Math.max(0, scrollOffset - pinListTop)}
                   onSelect={(pin) => router.push(`/pin/${pin.pinId}`)}
