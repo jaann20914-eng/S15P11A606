@@ -1,4 +1,4 @@
-import { crowdPalette, crowdTextPalette } from './theme';
+import { color, colors, crowdPalette, crowdTextPalette } from './theme';
 
 /**
  * 혼잡도 4단계 (공통DESIGN §4.2).
@@ -96,6 +96,51 @@ export function classifyCrowdFilter(averageLevel: number | null): CrowdFilter | 
 export function matchesCrowdFilter(level: number, filter: CrowdFilter): boolean {
   const { min, max } = crowdFilterRange[filter];
   return level >= min && level <= max;
+}
+
+/**
+ * 목록에서 **지금 고른 것**을 가리키는 색 한 벌.
+ *
+ * 카드 테두리와 그 카드 안의 컨트롤이 쓴다. 계열이 갈리는 자리라 라임 한 벌로는 모자란다 —
+ * 와글 토글로 보고 있는데 테두리만 라임이면 화면 안에서 색이 어긋나 보인다.
+ */
+export interface CrowdAccent {
+  /** 고른 카드의 테두리. 계열 색 중 가장 진한 값이다. */
+  strong: string;
+  /** 그 카드 안 컨트롤의 옅은 면(홈 카드의 상세 지름길 버튼). */
+  soft: string;
+  /** 그 컨트롤이 눌린 동안. 같은 계열에서 한 단계만 진해진다. */
+  pressed: string;
+}
+
+/**
+ * 계열별 색 한 벌.
+ *
+ * `strong`은 **지도 마커가 그 계열에 쓰는 가장 진한 색을 그대로 본다**(`color.pin[계열].strong`).
+ * 값을 따로 적어 두면 마커 색을 바꿀 때 한쪽만 남아 갈린다.
+ *
+ * `soft`·`pressed`는 계열마다 짝지어 둔 옅은 색이다(`limeSoft`↔`coralSoft`,
+ * `limeControl`↔`crowded`).
+ */
+const accentByFilter: Record<CrowdFilter, CrowdAccent> = {
+  relaxed: { strong: color.pin.relaxed.strong, soft: colors.limeSoft, pressed: colors.limeControl },
+  wagle: { strong: color.pin.wagle.strong, soft: colors.coralSoft, pressed: colors.crowded },
+};
+
+/**
+ * 지금 보고 있는 계열의 색 한 벌.
+ *
+ * **상단 혼잡도 토글이 정한다**(2026-08-09 팀 결정). 이 색은 "이 장소가 얼마나 붐비는지"를
+ * 알리는 정보가 아니라 **지금 어느 카드를 보고 있는지 짚어 주는 디자인 장치**라, 한 화면
+ * 안에서 하나의 계열로 읽혀야 한다. 장소마다 제 혼잡도로 칠하면 같은 목록에서 테두리 색이
+ * 갈려 고장난 것으로 보인다.
+ *
+ * **마커는 이 값을 쓰지 않는다.** 그쪽은 그 장소·핀이 실제로 붐비는 정도를 담은 정보라
+ * 근거가 다르다(`MapMarker.tone`) — 예전에 마커를 토글로 칠했다가 여유한 장소가 자몽색으로
+ * 그려진 적이 있다(2026-08-05).
+ */
+export function getCrowdAccent(filter: CrowdFilter): CrowdAccent {
+  return accentByFilter[filter];
 }
 
 /** 채움 비율(0~100)이 속한 단계 색을 반환한다. 링/게이지 구간 채우기용. */

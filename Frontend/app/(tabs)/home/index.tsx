@@ -31,7 +31,7 @@ import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useFadeToggle } from '@/hooks/useFadeToggle';
 import { createDevLogger } from '@/utils/devLog';
 import { distanceBetween } from '@/utils/location';
-import { classifyCrowdFilter, matchesCrowdFilter } from '@/constants/crowdLevels';
+import { classifyCrowdFilter, getCrowdAccent, matchesCrowdFilter } from '@/constants/crowdLevels';
 import { usePlacesInView } from '@/features/home/hooks/usePlacesInView';
 import { colors, layout, radius, spacing, type } from '@/constants/theme';
 
@@ -269,8 +269,8 @@ export default function Home() {
   */
   const bounds = useMapStore((state) => state.bounds);
   /*
-    **혼잡도 토글을 함께 넘긴다.** 서버가 이 경계 안의 장소를 최대 10건만 주므로, 필터 없이
-    물으면 그 열 자리를 화면에 그리지도 않을 장소가 차지한다(`usePlacesInView`에 사정을 적었다).
+    **혼잡도 토글을 함께 넘긴다.** 서버가 이 경계 안의 장소를 최대 20건만 주므로, 필터 없이
+    물으면 그 자리를 화면에 그리지도 않을 장소가 차지한다(`usePlacesInView`에 사정을 적었다).
   */
   const inView = usePlacesInView(bounds, crowdFilter);
 
@@ -895,6 +895,14 @@ export default function Home() {
   /** 잠깐 뜨는 한 마디의 나타남·사라짐. 조건을 그대로 걸면 1초짜리 안내가 깜빡임으로 읽힌다. */
   const hintToggle = useFadeToggle(hint !== null);
 
+  /**
+   * 고른 카드를 짚어 주는 색. **상단 토글이 정한다.**
+   *
+   * 카드마다 제 혼잡도로 칠하지 않는다 — 목록 안에서 테두리 색이 갈리면 고장난 것으로 보인다
+   * (`getCrowdAccent`에 사정을 적어 두었다). 지도 마커는 근거가 달라 그대로 둔다.
+   */
+  const accent = getCrowdAccent(crowdFilter);
+
   return (
     // 시트 스냅 계산의 기준 높이다. 창 높이가 아니라 이 영역의 높이를 써야 맞는다.
     <View style={s.screen} onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}>
@@ -1099,7 +1107,8 @@ export default function Home() {
                 accessibilityHint="한 번 더 누르면 장소 상세로 이동합니다"
                 accessibilityState={{ selected: place.id === selectedPlaceId }}
                 onPress={() => pressCard(place.id)}
-                style={[s.placeCard, place.id === selectedPlaceId && s.placeCardSelected]}
+                /* 고른 카드의 테두리. 색은 상단 토글이 정한다(`accent`). */
+                style={[s.placeCard, place.id === selectedPlaceId && { borderColor: accent.strong }]}
               >
                 <View style={s.cardTop}>
                   <View style={s.placeCopy}>
@@ -1129,7 +1138,14 @@ export default function Home() {
                       accessibilityLabel={`${place.name} 상세 보기`}
                       hitSlop={12}
                       onPress={() => openPlace(place.id)}
-                      style={({ pressed }) => [s.detailChevron, pressed && s.detailChevronPressed]}
+                      /*
+                        면도 테두리와 같은 계열이어야 이 카드에 속한 버튼으로 읽힌다. 테두리가
+                        자몽색인 카드에 라임 버튼만 남으면 다른 곳에서 온 것처럼 보인다.
+                      */
+                      style={({ pressed }) => [
+                        s.detailChevron,
+                        { backgroundColor: accent[pressed ? 'pressed' : 'soft'] },
+                      ]}
                     >
                       <Ionicons name="chevron-forward" size={24} color={colors.dark} />
                     </Pressable>
@@ -1359,8 +1375,11 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.96)',
     ...glassShadow,
   },
-  // 지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
-  placeCardSelected: { borderColor: colors.lime },
+  /*
+    지도에서 보고 있는 장소를 목록에서도 알 수 있게 한다. 핀만 바뀌면 어느 카드였는지 놓친다.
+    **테두리 색은 스타일에 두지 않는다** — 상단 토글에 따라 갈리기 때문이다(`getCrowdAccent`).
+    여기서는 자리만 잡아 둔다(`placeCard`의 투명 테두리).
+  */
   // 위로 붙인다. 가운데 정렬이면 꺽새가 이름·영업시간·주소 세 줄의 한가운데로 내려간다.
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.x3 },
   /**
@@ -1375,8 +1394,11 @@ const s = StyleSheet.create({
    * 상세로 가는 지름길 버튼.
    *
    * 정사각형이어야 `borderRadius`가 정확한 원이 된다 — 예전에는 높이를 제목 줄 높이에 맞춰
-   * 두어 폭과 달랐다. 옅은 라임 면은 고른 카드의 라임 테두리와 같은 계열이라 이 카드에 속한
-   * 버튼으로 읽힌다.
+   * 두어 폭과 달랐다.
+   *
+   * **면 색은 스타일에 두지 않는다.** 고른 카드의 테두리와 같은 계열이어야 이 카드에 속한
+   * 버튼으로 읽히는데, 그 계열이 상단 토글에 따라 갈리기 때문이다(`getCrowdAccent`의
+   * `soft`·`pressed`).
    */
   detailChevron: {
     width: 40,
@@ -1385,10 +1407,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.x2,
-    backgroundColor: colors.limeSoft,
   },
-  /** 눌린 동안. 같은 계열에서 한 단계만 진해져 눌렸다는 것이 보인다. */
-  detailChevronPressed: { backgroundColor: colors.limeControl },
   placeCopy: { flex: 1, minWidth: 0 },
   // flex를 주면 안 된다. placeCopy가 세로 방향이라 제목이 남은 높이만큼 늘어나 줄이 어긋난다.
   placeName: { ...type.title, color: colors.dark },

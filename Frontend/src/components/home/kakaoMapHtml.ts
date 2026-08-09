@@ -405,7 +405,7 @@ export function buildKakaoMapHtml({
     }
 
     /*
-      가까운 것끼리 묶는다. 개수가 최대 10개라 단순 비교로 충분하다.
+      가까운 것끼리 묶는다. 개수가 최대 20개라(서버 상한) 단순 비교로 충분하다.
       먼저 만들어진 무리의 첫 마커를 기준으로 삼아, 그 둘레에 드는 것을 같은 무리로 본다.
     */
     var groups = [];
@@ -1210,7 +1210,7 @@ export function buildKakaoMapHtml({
 
       밀어 놓는 값은 **화면 픽셀** 기준이라 축척이 달라지면 판정도 달라진다 — 멀리서는 겹치던
       핀들이 당기면 저절로 떨어지고, 그때까지 밀어 둔 채로 두면 오히려 어긋나 보인다.
-      마커는 최대 10개라 다시 그려도 부담이 없다.
+      마커는 최대 20개라 다시 그려도 부담이 없다.
     */
     kakao.maps.event.addListener(map, 'zoom_changed', renderPlaces);
 

@@ -33,8 +33,11 @@ const NO_FILTER = '';
  * 좌표를 주는 유일한 엔드포인트다. 장소 상세(`/places/{placeId}`)에는 위도·경도가 없어
  * 지도에 장소를 찍으려면 이쪽을 거쳐야 한다(`coordinates.ts`).
  *
- * 결과는 **최대 10건**이고 활성 핀이 많은 순 → 지도 중심에 가까운 순이다
- * (`PlacePinService.MAX_RESULT`). 거리순이 아니므로 넓게 물으면 찾는 장소가 밀려날 수 있다.
+ * 결과는 **최대 20건**이고 활성 핀이 많은 순 → 지도 중심에 가까운 순이다
+ * (`PlacePinService.MAX_RESULT` — 2026-08-07에 10에서 올렸다).
+ *
+ * **거리는 1순위가 아니라 동점일 때의 기준이다.** 그래서 넓게 물으면 가까운 장소가 핀이 많은
+ * 먼 장소에 밀려 잘릴 수 있다 — 상한을 올려도 이 성질은 남는다.
  *
  * 오류 코드: `INVALID_MAP_RANGE` `INVALID_PLACE_FILTER` `UNAUTHORIZED` `PLACES_FETCH_FAILED`.
  */
