@@ -51,11 +51,8 @@ public class TagSearchService {
                 q, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
         try {
-            // 자음만으로 이루어진 질의는 초성 검색으로, 그 외는 일반(정확/접두/부분/오탈자) 검색으로 분기한다.
-            NativeQuery query = hangulDecomposer.isChosungQuery(keyword)
-                    ? buildChosungQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude)
-                    : buildQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
-            SearchHits<PinTagDocument> hits = operations.search(query, PinTagDocument.class);
+            SearchHits<PinTagDocument> hits = searchHits(
+                    keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude);
 
             List<TagSearchResult> tags = hits.getSearchHits().stream()
                     .map(hit -> new TagSearchResult(hit.getContent().getTag()))
@@ -70,17 +67,39 @@ public class TagSearchService {
         }
     }
 
-    private NativeQuery buildQuery(
+    // 일반 검색: 정확/접두/부분(음절)로 먼저 찾고, 결과가 하나도 없을 때만 오탈자(자모) fallback을 돈다.
+    // 오탈자 티어를 항상 섞으면 "삼겹"에 "삼계탕"처럼 자모가 우연히 겹치는 무관한 태그가 딸려오므로,
+    // "정타로는 아무것도 안 잡힐 때"만 오탈자 보정을 동작시킨다.
+    private SearchHits<PinTagDocument> searchHits(
+            String keyword,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
+        if (hangulDecomposer.isChosungQuery(keyword)) {
+            return operations.search(
+                    buildChosungQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude),
+                    PinTagDocument.class);
+        }
+        SearchHits<PinTagDocument> strict = operations.search(
+                buildStrictQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude),
+                PinTagDocument.class);
+        if (!strict.getSearchHits().isEmpty()) {
+            return strict;
+        }
+        return operations.search(
+                buildJamoFallbackQuery(keyword, southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude),
+                PinTagDocument.class);
+    }
+
+    // 일반 검색 1차: 완전일치 > 접두어 > 부분일치(음절 기반). 오탈자(자모)는 포함하지 않는다.
+    private NativeQuery buildStrictQuery(
             String keyword,
             double southWestLatitude, double southWestLongitude,
             double northEastLatitude, double northEastLongitude) {
         String now = Instant.now().toString();
-        // 검색어를 색인 side와 동일한 규칙으로 자모 분해해 오탈자 티어에 사용한다.
-        String jamoKeyword = hangulDecomposer.decomposeToJamo(keyword);
         return NativeQuery.builder()
                 .withQuery(q -> q.bool(b -> applyCandidateFilters(b,
                         southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude, now)
-                        // 티어별 고정 점수: 완전일치 > 접두어 > 부분일치 > 오탈자
+                        // 티어별 고정 점수: 완전일치 > 접두어 > 부분일치
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.term(t -> t.field("tag").value(keyword)))
                                 .boost(EXACT_BOOST)))
@@ -90,7 +109,23 @@ public class TagSearchService {
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.match(m -> m.field("tag.ngram").query(keyword)))
                                 .boost(PARTIAL_BOOST)))
-                        // 오탈자: 자모 2-gram이 과반 이상 겹치면 매칭("카패" -> 카페). 최하위 우선순위.
+                        .minimumShouldMatch("1")))
+                .withFieldCollapse(FieldCollapse.of(fc -> fc.field("tag")))
+                .withPageable(PageRequest.of(0, MAX_RESULTS))
+                .build();
+    }
+
+    // 일반 검색 2차(fallback): 1차에서 결과가 없을 때만 오탈자(자모) 매칭을 돈다.
+    // 검색어를 색인 side와 동일 규칙으로 자모 분해하고, 자모 2-gram의 70% 이상이 겹칠 때만 매칭한다("카패" -> 카페).
+    private NativeQuery buildJamoFallbackQuery(
+            String keyword,
+            double southWestLatitude, double southWestLongitude,
+            double northEastLatitude, double northEastLongitude) {
+        String now = Instant.now().toString();
+        String jamoKeyword = hangulDecomposer.decomposeToJamo(keyword);
+        return NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> applyCandidateFilters(b,
+                        southWestLatitude, southWestLongitude, northEastLatitude, northEastLongitude, now)
                         .should(s -> s.constantScore(cs -> cs
                                 .filter(f -> f.match(m -> m.field("tagJamo").query(jamoKeyword)
                                         .minimumShouldMatch(JAMO_MIN_SHOULD_MATCH)))
@@ -101,7 +136,8 @@ public class TagSearchService {
                 .build();
     }
 
-    // 초성 전용 질의("ㅋㅍ") 전용 쿼리. 초성 문자열 필드에서 완전일치 > 접두어 > 부분일치로 매칭한다.
+    // 초성 전용 질의("ㅋㅍ") 전용 쿼리. 초성 문자열 필드에서 완전일치 > 접두어로 매칭한다.
+    // (부분(ngram)일치는 "ㅅㄱㅅ"에 가성비·상견례·삼계탕처럼 무관한 초성이 딸려와 제외한다.)
     private NativeQuery buildChosungQuery(
             String keyword,
             double southWestLatitude, double southWestLongitude,
