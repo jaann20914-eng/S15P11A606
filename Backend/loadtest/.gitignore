@@ -1,0 +1,5 @@
+# 발급된 토큰(민감정보)과 결과 파일은 커밋하지 않는다
+seed/refresh-tokens.json
+seed/refresh-tokens.sql
+*.result.json
+result*.json
