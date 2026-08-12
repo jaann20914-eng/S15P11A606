@@ -171,17 +171,17 @@ class PinEvaluationPersistenceServiceTest {
     }
 
     @Test
-    void 온도가_하한_90일때_NOT_HELPFUL이면_90으로_클램프되고_실제_변화량_0을_기록한다() {
-        givenEvaluablePin(BigDecimal.valueOf(90));
+    void 온도가_하한_0일때_NOT_HELPFUL이면_0으로_클램프되고_실제_변화량_0을_기록한다() {
+        givenEvaluablePin(BigDecimal.ZERO);
 
         service.apply(PIN_ID, EVALUATOR_ID, PinEvaluationType.NOT_HELPFUL);
 
-        assertThat(author.getViewAngle()).isEqualByComparingTo(BigDecimal.valueOf(90));
+        assertThat(author.getViewAngle()).isEqualByComparingTo(BigDecimal.ZERO);
 
         ArgumentCaptor<ViewTransaction> viewCaptor = ArgumentCaptor.forClass(ViewTransaction.class);
         verify(viewTransactionRepository).save(viewCaptor.capture());
         assertThat(viewCaptor.getValue().getChangeAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(viewCaptor.getValue().getViewAfter()).isEqualByComparingTo(BigDecimal.valueOf(90));
+        assertThat(viewCaptor.getValue().getViewAfter()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
