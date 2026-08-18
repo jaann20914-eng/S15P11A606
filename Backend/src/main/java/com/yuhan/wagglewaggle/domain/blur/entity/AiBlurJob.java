@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -60,6 +61,11 @@ public class AiBlurJob {
 
     @Column(name = "completed_at")
     private Instant completedAt;
+
+    /** 같은 작업을 동시에 수정하면 먼저 커밋한 요청만 성공하도록 충돌을 감지한다. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     private AiBlurJob(UUID pinId, String originalVideoKey, AiBlurJobType jobType) {
         this.pinId = pinId;
