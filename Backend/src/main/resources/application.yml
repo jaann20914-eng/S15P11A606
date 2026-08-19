@@ -117,8 +117,8 @@ ai:
   blur:
     result-consumer:
       # 하나의 ai.blur.result Queue에서 동시에 처리할 Consumer 수. 기본 2개, 부하에 따라 최대 4개까지 확장한다.
-      concurrency: ${AI_BLUR_RESULT_CONCURRENCY:4}
-      max-concurrency: ${AI_BLUR_RESULT_MAX_CONCURRENCY:4}
+      concurrency: ${AI_BLUR_RESULT_CONCURRENCY:2}
+      max-concurrency: ${AI_BLUR_RESULT_MAX_CONCURRENCY:2}
       # 긴 S3 확인 중 특정 Consumer가 메시지를 많이 쥐지 않도록 한 번에 1개만 선점한다.
       prefetch: ${AI_BLUR_RESULT_PREFETCH:1}
     republish:
