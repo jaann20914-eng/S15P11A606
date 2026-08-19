@@ -2,6 +2,7 @@ package com.yuhan.wagglewaggle.domain.blur.consumer;
 
 import com.rabbitmq.client.Channel;
 import com.yuhan.wagglewaggle.domain.blur.message.AiBlurResultMessage;
+import com.yuhan.wagglewaggle.domain.blur.entity.AiBlurJob;
 import com.yuhan.wagglewaggle.domain.blur.message.FinalStatus;
 import com.yuhan.wagglewaggle.domain.blur.message.ProcessingStatus;
 import com.yuhan.wagglewaggle.domain.blur.service.AiBlurResultOutcome;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -23,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -99,6 +102,21 @@ class AiBlurResultListenerTest {
     }
 
     @Test
+    void 낙관적_락_충돌_후_같은_결과면_중복으로_ACK한다() throws IOException {
+        AiBlurResultMessage message = passMessage();
+        given(aiBlurResultService.apply(message))
+                .willThrow(new ObjectOptimisticLockingFailureException(AiBlurJob.class, REQUEST_ID));
+        given(aiBlurResultService.resolveAfterOptimisticLock(message))
+                .willReturn(AiBlurResultOutcome.DUPLICATE);
+
+        listener().onMessage(message, channel, DELIVERY_TAG);
+
+        verify(aiBlurResultService).resolveAfterOptimisticLock(message);
+        verify(channel).basicAck(DELIVERY_TAG, false);
+        verify(channel, never()).basicNack(anyTag(), anyBool(), anyBool());
+    }
+
+    @Test
     void 영상_교체_반영_불가_정상종료는_ACK한다() throws IOException {
         given(aiBlurResultService.apply(any())).willReturn(AiBlurResultOutcome.REPLACEMENT_SKIPPED);
 
@@ -156,6 +174,36 @@ class AiBlurResultListenerTest {
         listener().onMessage(failedMessage(), channel, DELIVERY_TAG);
 
         verify(channel).basicNack(DELIVERY_TAG, false, false);
+    }
+
+    @Test
+    void 낙관적_락_충돌_후_다른_결과면_NACK한다() throws IOException {
+        AiBlurResultMessage message = failMessage();
+        given(aiBlurResultService.apply(message))
+                .willThrow(new ObjectOptimisticLockingFailureException(AiBlurJob.class, REQUEST_ID));
+        given(aiBlurResultService.resolveAfterOptimisticLock(message))
+                .willReturn(AiBlurResultOutcome.CONFLICT);
+
+        listener().onMessage(message, channel, DELIVERY_TAG);
+
+        verify(aiBlurResultService).resolveAfterOptimisticLock(message);
+        verify(channel).basicNack(DELIVERY_TAG, false, false);
+        verify(channel, never()).basicAck(anyTag(), anyBool());
+    }
+
+    @Test
+    void 낙관적_락_충돌_재확인도_실패하면_NACK한다() throws IOException {
+        AiBlurResultMessage message = passMessage();
+        given(aiBlurResultService.apply(message))
+                .willThrow(new ObjectOptimisticLockingFailureException(AiBlurJob.class, REQUEST_ID));
+        given(aiBlurResultService.resolveAfterOptimisticLock(message))
+                .willThrow(new RuntimeException("DB 재조회 오류"));
+
+        listener().onMessage(message, channel, DELIVERY_TAG);
+
+        verify(aiBlurResultService, times(1)).resolveAfterOptimisticLock(message);
+        verify(channel).basicNack(DELIVERY_TAG, false, false);
+        verify(channel, never()).basicAck(anyTag(), anyBool());
     }
 
     @Test

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
@@ -39,16 +40,38 @@ public class AiBlurResultListener {
                           @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) throws IOException {
         try {
             AiBlurResultOutcome outcome = aiBlurResultService.apply(message);
-            if (isAckable(outcome)) {
-                channel.basicAck(deliveryTag, false);
-                log.info("ai.blur.result ACK (requestId={}, outcome={})", requestIdOf(message), outcome);
-            } else {
-                log.warn("ai.blur.result 처리 불가 → DLQ (requestId={}, outcome={})", requestIdOf(message), outcome);
-                channel.basicNack(deliveryTag, false, false);
-            }
+            acknowledge(outcome, message, channel, deliveryTag);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            resolveOptimisticLock(message, channel, deliveryTag);
         } catch (Exception e) {
             // 검증 위반(CustomException)·DB/트랜잭션 실패 등. 재시도 없이 DLQ로 보낸다.
             log.error("ai.blur.result 처리 실패 → DLQ (requestId={})", requestIdOf(message), e);
+            channel.basicNack(deliveryTag, false, false);
+        }
+    }
+
+    /** 먼저 커밋된 결과를 새 트랜잭션에서 확인해 정상 중복과 진짜 충돌을 구분한다. */
+    private void resolveOptimisticLock(AiBlurResultMessage message, Channel channel,
+                                       long deliveryTag) throws IOException {
+        try {
+            AiBlurResultOutcome outcome = aiBlurResultService.resolveAfterOptimisticLock(message);
+            log.info("ai.blur.result 낙관적 락 충돌 재확인 (requestId={}, outcome={})",
+                    requestIdOf(message), outcome);
+            acknowledge(outcome, message, channel, deliveryTag);
+        } catch (Exception e) {
+            log.error("ai.blur.result 낙관적 락 충돌 재확인 실패 → DLQ (requestId={})",
+                    requestIdOf(message), e);
+            channel.basicNack(deliveryTag, false, false);
+        }
+    }
+
+    private void acknowledge(AiBlurResultOutcome outcome, AiBlurResultMessage message,
+                             Channel channel, long deliveryTag) throws IOException {
+        if (isAckable(outcome)) {
+            channel.basicAck(deliveryTag, false);
+            log.info("ai.blur.result ACK (requestId={}, outcome={})", requestIdOf(message), outcome);
+        } else {
+            log.warn("ai.blur.result 처리 불가 → DLQ (requestId={}, outcome={})", requestIdOf(message), outcome);
             channel.basicNack(deliveryTag, false, false);
         }
     }
