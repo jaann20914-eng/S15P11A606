@@ -20,11 +20,20 @@
 BEGIN;
 
 -- ---------- 1. 기존 부하테스트 데이터 정리 (FK 역순) ----------
-DELETE FROM ai_chat_jobs      WHERE chat_room_id IN (SELECT id FROM chat_rooms WHERE requester_id BETWEEN 910001 AND 920000);
-DELETE FROM chat_warnings     WHERE chat_room_id IN (SELECT id FROM chat_rooms WHERE requester_id BETWEEN 910001 AND 920000);
-DELETE FROM chat_messages     WHERE chat_room_id IN (SELECT id FROM chat_rooms WHERE requester_id BETWEEN 910001 AND 920000);
-DELETE FROM chat_room_members WHERE chat_room_id IN (SELECT id FROM chat_rooms WHERE requester_id BETWEEN 910001 AND 920000);
-DELETE FROM chat_rooms        WHERE requester_id BETWEEN 910001 AND 920000;
+-- 테스트 회원이 참여했거나 테스트 Pin을 참조하는 방을 모두 잡는다.
+-- requester 조건만 사용하면 일반 회원이 테스트 Pin으로 만든 방이 남아 pins 삭제를 막을 수 있다.
+CREATE TEMP TABLE loadtest_chat_room_ids ON COMMIT DROP AS
+SELECT id
+FROM chat_rooms
+WHERE requester_id BETWEEN 910001 AND 930000
+   OR recipient_id BETWEEN 910001 AND 930000
+   OR pin_id IN (SELECT id FROM pins WHERE member_id BETWEEN 910001 AND 930000);
+
+DELETE FROM ai_chat_jobs      WHERE chat_room_id IN (SELECT id FROM loadtest_chat_room_ids);
+DELETE FROM chat_warnings     WHERE chat_room_id IN (SELECT id FROM loadtest_chat_room_ids);
+DELETE FROM chat_messages     WHERE chat_room_id IN (SELECT id FROM loadtest_chat_room_ids);
+DELETE FROM chat_room_members WHERE chat_room_id IN (SELECT id FROM loadtest_chat_room_ids);
+DELETE FROM chat_rooms        WHERE id IN (SELECT id FROM loadtest_chat_room_ids);
 
 DELETE FROM ai_blur_jobs        WHERE pin_id IN (SELECT id FROM pins WHERE member_id BETWEEN 910001 AND 930000);
 DELETE FROM pin_tags            WHERE pin_id IN (SELECT id FROM pins WHERE member_id BETWEEN 910001 AND 930000);
