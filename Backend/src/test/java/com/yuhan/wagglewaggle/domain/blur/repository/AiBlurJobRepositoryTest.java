@@ -11,6 +11,7 @@ import com.yuhan.wagglewaggle.domain.user.entity.AgeGroup;
 import com.yuhan.wagglewaggle.domain.user.entity.Gender;
 import com.yuhan.wagglewaggle.domain.user.entity.Member;
 import com.yuhan.wagglewaggle.support.AbstractPostgresContainerTest;
+import jakarta.persistence.OptimisticLockException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -68,8 +69,32 @@ class AiBlurJobRepositoryTest extends AbstractPostgresContainerTest {
         assertThat(found.getPinId()).isEqualTo(pinId);
         assertThat(found.getJobType()).isEqualTo(AiBlurJobType.INITIAL_UPLOAD);
         assertThat(found.getStatus()).isEqualTo(AiBlurJobStatus.PENDING);
+        assertThat(found.getVersion()).isZero();
         assertThat(found.getCreatedAt()).isNotNull();
         assertThat(found.getCompletedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("먼저 커밋된 변경으로 version이 달라지면 오래된 Job 저장은 실패한다")
+    void staleVersion_rejectedByOptimisticLock() {
+        AiBlurJob saved = aiBlurJobRepository.saveAndFlush(
+                AiBlurJob.create(pinId, "videos/original/optimistic-lock.mp4", AiBlurJobType.INITIAL_UPLOAD));
+        em.clear();
+
+        // 두 번째 처리기가 version=0인 Job을 이미 읽어 둔 상황을 만든다.
+        AiBlurJob stale = aiBlurJobRepository.findById(saved.getRequestId()).orElseThrow();
+        assertThat(stale.getVersion()).isZero();
+
+        // 첫 번째 처리기가 먼저 커밋해 DB version을 1로 바꾼 상황을 실제 PostgreSQL UPDATE로 재현한다.
+        em.getEntityManager()
+                .createNativeQuery("UPDATE ai_blur_jobs SET version = version + 1 WHERE request_id = :id")
+                .setParameter("id", saved.getRequestId())
+                .executeUpdate();
+
+        // 두 번째 처리기는 메모리에 남은 version=0으로 저장하므로 수정 대상이 없어 충돌한다.
+        stale.markCompleted(Instant.now(), FinalStatus.PASS);
+        assertThatThrownBy(em::flush)
+                .isInstanceOf(OptimisticLockException.class);
     }
 
     @Test
