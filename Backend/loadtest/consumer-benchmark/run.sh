@@ -15,8 +15,11 @@ MESSAGES_FILE="${1:-${SCRIPT_DIR}/messages.jsonl}"
 AI_WORKER_CONTAINER="${AI_WORKER_CONTAINER:-waggle-ai-worker}"
 BACKEND_CONTAINER="${BACKEND_CONTAINER:-waggle-backend}"
 DB_CONTAINER="${DB_CONTAINER:-waggle-postgis}"
+RABBITMQ_CONTAINER="${RABBITMQ_CONTAINER:-waggle-rabbitmq}"
 DB_USER="${DB_USER:-waggle}"
 DB_NAME="${DB_NAME:-wagglewaggle}"
+RABBITMQ_VHOST="${RABBITMQ_VHOST:-/}"
+RESULT_QUEUE="${RESULT_QUEUE:-ai.blur.result}"
 PAUSE_BACKEND="${PAUSE_BACKEND:-0}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-120}"
 POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-0.2}"
@@ -53,13 +56,23 @@ job_count() {
         | tr -d '[:space:]'
 }
 
+queue_counts() {
+    docker exec "${RABBITMQ_CONTAINER}" \
+        rabbitmqctl list_queues -q -p "${RABBITMQ_VHOST}" \
+        name messages_ready messages_unacknowledged \
+        | awk -v queue="${RESULT_QUEUE}" '
+            $1 == queue { print $2, $3; found = 1 }
+            END { if (!found) print "-1 -1" }
+        '
+}
+
 [[ -s "${MESSAGES_FILE}" ]] || fail "메시지 파일이 없거나 비어 있습니다: ${MESSAGES_FILE}"
 [[ "${PAUSE_BACKEND}" == "0" || "${PAUSE_BACKEND}" == "1" ]] \
     || fail "PAUSE_BACKEND는 0 또는 1이어야 합니다."
 [[ "${TIMEOUT_SECONDS}" =~ ^[1-9][0-9]*$ ]] \
     || fail "TIMEOUT_SECONDS는 1 이상의 정수여야 합니다."
 
-for container in "${AI_WORKER_CONTAINER}" "${BACKEND_CONTAINER}" "${DB_CONTAINER}"; do
+for container in "${AI_WORKER_CONTAINER}" "${BACKEND_CONTAINER}" "${DB_CONTAINER}" "${RABBITMQ_CONTAINER}"; do
     [[ "$(docker inspect -f '{{.State.Running}}' "${container}" 2>/dev/null)" == "true" ]] \
         || fail "실행 중인 컨테이너를 찾을 수 없습니다: ${container}"
 done
@@ -70,6 +83,10 @@ expected_count="$(grep -cve '^[[:space:]]*$' "${MESSAGES_FILE}")"
 pending_count="$(job_count "status = 'PENDING'")"
 [[ "${pending_count}" == "${expected_count}" ]] \
     || fail "PENDING Job(${pending_count})과 메시지 수(${expected_count})가 다릅니다. seed.sql을 다시 실행하세요."
+
+read -r initial_ready initial_unacked < <(queue_counts)
+[[ "${initial_ready}" == "0" && "${initial_unacked}" == "0" ]] \
+    || fail "측정 전 ${RESULT_QUEUE} Queue가 비어 있지 않습니다 (ready=${initial_ready}, unacked=${initial_unacked})."
 
 docker cp "${SCRIPT_DIR}/publish.py" \
     "${AI_WORKER_CONTAINER}:${REMOTE_PUBLISHER}" >/dev/null
@@ -95,16 +112,21 @@ else
 fi
 
 deadline_ms=$((started_at_ms + TIMEOUT_SECONDS * 1000))
+queue_ready=-1
+queue_unacked=-1
 
 while true; do
     processed_count="$(job_count "status <> 'PENDING'")"
     current_ms="$(now_millis)"
 
     if [[ "${processed_count}" == "${expected_count}" ]]; then
-        break
+        read -r queue_ready queue_unacked < <(queue_counts)
+        if [[ "${queue_ready}" == "0" && "${queue_unacked}" == "0" ]]; then
+            break
+        fi
     fi
     if (( current_ms >= deadline_ms )); then
-        fail "${TIMEOUT_SECONDS}초 안에 처리되지 않았습니다 (${processed_count}/${expected_count}). Backend 로그와 DLQ를 확인하세요."
+        fail "${TIMEOUT_SECONDS}초 안에 처리되지 않았습니다 (DB=${processed_count}/${expected_count}, Queue ready=${queue_ready}, unacked=${queue_unacked}). Backend 로그와 DLQ를 확인하세요."
     fi
 
     sleep "${POLL_INTERVAL_SECONDS}"
@@ -119,12 +141,14 @@ completed_count="$(job_count "status = 'COMPLETED'")"
 measured_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
 result="$(printf \
-    '{"measuredAt":"%s","label":"%s","mode":"%s","messages":%d,"elapsedMs":%d,"throughputPerSecond":%s,"failedJobs":%d,"completedJobs":%d}' \
+    '{"measuredAt":"%s","label":"%s","mode":"%s","messages":%d,"elapsedMs":%d,"throughputPerSecond":%s,"failedJobs":%d,"completedJobs":%d,"queueReady":%d,"queueUnacked":%d}' \
     "${measured_at}" "${RUN_LABEL}" "${measure_mode}" "${expected_count}" \
-    "${elapsed_ms}" "${throughput}" "${failed_count}" "${completed_count}")"
+    "${elapsed_ms}" "${throughput}" "${failed_count}" "${completed_count}" \
+    "${queue_ready}" "${queue_unacked}")"
 
 echo
 echo "처리 완료: ${processed_count}/${expected_count}"
+echo "Queue 잔여: ready=${queue_ready}, unacked=${queue_unacked}"
 echo "측정 시간: ${elapsed_ms} ms"
 echo "처리량: ${throughput} messages/s"
 echo "결과 JSON: ${result}"
