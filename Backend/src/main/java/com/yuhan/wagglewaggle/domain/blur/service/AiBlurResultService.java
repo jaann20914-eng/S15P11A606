@@ -88,6 +88,26 @@ public class AiBlurResultService {
     }
 
     /**
+     * 낙관적 락 충돌 뒤 DB에 먼저 커밋된 결과와 현재 메시지를 다시 비교한다.
+     * 실패한 결과 반영 트랜잭션이 끝난 뒤 Listener가 새 트랜잭션으로 호출한다.
+     */
+    @Transactional(readOnly = true)
+    public AiBlurResultOutcome resolveAfterOptimisticLock(AiBlurResultMessage message) {
+        validator.validate(message);
+
+        AiBlurJob job = aiBlurJobRepository.findById(message.requestId()).orElse(null);
+        if (job == null) {
+            return AiBlurResultOutcome.JOB_NOT_FOUND;
+        }
+        if (!isTerminal(job.getStatus())) {
+            log.warn("낙관적 락 충돌 후에도 작업이 최종 상태가 아님 (requestId={}, status={})",
+                    job.getRequestId(), job.getStatus());
+            return AiBlurResultOutcome.CONFLICT;
+        }
+        return resolveTerminalOutcome(job, message);
+    }
+
+    /**
      * 삭제된 핀의 결과: 핀의 영상 키·video_status는 변경하지 않고 작업만 최종 상태로 종료한다.
      * PASS·FAIL이면 COMPLETED, 시스템 처리 결과가 FAILED이면 FAILED로 종료하고 완료 시각을 기록한다.
      * 새 후보 원본·미적용 결과 객체는 커밋 이후 삭제 대상으로 등록한다.

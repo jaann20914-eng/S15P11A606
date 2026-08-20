@@ -349,6 +349,35 @@ class AiBlurResultServiceTest {
         assertThat(service.apply(passMessage())).isEqualTo(AiBlurResultOutcome.JOB_NOT_FOUND);
     }
 
+    @Test
+    void 낙관적_락_충돌_후_저장된_결과와_같으면_중복으로_판정한다() {
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+
+        assertThat(service.resolveAfterOptimisticLock(passMessage()))
+                .isEqualTo(AiBlurResultOutcome.DUPLICATE);
+    }
+
+    @Test
+    void 낙관적_락_충돌_후_저장된_결과와_다르면_충돌로_판정한다() {
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.COMPLETED, DB_PIN_ID);
+        ReflectionTestUtils.setField(job, "finalStatus", FinalStatus.PASS);
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+
+        assertThat(service.resolveAfterOptimisticLock(failMessage()))
+                .isEqualTo(AiBlurResultOutcome.CONFLICT);
+    }
+
+    @Test
+    void 낙관적_락_충돌_후_작업이_최종_상태가_아니면_충돌로_판정한다() {
+        AiBlurJob job = job(AiBlurJobType.INITIAL_UPLOAD, AiBlurJobStatus.PENDING, DB_PIN_ID);
+        given(aiBlurJobRepository.findById(REQUEST_ID)).willReturn(Optional.of(job));
+
+        assertThat(service.resolveAfterOptimisticLock(passMessage()))
+                .isEqualTo(AiBlurResultOutcome.CONFLICT);
+    }
+
     // ========================= VIDEO_REPLACEMENT: PASS =========================
 
     @Test

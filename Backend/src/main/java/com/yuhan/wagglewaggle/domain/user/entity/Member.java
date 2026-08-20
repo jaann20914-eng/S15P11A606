@@ -37,7 +37,7 @@ import java.time.Instant;
 public class Member extends BaseEntity {
 
     public static final BigDecimal INITIAL_VIEW_ANGLE = BigDecimal.valueOf(90);
-    public static final BigDecimal MIN_VIEW_ANGLE = BigDecimal.valueOf(90);
+    public static final BigDecimal MIN_VIEW_ANGLE = BigDecimal.valueOf(0);
     public static final BigDecimal MAX_VIEW_ANGLE = BigDecimal.valueOf(360);
     public static final int INITIAL_CREDIT_BALANCE = 10;
 
@@ -104,7 +104,7 @@ public class Member extends BaseEntity {
 
     /**
      * 작성자 온도(view_angle)를 delta 만큼 변화시키고 갱신된 값을 반환한다.
-     * 허용 범위(90~360)를 벗어나지 않도록 클램프한다(view_angle CHECK 정합성 유지).
+     * 허용 범위(0~360)를 벗어나지 않도록 클램프한다(view_angle CHECK 정합성 유지).
      */
     public BigDecimal applyViewChange(BigDecimal delta) {
         BigDecimal next = this.viewAngle.add(delta);

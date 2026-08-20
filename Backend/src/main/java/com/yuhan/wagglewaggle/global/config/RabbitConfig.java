@@ -1,6 +1,7 @@
 package com.yuhan.wagglewaggle.global.config;
 
 import com.yuhan.wagglewaggle.global.properties.AiBlurRepublishProperties;
+import com.yuhan.wagglewaggle.global.properties.AiBlurResultConsumerProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.Binding;
@@ -32,7 +33,7 @@ import java.time.Clock;
 @Slf4j
 @Configuration
 @EnableRabbit
-@EnableConfigurationProperties(AiBlurRepublishProperties.class)
+@EnableConfigurationProperties({AiBlurRepublishProperties.class, AiBlurResultConsumerProperties.class})
 public class RabbitConfig {
 
     public static final String EXCHANGE = "ai.blur.exchange";
@@ -102,11 +103,16 @@ public class RabbitConfig {
      */
     @Bean
     public SimpleRabbitListenerContainerFactory aiBlurResultListenerContainerFactory(
-            ConnectionFactory connectionFactory, MessageConverter aiBlurMessageConverter) {
+            ConnectionFactory connectionFactory, MessageConverter aiBlurMessageConverter,
+            AiBlurResultConsumerProperties consumerProperties) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(aiBlurMessageConverter);
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setConcurrentConsumers(consumerProperties.concurrency());
+        factory.setMaxConcurrentConsumers(consumerProperties.maxConcurrency());
+        // 처리 시간이 긴 S3 확인 작업이 한 Consumer에 몰리지 않도록 한 번에 한 메시지만 선점한다.
+        factory.setPrefetchCount(consumerProperties.prefetch());
         // 변환 실패 등 컨테이너가 직접 거부하는 경우에도 requeue 없이 DLQ로 보낸다(자동 재시도 큐는 두지 않는다).
         factory.setDefaultRequeueRejected(false);
         return factory;

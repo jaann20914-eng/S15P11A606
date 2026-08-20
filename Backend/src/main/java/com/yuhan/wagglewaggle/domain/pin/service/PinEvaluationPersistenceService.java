@@ -112,7 +112,7 @@ public class PinEvaluationPersistenceService {
                 EVALUATOR_REWARD_CREDIT,
                 balanceAfter));
 
-        // 8. 작성자 온도 변화 반영 및 이력 기록(범위 90~360 클램프로 실제 변화량을 기록).
+        // 8. 작성자 온도 변화 반영 및 이력 기록(범위 0~360 클램프로 실제 변화량을 기록).
         BigDecimal requestedDelta = rating == PinEvaluationType.HELPFUL
                 ? HELPFUL_VIEW_DELTA
                 : NOT_HELPFUL_VIEW_DELTA;

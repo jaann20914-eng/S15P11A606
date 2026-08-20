@@ -1,5 +1,6 @@
 package com.yuhan.wagglewaggle.global.config;
 
+import com.yuhan.wagglewaggle.global.properties.AiBlurResultConsumerProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.Binding;
@@ -88,11 +89,17 @@ class RabbitConfigTest {
     void 결과_리스너_컨테이너_팩토리는_manual_ACK이다() {
         SimpleRabbitListenerContainerFactory factory = config.aiBlurResultListenerContainerFactory(
                 org.mockito.Mockito.mock(org.springframework.amqp.rabbit.connection.ConnectionFactory.class),
-                config.aiBlurMessageConverter());
+                config.aiBlurMessageConverter(), new AiBlurResultConsumerProperties(2, 4, 1));
 
         assertThat(org.springframework.test.util.ReflectionTestUtils.getField(factory, "acknowledgeMode"))
                 .isEqualTo(AcknowledgeMode.MANUAL);
         assertThat(org.springframework.test.util.ReflectionTestUtils.getField(factory, "defaultRequeueRejected"))
                 .isEqualTo(false);
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(factory, "concurrentConsumers"))
+                .isEqualTo(2);
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(factory, "maxConcurrentConsumers"))
+                .isEqualTo(4);
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(factory, "prefetchCount"))
+                .isEqualTo(1);
     }
 }
