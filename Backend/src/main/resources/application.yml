@@ -17,7 +17,7 @@ spring:
     uris: ${ES_URIS:http://localhost:9200}
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
+    port: ${RABBITMQ_PORT:56720}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
     # Publisher Confirm(correlated) + mandatory 반환 콜백 활성화

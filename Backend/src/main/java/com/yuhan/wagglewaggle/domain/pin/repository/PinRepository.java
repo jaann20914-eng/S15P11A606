@@ -30,7 +30,7 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
      */
     @Query("""
             SELECT p.id FROM Pin p
-            WHERE p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+            WHERE p.videoStatus = VideoStatus.ACTIVE
               AND p.deletedAt IS NULL
             """)
     List<UUID> findAllActivePinIds();
@@ -48,7 +48,7 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             JOIN FETCH p.member
             JOIN FETCH p.place
             WHERE p.id = :pinId
-              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.videoStatus = VideoStatus.ACTIVE
               AND p.deletedAt IS NULL
               AND p.expiresAt > :now
             """)
@@ -71,7 +71,7 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             JOIN FETCH p.member
             JOIN FETCH p.place
             WHERE p.id = :pinId
-              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.videoStatus = VideoStatus.ACTIVE
               AND p.deletedAt IS NULL
             """)
     Optional<Pin> findActivePinDetailByIdIncludingExpired(@Param("pinId") UUID pinId);
@@ -130,7 +130,8 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             WHERE p.place.id IN :placeIds
               AND p.deletedAt IS NULL
               AND p.createdAt >= :from
-              AND (p.expiresAt IS NULL OR p.expiresAt > :now)
+              AND p.expiresAt > :now
+              AND p.videoStatus = VideoStatus.ACTIVE
             """)
     List<Pin> findValidPins(
             @Param("placeIds") Collection<Long> placeIds,
@@ -150,7 +151,8 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             WHERE p.place.id = :placeId
               AND p.deletedAt IS NULL
               AND p.createdAt >= :from
-              AND (p.expiresAt IS NULL OR p.expiresAt > :now)
+              AND p.expiresAt > :now
+              AND p.videoStatus = VideoStatus.ACTIVE
             ORDER BY p.createdAt DESC
             """)
     List<Pin> findActivePinsByPlaceId(
@@ -173,7 +175,7 @@ public interface PinRepository extends JpaRepository<Pin, UUID> {
             JOIN FETCH p.member
             JOIN FETCH p.place
             WHERE p.place.id IN :placeIds
-              AND p.videoStatus = com.yuhan.wagglewaggle.domain.pin.entity.VideoStatus.ACTIVE
+              AND p.videoStatus = VideoStatus.ACTIVE
               AND p.deletedAt IS NULL
               AND p.expiresAt > :now
             ORDER BY p.expiresAt DESC
