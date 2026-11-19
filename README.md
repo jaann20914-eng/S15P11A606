@@ -1,11 +1,5 @@
 <div align="center">
 
-
-
-https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
-
-
-
 <img src="docs/readme/logo.gif" alt="와글와글 로고" width="420">
 
 # 와글와글
@@ -15,7 +9,7 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 지금 그 장소가 얼마나 붐비는지 **5초짜리 현장 영상**으로 확인하는 안드로이드 앱<br>
 올라온 영상은 AI가 행인 얼굴을 가린 뒤 공개되고, 열람은 크레딧으로 합니다.
 
-<img src="docs/readme/screens_main.png" alt="와글와글 대표 화면 — 홈, 장소 상세, 채팅, 장소 추천" width="860">
+<img src="docs/readme/screens_main.png" alt="와글와글 대표 화면 — 홈, 채팅, 장소 추천, 마이페이지" width="860">
 
 </div>
 
@@ -55,6 +49,12 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 
 <br>
 
+### 홍보 영상
+
+https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
+
+<br>
+
 ---
 
 ## 2. 기획 배경
@@ -76,6 +76,8 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 ---
 
 ## 3. 주요 기능
+
+> 홈 · 채팅 · 추천 · 마이페이지 화면은 백엔드 없이 앱의 목업 데이터 모드로 실행해 캡처했습니다.
 
 ### 3.1 실시간 영상핀
 
@@ -112,11 +114,11 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 
 ### 3.4 1:1 익명 채팅 · AI 위험 감지
 
-- 영상을 올린 사람에게 현장 상황을 바로 물어볼 수 있습니다.
+- 영상을 올린 사람에게 현장 상황을 바로 물어볼 수 있습니다. 욕설은 보내는 순간 가려집니다.
 - 외부 메신저로 유도하는 등 위험한 대화 패턴이 보이면 경고를 띄웁니다.
 
 <p align="center">
-  <img src="docs/readme/screens_chat.png" alt="1:1 채팅과 AI 위험 감지 경고" width="560">
+  <img src="docs/readme/screens_chat.png" alt="채팅 목록, 채팅방, AI 위험 감지 경고" width="760">
 </p>
 
 <br>
@@ -127,6 +129,16 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 
 <p align="center">
   <img src="docs/readme/screens_reco.png" alt="여유 / 와글 장소 추천" width="560">
+</p>
+
+<br>
+
+### 3.6 마이페이지
+
+- 내 신뢰도(뷰 각도)와 보유 포인트, 달마다 핀을 올린 날을 달력으로 보여 줍니다.
+
+<p align="center">
+  <img src="docs/readme/screens_mypage.png" alt="마이페이지" width="280">
 </p>
 
 <br>
