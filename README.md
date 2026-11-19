@@ -9,7 +9,7 @@
 지금 그 장소가 얼마나 붐비는지 **5초짜리 현장 영상**으로 확인하는 안드로이드 앱<br>
 올라온 영상은 AI가 행인 얼굴을 가린 뒤 공개되고, 열람은 크레딧으로 합니다.
 
-<img src="docs/readme/screens_main.png" alt="와글와글 대표 화면 — 홈, 채팅, 장소 추천, 마이페이지" width="860">
+<img src="docs/readme/screens_main.png" alt="와글와글 대표 화면 — 홈, 장소 상세, 영상핀 열람, 핀 작성" width="860">
 
 </div>
 
@@ -77,7 +77,7 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 
 ## 3. 주요 기능
 
-> 홈 · 채팅 · 추천 · 마이페이지 화면은 백엔드 없이 앱의 목업 데이터 모드로 실행해 캡처했습니다.
+> 모든 화면은 백엔드 없이 앱을 목업 데이터 모드로 실행해 캡처했습니다. 영상과 썸네일 자리에는 임시 이미지를 넣었습니다.
 
 ### 3.1 실시간 영상핀
 
@@ -85,7 +85,7 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 - 장소를 열면 요일별 혼잡도 그래프와, 최근 올라온 영상핀 목록이 나옵니다.
 
 <p align="center">
-  <img src="docs/readme/screens_pin.png" alt="홈 지도와 장소 상세" width="560">
+  <img src="docs/readme/screens_pin.png" alt="홈 지도와 장소 상세(요일별 혼잡도, 영상핀 목록)" width="560">
 </p>
 
 <br>
@@ -96,7 +96,7 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 - 영상은 그 자리에서 찍어야만 올릴 수 있고, 촬영 위치가 장소 반경 안이어야 합니다. 다른 사용자의 신고가 쌓이면 신뢰도가 내려갑니다.
 
 <p align="center">
-  <img src="docs/readme/screens_pay.png" alt="결제 전 블러, 결제, 열람" width="760">
+  <img src="docs/readme/screens_pay.png" alt="결제 전 블러, 포인트 결제, 열람 후" width="760">
 </p>
 
 <br>
@@ -107,7 +107,7 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 - '처리 중' 한 마디 대신 **준비 → 업로드 → 얼굴 가리는 중 → 게시 완료** 4단계로 보여 주고, 진행 중에 다른 화면으로 가도 업로드가 이어집니다.
 
 <p align="center">
-  <img src="docs/readme/screens_upload.png" alt="핀 작성과 업로드 진행 4단계" width="860">
+  <img src="docs/readme/screens_upload.png" alt="촬영, 작성, 업로드 60%, AI 블러 처리, 등록 완료" width="900">
 </p>
 
 <br>
@@ -115,10 +115,10 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 ### 3.4 1:1 익명 채팅 · AI 위험 감지
 
 - 영상을 올린 사람에게 현장 상황을 바로 물어볼 수 있습니다. 욕설은 보내는 순간 가려집니다.
-- 외부 메신저로 유도하는 등 위험한 대화 패턴이 보이면 경고를 띄웁니다.
+- 선입금 요구나 외부 메신저 유도 같은 위험한 대화가 감지되면 경고를 띄웁니다.
 
 <p align="center">
-  <img src="docs/readme/screens_chat.png" alt="채팅 목록, 채팅방, AI 위험 감지 경고" width="760">
+  <img src="docs/readme/screens_chat.png" alt="채팅 요청, 채팅 목록, 채팅방, AI 위험 감지 경고" width="860">
 </p>
 
 <br>
@@ -136,9 +136,10 @@ https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
 ### 3.6 마이페이지
 
 - 내 신뢰도(뷰 각도)와 보유 포인트, 달마다 핀을 올린 날을 달력으로 보여 줍니다.
+- 오늘 작성한 핀의 게시 상태, 포인트 적립·사용 내역, 닉네임과 선호 장소 수정 화면으로 이어집니다.
 
 <p align="center">
-  <img src="docs/readme/screens_mypage.png" alt="마이페이지" width="280">
+  <img src="docs/readme/screens_mypage.png" alt="마이페이지, 작성한 핀, 포인트 내역, 내 정보 수정" width="860">
 </p>
 
 <br>
