@@ -1,5 +1,11 @@
 <div align="center">
 
+
+
+https://github.com/user-attachments/assets/9b7ed09a-7d70-4a34-9384-f1157f87ad13
+
+
+
 <img src="docs/readme/logo.gif" alt="와글와글 로고" width="420">
 
 # 와글와글
